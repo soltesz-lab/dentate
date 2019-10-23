@@ -2,7 +2,7 @@ import collections, os, sys, traceback, copy, datetime, math
 import numpy as np
 from dentate.neuron_utils import h, d_lambda, default_hoc_sec_lists, default_ordered_sec_types, freq
 from dentate.utils import get_module_logger, map, range, zip, zip_longest, viewitems, read_from_yaml, write_to_yaml
-from neuroh5.io import read_cell_attribute_selection, read_graph_selection
+from neuroh5.io import read_cell_attribute_selection, read_graph_selection, read_tree_selection
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
@@ -2086,7 +2086,8 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     """
     env.load_cell_template(pop_name)
     if tree_dict is None:
-        tree_dict = read_tree_selection(env.data_file_path, pop_name, [gid], comm=env.comm)
+        tree_attr_iter, _ = read_tree_selection(env.data_file_path, pop_name, [gid], comm=env.comm)
+        _, tree_dict = next(tree_attr_iter)
     hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict)
     cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env, mech_file_path=mech_file_path)
     syn_attrs = env.synapse_attributes

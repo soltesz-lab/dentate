@@ -74,6 +74,7 @@ mpl.rcParams['font.size'] = 14.
 mpl.rcParams['font.sans-serif'] = 'Arial'
 mpl.rcParams['text.usetex'] = False
 
+
 def show_figure():
     try:
         plt.show(block=False)
@@ -3823,7 +3824,7 @@ def plot_spike_histogram_corr (input_path, namespace_id, include = ['eachPop'], 
 def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filters=None, from_mech_attrs=True,
                                          from_target_attrs=False, export=None, overwrite=False, description=None,
                                          scale_factor=1., param_label=None, ylabel='Peak conductance', yunits='uS',
-                                         svg_title=None, show=True, sec_types=None, data_dir='data'):
+                                         svg_title=None, show=True, sec_types=None, output_dir='data'):
     """
     Plots values of synapse attributes found in point processes and NetCons of a Hoc Cell. No simulation is required;
     this method just takes a fully specified cell and plots the relationship between distance and the specified synaptic
@@ -3849,7 +3850,7 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
     :param svg_title: str
     :param show: bool (whether to show the plot, or simply save the hdf5 file)
     :param sec_types: list or str
-    :param data_dir: str
+    :param output_dir: str
     :return:
     """
     if svg_title is not None:
@@ -3909,7 +3910,7 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
                                 distances['target_attrs'][sec_type][-1] *= -1
 
     if export is not None:
-        export_file_path = data_dir + '/' + export
+        export_file_path = output_dir + '/' + export
         if overwrite:
             if os.path.isfile(export_file_path):
                 os.remove(export_file_path)
@@ -3942,7 +3943,8 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
                     minval = min(minval, min(attr_vals[attr_type][sec_type]))
                 xmax0 = max(xmax0, max(distances[attr_type][sec_type]))
                 xmin0 = min(xmin0, min(distances[attr_type][sec_type]))
-        axes.legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
+        if axes.get_legend() is not None:
+            axes.legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5, fontsize=mpl.rcParams['font.size'])
     xmin = xmin0 - 0.01 * (xmax0 - xmin0)
     xmax = xmax0 + 0.01 * (xmax0 - xmin0)
     for i, attr_type in enumerate(attr_types):
@@ -3953,7 +3955,7 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
         axes.set_xlabel('Distance to soma (um)')
         axes.set_xlim(xmin, xmax)
         axes.set_ylabel(ylabel + ' (' + yunits + ')')
-        if (maxval is not None) and (minval is not None):
+        if (maxval is not None) and (minval is not None) and (maxval != minval):
             buffer = 0.01 * (maxval - minval)
             axes.set_ylim(minval - buffer, maxval + buffer)
         axes.set_title(attr_type, fontsize=mpl.rcParams['font.size'])
@@ -3970,59 +3972,57 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
         else:
             svg_title = svg_title + ' - ' + syn_name + '_' + param_name + ' distribution.svg'
         fig.set_size_inches(5.27, 4.37)
-        fig.savefig(data_dir + svg_title, format='svg', transparent=True)
+        fig.savefig(output_dir + svg_title, format='svg', transparent=True)
     if show:
-        plt.show()
-    plt.close()
+        fig.show()
     if svg_title is not None:
         mpl.rcParams['font.size'] = remember_font_size
 
     if export is not None:
-        f = h5py.File(export_file_path, 'a')
-        if 'mech_file_path' in f.attrs:
-            stored_mech_file_path = get_h5py_attr(f.attrs, 'mech_file_path')
-            if cell.mech_file_path is None or not stored_mech_file_path == cell.mech_file_path:
-                raise ValueError('plot_synaptic_attribute_distribution: provided mech_file_path: %s does not match the '
-                                 'mech_file_path of %s cell %i: %s' %
-                                 (stored_mech_file_path, cell.pop_name, cell.gid, cell.mech_file_path))
-        elif cell.mech_file_path is not None:
-            set_h5py_attr(f.attrs, 'mech_file_path', cell.mech_file_path)
-        filetype = 'plot_syn_param'
-        if filetype not in f:
-            f.create_group(filetype)
-        if from_mech_attrs:
-            f[filetype].attrs['mech_attrs'] = True
-        else:
-            f[filetype].attrs['mech_attrs'] = False
-        if from_target_attrs:
-            f[filetype].attrs['target_attrs'] = True
-        else:
-            f[filetype].attrs['target_attrs'] = False
-        if len(f[filetype]) == 0:
-            session_id = '0'
-        else:
-            session_id = str(len(f[filetype]))
-        f[filetype].create_group(session_id)
-        if description is not None:
-            set_h5py_attr(f[filetype][session_id].attrs, 'description', description)
-        f[filetype][session_id].create_group(syn_name)
-        f[filetype][session_id][syn_name].create_group(param_name)
-        if param_label is not None:
-            set_h5py_attr(f[filetype][session_id][syn_name][param_name].attrs, 'param_label', param_label)
-        f[filetype][session_id][syn_name][param_name].attrs['gid'] = cell.gid
-        for attr_type in attr_types:
-            f[filetype][session_id][syn_name][param_name].create_group(attr_type)
-            for sec_type in attr_vals[attr_type]:
-                f[filetype][session_id][syn_name][param_name][attr_type].create_group(sec_type)
-                f[filetype][session_id][syn_name][param_name][attr_type][sec_type].create_dataset(
-                    'values', data=attr_vals[attr_type][sec_type], compression='gzip')
-                f[filetype][session_id][syn_name][param_name][attr_type][sec_type].create_dataset(
-                    'distances', data=distances[attr_type][sec_type], compression='gzip')
-        f.close()
+        with h5py.File(export_file_path, 'a') as f:
+            if 'mech_file_path' in f.attrs:
+                stored_mech_file_path = get_h5py_attr(f.attrs, 'mech_file_path')
+                if cell.mech_file_path is None or not stored_mech_file_path == cell.mech_file_path:
+                    raise ValueError('plot_synaptic_attribute_distribution: provided mech_file_path: %s does not match the '
+                                     'mech_file_path of %s cell %i: %s' %
+                                     (stored_mech_file_path, cell.pop_name, cell.gid, cell.mech_file_path))
+            elif cell.mech_file_path is not None:
+                set_h5py_attr(f.attrs, 'mech_file_path', cell.mech_file_path)
+            filetype = 'plot_syn_param'
+            if filetype not in f:
+                f.create_group(filetype)
+            if from_mech_attrs:
+                f[filetype].attrs['mech_attrs'] = True
+            else:
+                f[filetype].attrs['mech_attrs'] = False
+            if from_target_attrs:
+                f[filetype].attrs['target_attrs'] = True
+            else:
+                f[filetype].attrs['target_attrs'] = False
+            if len(f[filetype]) == 0:
+                session_id = '0'
+            else:
+                session_id = str(len(f[filetype]))
+            f[filetype].create_group(session_id)
+            if description is not None:
+                set_h5py_attr(f[filetype][session_id].attrs, 'description', description)
+            f[filetype][session_id].create_group(syn_name)
+            f[filetype][session_id][syn_name].create_group(param_name)
+            if param_label is not None:
+                set_h5py_attr(f[filetype][session_id][syn_name][param_name].attrs, 'param_label', param_label)
+            f[filetype][session_id][syn_name][param_name].attrs['gid'] = cell.gid
+            for attr_type in attr_types:
+                f[filetype][session_id][syn_name][param_name].create_group(attr_type)
+                for sec_type in attr_vals[attr_type]:
+                    f[filetype][session_id][syn_name][param_name][attr_type].create_group(sec_type)
+                    f[filetype][session_id][syn_name][param_name][attr_type][sec_type].create_dataset(
+                        'values', data=attr_vals[attr_type][sec_type], compression='gzip')
+                    f[filetype][session_id][syn_name][param_name][attr_type][sec_type].create_dataset(
+                        'distances', data=distances[attr_type][sec_type], compression='gzip')
 
 
 def plot_syn_attr_from_file(syn_name, param_name, filename, descriptions=None, param_label=None,
-                            ylabel='Conductance density', yunits='pS/um2', svg_title=None, data_dir='data'):
+                            ylabel='Conductance density', yunits='pS/um2', svg_title=None, output_dir='data'):
     """
     Takes in a list of files, and superimposes plots of distance vs. the provided mechanism parameter for all sec_types
     found in each file.
@@ -4034,7 +4034,7 @@ def plot_syn_attr_from_file(syn_name, param_name, filename, descriptions=None, p
     :param ylabel: str
     :param yunits: str
     :param svg_title: str
-    :param data_dir: str (path)
+    :param output_dir: str (path)
     """
     if svg_title is not None:
         remember_font_size = mpl.rcParams['font.size']
@@ -4046,7 +4046,7 @@ def plot_syn_attr_from_file(syn_name, param_name, filename, descriptions=None, p
     colors = [cm.Set1(x) for x in color_x]
     max_param_val, min_param_val = 0., 0.
     max_dist, min_dist = 0.1, 0.
-    file_path = data_dir + '/' + filename
+    file_path = output_dir + '/' + filename
     found = False
     if os.path.isfile(file_path):
         with h5py.File(file_path, 'r') as f:
@@ -4119,8 +4119,9 @@ def plot_syn_attr_from_file(syn_name, param_name, filename, descriptions=None, p
                     axes = axarr
                 else:
                     axes = axarr[i]
-                axes.legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5,
-                            fontsize=mpl.rcParams['font.size'])
+                if axes.get_legend() is not None:
+                    axes.legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5,
+                                fontsize=mpl.rcParams['font.size'])
                 axes.set_xlabel('Distance to soma (um)')
                 axes.set_xlim(xmin, xmax)
                 axes.set_ylabel(ylabel + ' (' + yunits + ')')
@@ -4140,16 +4141,15 @@ def plot_syn_attr_from_file(syn_name, param_name, filename, descriptions=None, p
                 else:
                     svg_title = svg_title + ' - ' + syn_name + '_' + param_name + ' distribution.svg'
                 fig.set_size_inches(5.27, 4.37)
-                fig.savefig(data_dir + svg_title, format='svg', transparent=True)
-            plt.show()
-            plt.close()
+                fig.savefig(output_dir + svg_title, format='svg', transparent=True)
+            fig.show()
             if svg_title is not None:
                 mpl.rcParams['font.size'] = remember_font_size
 
 
 def plot_mech_param_distribution(cell, mech_name, param_name, export=None, overwrite=False, scale_factor=10000.,
                                  param_label=None, description=None, ylabel='Conductance density', yunits='pS/um2',
-                                 svg_title=None, show=True, sec_types=None, data_dir='data'):
+                                 svg_title=None, show=True, sec_types=None, output_dir='data'):
     """
     Takes a cell as input rather than a file. No simulation is required, this method just takes a fully specified cell
     and plots the relationship between distance and the specified mechanism parameter for all segments in sections of
@@ -4168,7 +4168,7 @@ def plot_mech_param_distribution(cell, mech_name, param_name, export=None, overw
     :param svg_title: str
     :param show: bool
     :param sec_types: list or str
-    :param data_dir: str (path)
+    :param output_dir: str (path)
     """
     if svg_title is not None:
         remember_font_size = mpl.rcParams['font.size']
@@ -4196,7 +4196,7 @@ def plot_mech_param_distribution(cell, mech_name, param_name, export=None, overw
                     param_vals[sec_type].append(getattr(getattr(seg, mech_name), param_name) * scale_factor)
 
     if export is not None:
-        export_file_path = data_dir + '/' + export
+        export_file_path = output_dir + '/' + export
         if overwrite:
             if os.path.isfile(export_file_path):
                 os.remove(export_file_path)
@@ -4239,51 +4239,49 @@ def plot_mech_param_distribution(cell, mech_name, param_name, export=None, overw
         else:
             svg_title = svg_title + ' - ' + mech_name + '_' + param_name + ' distribution.svg'
         fig.set_size_inches(5.27, 4.37)
-        fig.savefig(data_dir + svg_title, format='svg', transparent=True)
+        fig.savefig(output_dir + svg_title, format='svg', transparent=True)
     if show:
-        plt.show()
-    plt.close()
+        fig.show()
     if svg_title is not None:
         mpl.rcParams['font.size'] = remember_font_size
 
     if export is not None:
-        f = h5py.File(export_file_path, 'a')
-        if 'mech_file_path' in f.attrs:
-            stored_mech_file_path = get_h5py_attr(f.attrs, 'mech_file_path')
-            if cell.mech_file_path is None or not stored_mech_file_path == cell.mech_file_path:
-                raise ValueError('plot_mech_param_distribution: provided mech_file_path: %s does not match the '
-                                 'mech_file_path of %s cell %i: %s' %
-                                 (stored_mech_file_path, cell.pop_name, cell.gid, cell.mech_file_path))
-        elif cell.mech_file_path is not None:
-            set_h5py_attr(f.attrs, 'mech_file_path', cell.mech_file_path)
-        filetype = 'plot_mech_param'
-        if filetype not in f:
-            f.create_group(filetype)
-        if len(f[filetype]) == 0:
-            session_id = '0'
-        else:
-            session_id = str(len(f[filetype]))
-        f[filetype].create_group(session_id)
-        if description is not None:
-            set_h5py_attr(f[filetype][session_id].attrs, 'description', description)
-        f[filetype][session_id].create_group(mech_name)
-        f[filetype][session_id][mech_name].create_group(param_name)
-        if param_label is not None:
-            set_h5py_attr(f[filetype][session_id][mech_name][param_name].attrs, 'param_label', param_label)
-        f[filetype][session_id][mech_name][param_name].attrs['gid'] = cell.gid
+        with h5py.File(export_file_path, 'a') as f:
+            if 'mech_file_path' in f.attrs:
+                stored_mech_file_path = get_h5py_attr(f.attrs, 'mech_file_path')
+                if cell.mech_file_path is None or not stored_mech_file_path == cell.mech_file_path:
+                    raise ValueError('plot_mech_param_distribution: provided mech_file_path: %s does not match the '
+                                     'mech_file_path of %s cell %i: %s' %
+                                     (stored_mech_file_path, cell.pop_name, cell.gid, cell.mech_file_path))
+            elif cell.mech_file_path is not None:
+                set_h5py_attr(f.attrs, 'mech_file_path', cell.mech_file_path)
+            filetype = 'plot_mech_param'
+            if filetype not in f:
+                f.create_group(filetype)
+            if len(f[filetype]) == 0:
+                session_id = '0'
+            else:
+                session_id = str(len(f[filetype]))
+            f[filetype].create_group(session_id)
+            if description is not None:
+                set_h5py_attr(f[filetype][session_id].attrs, 'description', description)
+            f[filetype][session_id].create_group(mech_name)
+            f[filetype][session_id][mech_name].create_group(param_name)
+            if param_label is not None:
+                set_h5py_attr(f[filetype][session_id][mech_name][param_name].attrs, 'param_label', param_label)
+            f[filetype][session_id][mech_name][param_name].attrs['gid'] = cell.gid
 
-        for sec_type in param_vals:
-            f[filetype][session_id][mech_name][param_name].create_group(sec_type)
-            f[filetype][session_id][mech_name][param_name][sec_type].create_dataset(
-                'values', data=param_vals[sec_type], compression='gzip')
-            f[filetype][session_id][mech_name][param_name][sec_type].create_dataset(
-                'distances', data=distances[sec_type], compression='gzip')
-        f.close()
+            for sec_type in param_vals:
+                f[filetype][session_id][mech_name][param_name].create_group(sec_type)
+                f[filetype][session_id][mech_name][param_name][sec_type].create_dataset(
+                    'values', data=param_vals[sec_type], compression='gzip')
+                f[filetype][session_id][mech_name][param_name][sec_type].create_dataset(
+                    'distances', data=distances[sec_type], compression='gzip')
 
 
 def plot_cable_param_distribution(cell, mech_name, export=None, overwrite=False, scale_factor=1., param_label=None,
                                   description=None, ylabel='Specific capacitance', yunits='uF/cm2', svg_title=None,
-                                  show=True, data_dir='data', sec_types=None):
+                                  show=True, output_dir='data', sec_types=None):
     """
     Takes a cell as input rather than a file. No simulation is required, this method just takes a fully specified cell
     and plots the relationship between distance and the specified mechanism parameter for all dendritic segments. Used
@@ -4298,7 +4296,7 @@ def plot_cable_param_distribution(cell, mech_name, export=None, overwrite=False,
     :param ylabel: str
     :param yunits: str
     :param svg_title: str
-    :param data_dir: str (path)
+    :param output_dir: str (path)
     :param sec_types: list of str
     """
     if svg_title is not None:
@@ -4365,53 +4363,51 @@ def plot_cable_param_distribution(cell, mech_name, export=None, overwrite=False,
         else:
             svg_title = svg_title + ' - ' + mech_name + '_' + ' distribution.svg'
         fig.set_size_inches(5.27, 4.37)
-        fig.savefig(data_dir + svg_title, format='svg', transparent=True)
+        fig.savefig(output_dir + svg_title, format='svg', transparent=True)
     if show:
-        plt.show()
-    plt.close()
+        fig.show()
     if svg_title is not None:
         mpl.rcParams['font.size'] = remember_font_size
 
     if export is not None:
-        export_file_path = data_dir + '/' + export
+        export_file_path = output_dir + '/' + export
         if overwrite:
             if os.path.isfile(export_file_path):
                 os.remove(export_file_path)
-        f = h5py.File(export_file_path, 'a')
-        if 'mech_file_path' in f.attrs:
-            stored_mech_file_path = get_h5py_attr(f.attrs, 'mech_file_path')
-            if cell.mech_file_path is None or not stored_mech_file_path == cell.mech_file_path:
-                raise ValueError('plot_cable_param_distribution: provided mech_file_path: %s does not match the '
-                                 'mech_file_path of %s cell %i: %s' %
-                                 (stored_mech_file_path, cell.pop_name, cell.gid, cell.mech_file_path))
-        elif cell.mech_file_path is not None:
-            set_h5py_attr(f.attrs, 'mech_file_path', cell.mech_file_path)
-        filetype = 'plot_mech_param'
-        if filetype not in f:
-            f.create_group(filetype)
-        if len(f[filetype]) == 0:
-            session_id = '0'
-        else:
-            session_id = str(len(f[filetype]))
-        f[filetype].create_group(session_id)
-        if description is not None:
-            set_h5py_attr(f[filetype][session_id].attrs, 'description', description)
-        f[filetype][session_id].create_group(mech_name)
-        if param_label is not None:
-            set_h5py_attr(f[filetype][session_id][mech_name].attrs, 'param_label', param_label)
-        f[filetype][session_id][mech_name].attrs['gid'] = cell.gid
+        with h5py.File(export_file_path, 'a') as f:
+            if 'mech_file_path' in f.attrs:
+                stored_mech_file_path = get_h5py_attr(f.attrs, 'mech_file_path')
+                if cell.mech_file_path is None or not stored_mech_file_path == cell.mech_file_path:
+                    raise ValueError('plot_cable_param_distribution: provided mech_file_path: %s does not match the '
+                                     'mech_file_path of %s cell %i: %s' %
+                                     (stored_mech_file_path, cell.pop_name, cell.gid, cell.mech_file_path))
+            elif cell.mech_file_path is not None:
+                set_h5py_attr(f.attrs, 'mech_file_path', cell.mech_file_path)
+            filetype = 'plot_mech_param'
+            if filetype not in f:
+                f.create_group(filetype)
+            if len(f[filetype]) == 0:
+                session_id = '0'
+            else:
+                session_id = str(len(f[filetype]))
+            f[filetype].create_group(session_id)
+            if description is not None:
+                set_h5py_attr(f[filetype][session_id].attrs, 'description', description)
+            f[filetype][session_id].create_group(mech_name)
+            if param_label is not None:
+                set_h5py_attr(f[filetype][session_id][mech_name].attrs, 'param_label', param_label)
+            f[filetype][session_id][mech_name].attrs['gid'] = cell.gid
 
-        for sec_type in param_vals:
-            f[filetype][session_id][mech_name].create_group(sec_type)
-            f[filetype][session_id][mech_name][sec_type].create_dataset(
-                'values', data=param_vals[sec_type], compression='gzip')
-            f[filetype][session_id][mech_name][sec_type].create_dataset(
-                'distances', data=distances[sec_type], compression='gzip')
-        f.close()
+            for sec_type in param_vals:
+                f[filetype][session_id][mech_name].create_group(sec_type)
+                f[filetype][session_id][mech_name][sec_type].create_dataset(
+                    'values', data=param_vals[sec_type], compression='gzip')
+                f[filetype][session_id][mech_name][sec_type].create_dataset(
+                    'distances', data=distances[sec_type], compression='gzip')
 
 
 def plot_mech_param_from_file(mech_name, param_name, filename, descriptions=None, param_label=None,
-                              ylabel='Conductance density', yunits='pS/um2', svg_title=None, data_dir='data'):
+                              ylabel='Conductance density', yunits='pS/um2', svg_title=None, output_dir='data'):
     """
     Takes in a list of files, and superimposes plots of distance vs. the provided mechanism parameter for all sec_types
     found in each file.
@@ -4423,7 +4419,7 @@ def plot_mech_param_from_file(mech_name, param_name, filename, descriptions=None
     :param ylabel: str
     :param yunits: str
     :param svg_title: str
-    :param data_dir: str (path)
+    :param output_dir: str (path)
     """
     if svg_title is not None:
         remember_font_size = mpl.rcParams['font.size']
@@ -4436,7 +4432,7 @@ def plot_mech_param_from_file(mech_name, param_name, filename, descriptions=None
     color_x = np.linspace(0., 1., num_colors)
     colors = [cm.Set1(x) for x in color_x]
     marker_dict = {}
-    file_path = data_dir + '/' + filename
+    file_path = output_dir + '/' + filename
     found = False
     if os.path.isfile(file_path):
         with h5py.File(file_path, 'r') as f:
@@ -4494,7 +4490,7 @@ def plot_mech_param_from_file(mech_name, param_name, filename, descriptions=None
                             min_dist = min(min_dist, min(distances))
     if not found:
         raise RuntimeError('Specified mechanism: %s parameter: %s not found in the provided file: %s' %
-                           (mech_name, param_name, file))
+                           (mech_name, param_name, file_path))
     axes.set_xlabel('Distance to soma (um)')
     min_dist = min(0., min_dist)
     xmin = min_dist - 0.01 * (max_dist - min_dist)
@@ -4517,9 +4513,8 @@ def plot_mech_param_from_file(mech_name, param_name, filename, descriptions=None
         else:
             svg_title = svg_title + ' - ' + mech_name + '_' + param_name + ' distribution.svg'
         fig.set_size_inches(5.27, 4.37)
-        fig.savefig(data_dir + svg_title, format='svg', transparent=True)
-    plt.show()
-    plt.close()
+        fig.savefig(output_dir + svg_title, format='svg', transparent=True)
+    fig.show()
     if svg_title is not None:
         mpl.rcParams['font.size'] = remember_font_size
         
@@ -4546,92 +4541,6 @@ def clean_axes(axes, left=True, right=False):
         axis.get_xaxis().tick_bottom()
         axis.get_yaxis().tick_left()
         
-
-def calculate_module_density(gid_module_assignments, gid_normed_distance):
-    """
-    TODO: context needs to be provided as an argument?
-    :param gid_module_assignments:
-    :param gid_normed_distance:
-    :return:
-    """
-
-    module_bounds = [[1.0, 0.0] for _ in range(10)]
-    module_counts = [0 for _ in range(10)]
-    gid_module_assignments = context.gid_module_assignments
-    gid_normed_distance    = context.gid_normed_distance
-    
-    for (gid,module) in list(gid_module_assignments.items()):
-        normed_u, _, _, _ = gid_normed_distance[gid]
-        if normed_u < module_bounds[module-1][0]:
-            module_bounds[module - 1][0] = normed_u
-        if normed_u > module_bounds[module - 1][1]:
-            module_bounds[module - 1][1] = normed_u
-        module_counts[module - 1] += 1
-
-    module_widths  = [y-x for [x,y] in module_bounds]
-    module_density = np.divide(module_counts, module_widths)
-    return module_bounds, module_counts, module_density
-
-
-def plot_module_assignment_histogram():
-    """
-    TODO: context needs to be provided as an argument?
-    :return:
-    """
-
-    module_bounds, module_counts, module_density = calculate_module_density()
-
-    fig, (ax1, ax2, ax3) = plt.subplots(3,1)
-
-    ax1.bar(np.arange(10)+1, module_counts)
-    ax1.set_xlabel('Module')
-    ax1.set_ylabel('Count')
-
-    ax2.bar(np.arange(10)+1, module_density)
-    ax2.set_xlabel('Module')
-    ax2.set_ylabel('Density')
-
-    for (i, bounds) in enumerate(module_bounds):
-        ax3.plot([bounds[0],bounds[1]], [i+1,i+1], label='%i' % (i+1))
-    ax3.set_xlabel('Normalized Bounds')
-    ax3.set_ylabel('Module')
-    ax3.legend(frameon=False, framealpha=0.5, loc='center left')
-
-    fig, (ax1, ax2) = plt.subplots(2,1)
-    normalized_u_positions = [norm_u for (norm_u,_,_,_) in list(context.gid_normed_distance.values())]
-    absolute_u_positions   = [u for (_,_,u,_) in list(context.gid_normed_distance.values())]
-    absolute_v_positions   = [v for (_,_,_,v) in list(context.gid_normed_distance.values())]
-    hist_norm, edges_norm  = np.histogram(normalized_u_positions, bins=25)
-    hist_abs, edges_abs    = np.histogram(absolute_u_positions, bins=100)
-    hist_v_abs, edges_v_abs = np.histogram(absolute_v_positions, bins=100)
-
-    ax1.plot(edges_norm[1:], hist_norm)
-    ax1.set_xlabel('Normalized septo-temporal position')
-    ax1.set_ylabel('Cell count')
-
-    ax2.plot(edges_abs[1:], hist_abs)
-    ax2.set_xlabel('Absolute septo-temporal position')
-    ax2.set_ylabel('Cell Count')
-
-    fig, ax = plt.subplots()
-    module_pos_dictionary = dict()
-    for gid in context.gid_normed_distance:
-        norm_u,_,_,_ = context.gid_normed_distance[gid]
-        module       = context.gid_module_assignments[gid]
-        if module in module_pos_dictionary:
-            module_pos_dictionary[module].append(norm_u)
-        else:
-            module_pos_dictionary[module] = [norm_u]
-
-    for module in module_pos_dictionary:
-        positions = module_pos_dictionary[module]
-        hist_pos, _ = np.histogram(positions, bins=edges_norm)
-        hist_pos = hist_pos.astype('float32')
-        ax.plot(edges_norm[1:], (hist_pos / hist_norm))
-    ax.legend(['%i' % (i+1) for i in range(10)])
-
-    plt.show()
-
 
 def plot_1D_rate_map(t, rate_map, peak_rate=None, spike_train=None, title=None, **kwargs):
     """

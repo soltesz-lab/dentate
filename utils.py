@@ -140,7 +140,6 @@ class RunningStats(object):
     
         return combined
 
-    
 
 class IncludeLoader(yaml.Loader):
     """
