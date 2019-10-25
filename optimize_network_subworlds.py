@@ -41,11 +41,10 @@ context = Context()
 @click.option("--export", is_flag=True)
 @click.option("--export-file-path", type=str, default=None)
 @click.option("--label", type=str, default=None)
-@click.option("--target-populations", type=str, multiple=True)
 @click.option("--bin-size", type=float, default=5.0)
 @click.option("--procs-per-worker", type=int, default=1)
 @click.option("--verbose", is_flag=True)
-def main(optimize_config_file_path, output_dir, export, export_file_path, label, target_populations, bin_size, procs_per_worker, verbose):
+def main(optimize_config_file_path, output_dir, export, export_file_path, label, bin_size, procs_per_worker, verbose):
     """
 
     :param optimize_config_file_path: str
@@ -98,9 +97,11 @@ def config_worker():
             opt_targets['%s %s' % (pop_name, target_name)] = target_val
 
         for source, source_dict in sorted(viewitems(param_ranges), key=lambda k_v3: k_v3[0]):
+            
             for sec_type, sec_type_dict in sorted(viewitems(source_dict), key=lambda k_v2: k_v2[0]):
                 for syn_name, syn_mech_dict in sorted(viewitems(sec_type_dict), key=lambda k_v1: k_v1[0]):
                     for param_fst, param_rst in sorted(viewitems(syn_mech_dict), key=lambda k_v: k_v[0]):
+                        logger.info("source %s: param_fst: %s param_rst: %s" % (str(source), str(param_fst), str(param_rst)))
                         if isinstance(param_rst, dict):
                             for const_name, const_range in sorted(viewitems(param_rst)):
                                 param_path = (param_fst, const_name)
@@ -196,7 +197,15 @@ def update_network(x, context=None):
                 mech_params = conn_params[sec_type_index][syn_name]
             if isinstance(param_path, tuple):
                 p, s = param_path
-                mech_param[s] = param_value
+                mech_param = mech_params[p]
+                try:
+                    mech_param[s] = param_value
+                except Exception as err:
+                    context.logger.exception('source: %s sec type: %s syn name: %s param path: %s mech params: %s' % (str(source), str(sec_type), str(syn_name), str(param_path), str(mech_params)))
+                    context.logger.exception(err)
+                    raise err
+                    
+
 
                 
         biophys_cell_dict = context.env.biophys_cells[pop_name]

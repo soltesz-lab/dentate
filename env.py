@@ -59,7 +59,7 @@ class Env(object):
                  checkpoint_interval=500.0, checkpoint_clear_data=True, 
                  results_write_time=0, dt=0.025, ldbal=False, lptbal=False, transfer_debug=False,
                  cell_selection_path=None, spike_input_path=None, spike_input_namespace=None, spike_input_attr=None,
-                 cleanup=True, cache_queries=False, profile_memory=False, verbose=False, **kwargs):
+                 cleanup=True, cache_queries=False, profile_memory=False, verbose=False, debug=False, **kwargs):
         """
         :param comm: :class:'MPI.COMM_WORLD'
         :param config_file: str; model configuration file name
@@ -124,6 +124,9 @@ class Env(object):
         self.verbose = verbose
         config_logging(verbose)
         self.logger = get_root_logger()
+
+        # debug mode
+        self.debug = debug
 
         # Directories for cell templates
         if template_paths is not None:

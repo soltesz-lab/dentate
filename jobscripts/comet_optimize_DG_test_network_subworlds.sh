@@ -2,7 +2,7 @@
 #
 #SBATCH -J optimize_DG_network_subworlds
 #SBATCH -o ./results/optimize_DG_network_subworlds.%j.o
-#SBATCH --nodes=30
+#SBATCH --nodes=8
 #SBATCH --ntasks-per-node=8
 #SBATCH -p compute
 #SBATCH -t 2:00:00
@@ -35,9 +35,9 @@ mkdir -p $results_path
 #git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
 #git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
 
-#ibrun -np 300 gdb -q -batch -x $HOME/gdb_script --args \
-ibrun -np 240 python3 -m nested.optimize \
-    --config-file-path=$DG_HOME/config/DG_optimize_network_subworlds_config.yaml \
+ibrun -np 64 gdb -q -batch -x $HOME/gdb_script --args \
+ python3 -m nested.optimize \
+    --config-file-path=$DG_HOME/config/DG_optimize_network_subworlds_config_dbg.yaml \
     --output-dir=$results_path \
     --pop_size=1 \
     --max_iter=1 \
@@ -45,19 +45,18 @@ ibrun -np 240 python3 -m nested.optimize \
     --framework=pc \
     --disp \
     --verbose \
-    --procs_per_worker=240 \
-    --no_cleanup \
+    --procs_per_worker=64 \
+a    --no_cleanup \
     --arena_id=A --trajectory_id=Diag \
     --template_paths=$MODEL_HOME/dgc/Mateos-Aparicio2014:$DG_HOME/templates \
     --dataset_prefix="$SCRATCH/dentate" \
     --config_prefix=$DG_HOME/config \
     --results_path=$results_path \
-    --cell_selection_path=$DG_HOME/datasets/DG_slice_20190729.yaml \
     --spike_input_path="$SCRATCH/dentate/Full_Scale_Control/DG_input_spike_trains_20190724_compressed.h5" \
     --spike_input_namespace='Input Spikes A Diag' \
+    --cell_selection_path=$DG_HOME/datasets/DG_slice_20um_20191024.yaml \
     --max_walltime_hours=1.9 \
-    --target_population=GC \
-    --io_size=24 \
+     --debug \
     -v
 
 

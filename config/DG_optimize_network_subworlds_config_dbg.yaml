@@ -1,0 +1,32 @@
+optimization_title: DG_optimize_network_subworlds
+param_gen: PopulationAnnealing
+feature_names:
+- GC firing rate
+- GC fraction active
+- MC firing rate
+- MC fraction active
+objective_names:
+- GC firing rate
+- GC fraction active
+- MC firing rate
+- MC fraction active
+update_context:
+- - optimize_network_subworlds
+  - update_network
+get_features_stages:
+- source: optimize_network_subworlds
+  compute_features: compute_features_firing_rate_fraction_active
+get_objectives:
+  optimize_network_subworlds: get_objectives
+kwargs:
+  config_file: Network_Clamp_GC_Exc_Sat_DD_SLN_selection.yaml
+  tstop: 150.
+  v_init: -77.
+  vrecord_fraction: 0.1
+  dt: 0.025
+  cleanup: False
+  verbose: True
+  cache_queries: True
+  output_results: False
+  target_populations: ['GC', 'MC']
+
