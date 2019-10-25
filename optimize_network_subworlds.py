@@ -273,9 +273,8 @@ def compute_features_firing_rate_fraction_active(x, export=False):
             mean_rate_sum += np.mean(dens_dict['rate'])
         mean_rate_sum = context.env.comm.allreduce(mean_rate_sum, op=MPI.SUM)
 
-        n_total = context.env.comm.allreduce(len(context.env.biophys_cells[pop_name]), op=MPI.SUM)
+        n_total = context.env.comm.allreduce(len(context.env.cells[pop_name]) - len(context.env.artificial_cells[pop_name]), op=MPI.SUM)
         n_active = context.env.comm.allreduce(len(spike_density_dict), op=MPI.SUM)
-        #context.logger.info("computing firing rate for %s: %d active units (%d units total)" % (pop_name, n_active, n_total))
 
         if n_active > 0:
             mean_rate = mean_rate_sum / n_active
