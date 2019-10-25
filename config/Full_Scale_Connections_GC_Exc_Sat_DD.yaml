@@ -241,7 +241,7 @@ Synapses:
       type: excitatory
       sections: [apical]
       layers: [Hilus]
-      proportions: [0.8]
+      proportions: [0.7]
       contacts: 17.5
       mechanisms:
         AMPA:
@@ -258,8 +258,8 @@ Synapses:
       type: excitatory
       sections: [apical]
       layers: [Hilus]
-      proportions: [0.13]
-      contacts: 15.0
+      proportions: [0.07]
+      contacts: 3.0
       mechanisms:
         AMPA:
           dur_onset: 0.5
@@ -275,7 +275,7 @@ Synapses:
       type: excitatory
       sections: [apical]
       layers: [Hilus]
-      proportions: [0.07]
+      proportions: [0.23]
       contacts: 3.0
       mechanisms:
         AMPA:
