@@ -97,15 +97,13 @@ def config_worker():
             opt_targets['%s %s' % (pop_name, target_name)] = target_val
 
         for source, source_dict in sorted(viewitems(param_ranges), key=lambda k_v3: k_v3[0]):
-            
             for sec_type, sec_type_dict in sorted(viewitems(source_dict), key=lambda k_v2: k_v2[0]):
                 for syn_name, syn_mech_dict in sorted(viewitems(sec_type_dict), key=lambda k_v1: k_v1[0]):
                     for param_fst, param_rst in sorted(viewitems(syn_mech_dict), key=lambda k_v: k_v[0]):
-                        logger.info("source %s: param_fst: %s param_rst: %s" % (str(source), str(param_fst), str(param_rst)))
                         if isinstance(param_rst, dict):
                             for const_name, const_range in sorted(viewitems(param_rst)):
                                 param_path = (param_fst, const_name)
-                                param_range_tuples.append((source, sec_type, syn_name, param_path, const_range))
+                                param_range_tuples.append((pop_name, source, sec_type, syn_name, param_path, const_range))
                                 param_key = '%s.%s.%s.%s.%s.%s' % (pop_name, source, sec_type, syn_name, param_fst, const_name)
                                 param_initial_value = (const_range[1] - const_range[0]) / 2.0
                                 param_initial_dict[param_key] = param_initial_value
@@ -114,7 +112,7 @@ def config_worker():
                         else:
                             param_name = param_fst
                             param_range = param_rst
-                            param_range_tuples.append((source, sec_type, syn_name, param_name, param_range))
+                            param_range_tuples.append((pop_name, source, sec_type, syn_name, param_name, param_range))
                             param_key = '%s.%s.%s.%s.%s' % (pop_name, source, sec_type, syn_name, param_name)
                             param_initial_value = (param_range[1] - param_range[0]) / 2.0
                             param_initial_dict[param_key] = param_initial_value
@@ -124,8 +122,8 @@ def config_worker():
     def from_param_vector(params):
         result = []
         assert (len(params) == len(param_range_tuples))
-        for i, (source, sec_type, syn_name, param_name, param_range) in enumerate(param_range_tuples):
-            result.append((source, sec_type, syn_name, param_name, params[i]))
+        for i, (pop_name, source, sec_type, syn_name, param_name, param_range) in enumerate(param_range_tuples):
+            result.append((pop_name, source, sec_type, syn_name, param_name, params[i]))
         return result
 
     def to_param_vector(params):
@@ -141,6 +139,7 @@ def config_worker():
     context.to_param_vector = to_param_vector
     context.target_val = opt_targets
     context.target_range = opt_targets
+
     
 def config_controller():
     """
@@ -188,7 +187,9 @@ def update_network(x, context=None):
 
         param_values = context.from_param_vector(x)
 
-        for source, sec_type, syn_name, param_path, param_value in param_values:
+        for destination, source, sec_type, syn_name, param_path, param_value in param_values:
+            if pop_name != destination:
+                continue
             conn_params = context.env.connection_config[pop_name][source].mechanisms
             sec_type_index = context.env.SWC_Types[sec_type]
             if 'default' in conn_params:
@@ -204,13 +205,14 @@ def update_network(x, context=None):
                     context.logger.exception('source: %s sec type: %s syn name: %s param path: %s mech params: %s' % (str(source), str(sec_type), str(syn_name), str(param_path), str(mech_params)))
                     context.logger.exception(err)
                     raise err
-                    
-
 
                 
         biophys_cell_dict = context.env.biophys_cells[pop_name]
         for gid, biophys_cell in viewitems(biophys_cell_dict):
-            for source, sec_type, syn_name, param_path, param_value in param_values:
+            for destination, source, sec_type, syn_name, param_path, param_value in param_values:
+                if pop_name != destination:
+                    continue
+                
                 if isinstance(param_path, tuple):
                     p, s = param_path
                 else:
@@ -267,20 +269,26 @@ def compute_features_firing_rate_fraction_active(x, export=False):
 
         mean_rate_sum = 0.
         spike_density_dict = spikedata.spike_density_estimate (pop_name, pop_spike_dict[pop_name], time_bins)
-        context.logger.info("computing firing rate for %s: %d units in spike density dict" % (pop_name, len(spike_density_dict)))
         for gid, dens_dict in utils.viewitems(spike_density_dict):
             mean_rate_sum += np.mean(dens_dict['rate'])
-
-        n_total = len(env.biophys_cells[pop_name])
         mean_rate_sum = context.env.comm.allreduce(mean_rate_sum, op=MPI.SUM)
+
+        n_total = context.env.comm.allreduce(len(context.env.biophys_cells[pop_name]), op=MPI.SUM)
         n_active = context.env.comm.allreduce(len(spike_density_dict), op=MPI.SUM)
+        #context.logger.info("computing firing rate for %s: %d active units (%d units total)" % (pop_name, n_active, n_total))
+
         if n_active > 0:
             mean_rate = mean_rate_sum / n_active
         else:
             mean_rate = 0.
 
+        if n_total > 0:
+            fraction_active = n_active / n_total
+        else:
+            fraction_active = 0.
+            
         results['%s firing rate' % pop_name] = mean_rate
-        results['%s fraction active' % pop_name] = n_active / n_total
+        results['%s fraction active' % pop_name] = fraction_active
 
     return results
 

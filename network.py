@@ -172,8 +172,6 @@ def connect_cells(env):
                             if rank == 0 and gid == first_gid:
                                 logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
                                             (postsyn_name, gid, len(cell_weights_dict[syn_name]), syn_name, weights_namespace))
-                    if env.debug and first_gid == gid:
-                        break
                 overwrite_weights='skip'
                 del weight_attributes_dict[weights_namespace]
 
@@ -212,13 +210,7 @@ def connect_cells(env):
             if rank == 0:
                 logger.info('Rank %i: Read projection %s -> %s' % (rank, presyn_name, postsyn_name))
 
-            if env.debug:
-                try:
-                    edge_iter = [next(graph[postsyn_name][presyn_name])]
-                except StopIteration:
-                    edge_iter = []
-            else:
-                edge_iter = graph[postsyn_name][presyn_name]
+            edge_iter = graph[postsyn_name][presyn_name]
 
             last_time = time.time()
             syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, edge_iter)
@@ -394,8 +386,6 @@ def connect_cell_selection(env):
                             if rank == 0 and gid == first_gid:
                                 logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
                                             (postsyn_name, gid, len(weights_values), syn_name, weights_namespace))
-                    if env.debug and first_gid == gid:
-                        break
                 overwrite_weights='skip'
                 del weight_attributes_iter
 
@@ -415,8 +405,6 @@ def connect_cell_selection(env):
                 except KeyError:
                     raise KeyError('connect_cells: population: %s; gid: %i; could not initialize biophysics'
                                      % (postsyn_name, gid))
-                if env.debug and (first_gid == gid):
-                    break
 
                 
         (graph, a) = read_graph_selection(connectivity_file_path, selection=gid_range, \
@@ -431,12 +419,6 @@ def connect_cell_selection(env):
 
                 edge_iter = graph[postsyn_name][presyn_name]
                 
-                if env.debug:
-                    try:
-                        edge_iter = [next(edge_iter)]
-                    except StopIteration:
-                        edge_iter = []
-
                 syn_edge_iter = compose_iter(lambda edgeset: input_sources[presyn_name].update(edgeset[1][0]), \
                                              edge_iter)
                 syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, syn_edge_iter)

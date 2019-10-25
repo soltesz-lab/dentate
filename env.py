@@ -59,7 +59,7 @@ class Env(object):
                  checkpoint_interval=500.0, checkpoint_clear_data=True, 
                  results_write_time=0, dt=0.025, ldbal=False, lptbal=False, transfer_debug=False,
                  cell_selection_path=None, spike_input_path=None, spike_input_namespace=None, spike_input_attr=None,
-                 cleanup=True, cache_queries=False, profile_memory=False, verbose=False, debug=False, **kwargs):
+                 cleanup=True, cache_queries=False, profile_memory=False, verbose=False, **kwargs):
         """
         :param comm: :class:'MPI.COMM_WORLD'
         :param config_file: str; model configuration file name
@@ -124,9 +124,6 @@ class Env(object):
         self.verbose = verbose
         config_logging(verbose)
         self.logger = get_root_logger()
-
-        # debug mode
-        self.debug = debug
 
         # Directories for cell templates
         if template_paths is not None:
@@ -227,11 +224,13 @@ class Env(object):
             self.datasetName = self.modelConfig['Dataset Name']
 
         if rank == 0:
-            self.logger.info('dataset_prefix = %s' % str(self.dataset_prefix))
+            self.logger.info('env.dataset_prefix = %s' % str(self.dataset_prefix))
 
         # Cell selection for simulations of subsets of the network
         self.cell_selection = None
         self.cell_selection_path = cell_selection_path
+        if rank == 0:
+            self.logger.info('env.cell_selection_path = %s' % str(self.cell_selection_path))
         if cell_selection_path is not None:
             with open(cell_selection_path) as fp:
                 self.cell_selection = yaml.load(fp, IncludeLoader)
@@ -242,8 +241,12 @@ class Env(object):
         self.spike_input_attr = spike_input_attr
         self.spike_input_attribute_info = None
         if self.spike_input_path is not None:
+            if rank == 0:
+                self.logger.info('env.spike_input_path = %s' % str(self.spike_input_path))
             self.spike_input_attribute_info = \
               read_cell_attribute_info(self.spike_input_path, sorted(self.Populations.keys()), comm=self.comm)
+            if rank == 0:
+                self.logger.info('env.spike_input_attribute_info = %s' % str(self.spike_input_attribute_info))
         if results_path:
             if self.results_id is None:
                 self.results_file_path = "%s/%s_results.h5" % (self.results_path, self.modelName)
@@ -252,6 +255,7 @@ class Env(object):
         else:
             self.results_file_path = "%s_%s_results.h5" % (self.modelName, self.results_id)
 
+            
         if 'Connection Generator' in self.modelConfig:
             self.parse_connection_config()
             self.parse_gapjunction_config()
@@ -259,6 +263,8 @@ class Env(object):
         if self.dataset_prefix is not None:
             self.dataset_path = os.path.join(self.dataset_prefix, self.datasetName)
             self.data_file_path = os.path.join(self.dataset_path, self.modelConfig['Cell Data'])
+            if rank == 0:
+                self.logger.info('env.data_file_path = %s' % self.data_file_path)
             self.load_celltypes()
             self.connectivity_file_path = os.path.join(self.dataset_path, self.modelConfig['Connection Data'])
             self.forest_file_path = os.path.join(self.dataset_path, self.modelConfig['Cell Data'])
