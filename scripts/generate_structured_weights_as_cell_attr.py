@@ -14,17 +14,6 @@ from dentate.utils import *
 import h5py
 
 
-"""
-feature_path: contains namespace with 1D spatial rate map attribute ('rate')
-weights_path: contains namespace with initial weights ('Weights'), applied plasticity rule and writes new weights to
- 'Structured Weights' namespace
-connections_path: contains existing mapping of syn_id to source_gid
-
-10% of GCs will have a subset of weights modified according to a slow time-scale plasticity rule, the rest inherit the
-    unaltered initial log-normal weights
-    
-"""
-
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -33,6 +22,21 @@ def mpi_excepthook(type, value, traceback):
         MPI.COMM_WORLD.Abort(1)
 sys.excepthook = mpi_excepthook
 
+def interactive_callback_plasticity_fit(**kwargs):
+    import matplotlib.pyplot as plt
+    fig, axs = plt.subplots(2)
+    initial_weights = kwargs['initial_weights'] 
+    modified_weights = kwargs['modified_weights'] 
+    syn_ids = np.asarray(sorted(initial_weights.keys()))
+    initial_weights_array = np.asarray([initial_weights[k] for k in syn_ids])
+    initial_weights_sortidx = np.argsort(initial_weights_array, axis=0)
+    modified_weights_array = np.asarray([modified_weights[k] for k in syn_ids])
+    modified_weights_sortidx = np.argsort(modified_weights_array, axis=0)
+    axs[0].plot(initial_weights_array[initial_weights_sortidx][::-1], marker='.')
+    axs[0].set(xlabel='synapse', ylabel='scale factor')
+    axs[1].plot(modified_weights_array[modified_weights_sortidx][::-1], marker='.', color='r')
+    axs[1].set(xlabel='synapse', ylabel='scale factor')
+    plt.show()
 
 def syn_weights_dict_alltoall(comm, syn_name, initial_weights_dict, query, clear=False):
     rank = comm.rank
@@ -91,38 +95,44 @@ def input_features_dict_alltoall(comm, features_attrs, query, clear=False):
     return source_features_attrs_dict
 
 
-def plasticity_fit(plasticity_kernel, plasticity_inputs, source_syn_map, logger, interactive=False):
+def plasticity_fit(plasticity_kernel, plasticity_inputs, source_syn_map, logger, scaled_weight=False, max_iter=250, interactive=False):
     source_gids = sorted(plasticity_inputs.keys())
 
     A = np.column_stack([plasticity_inputs[gid].reshape((-1,)).astype(np.float64) for gid in source_gids])
     b = plasticity_kernel.reshape((-1,)).astype(np.float64)
 
-    lb = np.ones((A.shape[1],)) * -1.
-    ub = np.ones((A.shape[1],))
+    lb = np.ones((A.shape[1],)) * -3.
+    ub = np.ones((A.shape[1],)) *  3.
 
-    res = opt.lsq_linear(A, b, bounds=(lb, ub), lsmr_tol='auto', max_iter=250)
+    res = opt.lsq_linear(A, b, bounds=(lb, ub), lsmr_tol='auto', max_iter=max_iter)
     
-    if interactive:
-        logger.info('least squares fit status: %d (%s)' % (res.status, res.message))
     coeffs = res.x
     logger.info('Coefficients: min: %f max: %f' % (np.min(coeffs), np.max(coeffs)))
     logger.info('Coefficients: %s' % (str(coeffs)))
-    if np.max(coeffs) > 1.0:
-        coeffs /= np.max(coeffs)
         
     syn_weights = {}
     for i, source_gid in enumerate(source_gids):
         weight = coeffs[i]
         syn_count = len(source_syn_map[source_gid])
         if syn_count > 0:
-##            scaled_weight = weight / float(syn_count)
+            if scaled_weight:
+                weight = weight / float(syn_count)
             for syn_id, initial_weight in source_syn_map[source_gid]:
-                syn_weights[syn_id] = max(weight + initial_weight, 0.)
-    
+                syn_weights[syn_id] = max(weight, 0.)
+
+    if interactive:
+        logger.info('least squares fit status: %d (%s)' % (res.status, res.message))
+        initial_weights = {}
+        for i, source_gid in enumerate(source_gids):
+            for syn_id, initial_weight in source_syn_map[source_gid]:
+                initial_weights[syn_id] = initial_weight
+        interactive_callback_plasticity_fit(initial_weights=initial_weights, modified_weights=syn_weights)
+        
+
     return syn_weights
 
-def norm2d(x=0, y=0, mx=0, my=0, sx=1, sy=1):
-    return 1. * np.exp(-((x - mx)**2. / (2. * sx**2.) + (y - my)**2. / (2. * sy**2.)))
+def gauss2d(x=0, y=0, mx=0, my=0, sx=1, sy=1, A=1.):
+    return A * np.exp(-((x - mx)**2. / (2. * sx**2.) + (y - my)**2. / (2. * sy**2.)))
 
 
 @click.command()
@@ -138,6 +148,7 @@ def norm2d(x=0, y=0, mx=0, my=0, sx=1, sy=1):
 @click.option("--destination", '-d', type=str)
 @click.option("--sources", '-s', type=str, multiple=True)
 @click.option("--arena-id", '-a', type=str, default='A')
+@click.option("--max-iter", type=int, default=250)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
@@ -148,7 +159,7 @@ def norm2d(x=0, y=0, mx=0, my=0, sx=1, sy=1):
 @click.option("--dry-run", is_flag=True)
 @click.option("--interactive", is_flag=True)
 def main(config, input_features_path, input_features_namespaces, output_weights_path, weights_path, synapse_name, initial_weights_namespace,
-         structured_weights_namespace, connections_path, destination, sources, arena_id,
+         structured_weights_namespace, connections_path, destination, sources, arena_id, max_iter, 
          io_size, chunk_size, value_chunk_size, cache_size, write_size, scatter_io, verbose, dry_run, interactive):
     """
 
@@ -221,7 +232,7 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
 
 
     features_attrs = defaultdict(dict)
-    features_attr_names = ['Num Fields', 'Peak Rate', 'X Offset', 'Y Offset', 'Arena Rate Map']
+    features_attr_names = ['Num Fields', 'Field Width', 'Peak Rate', 'X Offset', 'Y Offset', 'Arena Rate Map']
         
     if scatter_io:
         if rank == 0:
@@ -264,10 +275,8 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
 
     x, y = stimulus.get_2D_arena_spatial_mesh(arena, spatial_resolution)
     
-    plasticity_window_dur = 4.  # s
-    plasticity_kernel_sigma = plasticity_window_dur * default_run_vel / 3. / np.sqrt(2.)  # cm
-    plasticity_kernel = lambda x, y, x_loc, y_loc: norm2d(x-x_loc, y-y_loc, sx=plasticity_kernel_sigma, sy=plasticity_kernel_sigma)
-    plasticity_kernel = np.vectorize(plasticity_kernel, excluded=[2,3])
+    plasticity_kernel = lambda x, y, x_loc, y_loc, sx, sy: gauss2d(x-x_loc, y-y_loc, sx=sx, sy=sy)
+    plasticity_kernel = np.vectorize(plasticity_kernel, excluded=[2,3,4,5])
     gid_count = 0
     start_time = time.time()
 
@@ -314,12 +323,16 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
             for source, (this_destination_gid, (source_gid_array, conn_attr_dict)) in zip_longest(sources, attr_gen_package):
                 syn_ids = conn_attr_dict['Synapses']['syn_id']
                 this_source_syn_map = source_syn_map[source]
+                count = 0
                 for i in range(len(source_gid_array)):
                     this_source_gid = source_gid_array[i]
                     this_syn_id = syn_ids[i]
                     this_syn_wgt = syn_weight_dict[this_syn_id]
                     this_source_syn_map[this_source_gid].append((this_syn_id, this_syn_wgt))
-
+                    count += 1
+                logger.info('Rank %i; destination: %s; gid %i; %d synaptic weights from source population %s' %
+                                (rank, destination, destination_gid, count, source))
+                    
         if scatter_io:
             query_source_input_features = comm.alltoall([{source : list(source_syn_map[source].keys()) for source in sources}]*nranks)
             source_input_features = input_features_dict_alltoall(comm, features_attrs, query_source_input_features)
@@ -366,11 +379,13 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
             if destination_gid in dest_input_features[destination]:
                 this_input_features = dest_input_features[destination][destination_gid]
                 this_num_fields = this_input_features['Num Fields'][0]
+                this_field_width = this_input_features['Field Width']
                 this_x_offset = this_input_features['X Offset']
                 this_y_offset = this_input_features['Y Offset']
             else:
                 this_input_features = None
                 this_num_fields = None
+                this_field_width = None
                 this_x_offset = None
                 this_y_offset = None
 
@@ -380,7 +395,9 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
                     
             if structured:
                 this_peak_locs = zip(np.nditer(this_x_offset), np.nditer(this_y_offset))
-                this_plasticity_kernel = reduce(np.add, [plasticity_kernel(x, y, peak_loc[0], peak_loc[1]) for peak_loc in this_peak_locs])
+                this_sigmas    = [width / 3. / np.sqrt(2.) for width in np.nditer(this_field_width)] # cm
+                this_plasticity_kernel = reduce(np.add, [plasticity_kernel(x, y, peak_loc[0], peak_loc[1], sigma, sigma)
+                                                             for peak_loc, sigma in zip(this_peak_locs, this_sigmas)])
 
                 this_plasticity_inputs = {}
                 source_gid_syn_map = {}
@@ -393,9 +410,10 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
                         source_rate_map = source_gid_input_features['Arena Rate Map']
                         norm_rate_map = source_rate_map / source_peak_rate
                         this_plasticity_inputs[source_gid] = norm_rate_map
-                    
+
+                logger.info('computing plasticity fit for gid %d: field widths: %s' % (destination_gid, str(this_field_width)))
                 this_syn_weights = plasticity_fit(this_plasticity_kernel, this_plasticity_inputs,
-                                                  this_source_syn_map, logger, interactive=interactive)
+                                                  this_source_syn_map, logger, max_iter=max_iter, interactive=interactive)
 
                 this_syn_ids = sorted(this_syn_weights.keys())
             
