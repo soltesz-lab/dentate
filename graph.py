@@ -139,11 +139,12 @@ def vertex_distribution(connectivity_path, coords_path, distances_namespace, des
     if rank == 0:
         logger.info('reading connections %s -> %s...' % (str(sources), destination))
 
-    gg = [ NeuroH5ProjectionGen (connectivity_path, source, destination, cache_size=cache_size, comm=comm) for source in sources ]
 
     dist_bins = defaultdict(dict)
     dist_u_bins = defaultdict(dict)
     dist_v_bins = defaultdict(dict)
+
+    gg = [ NeuroH5ProjectionGen (connectivity_path, source, destination, cache_size=cache_size, comm=comm) for source in sources ]
     
     for prj_gen_tuple in zip_longest(*gg):
         destination_gid = prj_gen_tuple[0][0]

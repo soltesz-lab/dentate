@@ -285,7 +285,7 @@ def compute_features_firing_rate_fraction_active(x, export=False):
             fraction_active = n_active / n_total
         else:
             fraction_active = 0.
-            
+
         rank = int(context.env.pc.id())
         if rank == 0:
             logger.info('population %s: n_active = %d n_total = %d' % (pop_name, n_active, n_total))
