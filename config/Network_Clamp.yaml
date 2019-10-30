@@ -85,14 +85,17 @@ Synaptic Optimization:
       AAC:
         ais:
           GABA_A:
-            g_unit: [0.0005, 0.004]
+            g_unit: 
+             a: [0.0005, 0.004]
       BC:
         soma:
           GABA_A:
-            g_unit: [0.0005, 0.004]
+            g_unit: 
+             a: [0.0005, 0.004]
         apical:
           GABA_A:
-            g_unit: [0.0005, 0.004]
+            g_unit: 
+             a: [0.0005, 0.004]
       HC:
         apical:
           GABA_A:
@@ -127,17 +130,21 @@ Synaptic Optimization:
       BC:
         apical:
           GABA_A:
-            g_unit: [0.0005, 0.004]
+            g_unit: 
+              a: [0.0005, 0.004]
         soma:
           GABA_A:
-            g_unit: [0.0005, 0.004]
+            g_unit: 
+              a: [0.0005, 0.004]
       AAC:
         soma:
           GABA_A:
-            g_unit: [0.0001, 0.004]
+            g_unit: 
+              a: [0.0001, 0.004]
 #        ais:
 #          GABA_A:
-#            g_unit: [0.0001, 0.003]
+#            g_unit: 
+#               a: [0.0001, 0.003]
     Targets:
       firing rate: 1.0
       fraction active: 0.7

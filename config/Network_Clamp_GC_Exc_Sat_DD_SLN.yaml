@@ -1,5 +1,5 @@
 Network Clamp:  !include Network_Clamp.yaml
-Model Name: dentatenet_Full_Scale_GC_Exc_Sat_DD_LNN
+Model Name: dentatenet_Full_Scale_GC_Exc_Sat_DD_SLN
 Dataset Name: Full_Scale_Control
 Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
@@ -21,14 +21,14 @@ Cell Types:
     synapses:
       correct_for_spines: True
       weights: True
-      weights namespace: Log-Normal Weights
+      weights namespace: 'Structured Weights A Diag'
       density: !include GC_synapse_density.yaml
   MC:
     template: MossyCell
     synapses:
       density: !include MC_synapse_density.yaml
       weights: True
-      weights namespaces: ['Log-Normal Weights', 'Normal Weights']
+      weights namespaces: ['Log-Normal Weights']
   HC:
     template: HIPPCell
     synapses:

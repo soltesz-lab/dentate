@@ -2,13 +2,12 @@ from __future__ import absolute_import, division
 import copy, datetime, gc, itertools, logging, math, numbers, os.path, importlib
 import pprint, string, sys, time
 from builtins import input, map, next, object, range, str, zip
+from past.builtins import basestring
 from collections import Iterable, defaultdict, namedtuple
 import numpy as np
 import scipy
-import yaml
 from scipy import sparse
-
-from past.builtins import basestring
+import yaml
 
 class DExpr(object):
     def __init__(self, parameter, expr, consts=None):
@@ -17,11 +16,23 @@ class DExpr(object):
         self.sympy_abc = importlib.import_module('sympy.abc')
         self.parameter = parameter
         self.expr = self.sympy_parser.parse_expr(expr)
-        if const is not None:
-            for k, v in viewitems(consts):
-                sym = self.sympy.Symbol(k)
-                expr = expr.subs(sym, v)
-        self.feval = self.sympy.lambdify(self.sympy_abc.x, expr, "numpy")
+        self.consts = {} if consts is None else consts
+        self.feval = None
+        self.__init_feval__()
+        
+    def __getitem__(self, key):
+        return self.consts[key]
+
+    def __setitem__(self, key, value):
+        self.consts[key] = value
+        self.__init_feval__()
+    
+    def __init_feval__(self):
+        fexpr = self.expr
+        for k, v in viewitems(self.consts):
+            sym = self.sympy.Symbol(k)
+            fexpr = fexpr.subs(sym, v)
+        self.feval = self.sympy.lambdify(self.sympy_abc.x, fexpr, "numpy")
 
     def __call__(self, x):
         return self.feval(x)
@@ -985,3 +996,8 @@ def autocorr (y, lag):
         return 0.
     else:
         return r
+
+
+# 2D normal distribution
+def norm2d(x=0, y=0, mx=0, my=0, sx=1, sy=1):
+    return 1. / (2. * np.pi * sx * sy) * np.exp(-((x - mx)**2. / (2. * sx**2.) + (y - my)**2. / (2. * sy**2.)))
