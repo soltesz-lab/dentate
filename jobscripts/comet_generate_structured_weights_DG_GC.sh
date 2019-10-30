@@ -28,19 +28,18 @@ ulimit -c unlimited
 set -x
 
 
-
-ibrun -np 1280 gdb -q -batch -x $HOME/gdb_script --args \
-    python3.5 $HOME/model/dentate/scripts/generate_structured_weights_as_cell_attr.py \
+# gdb -q -batch -x $HOME/gdb_script --args \
+ibrun -np 1280 python3.5 $HOME/model/dentate/scripts/generate_structured_weights_as_cell_attr.py \
     -d GC -s MPP -s LPP \
     --config=./config/Full_Scale_GC_Exc_Sat_DD_SLN.yaml \
     --initial-weights-namespace='Log-Normal Weights' \
     --structured-weights-namespace='Structured Weights' \
-    --output-weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_syn_weights_SLN_20191007.h5 \
+    --output-weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_syn_weights_SLN_20191029.h5 \
     --weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_syn_weights_LN_20190717_compressed.h5 \
     --connections-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_connections_20190717_compressed.h5 \
     --input-features-path="$SCRATCH/dentate/Full_Scale_Control/DG_input_features_20190909_compressed.h5" \
     --arena-id=A \
-    --io-size=128 --cache-size=10  --value-chunk-size=100000 --chunk-size=20000 --write-size=10 -v
+    --io-size=192 --cache-size=10  --value-chunk-size=100000 --chunk-size=20000 --write-size=10 -v
 
 
 
