@@ -1,9 +1,10 @@
 
 import os, sys, gc, math
 import click
+from mpi4py import MPI
+import numpy as np
 import dentate
 from dentate import utils, graph
-from mpi4py import MPI
 import h5py
 
 sys_excepthook = sys.excepthook
@@ -36,17 +37,21 @@ def main(connectivity_path, coords_path, distances_namespace, destination, sourc
                                                          bin_size, cache_size, comm=comm)
 
     if rank == 0:
+        print(vertex_distribution_dict)
         f = h5py.File(connectivity_path, 'r+')
-
+        
         for dst, src_dict in utils.viewitems(vertex_distribution_dict['Total distance']):
+            grp = f.create_group('Vertex Distribution/Total distance/%s' % dst)
             for src, bins in utils.viewitems(src_dict):
-                f['Vertex Distribution']['Total distance'][dst][src] = np.asarray(bins, dtype=np.uint32)
+                grp[src] = np.asarray(bins, dtype=np.float32)
         for dst, src_dict in utils.viewitems(vertex_distribution_dict['U distance']):
+            grp = f.create_group('Vertex Distribution/U distance/%s' % dst)
             for src, bins in utils.viewitems(src_dict):
-                f['Vertex Distribution']['U distance'][dst][src] = np.asarray(bins, dtype=np.uint32)
+                grp[src] = np.asarray(bins, dtype=np.float32)
         for dst, src_dict in utils.viewitems(vertex_distribution_dict['V distance']):
+            grp = f.create_group('Vertex Distribution/V distance/%s' % dst)
             for src, bins in utils.viewitems(src_dict):
-                f['Vertex Distribution']['V distance'][dst][src] = np.asarray(bins, dtype=np.uint32)
+                grp[src] = np.asarray(bins, dtype=np.float32)
         
         f.close()
 
