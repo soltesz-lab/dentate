@@ -8,7 +8,7 @@ import dentate
 from dentate.alphavol import alpha_shape
 from dentate.rbf_surface import RBFSurface
 from dentate.rbf_volume import RBFVolume
-from dentate.utils import get_module_logger, old_div, range, str, viewitems, zip
+from dentate.utils import get_module_logger, range, str, viewitems, zip
 
 ## This logger will inherit its setting from its root logger, dentate,
 ## which is created in module env
@@ -34,7 +34,7 @@ def rotate3d(axis, theta):
     the given axis by theta radians.
     """
     axis = np.asarray(axis)
-    axis = old_div(axis, math.sqrt(np.dot(axis, axis)))
+    axis = axis / math.sqrt(np.dot(axis, axis))
     a = math.cos(theta / 2.0)
     b, c, d = -axis * math.sin(theta / 2.0)
     aa, bb, cc, dd = a * a, b * b, c * c, d * d

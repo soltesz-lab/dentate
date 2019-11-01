@@ -125,12 +125,18 @@ Synapses:
         GABA_A:
           dur_onset: 0.5
           tau_offset: 
-            expr: 1.55*x + 9.0
+            expr: a*x + b
             parameter: delay
+            const:
+              a: 1.55
+              b: 9.0
           e: -75
           g_unit: 
-            expr: 0.001 * exp(-1.25 * x)
+            expr: a * exp(b * x)
             parameter: delay
+            const:
+              a: 0.001
+              b: -1.25
           weight: 1.0
     BC:   
       type: inhibitory
@@ -143,21 +149,35 @@ Synapses:
           GABA_A:
             dur_onset: 0.5
             tau_offset:
-              expr: 1.55 * x + 9.0
+              expr: a * x + b
               parameter: delay
+              const:
+                a: 1.55
+                b: 9.0
             e: -75
             g_unit: 
-              expr: 0.003 * exp(-1.25 * x)
+              expr: a * exp(b * x)
               parameter: delay
+              const:
+                a: 0.003
+                b: -1.25
             weight: 1.0
         soma:
           GABA_A:
             dur_onset: 0.25
             tau_offset:
-              expr: 1.55*x + 9.0
+              expr: a*x + b
               parameter: delay
+              const:
+                a: 1.55
+                b: 9.0                         
             e: -75
-            g_unit: 0.001
+            g_unit: 
+              expr: a * exp(b * x)
+              parameter: delay
+              const:
+                a: 0.001
+                b: -1.25
             weight: 1.0
     HCC:  
       type: inhibitory
@@ -221,7 +241,7 @@ Synapses:
       type: excitatory
       sections: [apical]
       layers: [Hilus]
-      proportions: [0.8]
+      proportions: [0.7]
       contacts: 17.5
       mechanisms:
         AMPA:
@@ -238,8 +258,8 @@ Synapses:
       type: excitatory
       sections: [apical]
       layers: [Hilus]
-      proportions: [0.13]
-      contacts: 15.0
+      proportions: [0.07]
+      contacts: 3.0
       mechanisms:
         AMPA:
           dur_onset: 0.5
@@ -255,7 +275,7 @@ Synapses:
       type: excitatory
       sections: [apical]
       layers: [Hilus]
-      proportions: [0.07]
+      proportions: [0.23]
       contacts: 3.0
       mechanisms:
         AMPA:

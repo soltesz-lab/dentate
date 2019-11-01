@@ -39,7 +39,7 @@ mkdir -p $results_path
 #git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
 #git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
 
-aprun -n 1600 -N 16 -d 2 -b -- bwpy-environ -- \
+aprun -n 800 -N 8 -d 4 -b -- bwpy-environ -- \
     python3.6 ./scripts/main.py \
     --arena-id=A --trajectory-id=Diag \
     --config-file=Network_Clamp_GC_Exc_Sat_DD_SLN.yaml \
@@ -51,8 +51,8 @@ aprun -n 1600 -N 16 -d 2 -b -- bwpy-environ -- \
     --tstop=10000 \
     --v-init=-75 \
     --max-walltime-hours=7.9 \
-    --cell-selection-path=./datasets/DG_slice_20190729.yaml \
-    --spike-input-path="$SCRATCH/Full_Scale_Control/DG_input_spike_trains_20190909_compressed.h5" \
+    --cell-selection-path=./datasets/DG_slice_20190917.yaml \
+    --spike-input-path="$SCRATCH/Full_Scale_Control/DG_input_spike_trains_20190912_compressed.h5" \
     --spike-input-namespace='Input Spikes A Diag' \
     --spike-input-attr='Spike Train' \
     --verbose

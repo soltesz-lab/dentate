@@ -381,7 +381,7 @@ def run_with(env, param_dict):
     env.pc.runworker()
     env.pc.done()
 
-    return spikedata.get_env_spike_dict(env)
+    return spikedata.get_env_spike_dict(env, include_artificial=None)
 
 
 def make_firing_rate_target(env, pop_name, gid, target_rate, from_param_vector):
