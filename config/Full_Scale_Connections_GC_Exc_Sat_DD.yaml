@@ -302,7 +302,7 @@ Synapses:
       type: inhibitory
       sections: [soma, apical]
       layers: [Hilus, Hilus]
-      proportions: [0.5, 0.17]
+      proportions: [1.0, 0.17]
       contacts: 1.0
       swctype mechanisms:
         soma:
@@ -329,9 +329,9 @@ Synapses:
             weight: 1.0
     AAC:  
       type: inhibitory
-      sections: [soma]
+      sections: [ais]
       layers: [Hilus]
-      proportions: [0.5]
+      proportions: [1.0]
       contacts: 4.0
       mechanisms:
         GABA_A:
