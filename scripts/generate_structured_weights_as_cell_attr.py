@@ -24,18 +24,51 @@ sys.excepthook = mpi_excepthook
 
 def interactive_callback_plasticity_fit(**kwargs):
     import matplotlib.pyplot as plt
-    fig, axs = plt.subplots(2)
+    fig = plt.figure(constrained_layout=3)
+    gs = fig.add_gridspec(4, 4)
     initial_weights = kwargs['initial_weights'] 
-    modified_weights = kwargs['modified_weights'] 
+    modified_weights = kwargs['modified_weights']
+    initial_ratemap = kwargs['initial_ratemap']
+    modified_ratemap = kwargs['modified_ratemap']
+    target_ratemap =  kwargs['target_ratemap']
+    plasticity_kernel =  kwargs['plasticity_kernel']
+    delta_weights =  kwargs['delta_weights']
     syn_ids = np.asarray(sorted(initial_weights.keys()))
     initial_weights_array = np.asarray([initial_weights[k] for k in syn_ids])
-    initial_weights_sortidx = np.argsort(initial_weights_array, axis=0)
+    hist_bins = np.linspace(0., 4.)
+    initial_weights_hist, initial_weights_bin_edges = np.histogram(initial_weights_array, bins=hist_bins)
     modified_weights_array = np.asarray([modified_weights[k] for k in syn_ids])
-    modified_weights_sortidx = np.argsort(modified_weights_array, axis=0)
-    axs[0].plot(initial_weights_array[initial_weights_sortidx][::-1], marker='.')
-    axs[0].set(xlabel='synapse', ylabel='scale factor')
-    axs[1].plot(modified_weights_array[modified_weights_sortidx][::-1], marker='.', color='r')
-    axs[1].set(xlabel='synapse', ylabel='scale factor')
+    modified_weights_hist, modified_weights_bin_edges = np.histogram(modified_weights_array, bins=hist_bins)
+    delta_weights_hist, delta_weights_bin_edges = np.histogram(delta_weights, bins=np.linspace(-3., 3))
+    xlimits = (min(np.min(initial_weights_array), np.min(modified_weights_array)),
+               max(np.max(initial_weights_array), np.max(modified_weights_array)))
+    ax = fig.add_subplot(gs[0, :])
+    ax.plot(initial_weights_bin_edges[:-1], initial_weights_hist, marker='.')
+    ax.set(ylabel='number of synapses')
+    ax.set_xlim(xlimits)
+    ax.set_yscale('log')
+    ax = fig.add_subplot(gs[1, :])
+    ax.plot(modified_weights_bin_edges[:-1], modified_weights_hist, marker='.', color='r')
+    ax.set(xlabel='synaptic weight', ylabel='number of synapses')
+    ax.set_xlim(xlimits)
+    ax.set_yscale('log')
+    ax = fig.add_subplot(gs[2, :])
+    ax.plot(delta_weights_bin_edges[:-1], delta_weights_hist, marker='.')
+    ax.set_yscale('log')
+    ax.set(xlabel='synaptic weight delta', ylabel='number of synapses')
+    ax = fig.add_subplot(gs[3, 0])
+    ax.set_title('Initial rate map')
+    p = ax.imshow(initial_ratemap, origin='lower')
+    ax = fig.add_subplot(gs[3, 1])
+    ax.set_title('Modified rate map')
+    p = ax.imshow(modified_ratemap, origin='lower')
+    ax = fig.add_subplot(gs[3, 2])
+    ax.set_title('Target')
+    p = ax.imshow(target_ratemap, origin='lower')
+    fig.colorbar(p, ax=ax)
+    ax = fig.add_subplot(gs[3, 3])
+    ax.set_title('Plasticity kernel')
+    ax.imshow(plasticity_kernel, origin='lower')
     plt.show()
 
 def syn_weights_dict_alltoall(comm, syn_name, initial_weights_dict, query, clear=False):
@@ -95,38 +128,53 @@ def input_features_dict_alltoall(comm, features_attrs, query, clear=False):
     return source_features_attrs_dict
 
 
-def plasticity_fit(plasticity_kernel, plasticity_inputs, source_syn_map, logger, scaled_weight=False, max_iter=250, interactive=False):
+def plasticity_fit(plasticity_kernel, plasticity_inputs, source_syn_map, logger, scaled_weight=False, max_iter=100, interactive=False):
     source_gids = sorted(plasticity_inputs.keys())
-
+    initial_weights = []
+    for i, source_gid in enumerate(source_gids):
+        _, initial_weight = source_syn_map[source_gid][0]
+        initial_weights.append(initial_weight)
+    w = np.asarray(initial_weights, dtype=np.float64)
     A = np.column_stack([plasticity_inputs[gid].reshape((-1,)).astype(np.float64) for gid in source_gids])
-    b = plasticity_kernel.reshape((-1,)).astype(np.float64)
+    u = np.dot(A, w)
+    u_normed = np.divide(u, np.max(u))
+    b = plasticity_kernel.reshape((-1,)).astype(np.float64) - u_normed
 
-    lb = np.ones((A.shape[1],)) * -3.
-    ub = np.ones((A.shape[1],)) *  3.
+    lb = -1.
+    ub = 3.
 
-    res = opt.lsq_linear(A, b, bounds=(lb, ub), lsmr_tol='auto', max_iter=max_iter)
-    
-    coeffs = res.x
-    logger.info('Coefficients: min: %f max: %f' % (np.min(coeffs), np.max(coeffs)))
-    logger.info('Coefficients: %s' % (str(coeffs)))
+    res = opt.lsq_linear(A, b, bounds=(lb, ub), lsmr_tol='auto')
+    delta_weights = res.x
+    logger.info('Least squares fit status: %d (%s)' % (res.status, res.message))
+    logger.info('Delta weights: min: %f max: %f' % (np.min(delta_weights), np.max(delta_weights)))
         
     syn_weights = {}
-    for i, source_gid in enumerate(source_gids):
-        weight = coeffs[i]
+    for source_gid, delta_weight in zip(source_gids, delta_weights):
         syn_count = len(source_syn_map[source_gid])
         if syn_count > 0:
             if scaled_weight:
-                weight = weight / float(syn_count)
+                delta_weight = delta_weight / float(syn_count)
             for syn_id, initial_weight in source_syn_map[source_gid]:
-                syn_weights[syn_id] = max(weight, 0.)
+                syn_weights[syn_id] = max(initial_weight + delta_weight, 0.)
 
     if interactive:
-        logger.info('least squares fit status: %d (%s)' % (res.status, res.message))
-        initial_weights = {}
+        modified_weights = np.add(w, delta_weights)
+        modified_ratemap = np.dot(A, modified_weights)
+        logger.info('Initial rate map: min: %f max: %f' % (np.min(u), np.max(u)))
+        logger.info('Target: min: %f max: %f' % (np.min(b), np.max(b)))
+        logger.info('Modified weights: min: %f max: %f' % (np.min(modified_weights), np.max(modified_weights)))
+        logger.info('Modified rate map: min: %f max: %f' % (np.min(modified_ratemap), np.max(modified_ratemap)))
+        initial_weights_dict = {}
         for i, source_gid in enumerate(source_gids):
-            for syn_id, initial_weight in source_syn_map[source_gid]:
-                initial_weights[syn_id] = initial_weight
-        interactive_callback_plasticity_fit(initial_weights=initial_weights, modified_weights=syn_weights)
+            syn_id, initial_weight = source_syn_map[source_gid][0]
+            initial_weights_dict[syn_id] = initial_weight
+        interactive_callback_plasticity_fit(initial_weights=initial_weights_dict,
+                                            modified_weights=syn_weights,
+                                            delta_weights=delta_weights,
+                                            initial_ratemap=u.reshape(plasticity_kernel.shape),
+                                            modified_ratemap=modified_ratemap.reshape(plasticity_kernel.shape),
+                                            plasticity_kernel=plasticity_kernel,
+                                            target_ratemap=b.reshape(plasticity_kernel.shape))
         
 
     return syn_weights
@@ -148,7 +196,7 @@ def gauss2d(x=0, y=0, mx=0, my=0, sx=1, sy=1, A=1.):
 @click.option("--destination", '-d', type=str)
 @click.option("--sources", '-s', type=str, multiple=True)
 @click.option("--arena-id", '-a', type=str, default='A')
-@click.option("--max-iter", type=int, default=250)
+@click.option("--max-iter", type=int, default=100)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
@@ -382,12 +430,14 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
                 this_field_width = this_input_features['Field Width']
                 this_x_offset = this_input_features['X Offset']
                 this_y_offset = this_input_features['Y Offset']
+                this_peak_rate = this_input_features['Peak Rate']
             else:
                 this_input_features = None
                 this_num_fields = None
                 this_field_width = None
                 this_x_offset = None
                 this_y_offset = None
+                this_peak_rate = None
 
             structured = False
             if (this_input_features is not None) and this_num_fields > 0:
@@ -411,9 +461,16 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
                         norm_rate_map = source_rate_map / source_peak_rate
                         this_plasticity_inputs[source_gid] = norm_rate_map
 
-                logger.info('computing plasticity fit for gid %d: field widths: %s' % (destination_gid, str(this_field_width)))
+                plasticity_source_syn_map = {}
+                for source in sources:
+                    for source_gid in source_syn_map[source]:
+                        plasticity_source_syn_map[source_gid] = source_syn_map[source][source_gid]
+                        
+                this_peak_locs = zip(np.nditer(this_x_offset), np.nditer(this_y_offset))
+                logger.info('computing plasticity fit for gid %d: peak locs: %s field widths: %s' %
+                                (destination_gid, str([x for x in this_peak_locs]), str(this_field_width)))
                 this_syn_weights = plasticity_fit(this_plasticity_kernel, this_plasticity_inputs,
-                                                  this_source_syn_map, logger, max_iter=max_iter, interactive=interactive)
+                                                  plasticity_source_syn_map, logger, max_iter=max_iter, interactive=interactive)
 
                 this_syn_ids = sorted(this_syn_weights.keys())
             
