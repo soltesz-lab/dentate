@@ -129,9 +129,9 @@ def connect_cells(env):
                                                                 namespaces=sorted(cell_attr_namespaces), 
                                                                 comm=env.comm, node_rank_map=env.node_ranks,
                                                                 io_size=env.io_size)
-        syn_attrs.init_syn_id_attrs_from_iter(cell_attributes_dict['Synapse Attributes'])
+        syn_attrs_iter = cell_attributes_dict['Synapse Attributes']
+        syn_attrs.init_syn_id_attrs_from_iter(syn_attrs_iter)
         del cell_attributes_dict
-
 
         if has_weights:
             if rank == 0:
@@ -352,6 +352,7 @@ def connect_cell_selection(env):
 
         syn_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name, selection=gid_range,
                                                             namespace='Synapse Attributes', comm=env.comm)
+
         syn_attrs.init_syn_id_attrs_from_iter(syn_attributes_iter)
         del (syn_attributes_iter)
 
@@ -365,6 +366,7 @@ def connect_cell_selection(env):
                 weight_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name,
                                                                        selection=gid_range, mask=set(weight_attr_mask),
                                                                        namespace=weights_namespace, comm=env.comm)
+
                 first_gid = None
                 for gid, cell_weights_dict in weight_attributes_iter:
                     if first_gid is None:
