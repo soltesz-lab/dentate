@@ -2,6 +2,7 @@ import sys, os, time, gc, click, logging
 from collections import defaultdict
 from functools import reduce
 import numpy as np
+import dlib
 import scipy.optimize as opt
 from mpi4py import MPI
 import neuroh5
@@ -35,11 +36,13 @@ def interactive_callback_plasticity_fit(**kwargs):
     delta_weights =  kwargs['delta_weights']
     syn_ids = np.asarray(sorted(initial_weights.keys()))
     initial_weights_array = np.asarray([initial_weights[k] for k in syn_ids])
-    hist_bins = np.linspace(0., 4.)
+    hist_bins = np.linspace(np.min(initial_weights_array), np.max(initial_weights_array))
     initial_weights_hist, initial_weights_bin_edges = np.histogram(initial_weights_array, bins=hist_bins)
     modified_weights_array = np.asarray([modified_weights[k] for k in syn_ids])
+    hist_bins = np.linspace(np.min(modified_weights_array), np.max(modified_weights_array))
     modified_weights_hist, modified_weights_bin_edges = np.histogram(modified_weights_array, bins=hist_bins)
-    delta_weights_hist, delta_weights_bin_edges = np.histogram(delta_weights, bins=np.linspace(-3., 3))
+    hist_bins = np.linspace(np.min(delta_weights), np.max(delta_weights))
+    delta_weights_hist, delta_weights_bin_edges = np.histogram(delta_weights, bins=hist_bins)
     xlimits = (min(np.min(initial_weights_array), np.min(modified_weights_array)),
                max(np.max(initial_weights_array), np.max(modified_weights_array)))
     ax = fig.add_subplot(gs[0, :])
@@ -59,9 +62,11 @@ def interactive_callback_plasticity_fit(**kwargs):
     ax = fig.add_subplot(gs[3, 0])
     ax.set_title('Initial rate map')
     p = ax.imshow(initial_ratemap, origin='lower')
+    fig.colorbar(p, ax=ax)
     ax = fig.add_subplot(gs[3, 1])
     ax.set_title('Modified rate map')
     p = ax.imshow(modified_ratemap, origin='lower')
+    fig.colorbar(p, ax=ax)
     ax = fig.add_subplot(gs[3, 2])
     ax.set_title('Target')
     p = ax.imshow(target_ratemap, origin='lower')
@@ -128,7 +133,7 @@ def input_features_dict_alltoall(comm, features_attrs, query, clear=False):
     return source_features_attrs_dict
 
 
-def plasticity_fit(plasticity_kernel, plasticity_inputs, source_syn_map, logger, scaled_weight=False, max_iter=100, interactive=False):
+def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, logger, scaled_weight=False, max_iter=100, interactive=False):
     source_gids = sorted(plasticity_inputs.keys())
     initial_weights = []
     for i, source_gid in enumerate(source_gids):
@@ -136,16 +141,23 @@ def plasticity_fit(plasticity_kernel, plasticity_inputs, source_syn_map, logger,
         initial_weights.append(initial_weight)
     w = np.asarray(initial_weights, dtype=np.float64)
     A = np.column_stack([plasticity_inputs[gid].reshape((-1,)).astype(np.float64) for gid in source_gids])
-    u = np.dot(A, w)
-    u_normed = np.divide(u, np.max(u))
-    b = plasticity_kernel.reshape((-1,)).astype(np.float64) - u_normed
+    initial_ratemap = phi(np.dot(A, w))
+    b = plasticity_kernel.reshape((-1,)).astype(np.float64)
 
-    lb = -1.
+    lb = -np.inf
     ub = 3.
 
-    res = opt.lsq_linear(A, b, bounds=(lb, ub), lsmr_tol='auto')
-    delta_weights = res.x
-    logger.info('Least squares fit status: %d (%s)' % (res.status, res.message))
+    #res = opt.lsq_linear(A, b, bounds=(lb, ub), lsmr_tol='auto')
+    def residual(x, w, A, b, phi):
+        res = np.subtract(phi(np.dot(A, np.add(w, x))), b)
+        return res
+
+    x0 = np.random.rand(len(w),)
+    optres = opt.least_squares(residual, x0, args = (w, A, b, phi), bounds=(lb,ub), xtol=1e-2, ftol=1e-2,
+                                   method='dogbox', verbose=2 if interactive else 0)
+    
+    delta_weights = optres.x
+    logger.info('Least squares fit status: %d (%s)' % (optres.status, optres.message))
     logger.info('Delta weights: min: %f max: %f' % (np.min(delta_weights), np.max(delta_weights)))
         
     syn_weights = {}
@@ -155,13 +167,14 @@ def plasticity_fit(plasticity_kernel, plasticity_inputs, source_syn_map, logger,
             if scaled_weight:
                 delta_weight = delta_weight / float(syn_count)
             for syn_id, initial_weight in source_syn_map[source_gid]:
-                syn_weights[syn_id] = max(initial_weight + delta_weight, 0.)
+                syn_weights[syn_id] = max(delta_weight + initial_weight, 0.)
 
     if interactive:
-        modified_weights = np.add(w, delta_weights)
-        modified_ratemap = np.dot(A, modified_weights)
-        logger.info('Initial rate map: min: %f max: %f' % (np.min(u), np.max(u)))
+        modified_weights = np.clip(np.add(w, delta_weights), 0., None)
+        modified_ratemap = phi(np.dot(A, modified_weights))
+        logger.info('Initial rate map: min: %f max: %f' % (np.min(initial_ratemap), np.max(initial_ratemap)))
         logger.info('Target: min: %f max: %f' % (np.min(b), np.max(b)))
+        logger.info('Initial weights: min: %f max: %f' % (np.min(w), np.max(w)))
         logger.info('Modified weights: min: %f max: %f' % (np.min(modified_weights), np.max(modified_weights)))
         logger.info('Modified rate map: min: %f max: %f' % (np.min(modified_ratemap), np.max(modified_ratemap)))
         initial_weights_dict = {}
@@ -171,7 +184,7 @@ def plasticity_fit(plasticity_kernel, plasticity_inputs, source_syn_map, logger,
         interactive_callback_plasticity_fit(initial_weights=initial_weights_dict,
                                             modified_weights=syn_weights,
                                             delta_weights=delta_weights,
-                                            initial_ratemap=u.reshape(plasticity_kernel.shape),
+                                            initial_ratemap=initial_ratemap.reshape(plasticity_kernel.shape),
                                             modified_ratemap=modified_ratemap.reshape(plasticity_kernel.shape),
                                             plasticity_kernel=plasticity_kernel,
                                             target_ratemap=b.reshape(plasticity_kernel.shape))
@@ -182,6 +195,15 @@ def plasticity_fit(plasticity_kernel, plasticity_inputs, source_syn_map, logger,
 def gauss2d(x=0, y=0, mx=0, my=0, sx=1, sy=1, A=1.):
     return A * np.exp(-((x - mx)**2. / (2. * sx**2.) + (y - my)**2. / (2. * sy**2.)))
 
+
+def sigmoid_phi(x, a = 0.05, peak_rate = 1.):
+    res = peak_rate / (1. + np.exp(-a * x))
+    return res
+
+def exp_phi(x, a = 0.025):
+    res = 1. / np.exp(-a * x)
+    return res
+    
 
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -447,7 +469,7 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
                 this_peak_locs = zip(np.nditer(this_x_offset), np.nditer(this_y_offset))
                 this_sigmas    = [width / 3. / np.sqrt(2.) for width in np.nditer(this_field_width)] # cm
                 this_plasticity_kernel = reduce(np.add, [plasticity_kernel(x, y, peak_loc[0], peak_loc[1], sigma, sigma)
-                                                             for peak_loc, sigma in zip(this_peak_locs, this_sigmas)])
+                                                             for peak_loc, sigma in zip(this_peak_locs, this_sigmas)]) * this_peak_rate
 
                 this_plasticity_inputs = {}
                 source_gid_syn_map = {}
@@ -469,7 +491,7 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
                 this_peak_locs = zip(np.nditer(this_x_offset), np.nditer(this_y_offset))
                 logger.info('computing plasticity fit for gid %d: peak locs: %s field widths: %s' %
                                 (destination_gid, str([x for x in this_peak_locs]), str(this_field_width)))
-                this_syn_weights = plasticity_fit(this_plasticity_kernel, this_plasticity_inputs,
+                this_syn_weights = plasticity_fit(exp_phi, this_plasticity_kernel, this_plasticity_inputs,
                                                   plasticity_source_syn_map, logger, max_iter=max_iter, interactive=interactive)
 
                 this_syn_ids = sorted(this_syn_weights.keys())
