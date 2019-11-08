@@ -1,0 +1,44 @@
+#!/bin/bash
+#
+#SBATCH -J generate_distance_structured_weights_DG_GC
+#SBATCH -o ./results/generate_structured_weights_DG_GC.%j.o
+#SBATCH -N 512
+#SBATCH -n 28672
+#SBATCH -p normal      # Queue (partition) name
+#SBATCH -t 12:00:00
+#SBATCH --mail-user=ivan.g.raikov@gmail.com
+#SBATCH --mail-type=END
+#SBATCH --mail-type=BEGIN
+#
+
+module unload python2 
+module load python3
+module load phdf5/1.8.16
+
+export NEURONROOT=$HOME/bin/nrnpython3
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
+export PATH=$NEURONROOT/x86_64/bin:$PATH
+
+set -x
+
+
+export I_MPI_EXTRA_FILESYSTEM=enable
+export I_MPI_EXTRA_FILESYSTEM_LIST=lustre
+export I_MPI_ADJUST_ALLGATHER=4
+export I_MPI_ADJUST_ALLGATHERV=4
+export I_MPI_ADJUST_ALLTOALL=4
+
+cd $SLURM_SUBMIT_DIR
+
+ibrun python3 ./scripts/generate_structured_weights_as_cell_attr.py \
+    -d GC -s MPP -s LPP \
+    --config=./config/Full_Scale_GC_Exc_Sat_DD_SLN.yaml \
+    --initial-weights-namespace='Log-Normal Weights' \
+    --structured-weights-namespace='Structured Weights' \
+    --output-weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_syn_weights_SLN_20191030.h5 \
+    --weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_syn_weights_LN_20190717_compressed.h5 \
+    --connections-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_connections_20190717_compressed.h5 \
+    --input-features-path="$SCRATCH/dentate/Full_Scale_Control/DG_input_features_20190909_compressed.h5" \
+    --arena-id=A \
+    --io-size=256 --cache-size=10  --value-chunk-size=100000 --chunk-size=20000 --write-size=10 -v
+
