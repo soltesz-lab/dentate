@@ -154,7 +154,6 @@ class RunningStats(object):
     
         return combined
 
-    
 
 class IncludeLoader(yaml.Loader):
     """
@@ -722,7 +721,7 @@ def baks(spktimes, time, a=1.5, b=None):
     sumdenom = 0
 
     if b is None:
-        b = 0.8
+        b = 0.42
     b = float(n) ** b
 
     for i in range(n):

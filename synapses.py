@@ -320,6 +320,25 @@ class SynapseAttributes(object):
                                    (gid, syn_id, syn_name))
             else:
                 return None
+            
+    def del_netcon(self, gid, syn_id, syn_name, throw_error=True):
+        """
+        Removes a NetCon object for the specified cell/synapse id/mechanism name.
+
+        :param gid: cell id
+        :param syn_id: synapse id
+        :param syn_name: synapse mechanism name
+        """
+        syn_index = self.syn_name_index_dict[syn_name]
+        gid_pps_dict = self.pps_dict[gid]
+        pps_dict = gid_pps_dict[syn_id]
+        if syn_index in pps_dict.netcon:
+            del pps_dict.netcon[syn_index]
+        else:
+            if throw_error:
+                raise RuntimeError('del_netcon: gid %i synapse id %i has no netcon for mechanism %s' %
+                                   (gid, syn_id, syn_name))
+
 
     def add_vecstim(self, gid, syn_id, syn_name, vs):
         """

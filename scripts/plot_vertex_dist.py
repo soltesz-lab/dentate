@@ -2,8 +2,7 @@
 import os, sys, gc, math
 import click
 import dentate
-from dentate import plot
-from dentate import utils
+from dentate import plot, utils
 from mpi4py import MPI
 
 sys_excepthook = sys.excepthook
