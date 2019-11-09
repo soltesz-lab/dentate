@@ -22,11 +22,11 @@ export PATH=$NEURONROOT/x86_64/bin:$PATH
 set -x
 
 
-export I_MPI_EXTRA_FILESYSTEM=enable
-export I_MPI_EXTRA_FILESYSTEM_LIST=lustre
-export I_MPI_ADJUST_ALLGATHER=4
-export I_MPI_ADJUST_ALLGATHERV=4
-export I_MPI_ADJUST_ALLTOALL=4
+#export I_MPI_EXTRA_FILESYSTEM=enable
+#export I_MPI_EXTRA_FILESYSTEM_LIST=lustre
+#export I_MPI_ADJUST_ALLGATHER=4
+#export I_MPI_ADJUST_ALLGATHERV=4
+#export I_MPI_ADJUST_ALLTOALL=4
 
 cd $SLURM_SUBMIT_DIR
 
@@ -40,5 +40,5 @@ ibrun python3 ./scripts/generate_structured_weights_as_cell_attr.py \
     --connections-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_connections_20190717_compressed.h5 \
     --input-features-path="$SCRATCH/dentate/Full_Scale_Control/DG_input_features_20190909_compressed.h5" \
     --arena-id=A \
-    --io-size=256 --cache-size=10  --value-chunk-size=100000 --chunk-size=20000 --write-size=10 -v
+    --io-size=320 --cache-size=10  --value-chunk-size=100000 --chunk-size=20000 --write-size=4 -v
 

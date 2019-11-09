@@ -2,7 +2,6 @@ import sys, os, time, gc, click, logging
 from collections import defaultdict
 from functools import reduce
 import numpy as np
-import dlib
 import scipy.optimize as opt
 from mpi4py import MPI
 import neuroh5
@@ -21,7 +20,7 @@ def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
-sys.excepthook = mpi_excepthook
+#sys.excepthook = mpi_excepthook
 
 def interactive_callback_plasticity_fit(**kwargs):
     import matplotlib.pyplot as plt
@@ -133,7 +132,7 @@ def input_features_dict_alltoall(comm, features_attrs, query, clear=False):
     return source_features_attrs_dict
 
 
-def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, logger, scaled_weight=False, max_iter=100, interactive=False):
+def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, logger, scaled_weight=False, max_iter=10, interactive=False):
     source_gids = sorted(plasticity_inputs.keys())
     initial_weights = []
     for i, source_gid in enumerate(source_gids):
@@ -152,9 +151,18 @@ def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, lo
         res = np.subtract(phi(np.dot(A, np.add(w, x))), b)
         return res
 
-    x0 = np.random.rand(len(w),)
-    optres = opt.least_squares(residual, x0, args = (w, A, b, phi), bounds=(lb,ub), xtol=1e-2, ftol=1e-2,
-                                   method='dogbox', verbose=2 if interactive else 0)
+    for i in range(max_iter):
+        try:
+            x0 = np.random.rand(len(w),)
+            optres = opt.least_squares(residual, x0, args = (w, A, b, phi), bounds=(lb,ub), 
+                                       method='dogbox', xtol=1e-2, ftol=1e-2, gtol=1e-4,
+                                       verbose=2 if interactive else 0)
+            break
+        except ValueError:
+            continue
+    if i >= max_iter:
+        raise RuntimeError('plasticity_fit: maximum number of iterations exceeded')
+
     
     delta_weights = optres.x
     logger.info('Least squares fit status: %d (%s)' % (optres.status, optres.message))
@@ -218,7 +226,7 @@ def exp_phi(x, a = 0.025):
 @click.option("--destination", '-d', type=str)
 @click.option("--sources", '-s', type=str, multiple=True)
 @click.option("--arena-id", '-a', type=str, default='A')
-@click.option("--max-iter", type=int, default=100)
+@click.option("--max-iter", type=int, default=10)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
@@ -508,11 +516,14 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
             logger.info('Rank: %i received None' % rank)
 
         if iter_count % write_size == 0:
+            gc.collect()
             if not dry_run:
+                count = comm.reduce(len(structured_weights_dict), op=MPI.SUM, root=0)
+                if rank == 0:
+                    logger.info('Destination: %s; appending structured weights for %i cells...' % (destination, count))
                 append_cell_attributes(output_weights_path, destination, structured_weights_dict,
                                        namespace=this_structured_weights_namespace, comm=env.comm, io_size=env.io_size,
                                        chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-                count = comm.reduce(len(structured_weights_dict), op=MPI.SUM, root=0)
                 if rank == 0:
                     logger.info('Destination: %s; appended structured weights for %i cells' % (destination, count))
             structured_weights_dict.clear()
