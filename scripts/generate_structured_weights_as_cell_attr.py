@@ -25,7 +25,7 @@ def mpi_excepthook(type, value, traceback):
 def interactive_callback_plasticity_fit(**kwargs):
     import matplotlib.pyplot as plt
     fig = plt.figure(constrained_layout=3)
-    gs = fig.add_gridspec(4, 4)
+    gs = fig.add_gridspec(4, 3)
     initial_weights = kwargs['initial_weights'] 
     modified_weights = kwargs['modified_weights']
     initial_ratemap = kwargs['initial_ratemap']
@@ -70,9 +70,6 @@ def interactive_callback_plasticity_fit(**kwargs):
     ax.set_title('Target')
     p = ax.imshow(target_ratemap, origin='lower')
     fig.colorbar(p, ax=ax)
-    ax = fig.add_subplot(gs[3, 3])
-    ax.set_title('Plasticity kernel')
-    ax.imshow(plasticity_kernel, origin='lower')
     plt.show()
 
 def syn_weights_dict_alltoall(comm, syn_name, initial_weights_dict, query, clear=False):
@@ -139,6 +136,7 @@ def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, lo
         _, initial_weight = source_syn_map[source_gid][0]
         initial_weights.append(initial_weight)
     w = np.asarray(initial_weights, dtype=np.float64)
+    baseline = np.mean(w)
     A = np.column_stack([plasticity_inputs[gid].reshape((-1,)).astype(np.float64) for gid in source_gids])
     initial_ratemap = phi(np.dot(A, w))
     b = plasticity_kernel.reshape((-1,)).astype(np.float64)
@@ -175,15 +173,15 @@ def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, lo
             if scaled_weight:
                 delta_weight = delta_weight / float(syn_count)
             for syn_id, initial_weight in source_syn_map[source_gid]:
-                syn_weights[syn_id] = max(delta_weight + initial_weight, 0.)
+                syn_weights[syn_id] = max(delta_weight + initial_weight, math.sqrt(initial_weight))
 
     if interactive:
-        modified_weights = np.clip(np.add(w, delta_weights), 0., None)
+        modified_weights = np.maximum(np.add(w, delta_weights), np.sqrt(w))
         modified_ratemap = phi(np.dot(A, modified_weights))
         logger.info('Initial rate map: min: %f max: %f' % (np.min(initial_ratemap), np.max(initial_ratemap)))
         logger.info('Target: min: %f max: %f' % (np.min(b), np.max(b)))
-        logger.info('Initial weights: min: %f max: %f' % (np.min(w), np.max(w)))
-        logger.info('Modified weights: min: %f max: %f' % (np.min(modified_weights), np.max(modified_weights)))
+        logger.info('Initial weights: min: %f max: %f mean: %f' % (np.min(w), np.max(w), np.mean(w)))
+        logger.info('Modified weights: min: %f max: %f mean: %f' % (np.min(modified_weights), np.max(modified_weights), np.mean(modified_weights)))
         logger.info('Modified rate map: min: %f max: %f' % (np.min(modified_ratemap), np.max(modified_ratemap)))
         initial_weights_dict = {}
         for i, source_gid in enumerate(source_gids):
