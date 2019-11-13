@@ -1079,7 +1079,7 @@ def generate_input_spike_trains(env, population, trajectory, selectivity_path, s
     return spike_hist_sum
 
 
-def remap_input_selectivity_features(env, arena, population, selectivity_path, selectivity_type_names, selectivity_type_namespaces, output_path, output_namespace, comm=None, io_size=-1, cache_size=10, write_every=1, chunk_size=1000, value_chunk_size=1000, dry_run=False, debug=False):
+def remap_input_selectivity_features(env, arena, population, selectivity_path, selectivity_type_names, selectivity_type_namespaces, output_path, comm=None, io_size=-1, cache_size=10, write_every=1, chunk_size=1000, value_chunk_size=1000, dry_run=False, debug=False):
     """
     Remap input selectivity features.
 
@@ -1089,7 +1089,6 @@ def remap_input_selectivity_features(env, arena, population, selectivity_path, s
     :param selectivity_type_names: 
     :param selectivity_type_namespaces: 
     :param output_path: str (path to file)
-    :param output_namespace: str
     :param comm: 
     :param io_size: int
     :param chunk_size: int
@@ -1154,7 +1153,7 @@ def remap_input_selectivity_features(env, arena, population, selectivity_path, s
                                 this_selectivity_type_name))
                 if not dry_run:
                     append_cell_attributes(output_path, population, remap_attr_dict,
-                                            namespace=output_namespace, comm=comm, io_size=io_size,
+                                            namespace=this_selectivity_namespace, comm=comm, io_size=io_size,
                                             chunk_size=chunk_size, value_chunk_size=value_chunk_size)
                     del spikes_attr_dict
                     spikes_attr_dict = dict()
