@@ -8,27 +8,40 @@ DG_populations = ["AAC", "BC", "GC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC", "M
 DG_IN_populations = ["AAC", "BC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC"]
 DG_EXT_populations = ["MPP", "LPP", "CA3c"]
 
-DG_cells_file = "DG_Cells_Full_Scale_20191108.h5"
-DG_connections_file = "DG_Connections_Full_Scale_20191108.h5"
+DG_cells_file = "DG_Cells_Full_Scale_20191111.h5"
+DG_connections_file = "DG_Connections_Full_Scale_20191111.h5"
 
 DG_GC_coordinate_file  = "DG_coords_20190717_compressed.h5"
 DG_IN_coordinate_file  = "DG_coords_20190717_compressed.h5"
 DG_EXT_coordinate_file = "DG_coords_20190717_compressed.h5"
 
 DG_GC_forest_file = "DGC_forest_reindex_20190717_compressed.h5"
-DG_IN_forest_file = "DG_IN_forest_20190325_compressed.h5"
+DG_IN_forest_file = "DG_IN_forest_20191112_compressed.h5"
 
 DG_GC_forest_syns_file = "DGC_forest_syns_20190717_compressed.h5"
-DG_IN_forest_syns_file = "DG_IN_forest_syns_20190325_compressed.h5"
+DG_IN_forest_syns_file = "DG_IN_forest_syns_20191112_compressed.h5"
 
-DG_GC_syn_weights_SLN_file = "DG_GC_syn_weights_SLN_20191015_compressed.h5"
+DG_GC_syn_weights_SLN_file = "DG_GC_syn_weights_SLN_20191108_compressed.h5"
 DG_GC_syn_weights_LN_file = "DG_GC_syn_weights_LN_20190717_compressed.h5"
-DG_IN_syn_weights_SLN_file = "DG_IN_syn_weights_SLN_20191015_compressed.h5"
+DG_IN_syn_weights_SLN_file = "DG_IN_syn_weights_SLN_20191108_compressed.h5"
 DG_IN_syn_weights_LN_file = "DG_IN_syn_weights_LN_20190809_compressed.h5"
 DG_IN_syn_weights_N_file = "DG_IN_syn_weights_N_20190809_compressed.h5"
 
-DG_IN_connectivity_file = "DG_IN_connections_20190806_compressed.h5"
 DG_GC_connectivity_file = "DG_GC_connections_20190717_compressed.h5"
+DG_IN_connectivity_file = "DG_IN_connections_20190806_compressed.h5"
+DG_HC_connectivity_file = "DG_HC_connections_20191110_compressed.h5"
+
+connectivity_files = {
+    'AAC': DG_IN_connectivity_file,
+    'BC': DG_IN_connectivity_file,
+    'GC': DG_GC_connectivity_file,
+    'HC': DG_HC_connectivity_file,
+    'HCC': DG_IN_connectivity_file,
+    'IS': DG_IN_connectivity_file,
+    'MC': DG_IN_connectivity_file,
+    'MOPP': DG_IN_connectivity_file,
+    'NGFC': DG_IN_connectivity_file
+}
 
 DG_vecstim_file_dict = { 
     'A HDiag': "DG_input_spike_trains_20190912_compressed.h5",
@@ -160,9 +173,9 @@ with h5py.File(DG_connections_file) as f:
     grp = f.create_group("Projections")
                
     for p in DG_IN_populations:
-        grp[p] = h5py.ExternalLink(DG_IN_connectivity_file,"/Projections/%s" % p)
+        grp[p] = h5py.ExternalLink(connectivity_files[p],"/Projections/%s" % p)
     
-    grp['GC'] = h5py.ExternalLink(DG_GC_connectivity_file,"/Projections/%s" % 'GC')
+    grp['GC'] = h5py.ExternalLink(connectivity_files['GC'],"/Projections/%s" % 'GC')
 
 ## Creates vector stimulus entries
 with h5py.File(DG_cells_file) as f:

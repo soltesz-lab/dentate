@@ -176,7 +176,7 @@ Synapses:
               expr: a * exp(b * x)
               parameter: delay
               const:
-                a: 0.001
+                a: 0.002
                 b: -1.25
             weight: 1.0
     HCC:  
@@ -188,9 +188,9 @@ Synapses:
       mechanisms:
         GABA_A:
           dur_onset: 1.5
-          tau_offset: 9.0
+          tau_offset: 10.0
           e: -75
-          g_unit: 0.003
+          g_unit: 0.004
           weight: 1.0
     HC:   
       type: inhibitory
@@ -201,9 +201,9 @@ Synapses:
       mechanisms:
         GABA_A:
           dur_onset: 2.5
-          tau_offset: 10.0
+          tau_offset: 11.0
           e: -75
-          g_unit: 0.003
+          g_unit: 0.004
           weight: 1.0
     NGFC: 
       type: inhibitory
