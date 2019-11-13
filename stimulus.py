@@ -142,7 +142,7 @@ class GridInputCellConfig(object):
 
             self.grid_spacing = selectivity_config.grid_module_spacing[self.module_id]
             if arena is None:
-                arena_x_bounds = arena_y_bounds = (-self.grid_spacing, self.grid_spacing)
+                arena_x_bounds, arena_y_bounds = (-self.grid_spacing, self.grid_spacing)
             else:
                 arena_x_bounds, arena_y_bounds = get_2D_arena_bounds(arena, margin=self.grid_spacing / 2.)
 
@@ -393,6 +393,8 @@ def get_input_cell_config(selectivity_type, selectivity_type_names, population=N
             input_cell_config = GridInputCellConfig(selectivity_attr_dict=selectivity_attr_dict)
         elif selectivity_type_name == 'place':
             input_cell_config = PlaceInputCellConfig(selectivity_attr_dict=selectivity_attr_dict)
+        elif selectivity_type_name == 'constant':
+            input_cell_config = ConstantInputCellConfig(selectivity_attr_dict=selectivity_attr_dict)
         else:
             RuntimeError('get_input_cell_config: selectivity type: %s not yet implemented' % selectivity_type_name)
     elif any([arg is None for arg in [population, stimulus_config, arena]]):
@@ -433,6 +435,9 @@ def get_input_cell_config(selectivity_type, selectivity_type_names, population=N
                                      selectivity_config=selectivity_config, peak_rate=peak_rate, distance=distance,
                                      modular=modular, num_place_field_probabilities=num_place_field_probabilities,
                                      local_random=local_random)
+        elif selectivity_type_name == 'constant':
+            input_cell_config = ConstantInputCellConfig(selectivity_type=selectivity_type, arena=arena,
+                                                        selectivity_config=selectivity_config, peak_rate=peak_rate)
         else:
             RuntimeError('get_input_cell_config: selectivity type: %s not yet implemented' % selectivity_type_name)
 
@@ -1072,6 +1077,106 @@ def generate_input_spike_trains(env, population, trajectory, selectivity_path, s
                              selectivity_type_name, process_time[selectivity_type_name]))
 
     return spike_hist_sum
+
+
+def remap_input_selectivity_features(env, arena, population, selectivity_path, selectivity_type_names, selectivity_type_namespaces, output_path, output_namespace, comm=None, io_size=-1, cache_size=10, write_every=1, chunk_size=1000, value_chunk_size=1000, dry_run=False, debug=False):
+    """
+    Remap input selectivity features.
+
+    :param env:
+    :param population: str
+    :param selectivity_path: str (path to file)
+    :param selectivity_type_names: 
+    :param selectivity_type_namespaces: 
+    :param output_path: str (path to file)
+    :param output_namespace: str
+    :param comm: 
+    :param io_size: int
+    :param chunk_size: int
+    :param value_chunk_size: int
+    :param cache_size: int
+    :param write_every: int
+    :param debug: bool
+    :param dry_run: bool
+    """
+
+    if comm is None:
+        comm = MPI.COMM_WORLD
+    if io_size <= 0:
+        io_size = comm.size
+    rank = comm.rank
+    
+    local_random = np.random.RandomState()
+    remap_offset = int(env.modelConfig['Random Seeds']['Input Remap'])
+
+    num_modules = env.stimulus_config['Number Modules']
+    grid_orientation_offset = [local_random.uniform(0., np.pi / 3.) for i in range(num_modules)]
+
+    arena_x_bounds, arena_y_bounds = get_2D_arena_bounds(arena)
+    
+    gid_count = defaultdict(lambda: 0)
+    process_time = dict()
+    for this_selectivity_namespace in sorted(selectivity_type_namespaces[population]):
+
+        if rank == 0:
+            logger.info('Remapping input selectivity features for population %s [%s]...' % (population, this_selectivity_namespace))
+            
+        start_time = time.time()
+        selectivity_attr_gen = NeuroH5CellAttrGen(selectivity_path, population,
+                                                  namespace=this_selectivity_namespace,
+                                                  comm=comm, io_size=io_size,
+                                                  cache_size=cache_size)
+        remap_attr_dict = dict((key, dict()) for key in env.selectivity_types)
+        for iter_count, (gid, selectivity_attr_dict) in enumerate(selectivity_attr_gen):
+            if gid is not None:
+                local_random.seed(int(remap_offset + gid))
+                this_selectivity_type = selectivity_attr_dict['Selectivity Type'][0]
+                this_selectivity_type_name = selectivity_type_names[this_selectivity_type]
+                input_cell_config = \
+                  get_input_cell_config(selectivity_type=this_selectivity_type,
+                                            selectivity_type_names=selectivity_type_names,
+                                            selectivity_attr_dict=selectivity_attr_dict)
+                module_id = input_cell_config.module_id
+                if selectivity_type_name == 'grid':
+                    input_cell_config.grid_orientation += grid_orientation_offset[module_id]
+                    input_cell_config.x0 = local_random.uniform(*arena_x_bounds)
+                    input_cell_config.y0 = local_random.uniform(*arena_y_bounds)
+                elif selectivity_type_name == 'place':
+                    input_cell_config.x0 = local_random.uniform(*arena_x_bounds)
+                    input_cell_config.y0 = local_random.uniform(*arena_y_bounds)
+
+                remap_attr_dict[this_selectivity_type_name][gid] = input_cell_config.get_selectivity_attr_dict()
+
+            if (iter_count > 0 and iter_count % write_every == 0) or (debug and iter_count == 10):
+                if rank == 0:
+                    logger.info('remapped input features for %i %s %s cells' %
+                                (merged_gid_count[this_selectivity_type_name], population,
+                                this_selectivity_type_name))
+                if not dry_run:
+                    append_cell_attributes(output_path, population, remap_attr_dict,
+                                            namespace=output_namespace, comm=comm, io_size=io_size,
+                                            chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+                    del spikes_attr_dict
+                    spikes_attr_dict = dict()
+
+            if debug and iter_count == 10:
+                break
+            
+        if not dry_run:
+            append_cell_attributes(output_path, population, remap_attr_dict,
+                                    namespace=output_namespace, comm=comm, io_size=io_size,
+                                    chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+            spikes_attr_dict = dict()
+        process_time[this_selectivity_type_name] = time.time() - start_time
+            
+        if rank == 0:
+            for selectivity_type_name in merged_gid_count:
+                logger.info('remapped input features for %i/%i %s %s cells in %.2f s' %
+                            (merged_gid_count[selectivity_type_name], total_gid_count, population,
+                             selectivity_type_name, process_time[selectivity_type_name]))
+
+
+
 
 
 def read_trajectory(input_path, arena_id, trajectory_id):
