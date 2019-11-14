@@ -21,7 +21,7 @@ from dentate.cells import default_ordered_sec_types, get_distance_to_node
 from dentate.env import Env
 from dentate.synapses import get_syn_filter_dict, get_syn_mech_param
 from dentate.utils import get_module_logger, Struct, add_bins, update_bins, finalize_bins
-from dentate.utils import power_spectrogram, kde_scipy, make_geometric_graph, viewitems, zip_longest, basestring
+from dentate.utils import power_spectrogram, butter_bandpass_filter, kde_scipy, make_geometric_graph, viewitems, zip_longest, basestring
 from dentate.io_utils import get_h5py_attr, set_h5py_attr
 from neuroh5.io import NeuroH5ProjectionGen, bcast_cell_attributes, read_cell_attributes, read_population_names, read_population_ranges, read_projection_names, read_tree_selection
 
@@ -1416,7 +1416,7 @@ def plot_population_density(population, soma_coords, distances_namespace, max_u,
     return ax
 
 
-def plot_lfp(config, input_path, time_range = None, compute_psd=False, window_size=1024, frequency_range=(0, 400.), overlap=0.5, **kwargs):
+def plot_lfp(config, input_path, time_range = None, compute_psd=False, window_size=4096, frequency_range=(0, 400.), overlap=0.9, bandpass_filter=False, **kwargs):
     '''
     Line plot of LFP state variable (default: v). Returns figure handle.
 
@@ -1430,12 +1430,13 @@ def plot_lfp(config, input_path, time_range = None, compute_psd=False, window_si
     env = Env(config_file=config)
 
     nrows = len(env.lfpConfig)
+    ncols = 1
+    psd_col = 1
     if compute_psd:
-        ncols = 2
-    else:
-        ncols = 1
+        ncols += 1
 
-    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=fig_options.figSize, squeeze=False)
+    gs  = gridspec.GridSpec(nrows, ncols, width_ratios=[3,1] if ncols > 1 else [1])
+    fig = plt.figure(figsize=fig_options.figSize)
     for iplot, (lfp_label, lfp_config_dict) in enumerate(viewitems(env.lfpConfig)):
         namespace_id = "Local Field Potential %s" % str(lfp_label)
         import h5py
@@ -1456,9 +1457,9 @@ def plot_lfp(config, input_path, time_range = None, compute_psd=False, window_si
             v = np.asarray(vlst)
 
         dt = lfp_config_dict['dt']
-
+        Fs = 1000. / dt
+        
         if compute_psd:
-            Fs = 1000. / dt
 
             nperseg    = window_size
             win        = signal.get_window('hanning', nperseg)
@@ -1476,16 +1477,25 @@ def plot_lfp(config, input_path, time_range = None, compute_psd=False, window_si
 
             peak_index = np.where(psd == np.max(psd))[0]
 
+        filtered_v = None
+        if bandpass_filter:
+           filtered_v = butter_bandpass_filter(v, max(bandpass_filter[0], 1.0), bandpass_filter[1], Fs, order=2)
 
-        axes[iplot, 0].set_title('%s' % (namespace_id), fontsize=fig_options.fontSize)
-        axes[iplot, 0].plot(t, v, label=lfp_label, linewidth=fig_options.lw)
-        axes[iplot, 0].set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
-        axes[iplot, 0].set_ylabel('Field Potential (mV)', fontsize=fig_options.fontSize)
+        ax = plt.subplot(gs[iplot,0])
+        ax.set_title('%s' % (namespace_id), fontsize=fig_options.fontSize)
+        ax.plot(t, v, label=lfp_label, linewidth=fig_options.lw)
+        ax.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
+        ax.set_ylabel('Field Potential (mV)', fontsize=fig_options.fontSize)
+        if bandpass_filter:
+            if filtered_v is not None:
+                ax.plot(t, filtered_v, label='%s (filtered)' % lfp_label,
+                        color='red', linewidth=fig_options.lw)
         if compute_psd:
-            axes[iplot, 1].plot(freqs, psd, linewidth=fig_options.lw)
-            axes[iplot, 1].set_xlabel('Frequency (Hz)', fontsize=fig_options.fontSize)
-            axes[iplot, 1].set_ylabel('Power Spectral Density (dB/Hz)', fontsize=fig_options.fontSize)
-            axes[iplot, 1].set_title('PSD %s (peak: %.3g Hz)' % (namespace_id, freqs[peak_index]), fontsize=fig_options.fontSize)
+            ax = plt.subplot(gs[iplot,psd_col])
+            ax.plot(freqs, psd, linewidth=fig_options.lw)
+            ax.set_xlabel('Frequency (Hz)', fontsize=fig_options.fontSize)
+            ax.set_ylabel('Power Spectral Density (dB/Hz)', fontsize=fig_options.fontSize)
+            ax.set_title('PSD (peak: %.3g Hz)' % (freqs[peak_index]), fontsize=fig_options.fontSize)
 
     # save figure
     if fig_options.saveFig:
@@ -1502,7 +1512,7 @@ def plot_lfp(config, input_path, time_range = None, compute_psd=False, window_si
     return fig
 
 
-def plot_lfp_spectrogram(config, input_path, time_range = None, window_size=1024, overlap=0.5, frequency_range=(0, 400.), **kwargs):
+def plot_lfp_spectrogram(config, input_path, time_range = None, window_size=4096, overlap=0.9, frequency_range=(0, 400.), **kwargs):
     '''
     Line plot of LFP power spectrogram. Returns figure handle.
 
@@ -1540,16 +1550,17 @@ def plot_lfp_spectrogram(config, input_path, time_range = None, window_size=1024
 
         dt = lfp_config_dict['dt']
 
-        Fs = 1000. / dt
+        Fs = int(1000. / dt)
 
         freqs, t, Sxx = power_spectrogram(v, Fs, window_size, overlap)
         freqinds = np.where((freqs >= frequency_range[0]) & (freqs <= frequency_range[1]))
 
         freqs  = freqs[freqinds]
         sxx = Sxx[freqinds,:][0]
-        
+
+        axes[iplot, 0].set_ylim(*frequency_range)
         axes[iplot, 0].set_title('%s' % (namespace_id), fontsize=fig_options.fontSize)
-        axes[iplot, 0].pcolormesh(t, freqs, sxx)
+        axes[iplot, 0].pcolormesh(t, freqs, sxx, cmap='jet')
         axes[iplot, 0].set_xlabel('Time (s)', fontsize=fig_options.fontSize)
         axes[iplot, 0].set_ylabel('Frequency (Hz)', fontsize=fig_options.fontSize)
 
