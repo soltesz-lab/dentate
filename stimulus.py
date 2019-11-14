@@ -1,6 +1,7 @@
 import os, sys, gc, copy, time
 import numpy as np
 from collections import defaultdict, ChainMap
+from mpi4py import MPI
 from dentate.utils import get_module_logger, object, range, str, Struct
 from dentate.stgen import get_inhom_poisson_spike_times_by_thinning
 from neuroh5.io import read_cell_attributes, append_cell_attributes, NeuroH5CellAttrGen
@@ -1053,6 +1054,7 @@ def generate_input_spike_trains(env, population, trajectory, selectivity_path, s
                     logger.info('generated spike trains for %i %s %s cells' %
                                 (merged_gid_count[this_selectivity_type_name], population,
                                 this_selectivity_type_name))
+                    
                 if not dry_run:
                     append_cell_attributes(output_path, population, spikes_attr_dict,
                                             namespace=output_namespace, comm=comm, io_size=io_size,
@@ -1112,67 +1114,81 @@ def remap_input_selectivity_features(env, arena, population, selectivity_path, s
     grid_orientation_offset = [local_random.uniform(0., np.pi / 3.) for i in range(num_modules)]
 
     arena_x_bounds, arena_y_bounds = get_2D_arena_bounds(arena)
-    
-    gid_count = defaultdict(lambda: 0)
-    process_time = dict()
-    for this_selectivity_namespace in sorted(selectivity_type_namespaces[population]):
 
+    for selectivity_type_namespace in sorted(selectivity_type_namespaces[population]):
+        selectivity_type = None
+        selectivity_type_name = None
+        gid_count = 0
         if rank == 0:
-            logger.info('Remapping input selectivity features for population %s [%s]...' % (population, this_selectivity_namespace))
+            logger.info('Remapping input selectivity features for population %s [%s]...' % (population, selectivity_type_namespace))
             
+        process_time = 0
         start_time = time.time()
         selectivity_attr_gen = NeuroH5CellAttrGen(selectivity_path, population,
-                                                  namespace=this_selectivity_namespace,
+                                                  namespace=selectivity_type_namespace,
                                                   comm=comm, io_size=io_size,
                                                   cache_size=cache_size)
-        remap_attr_dict = dict((key, dict()) for key in env.selectivity_types)
+        remap_attr_dict = {}
         for iter_count, (gid, selectivity_attr_dict) in enumerate(selectivity_attr_gen):
             if gid is not None:
                 local_random.seed(int(remap_offset + gid))
                 this_selectivity_type = selectivity_attr_dict['Selectivity Type'][0]
                 this_selectivity_type_name = selectivity_type_names[this_selectivity_type]
+                if selectivity_type is None:
+                    selectivity_type = this_selectivity_type
+                    selectivity_type_name = this_selectivity_type_name
+                assert(this_selectivity_type_name == selectivity_type_name)
                 input_cell_config = \
                   get_input_cell_config(selectivity_type=this_selectivity_type,
-                                            selectivity_type_names=selectivity_type_names,
-                                            selectivity_attr_dict=selectivity_attr_dict)
-                module_id = input_cell_config.module_id
-                if selectivity_type_name == 'grid':
+                                        selectivity_type_names=selectivity_type_names,
+                                        selectivity_attr_dict=selectivity_attr_dict)
+                if this_selectivity_type_name == 'grid':
+                    module_id = input_cell_config.module_id
                     input_cell_config.grid_orientation += grid_orientation_offset[module_id]
                     input_cell_config.x0 = local_random.uniform(*arena_x_bounds)
                     input_cell_config.y0 = local_random.uniform(*arena_y_bounds)
-                elif selectivity_type_name == 'place':
-                    input_cell_config.x0 = local_random.uniform(*arena_x_bounds)
-                    input_cell_config.y0 = local_random.uniform(*arena_y_bounds)
+                elif this_selectivity_type_name == 'place':
+                    input_cell_config.x0 = np.asarray([local_random.uniform(*arena_x_bounds)
+                                                        for x0 in input_cell_config.x0],
+                                                       dtype=np.float32)
+                    input_cell_config.y0 = np.asarray([local_random.uniform(*arena_y_bounds)
+                                                        for y0 in input_cell_config.y0],
+                                                       dtype=np.float32)
 
-                remap_attr_dict[this_selectivity_type_name][gid] = input_cell_config.get_selectivity_attr_dict()
-
+                remap_attr_dict[gid] = input_cell_config.get_selectivity_attr_dict()
+                
             if (iter_count > 0 and iter_count % write_every == 0) or (debug and iter_count == 10):
+                
+                gid_count += len(remap_attr_dict)
+                total_gid_count = comm.reduce(gid_count, root=0, op=MPI.SUM)
                 if rank == 0:
-                    logger.info('remapped input features for %i %s %s cells' %
-                                (merged_gid_count[this_selectivity_type_name], population,
-                                this_selectivity_type_name))
+                   logger.info('remapped input features for %i %s %s cells' %
+                                   (total_gid_count, population, selectivity_type_name))
+                   
                 if not dry_run:
                     append_cell_attributes(output_path, population, remap_attr_dict,
-                                            namespace=this_selectivity_namespace, comm=comm, io_size=io_size,
-                                            chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-                    del spikes_attr_dict
-                    spikes_attr_dict = dict()
+                                           namespace=selectivity_type_namespace, comm=comm,
+                                           io_size=io_size,
+                                           chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+                    del remap_attr_dict
+                    remap_attr_dict = {}
 
             if debug and iter_count == 10:
                 break
             
+        gid_count += len(remap_attr_dict)
+        total_gid_count = comm.reduce(gid_count, root=0, op=MPI.SUM)
         if not dry_run:
             append_cell_attributes(output_path, population, remap_attr_dict,
-                                    namespace=output_namespace, comm=comm, io_size=io_size,
-                                    chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-            spikes_attr_dict = dict()
-        process_time[this_selectivity_type_name] = time.time() - start_time
+                                   namespace=selectivity_type_namespace, comm=comm, io_size=io_size,
+                                   chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+            del remap_attr_dict
+            remap_attr_dict = {}
+        process_time = time.time() - start_time
             
         if rank == 0:
-            for selectivity_type_name in merged_gid_count:
-                logger.info('remapped input features for %i/%i %s %s cells in %.2f s' %
-                            (merged_gid_count[selectivity_type_name], total_gid_count, population,
-                             selectivity_type_name, process_time[selectivity_type_name]))
+                logger.info('remapped input features for %i %s %s cells' %
+                            (total_gid_count, population, selectivity_type_name))
 
 
 

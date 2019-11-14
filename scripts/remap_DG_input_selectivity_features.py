@@ -4,7 +4,7 @@ import copy, random
 from mpi4py import MPI
 import h5py
 from dentate.env import Env
-from dentate.stimulus import get_input_cell_config, generate_linear_trajectory, generate_input_spike_trains
+from dentate.stimulus import get_input_cell_config, remap_input_selectivity_features
 from dentate.utils import *
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 
@@ -63,6 +63,17 @@ def main(config, config_prefix, selectivity_path, arena_id, populations, io_size
     if rank == 0:
         logger.info('%i ranks have been allocated' % comm.size)
 
+    if not dry_run and rank == 0:
+        if output_path is None:
+            raise RuntimeError('remap_DG_input_selectivity_features: missing output_path')
+        if not os.path.isfile(output_path):
+            input_file = h5py.File(selectivity_path, 'r')
+            output_file = h5py.File(output_path, 'w')
+            input_file.copy('/H5Types', output_file)
+            input_file.close()
+            output_file.close()
+    comm.barrier()
+
 
     population_ranges = read_population_ranges(selectivity_path, comm)[0]
 
@@ -78,10 +89,10 @@ def main(config, config_prefix, selectivity_path, arena_id, populations, io_size
     if rank == 0:
         for population in populations:
             if population not in population_ranges:
-                raise RuntimeError('generate_DG_source_spike_trains: specified population: %s not found in '
+                raise RuntimeError('remap_DG_input_selectivity_features: specified population: %s not found in '
                                    'provided selectivity_path: %s' % (population, selectivity_path))
             if population not in env.stimulus_config['Selectivity Type Probabilities']:
-                raise RuntimeError('generate_DG_source_spike_trains: selectivity type not specified for '
+                raise RuntimeError('remap_DG_input_selectivity_features: selectivity type not specified for '
                                    'population: %s' % population)
             valid_selectivity_namespaces[population] = []
             with h5py.File(selectivity_path, 'r') as selectivity_f:
@@ -89,7 +100,7 @@ def main(config, config_prefix, selectivity_path, arena_id, populations, io_size
                     if 'Selectivity %s' % arena_id in this_namespace:
                         valid_selectivity_namespaces[population].append(this_namespace)
                 if len(valid_selectivity_namespaces[population]) == 0:
-                    raise RuntimeError('generate_DG_source_spike_trains: no selectivity data in arena: %s found '
+                    raise RuntimeError('remap_DG_input_selectivity_features: no selectivity data in arena: %s found '
                                        'for specified population: %s in provided selectivity_path: %s' %
                                        (arena_id, population, selectivity_path))
 
@@ -107,9 +118,6 @@ def main(config, config_prefix, selectivity_path, arena_id, populations, io_size
                                          write_every=write_every, chunk_size=chunk_size,
                                          value_chunk_size=value_chunk_size,
                                          dry_run=dry_run)
-    if interactive and rank == 0:
-        context.update(locals())
-
 
 if __name__ == '__main__':
     main(args=sys.argv[(list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv) + 1):],
