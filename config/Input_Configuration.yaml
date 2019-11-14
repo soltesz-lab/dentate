@@ -148,6 +148,16 @@ Arena:
 
     default run velocity: 30.  # cm/s
         
+  Remap A:
+    Domain:
+      vertices: [[-100, -100], [-100, 100], [100, 100], [100, -100]]
+      simplices: [[0,1], [1,2], [2,3], [3,0]]
+
+    Trajectory:
+      Diag:
+        path: [[-100, -100], [100, 100]]
+        run velocity: 30.  # cm/s
+
   Calibration:
     Domain:
       vertices: [[-32.5, -32.5], [-32.5, 32.5], [32.5, 32.5], [32.5, -32.5]]

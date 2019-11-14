@@ -129,7 +129,7 @@ def input_features_dict_alltoall(comm, features_attrs, query, clear=False):
     return source_features_attrs_dict
 
 
-def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, logger, scaled_weight=False, max_iter=10, interactive=False):
+def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, logger, max_iter=10, interactive=False):
     source_gids = sorted(plasticity_inputs.keys())
     initial_weights = []
     for i, source_gid in enumerate(source_gids):
@@ -170,8 +170,6 @@ def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, lo
     for source_gid, delta_weight in zip(source_gids, delta_weights):
         syn_count = len(source_syn_map[source_gid])
         if syn_count > 0:
-            if scaled_weight:
-                delta_weight = delta_weight / float(syn_count)
             for syn_id, initial_weight in source_syn_map[source_gid]:
                 syn_weights[syn_id] = max(delta_weight + initial_weight, math.sqrt(initial_weight))
 
@@ -224,6 +222,7 @@ def exp_phi(x, a = 0.025):
 @click.option("--destination", '-d', type=str)
 @click.option("--sources", '-s', type=str, multiple=True)
 @click.option("--arena-id", '-a', type=str, default='A')
+@click.option("--field-width-scale", type=float, default=1.2)
 @click.option("--max-iter", type=int, default=10)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
@@ -235,7 +234,7 @@ def exp_phi(x, a = 0.025):
 @click.option("--dry-run", is_flag=True)
 @click.option("--interactive", is_flag=True)
 def main(config, input_features_path, input_features_namespaces, output_weights_path, weights_path, synapse_name, initial_weights_namespace,
-         structured_weights_namespace, connections_path, destination, sources, arena_id, max_iter, 
+         structured_weights_namespace, connections_path, destination, sources, arena_id, field_width_scale, max_iter, 
          io_size, chunk_size, value_chunk_size, cache_size, write_size, scatter_io, verbose, dry_run, interactive):
     """
 
@@ -473,7 +472,7 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
                     
             if structured:
                 this_peak_locs = zip(np.nditer(this_x_offset), np.nditer(this_y_offset))
-                this_sigmas    = [width / 3. / np.sqrt(2.) for width in np.nditer(this_field_width)] # cm
+                this_sigmas    = [(width * field_width_scale) / 3. / np.sqrt(2.) for width in np.nditer(this_field_width)] # cm
                 this_plasticity_kernel = reduce(np.add, [plasticity_kernel(x, y, peak_loc[0], peak_loc[1], sigma, sigma)
                                                              for peak_loc, sigma in zip(this_peak_locs, this_sigmas)]) * this_peak_rate
 
