@@ -11,7 +11,7 @@ from dentate.utils import get_module_logger, autocorr, baks, baks, consecutive, 
 logger = get_module_logger(__name__)
 
 
-def get_env_spike_dict(env, t_start=0.0):
+def get_env_spike_dict(env, t_start=0.0, include_artificial=True):
     """
     Constructs  a dictionary with per-gid spike times from the output vectors with spike times and gids contained in env.
     """
@@ -42,6 +42,8 @@ def get_env_spike_dict(env, t_start=0.0):
             for j in range(0, len(ids)):
                 gid = ids[j]
                 t = ts[j]
+                if (not include_artificial) and (gid in env.artificial_cells[pop_name]):
+                    continue
                 if t >= t_start:
                     if gid in spkdict:
                         spkdict[gid].append(t)

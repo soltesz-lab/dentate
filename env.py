@@ -94,8 +94,9 @@ class Env(object):
         self.globals = {}
 
         self.gidset = set([])
-        self.cells = defaultdict(list)
         self.gjlist = []
+        self.cells = defaultdict(list)
+        self.artificial_cells = defaultdict(dict)
         self.biophys_cells = defaultdict(dict)
         self.spike_onset_delay = {}
         self.v_sample_dict = {}
