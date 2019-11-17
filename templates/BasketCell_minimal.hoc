@@ -2,7 +2,7 @@ begintemplate BasketCell
 
 public connect2target, subsets, is_art, is_connected
 public all, soma, basal, apical, ais, hillock, axon, allaxon
-public apicalidx, basalidx, somaidx, axonidx
+public apicalidx, basalidx, somaidx, axonidx, aisidx, hilidx
 public xx, yy, zz, position
 public syns
 

@@ -105,6 +105,33 @@ proc subsets() { local i, ndends, ndendsec
     allaxon  = new SectionList()
     ais      = new SectionList()
     hillock  = new SectionList()
+    
+    if (hilidx.size() > 0) {
+        for i=0, hilidx.size()-1 {
+            sections[hilidx.x[i]] {
+                hillock.append()
+                allaxon.append()
+                all.append()
+            }
+        }
+    }
+    if (aisidx.size() > 0) {
+        for i=0, aisidx.size()-1 {
+            sections[aisidx.x[i]] {
+                ais.append()
+                allaxon.append()
+                all.append()
+            }
+        }
+    }
+    
+    for i=0, axonidx.size()-1 {
+        sections[axonidx.x[i]] {
+            axon.append()
+            allaxon.append()
+            all.append()
+        }
+    }
 
 }
 
@@ -191,66 +218,151 @@ proc topol() {
 
 
 proc biophys() {
+    celsius = 23.0
     
-    g_na = 0.079
-    g_k = 0.0035
-    g_leak_soma  = 0.00005
-    g_leak_dend  = 0.00001
-    forsec all {Ra=100}
+    Vrest = -70
     
+    Rm = 5e4
+    
+    gH = 0.0005
+    
+    g_KA_soma = 0.005 // .3 * 1.5
+    g_KA_dend = 0.001  // .7 * 1.5
+    
+    g_fKdr_axon =  0.002
+    g_fKdr_soma =  0.006
+    g_fKdr_dend =  0.003
+    
+    g_sKdr_soma =  0.003
+    g_sKdr_dend =  0.001
+    
+    g_Na_soma = 0.0107
+    g_Na_dend = 0.0117
+    g_Na_axon = 0.01712
+    
+    g_leak_decay_apical = 4.5 //0.6
+    g_leak_decay_basal = 4.5 //0.8
+    g_leak_decay_axon = 4. //0.8
+    
+    eleak = -70
+
     forsec all {
-	insert ccanl
-	catau_ccanl = 5
-	caiinf_ccanl = 5.e-6
-	insert borgka
-	gkabar_borgka=0.0004
-	insert nca  // HAV-N- Ca channel
-	gncabar_nca=0.0  
-	insert lca
-	glcabar_lca=0.0015
-	insert gskch
-	gskbar_gskch=0.001
-	insert cagk
-	gkbar_cagk=0.0002
-	insert hyperde3
-	ghyfbar_hyperde3=0.000035
-	ghysbar_hyperde3=0.000035
-	cm = 0.75
+        Ra = 150
+        cm = 0.9
     }
     
+    forsec soma { distance() }
+    
     forsec soma {
-        insert ichan2  //ildikos ichan
-	gnatbar_ichan2=g_na
-	gkfbar_ichan2=g_k
-	gl_ichan2 = g_leak_soma
+        insert KAsom
+    	gmax_KAsom = g_KA_soma
+	insert fKdrsom  
+	gmax_fKdrsom = g_fKdr_soma 
+	insert sKdrsom 
+	gmax_sKdrsom = g_sKdr_soma 
+ 	insert HCNsom
+	gmax_HCNsom = gH
+	insert nas
+	gmax_nas = g_Na_soma
+	insert pas
+	g_pas = 0.00001
+	e_pas = eleak  	
     } 
     
     forsec apical {
-        insert ichan2
-	gnatbar_ichan2=g_na
-	gkfbar_ichan2=g_k
-	gl_ichan2 = g_leak_dend
+	insert nas
+	gmax_nas = g_Na_dend
+	insert sKdrsom 
+	gmax_sKdrsom = g_sKdr_dend
+	insert fKdrsom 
+	gmax_fKdrsom = g_fKdr_dend
+        for (x,0) {
+            insert KAsom
+            r = 10
+    	    gmax_KAsom =  g_KA_dend * r^(distance(x)/1000)
+            if (gmax_KAsom < 0.) {
+                gmax_KAsom = 0.
+            }
+            if (gmax_sKdrsom < 0.) {
+                gmax_sKdrsom = 0.
+            }
+	    insert pas
+	    g_pas = 1/Rm * exp(-g_leak_decay_apical * distance(x)/1000)
+	    e_pas = eleak  	
+        }
     }
     
     forsec basal {
-        insert ichan2
-	gnatbar_ichan2=0.0
-	gkfbar_ichan2=0.00
-	gl_ichan2 = g_leak_dend
-    }	
+	insert nas
+	gmax_nas = g_Na_dend
+	insert sKdrsom 
+	gmax_sKdrsom = g_sKdr_dend
+        if (gmax_sKdrsom < 0.) {
+            gmax_sKdrsom = 0.
+        }
+	insert fKdrsom 
+	gmax_fKdrsom = g_fKdr_dend
+        if (gmax_fKdrsom < 0.) {
+            gmax_fKdrsom = 0.
+        }
+        for (x,0) {
+            r = 10
+            insert KAsom
+    	    gmax_KAsom = g_KA_dend *  r^(distance(x)/1000)
+            if (gmax_KAsom < 0.) {
+                gmax_KAsom = 0.
+            }
+	    insert pas
+	    g_pas = 1/Rm * exp(-g_leak_decay_basal * distance(x)/1000)
+	    e_pas = eleak  	
+        }
+    }
     
+    
+    forsec ais {
+	insert fKdrsom 
+	gmax_fKdrsom = g_fKdr_axon
+	insert Naxsom
+	gmax_Naxsom = g_Na_axon
+	insert pas
+        for (x,0) {
+	    insert pas
+	    g_pas = 1/Rm * exp(-g_leak_decay_axon * distance(x)/1000)
+	    e_pas = eleak  	
+        }
+    }
+    
+    forsec hillock {
+	insert fKdrsom
+	gmax_fKdrsom = g_fKdr_axon
+	insert Naxsom
+	gmax_Naxsom = g_Na_axon
+	insert pas
+        for (x,0) {
+	    insert pas
+	    g_pas = 1/Rm * exp(-g_leak_decay_axon * distance(x)/1000)
+	    e_pas = eleak  	
+        }
+    }
+    
+    forsec axon {
+	insert fKdrsom  
+	gmax_fKdrsom = g_fKdr_axon
+	insert Naxsom
+	gmax_Naxsom = g_Na_axon
+        for (x,0) {
+	    insert pas
+	    g_pas = 1/Rm * exp(-g_leak_decay_axon * distance(x)/1000)
+	    e_pas = eleak  	
+        }
+    }
+    
+
     forsec all {
-        
-        enat = 55 
-        ekf = -90  
-        ek=-90  
-        esk=-90 
-        elca=130
-        el_ichan2 =-60
-        ehyf=-40 ehys=-40
-        cao_ccanl=2 
-        
-    }  // make catau slower70e-3 	cao=2 cai=50.e-6 
+        ek = -95
+        ena = 55
+    }
+    
 }
 
 

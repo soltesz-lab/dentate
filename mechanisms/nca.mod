@@ -1,7 +1,14 @@
-TITLE nca.mod  
+TITLE N-type calcium channel (voltage dependent)
+ 
  
 COMMENT
-konduktivitas valtozas hatasa- somaban 
+N-Type Ca2+ channel (voltage dependent)
+
+Ions: ca
+
+Style: quasi-ohmic
+
+From: Aradi and Holmes, 1999
 ENDCOMMENT
  
 UNITS {
