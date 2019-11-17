@@ -8,8 +8,8 @@ DG_populations = ["AAC", "BC", "GC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC", "M
 DG_IN_populations = ["AAC", "BC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC"]
 DG_EXT_populations = ["MPP", "LPP", "CA3c"]
 
-DG_cells_file = "DG_Cells_Full_Scale_20191016.h5"
-DG_connections_file = "DG_Connections_Full_Scale_20191016.h5"
+DG_cells_file = "DG_Cells_Full_Scale_20191114.h5"
+DG_connections_file = "DG_Connections_Full_Scale_20191114.h5"
 
 DG_GC_coordinate_file  = "DG_coords_20190717_compressed.h5"
 DG_IN_coordinate_file  = "DG_coords_20190717_compressed.h5"
@@ -21,9 +21,9 @@ DG_IN_forest_file = "DG_IN_forest_20190325_compressed.h5"
 DG_GC_forest_syns_file = "DGC_forest_syns_20190717_compressed.h5"
 DG_IN_forest_syns_file = "DG_IN_forest_syns_20190325_compressed.h5"
 
-DG_GC_syn_weights_SLN_file = "DG_GC_syn_weights_SLN_20191015_compressed.h5"
+DG_GC_syn_weights_SLN_file = "DG_GC_syn_weights_SLN_20191111_compressed.h5"
 DG_GC_syn_weights_LN_file = "DG_GC_syn_weights_LN_20190717_compressed.h5"
-DG_IN_syn_weights_SLN_file = "DG_IN_syn_weights_SLN_20191015_compressed.h5"
+DG_IN_syn_weights_SLN_file = "DG_IN_syn_weights_SLN_20191111_compressed.h5"
 DG_IN_syn_weights_LN_file = "DG_IN_syn_weights_LN_20190809_compressed.h5"
 DG_IN_syn_weights_N_file = "DG_IN_syn_weights_N_20190809_compressed.h5"
 
@@ -38,7 +38,11 @@ DG_vecstim_file_dict = {
 }
 
 vecstim_dict = {'Input Spikes %s' % stim_id : stim_file for stim_id, stim_file in viewitems(DG_vecstim_file_dict)}
-     
+
+DG_remap_vecstim_file_dict = { 
+    'A Diag': "DG_remap_spike_trains_20191113_compressed.h5",
+}
+
 
 
 coordinate_files = {
@@ -173,3 +177,10 @@ with h5py.File(DG_cells_file) as f:
         for p in DG_EXT_populations:
             grp[p][vecstim_ns] = h5py.ExternalLink(vecstim_file,"/Populations/%s/%s" % (p, vecstim_ns))
         grp['GC'][vecstim_ns] = h5py.ExternalLink(vecstim_file,"/Populations/%s/%s" % ('GC', vecstim_ns))
+    for stim_id, vecstim_file in viewitems(DG_remap_vecstim_file_dict):
+        vecstim_ns = 'Input Spikes %s' % stim_id
+        remap_vecstim_ns = 'Input Spikes Remap %s' % stim_id
+        for p in DG_EXT_populations:
+            grp[p][remap_vecstim_ns] = h5py.ExternalLink(vecstim_file,"/Populations/%s/%s" % (p, vecstim_ns))
+
+
