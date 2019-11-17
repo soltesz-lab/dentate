@@ -15,6 +15,7 @@ script_name = os.path.basename(__file__)
 @click.option("--t-variable", type=str, default='t')
 @click.option("--t-max", type=float)
 @click.option("--t-min", type=float)
+@click.option("--threshold", type=float, default=0.01)
 @click.option("--bin-size", type=float, default=1.)
 @click.option("--meansub", type=bool, default=False, is_flag=True)
 @click.option("--graph-type", type=str, default='raster2d')
@@ -25,7 +26,7 @@ script_name = os.path.basename(__file__)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
 
 
-def main(spike_events_path, spike_events_namespace, populations, max_units, t_variable, t_max, t_min, bin_size, meansub, graph_type, progress, fig_size, font_size, save_format, verbose):
+def main(spike_events_path, spike_events_namespace, populations, max_units, t_variable, t_max, t_min, threshold, bin_size, meansub, graph_type, progress, fig_size, font_size, save_format, verbose):
 
     utils.config_logging(verbose)
 
@@ -40,7 +41,7 @@ def main(spike_events_path, spike_events_namespace, populations, max_units, t_va
     if not populations:
         populations = ['eachPop']
         
-    plot.plot_spike_rates (spike_events_path, spike_events_namespace, include=populations, max_units=max_units, time_range=time_range, time_variable=t_variable, meansub=meansub, bin_size=bin_size, graph_type=graph_type, fontSize=font_size, figSize=fig_size, saveFig=True, figFormat=save_format, progress=progress)
+    plot.plot_spike_rates (spike_events_path, spike_events_namespace, include=populations, max_units=max_units, time_range=time_range, time_variable=t_variable, threshold=threshold, meansub=meansub, bin_size=bin_size, graph_type=graph_type, fontSize=font_size, figSize=fig_size, saveFig=True, figFormat=save_format, progress=progress)
     
 
 if __name__ == '__main__':

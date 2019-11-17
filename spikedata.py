@@ -233,7 +233,7 @@ def spike_covariate(population, spkdict, time_bins, nbins_before, nbins_after):
 
 
 def spike_density_estimate(population, spkdict, time_bins, arena_id=None, trajectory_id=None, output_file_path=None,
-                            progress=False, baks_alpha=4.77, baks_beta=None,
+                            progress=False, baks_alpha=4.77, baks_beta=0.42,
                             inferred_rate_attr_name='Inferred Rate Map', **kwargs):
     """
     Calculates spike density function for the given spike trains.
@@ -269,11 +269,13 @@ def spike_density_estimate(population, spkdict, time_bins, arena_id=None, trajec
     if baks_beta is not None:
         baks_args['b'] = baks_beta
     if progress:
-        spk_rate_dict = {ind: baks(spkts / 1000., time_bins / 1000., **baks_args)[0].reshape((-1,))
-                         for ind, spkts in tqdm(viewitems(spktrains)) if len(spkts) > 1}
+        seq = tqdm(viewitems(spktrains))
     else:
-        spk_rate_dict = {ind: baks(spkts / 1000., time_bins / 1000., **baks_args)[0].reshape((-1,))
-                         for ind, spkts in viewitems(spktrains) if len(spkts) > 1}
+        seq = viewitems(spktrains)
+        
+    spk_rate_dict = {ind: baks(spkts / 1000., time_bins / 1000., **baks_args)[0].reshape((-1,))
+                     if len(spkts) > 1 else np.zeros(time_bins.shape)
+                     for ind, spkts in seq}
 
     if output_file_path is not None:
         if arena_id is None or trajectory_id is None:
