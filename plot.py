@@ -2247,7 +2247,7 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
     return fig
 
 
-def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', meansub=False, max_units = None, labels = 'legend', bin_size = 100., progress=False, **kwargs):
+def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', meansub=False, max_units = None, labels = 'legend', bin_size = 100., threshold=None, graph_type='raster2d', progress=False, **kwargs):
     ''' 
     Plot of network firing rates. Returns the figure handle.
 
@@ -2275,7 +2275,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
 
     spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable,
                                            time_range=time_range)
-
+    
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
     spktlst          = spkdata['spktlst']
@@ -2295,11 +2295,12 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
         rate_dict = {}
         for ind, dct in viewitems(sdf_dict):
             rates       = np.asarray(dct['rate'], dtype=np.float32)
-            meansub_rates = rates - np.mean(rates)
-            peak        = np.mean(rates[np.where(rates >= np.percentile(rates, 90.))[0]])
-            peak_index  = np.where(rates == np.max(rates))[0][0]
-            rate_dict[i] = { 'rate': rates, 'meansub': meansub_rates, 'peak': peak, 'peak index': peak_index }
-            i = i+1
+            if (threshold is None) or (threshold <= np.mean(rates)):
+                meansub_rates = rates - np.mean(rates)
+                peak        = np.mean(rates[np.where(rates >= np.percentile(rates, 90.))[0]])
+                peak_index  = np.where(rates == np.max(rates))[0][0]
+                rate_dict[i] = { 'rate': rates, 'meansub': meansub_rates, 'peak': peak, 'peak index': peak_index }
+                i = i+1
             if max_units is not None:
                 if i >= max_units:
                     break
