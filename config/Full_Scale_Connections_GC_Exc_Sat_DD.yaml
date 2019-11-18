@@ -129,7 +129,7 @@ Synapses:
             parameter: delay
             const:
               a: 1.55
-              b: 9.0
+              b: 7.0
           e: -75
           g_unit: 
             expr: a * exp(b * x)
@@ -153,7 +153,7 @@ Synapses:
               parameter: delay
               const:
                 a: 1.55
-                b: 9.0
+                b: 7.0
             e: -75
             g_unit: 
               expr: a * exp(b * x)
@@ -170,7 +170,7 @@ Synapses:
               parameter: delay
               const:
                 a: 1.55
-                b: 9.0                         
+                b: 7.0                         
             e: -75
             g_unit: 
               expr: a * exp(b * x)
@@ -188,7 +188,7 @@ Synapses:
       mechanisms:
         GABA_A:
           dur_onset: 1.5
-          tau_offset: 10.0
+          tau_offset: 8.0
           e: -75
           g_unit: 0.004
           weight: 1.0
@@ -201,7 +201,7 @@ Synapses:
       mechanisms:
         GABA_A:
           dur_onset: 2.5
-          tau_offset: 11.0
+          tau_offset: 9.0
           e: -75
           g_unit: 0.004
           weight: 1.0
