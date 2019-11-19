@@ -344,8 +344,7 @@ class ConstantInputCellConfig(object):
         """
         if selectivity_attr_dict is not None:
             self.init_from_attr_dict(selectivity_attr_dict)
-        elif any([arg is None for arg in [selectivity_type, selectivity_config, peak_rate, arena,
-                                          num_place_field_probabilities]]):
+        elif any([arg is None for arg in [selectivity_type, selectivity_config, peak_rate, arena]]):
             raise RuntimeError('ConstantInputCellConfig: missing argument(s) required for object construction')
         else:
             if local_random is None:
@@ -370,7 +369,7 @@ class ConstantInputCellConfig(object):
         :return: array
         """
         rate_map = np.ones_like(x, dtype='float32') * self.peak_rate
-
+        return rate_map
 
 def get_place_rate_map(x0, y0, width, x, y):
     """
@@ -924,6 +923,9 @@ def generate_input_selectivity_features(env, population, arena, selectivity_conf
     gid_count = defaultdict(lambda: 0)
     
     distances_attr_gen = NeuroH5CellAttrGen(coords_path, population, namespace=distances_namespace, comm=comm, io_size=io_size, cache_size=cache_size)
+
+    if rank == 0:
+        logger.info('generating selectivity features for %s cells...' % (population))
 
     selectivity_attr_dict = dict((key, dict()) for key in env.selectivity_types)
     for iter_count, (gid, distances_attr_dict) in enumerate(distances_attr_gen):

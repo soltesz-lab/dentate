@@ -3409,17 +3409,17 @@ def plot_stimulus_ratemap(env, input_path, namespace_id, population, arena_id=No
 
     logger.info('Reading feature data from namespace %s for population %s...' % (ns, population ))
     fig, ax = plt.subplots(1, 1)
-    sum_rate_map = np.zeros((x.shape))
+    rate_map_sum = np.zeros((x.shape))
     n = 0
     for (gid, rate, module) in stimulus.read_feature(input_path, ns, population):
         if np.max(rate) > 0.:
             n = n+1
-            sum_rate_map = sum_rate_map + rate.reshape((x.shape))
+            rate_map_sum = rate_map_sum + rate.reshape((x.shape))
 
-    mean_rate_map = sum_rate_map / float(n)
+    rate_map_mean = rate_map_sum / float(n)
     title = 'Mean Stimulus Rate %s' % ns
     ax.set_title(title, fontsize=fig_options.fontSize)
-    img = ax.imshow(mean_rate_map, origin='lower', aspect='auto', cmap=cm.coolwarm)
+    img = ax.imshow(rate_map_mean, origin='lower', aspect='auto', cmap=cm.coolwarm)
     ax.set_ylabel('Y Position [cm]', fontsize=fig_options.fontSize)
     ax.set_xlabel('X Position [cm]', fontsize=fig_options.fontSize)
 
