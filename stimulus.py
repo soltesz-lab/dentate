@@ -114,6 +114,7 @@ class InputSelectivityConfig(object):
         """
         return np.average(self.place_module_field_widths, weights=p_modules)
 
+    
 
 class GridInputCellConfig(object):
     def __init__(self, selectivity_type=None, arena=None, selectivity_config=None,
@@ -328,6 +329,49 @@ class PlaceInputCellConfig(object):
         return np.multiply(rate_map, self.peak_rate)
 
 
+    
+class ConstantInputCellConfig(object):
+    def __init__(self, selectivity_type=None, arena=None, selectivity_config=None,
+                 peak_rate=None, local_random=None, selectivity_attr_dict=None):
+        """
+
+        :param selectivity_type: int
+        :param arena: namedtuple
+        :param selectivity_config: :class:'SelectivityModuleConfig'
+        :param peak_rate: float
+        :param local_random: :class:'np.random.RandomState'
+        :param selectivity_attr_dict: dict
+        """
+        if selectivity_attr_dict is not None:
+            self.init_from_attr_dict(selectivity_attr_dict)
+        elif any([arg is None for arg in [selectivity_type, selectivity_config, peak_rate, arena,
+                                          num_place_field_probabilities]]):
+            raise RuntimeError('ConstantInputCellConfig: missing argument(s) required for object construction')
+        else:
+            if local_random is None:
+                local_random = np.random.RandomState()
+            self.selectivity_type = selectivity_type
+            self.peak_rate = peak_rate
+
+    def init_from_attr_dict(self, selectivity_attr_dict):
+        self.selectivity_type = selectivity_attr_dict['Selectivity Type'][0]
+        self.peak_rate = selectivity_attr_dict['Peak Rate'][0]
+
+    def get_selectivity_attr_dict(self):
+        return {'Selectivity Type': np.array([self.selectivity_type], dtype='uint8'),
+                'Peak Rate': np.array([self.peak_rate], dtype='float32'),
+                }
+
+    def get_rate_map(self, x, y):
+        """
+
+        :param x: array
+        :param y: array
+        :return: array
+        """
+        rate_map = np.ones_like(x, dtype='float32') * self.peak_rate
+
+
 def get_place_rate_map(x0, y0, width, x, y):
     """
 
@@ -397,7 +441,7 @@ def get_input_cell_config(selectivity_type, selectivity_type_names, population=N
         elif selectivity_type_name == 'constant':
             input_cell_config = ConstantInputCellConfig(selectivity_attr_dict=selectivity_attr_dict)
         else:
-            RuntimeError('get_input_cell_config: selectivity type: %s not yet implemented' % selectivity_type_name)
+            RuntimeError('get_input_cell_config: selectivity type %s is not supported' % selectivity_type_name)
     elif any([arg is None for arg in [population, stimulus_config, arena]]):
         raise RuntimeError('get_input_cell_config: missing argument(s) required to construct %s cell config object' %
                            selectivity_type_name)
@@ -1238,15 +1282,17 @@ def read_stimulus(stimulus_path, stimulus_namespace, population, module=None):
     return ratemap_lst
 
 
-def read_feature(feature_path, feature_namespace, population, module=None):
+def read_feature(feature_path, feature_namespace, population):
     feature_lst = []
 
     attr_gen = read_cell_attributes(feature_path, population, namespace=feature_namespace)
     for gid, feature_dict in attr_gen:
-        gid_module = feature_dict['Module ID'][0]
-        if (module is None) or (module == gid_module):
-            rate = feature_dict['Arena Rate Map']
-            feature_lst.append((gid, rate))
+        if 'Module ID' in feature_dict:
+            gid_module = feature_dict['Module ID'][0]
+        else:
+            gid_module = None
+        rate = feature_dict['Arena Rate Map']
+        feature_lst.append((gid, rate, gid_module))
 
     return feature_lst
 

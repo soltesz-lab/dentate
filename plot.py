@@ -3387,7 +3387,7 @@ def plot_selectivity_metrics (env, coords_path, features_path, distances_namespa
         show_figure()
 
 
-def plot_stimulus_rate(input_path, namespace_id, population, arena_id=None, trajectory_id=None, **kwargs):
+def plot_stimulus_ratemap(env, input_path, namespace_id, population, arena_id=None, modules=None, **kwargs):
     """
 
         - input_path: file with stimulus data
@@ -3398,48 +3398,32 @@ def plot_stimulus_rate(input_path, namespace_id, population, arena_id=None, traj
     fig_options = copy.copy(default_fig_options)
     fig_options.update(kwargs)
 
-    if trajectory_id is not None and arena_id is not None:
-        trajectory = stimulus.read_trajectory(input_path, arena_id, trajectory_id)
-        (_, _, _, t)  = trajectory
-    else:
-        t = None
-
-    M = 0
     if (arena_id is None):
         ns = namespace_id
     else:
         ns = '%s %s' % (namespace_id, arena_id)
 
+    spatial_resolution = env.stimulus_config['Spatial Resolution'] # cm
+    arena = env.stimulus_config['Arena'][arena_id]
+    x, y = stimulus.get_2D_arena_spatial_mesh(arena, spatial_resolution)
+
     logger.info('Reading feature data from namespace %s for population %s...' % (ns, population ))
-    fig, axes = plt.subplots(2, 5)
-    for module in range(0, 10):
-        rate_lst = []
-        for (gid, rate) in stimulus.read_feature(input_path, ns, population, module=module):
-            if np.max(rate) > 0.:
-                rate_lst.append(rate)
-        col = module % 5
-        row = module / 5
-        M = max(M, len(rate_lst))
-        N = len(rate_lst)
-        rate_matrix = np.matrix(rate_lst)
-        del(rate_lst)
+    fig, ax = plt.subplots(1, 1)
+    sum_rate_map = np.zeros((x.shape))
+    n = 0
+    for (gid, rate, module) in stimulus.read_feature(input_path, ns, population):
+        if np.max(rate) > 0.:
+            n = n+1
+            sum_rate_map = sum_rate_map + rate.reshape((x.shape))
 
-        if t is None:
-            extent=[0, len(rate), 0, N]
-        else:
-            extent=[t[0], t[-1], 0, N]
-        title = 'Module: %i' % module
-        axes[row][col].set_title(title, fontsize=fig_options.fontSize)
-        img = axes[row][col].imshow(rate_matrix, origin='upper', aspect='auto', cmap=cm.coolwarm,
-                                    extent=extent)
-        #axes[row][col].set_xlim([extent[0], extent[1]])
-        #axes[row][col].set_ylim(-1, N+1)
-        if col == 0:
-            axes[row][col].set_ylabel('Cell index', fontsize=fig_options.fontSize)
-        if row == 1:
-            axes[row][col].set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
+    mean_rate_map = sum_rate_map / float(n)
+    title = 'Mean Stimulus Rate %s' % ns
+    ax.set_title(title, fontsize=fig_options.fontSize)
+    img = ax.imshow(mean_rate_map, origin='lower', aspect='auto', cmap=cm.coolwarm)
+    ax.set_ylabel('Y Position [cm]', fontsize=fig_options.fontSize)
+    ax.set_xlabel('X Position [cm]', fontsize=fig_options.fontSize)
 
-    cax, kw = mpl.colorbar.make_axes([ax for ax in axes.flat])
+    cax, kw = mpl.colorbar.make_axes([ax])
     cbar = plt.colorbar(img, cax=cax, **kw)
     cbar.set_label('Firing rate (Hz)', rotation=270., labelpad=20.)
 
@@ -3470,7 +3454,7 @@ def plot_stimulus_spatial_rate_map(env, input_path, coords_path, arena_id, traje
         - include (['eachPop'|<population name>]): List of data series to include. 
             (default: ['eachPop'] - expands to the name of each population)
         - bin_size: length of square edge for 2D histogram (float)
-        - fromSpikes: bool; whether to compute rate maps from stored spikes, or from target function
+        - from_spikes: bool; whether to compute rate maps from stored spikes, or from target function
     """
 
     fig_options = copy.copy(default_fig_options)
