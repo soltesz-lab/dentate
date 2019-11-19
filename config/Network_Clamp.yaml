@@ -115,7 +115,7 @@ Synaptic Optimization:
           GABA_B:
             g_unit: [0.0005, 0.004]
     Targets:
-      firing rate: 0.2
+      firing rate: 0.75
       fraction active: 0.01
   MC:
     Parameter ranges:
@@ -146,8 +146,8 @@ Synaptic Optimization:
 #            g_unit: 
 #               a: [0.0001, 0.003]
     Targets:
-      firing rate: 1.0
-      fraction active: 0.7
+      firing rate: 1.5
+      fraction active: 0.3
   BC:
     Parameter ranges:
       MC:

@@ -294,7 +294,7 @@ Synapses:
       mechanisms:
         GABA_A:
           dur_onset: 1.5
-          tau_offset: 11.0
+          tau_offset: 9.0
           e: -75
           g_unit: 0.00175
           weight: 1.0
@@ -353,7 +353,7 @@ Synapses:
       mechanisms:
         GABA_A:
           dur_onset: 1.5
-          tau_offset: 10.0
+          tau_offset: 9.0
           e: -75
           g_unit: 0.00125
           weight: 1.0
@@ -829,7 +829,7 @@ Synapses:
           dur_onset: 0.9
           tau_offset: 3.6
           e: 0
-          g_unit: 0.001
+          g_unit: 0.0005
           weight: 1.0
           sat: 0.9
     HCC:  
