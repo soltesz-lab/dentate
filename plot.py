@@ -1184,7 +1184,7 @@ def plot_spikes_in_volume(config_path, populations, coords_path, coords_namespac
     if compute_rates:
         for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
             spkdict = spikedata.make_spike_dict(spkinds, spkts)
-            sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, progress=True)
+            sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, progress=True, **kwargs)
             rate_lst = []
             ind_lst = []
             for ind, dct in sorted(viewitems(sdf_dict)):
@@ -2314,7 +2314,7 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
     return fig
 
 
-def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', meansub=False, max_units = None, labels = 'legend', bin_size = 100., threshold=None, graph_type='raster2d', progress=False, **kwargs):
+def plot_spike_rates (input_path, namespace_id, config_path=None, include = ['eachPop'], time_range = None, time_variable='t', meansub=False, max_units = None, labels = 'legend', bin_size = 100., threshold=None, graph_type='raster2d', progress=False, **kwargs):
     ''' 
     Plot of network firing rates. Returns the figure handle.
 
@@ -2327,6 +2327,14 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
     fig_options = copy.copy(default_fig_options)
     fig_options.update(kwargs)
 
+    baks_config = copy.copy(kwargs)
+    
+    env = None
+    if config_path is not None:
+        env = Env(config_file=config_path)
+        if env.analysis_config is not None:
+            baks_config.update(env.analysis_config['Firing Rate Inference'])
+        
     (population_ranges, N) = read_population_ranges(input_path)
     population_names  = read_population_names(input_path)
 
@@ -2360,7 +2368,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
         if (max_units is not None) and len(spkdict) > max_units:
             spksel  = list(spkdict.items())[0:max_units]
             spkdict = dict(spksel)
-        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, progress=progress)
+        sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, progress=progress, **baks_config)
         i = 0
         rate_dict = {}
         for ind, dct in viewitems(sdf_dict):
@@ -2428,7 +2436,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
             for segment in segments:
                 plt.plot(segment[:,0], segment[:,1])
         else:
-            raise RuntimeError('plot_rates: unknown graph type %s' % graph_type)
+            raise RuntimeError('plot_spike_rates: unknown graph type %s' % graph_type)
             
         
         if iplot == len(spkpoplst)-1:
@@ -2452,7 +2460,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
     return fig
 
 
-def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_variable='t', time_range = None, 
+def plot_spike_histogram (input_path, namespace_id, config_path=None, include = ['eachPop'], time_variable='t', time_range = None, 
                           pop_rates = False, bin_size = 5., smooth = 0, quantity = 'rate', progress = False,
                           overlay=True, graph_type='bar', **kwargs):
     ''' 
@@ -2471,6 +2479,14 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
     '''
     fig_options = copy.copy(default_fig_options)
     fig_options.update(kwargs)
+
+    baks_config = copy.copy(kwargs)
+
+    env = None
+    if config_path is not None:
+        env = Env(config_file=config_path)
+        if env.analysis_config is not None:
+            baks_config.update(env.analysis_config['Firing Rate Inference'])
 
     (population_ranges, N) = read_population_ranges(input_path)
     population_names  = read_population_names(input_path)
@@ -2536,7 +2552,7 @@ def plot_spike_histogram (input_path, namespace_id, include = ['eachPop'], time_
     if quantity == 'rate':
         for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
             spkdict = spikedata.make_spike_dict(spkinds, spkts)
-            sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, progress=progress)
+            sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, progress=progress, **baks_config)
             bin_dict = defaultdict(lambda: {'rates':0.0, 'active': 0})
             for (ind, dct) in viewitems(sdf_dict):
                 rate = dct['rate']
@@ -2772,7 +2788,7 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
     return fig
 
 
-def plot_spike_distribution_per_time (input_path, namespace_id, include = ['eachPop'],
+def plot_spike_distribution_per_time (input_path, namespace_id, config_path=None, include = ['eachPop'],
                                       time_bin_size = 50.0, binCount = 10,
                                       time_variable='t', time_range = None, 
                                       overlay=True, quantity = 'rate', alpha_fill = 0.2, **kwargs):
@@ -2791,6 +2807,14 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
 
     fig_options = copy.copy(default_fig_options)
     fig_options.update(kwargs)
+
+    baks_config = copy.copy(kwargs)
+
+    env = None
+    if config_path is not None:
+        env = Env(config_file=config_path)
+        if env.analysis_config is not None:
+            baks_config.update(env.analysis_config['Firing Rate Inference'])
 
     (population_ranges, N) = read_population_ranges(input_path)
     population_names  = read_population_names(input_path)
@@ -2838,7 +2862,7 @@ def plot_spike_distribution_per_time (input_path, namespace_id, include = ['each
         spkinds       = spkindlst[iplot]
         time_bins     = np.arange(time_range[0], time_range[1], time_bin_size)
         spkdict       = spikedata.make_spike_dict(spkinds, spkts)
-        sdf_dict      = spikedata.spike_density_estimate(subset, spkdict, time_bins, return_counts=True)
+        sdf_dict      = spikedata.spike_density_estimate(subset, spkdict, time_bins, return_counts=True, **baks_config)
         max_rate      = np.zeros(time_bins.size-1)
         max_count     = np.zeros(time_bins.size-1)
         bin_dict      = defaultdict(lambda: {'counts': [], 'rates': []})
@@ -3093,8 +3117,8 @@ def plot_place_cells(features_path, population, nfields=1, to_plot=100, **kwargs
         plt.show()
 
 
-def plot_place_fields(spike_input_path, spike_namespace_id, trajectory_path, arena_id, trajectory_id, populations=None,
-                      bin_size=10.0, min_pf_width=10., min_pf_rate=None, spike_train_attr_name='t', time_range=None, alpha_fill=0.2,
+def plot_place_fields(spike_input_path, spike_namespace_id, trajectory_path, arena_id, trajectory_id, config_path=None, populations=None,
+                      bin_size=10.0, spike_train_attr_name='t', time_range=None, alpha_fill=0.2,
                       overlay=False, output_file_path=None, plot_dir_path=None, **kwargs):
     """
     Plots distributions of place fields per cell. Returns figure handle.
@@ -3118,6 +3142,16 @@ def plot_place_fields(spike_input_path, spike_namespace_id, trajectory_path, are
     fig_options = copy.copy(default_fig_options)
     fig_options.update(kwargs)
 
+    baks_config = copy.copy(kwargs)
+    pf_config =  copy.copy(kwargs)
+
+    env = None
+    if config_path is not None:
+        env = Env(config_file=config_path)
+        if env.analysis_config is not None:
+            baks_config.update(env.analysis_config['Firing Rate Inference'])
+            pf_config.update(env.analysis_config['Place Fields'])
+            
     trajectory = stimulus.read_trajectory(trajectory_path, arena_id, trajectory_id)
 
     (population_ranges, N) = read_population_ranges(spike_input_path)
@@ -3168,10 +3202,10 @@ def plot_place_fields(spike_input_path, spike_namespace_id, trajectory_path, are
 
         rate_bin_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, arena_id=arena_id,
                                                          trajectory_id=trajectory_id,
-                                                         output_file_path=output_file_path, **kwargs)
+                                                         output_file_path=output_file_path, **baks_config)
         PF_dict = spikedata.place_fields(subset, bin_size, rate_bin_dict, trajectory, arena_id=arena_id,
                                           trajectory_id=trajectory_id, output_file_path=output_file_path,
-                                          min_pf_width=min_pf_width, min_pf_rate=min_pf_rate, **kwargs)
+                                          **pf_config)
         
         PF_count_lst  = []
         PF_infield_rate_lst = []
