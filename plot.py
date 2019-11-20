@@ -14,7 +14,6 @@ from matplotlib.colors import BoundaryNorm
 from matplotlib.offsetbox import AnchoredText
 from matplotlib.ticker import FormatStrFormatter, MaxNLocator
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from matplotlib.collections import LineCollection
 
 from dentate.graph import vertex_distribution, vertex_metrics
 from dentate.statedata import read_state
@@ -22,7 +21,7 @@ from dentate.cells import default_ordered_sec_types, get_distance_to_node
 from dentate.env import Env
 from dentate.synapses import get_syn_filter_dict, get_syn_mech_param
 from dentate.utils import get_module_logger, Struct, add_bins, update_bins, finalize_bins
-from dentate.utils import power_spectrogram, kde_scipy, make_geometric_graph, viewitems, zip_longest, basestring
+from dentate.utils import power_spectrogram, butter_bandpass_filter, kde_scipy, make_geometric_graph, viewitems, zip_longest, basestring
 from dentate.io_utils import get_h5py_attr, set_h5py_attr
 from neuroh5.io import NeuroH5ProjectionGen, bcast_cell_attributes, read_cell_attributes, read_population_names, read_population_ranges, read_projection_names, read_tree_selection
 
@@ -120,7 +119,10 @@ def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, edge_color=None, 
     from mayavi import mlab
     if edge_color is not None:
         kwargs['color'] = edge_color
-    #p = mlab.points3d(x[0],y[0],z[0], mode='cone', scale_factor=50, **kwargs)
+    mlab.points3d(x[0],y[0],z[0],
+                  mode='cone',
+                  scale_factor=50,
+                  **kwargs)
     vec = mlab.quiver3d(x[start_idx],
                         y[start_idx],
                         z[start_idx],
@@ -288,30 +290,60 @@ def plot_vertex_distribution(connectivity_path, coords_path, distances_namespace
 
     rank = comm.Get_rank()
 
-    vertex_distribution_dict = vertex_distribution(connectivity_path, coords_path,
-                                                   distances_namespace,
-                                                   destination, sources,
-                                                   bin_size, cache_size, comm=comm)
+    has_vertex_dist_metrics = False
+    if rank == 0:
+        f = h5py.File(connectivity_path, 'r')
+        if 'Vertex Distribution' in f:
+            has_vertex_dist_metrics = True
+            vertex_distribution_dict = {dist_type: { destination: {} }
+                                            for dist_type in ['Total distance', 'U distance', 'V distance']}
+            for source in sources:
+                dist_hist_array = f['Vertex Distribution']['Total distance'][destination][source]
+                dist_u_hist_array = f['Vertex Distribution']['U distance'][destination][source]
+                dist_v_hist_array = f['Vertex Distribution']['V distance'][destination][source]
+                vertex_distribution_dict['Total distance'][destination][source] = dist_hist_array[()]
+                vertex_distribution_dict['U distance'][destination][source] = dist_u_hist_array[()]
+                vertex_distribution_dict['V distance'][destination][source] = dist_v_hist_array[()]
+        f.close()
+
+    has_vertex_dist_metrics = comm.bcast(has_vertex_dist_metrics, root=0)
+    
+    if not has_vertex_dist_metrics:
+        vertex_distribution_dict = vertex_distribution(connectivity_path, coords_path,
+                                                        distances_namespace,
+                                                        destination, sources,
+                                                        bin_size, cache_size, comm=comm)
+        
+        
                     
     if rank == 0:
         for source in sources:
-            dist_hist_vals, dist_bin_edges = vertex_distribution_dict['Total distance'][destination][source]
-            dist_u_hist_vals, dist_u_bin_edges = vertex_distribution_dict['U distance'][destination][source]
-            dist_v_hist_vals, dist_v_bin_edges = vertex_distribution_dict['V distance'][destination][source]
+            if has_vertex_dist_metrics:
+                dist_hist_array = vertex_distribution_dict['Total distance'][destination][source]
+                dist_u_hist_array = vertex_distribution_dict['U distance'][destination][source]
+                dist_v_hist_array =vertex_distribution_dict['V distance'][destination][source]
+                dist_hist_vals = dist_hist_array[0,:]
+                dist_bin_edges = dist_hist_array[1,:]
+                dist_u_hist_vals = dist_u_hist_array[0,:]
+                dist_u_bin_edges = dist_u_hist_array[1,:]
+                dist_v_hist_vals = dist_v_hist_array[0,:]
+                dist_v_bin_edges = dist_v_hist_array[1,:]
+            else:
+                dist_hist_vals, dist_bin_edges = vertex_distribution_dict['Total distance'][destination][source]
+                dist_u_hist_vals, dist_u_bin_edges = vertex_distribution_dict['U distance'][destination][source]
+                dist_v_hist_vals, dist_v_bin_edges = vertex_distribution_dict['V distance'][destination][source]
 
-            fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(10,6))
+            fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=fig_options.figSize)
             fig.suptitle('Distribution of connection distances for projection %s -> %s' % (source, destination), fontsize=fig_options.fontSize)
 
-            ax1.fill_between(dist_bin_edges, dist_hist_vals, 0, alpha=0.2)
-            ax1.plot(dist_bin_edges, dist_hist_vals)
+            ax1.fill_between(dist_bin_edges, dist_hist_vals, alpha=0.5)
             ax1.set_xlabel('Total distance (um)', fontsize=fig_options.fontSize)
             ax1.set_ylabel('Number of connections', fontsize=fig_options.fontSize)
         
-            ax2.fill_between(dist_u_bin_edges, dist_u_hist_vals, 0, alpha=0.2)
+            ax2.fill_between(dist_u_bin_edges, dist_u_hist_vals, alpha=0.5)
             ax2.set_xlabel('Septal - temporal (um)', fontsize=fig_options.fontSize)
             
-            #ax3.fill_between(dist_v_bin_edges, dist_v_hist_vals, 0, alpha=0.2)
-            ax3.fill_between(dist_v_bin_edges, dist_v_hist_vals, 0, alpha=0.2)
+            ax3.fill_between(dist_v_bin_edges, dist_v_hist_vals, alpha=0.5)
             ax3.set_xlabel('Supra - infrapyramidal (um)', fontsize=fig_options.fontSize)
 
             ax1.tick_params(labelsize=fig_options.fontSize)
@@ -388,7 +420,6 @@ def plot_single_vertex_dist(env, connectivity_path, coords_path, distances_names
             if destination_gid == target_gid:
                 (source_indexes, attr_dict) = rest
                 for source_gid in source_indexes:
-                    print(source_gid)
                     dist_u = source_soma_distance_U[source_gid]
                     dist_v = source_soma_distance_V[source_gid]
                     update_bins(dist_bins, bin_size, dist_u, dist_v)
@@ -946,60 +977,6 @@ def plot_coords_in_volume(populations, coords_path, coords_namespace, config, sc
     mlab.show()
 
 
-def plot_tree_graph(tree_dict, edge_color, line_width, color_edge_scalars=True):
-
-    import networkx as nx
-    
-    xcoords = tree_dict['x']
-    ycoords = tree_dict['y']
-    zcoords = tree_dict['z']
-    swc_type = tree_dict['swc_type']
-    layer    = tree_dict['layer']
-    secnodes = tree_dict['section_topology']['nodes']
-    src      = tree_dict['section_topology']['src']
-    dst      = tree_dict['section_topology']['dst']
-    
-    dend_idxs = np.where(swc_type == 4)[0]
-    dend_idx_set = set(dend_idxs.flat)
-    
-    edges = []
-    for sec, nodes in viewitems(secnodes):
-        for i in range(1, len(nodes)):
-            srcnode = nodes[i-1]
-            dstnode = nodes[i]
-            if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
-                edges.append((srcnode, dstnode))
-    for (s,d) in zip(src,dst):
-        srcnode = secnodes[s][-1]
-        dstnode = secnodes[d][0]
-        if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
-            edges.append((srcnode, dstnode))
-
-    x = xcoords.reshape(-1,)
-    y = ycoords.reshape(-1,)
-    z = zcoords.reshape(-1,)
-
-    # Make a NetworkX graph out of our point and edge data
-    g = make_geometric_graph(x, y, z, edges)
-
-    # Compute minimum spanning tree using networkx
-    # nx.mst returns an edge generator
-    edges = nx.minimum_spanning_tree(g).edges(data=True)
-    start_idx, end_idx, _ = np.array(list(edges)).T
-    start_idx = start_idx.astype(np.int)
-    end_idx   = end_idx.astype(np.int)
-    if color_edge_scalars:
-        edge_scalars = z[start_idx]
-        edge_color = None
-    else:
-        edge_scalars = None
-                                        
-    # Plot this with Mayavi
-    vec = plot_graph(x, y, z, start_idx, end_idx, edge_scalars=edge_scalars, edge_color=edge_color, \
-                     opacity=0.8, colormap='summer', line_width=line_width)
-    return vec
-
-
 def plot_trees_in_volume(population, forest_path, config, line_width=1., sample=0.05, coords_path=None, distances_namespace='Arc Distances', longitudinal_extent=None, volume='full', color_edge_scalars=True, volume_opacity=0.1):
     
     env = Env(config_file=config)
@@ -1068,8 +1045,56 @@ def plot_trees_in_volume(population, forest_path, config, line_width=1., sample=
     for (gid,tree_dict) in tree_iter:
 
         logger.info('plotting tree %i' % gid)
-        edge_color = hex2rgb(rainbow_colors[gid%len(rainbow_colors)])
-        plot_tree_graph(tree_dict, edge_color, line_width, color_edge_scalars=color_edge_scalars)
+        xcoords = tree_dict['x']
+        ycoords = tree_dict['y']
+        zcoords = tree_dict['z']
+        swc_type = tree_dict['swc_type']
+        layer    = tree_dict['layer']
+        secnodes = tree_dict['section_topology']['nodes']
+        src      = tree_dict['section_topology']['src']
+        dst      = tree_dict['section_topology']['dst']
+
+        dend_idxs = np.where(swc_type == 4)[0]
+        dend_idx_set = set(dend_idxs.flat)
+
+        edges = []
+        for sec, nodes in viewitems(secnodes):
+            for i in range(1, len(nodes)):
+                srcnode = nodes[i-1]
+                dstnode = nodes[i]
+                if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
+                    edges.append((srcnode, dstnode))
+        for (s,d) in zip(src,dst):
+            srcnode = secnodes[s][-1]
+            dstnode = secnodes[d][0]
+            if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
+                edges.append((srcnode, dstnode))
+
+                
+        x = xcoords[dend_idxs].reshape(-1,)
+        y = ycoords[dend_idxs].reshape(-1,)
+        z = zcoords[dend_idxs].reshape(-1,)
+
+        # Make a NetworkX graph out of our point and edge data
+        g = make_geometric_graph(x, y, z, edges)
+
+        # Compute minimum spanning tree using networkx
+        # nx.mst returns an edge generator
+        edges = nx.minimum_spanning_tree(g).edges(data=True)
+        start_idx, end_idx, _ = np.array(list(edges)).T
+        start_idx = start_idx.astype(np.int)
+        end_idx   = end_idx.astype(np.int)
+        if color_edge_scalars:
+            edge_scalars = z[start_idx]
+            edge_color = None
+        else:
+            edge_scalars = None
+            edge_color = hex2rgb(rainbow_colors[gid%len(rainbow_colors)])
+                                        
+        # Plot this with Mayavi
+        plot_graph(x, y, z, start_idx, end_idx, edge_scalars=edge_scalars, edge_color=edge_color, \
+                       opacity=0.8, colormap='summer', line_width=line_width)
+
             
     from dentate.geometry import make_volume
 
@@ -1102,8 +1127,7 @@ def plot_trees_in_volume(population, forest_path, config, line_width=1., sample=
     
 def plot_spikes_in_volume(config_path, populations, coords_path, coords_namespace, spike_input_path,
                           spike_input_namespace, time_variable='t', marker_scale=10., compute_rates=False, 
-                          time_step = 5.0, subvol=False, rotate_anim=False, time_range=None,
-                          line_width=1., forest_path=None, plot_trees=False, **kwargs):
+                          time_step = 5.0, subvol=False, rotate_anim=False, time_range=None, **kwargs):
 
     fig_options = copy.copy(default_fig_options)
     fig_options.update(kwargs)
@@ -1221,8 +1245,7 @@ def plot_spikes_in_volume(config_path, populations, coords_path, coords_namespac
                            rotate=rotate)
 
     logger.info('Plotting volume...')
-    #mlab.options.offscreen = True
-    
+
     mlab.figure(bgcolor=(0,0,0),size=(1280,1024))
     fig = mlab.gcf()
     fig.scene.render_window.multi_samples = 8
@@ -1240,42 +1263,30 @@ def plot_spikes_in_volume(config_path, populations, coords_path, coords_namespac
     t0 = time_bins[0]
     t1 = time_bins[1]
 
-    logger.info("time_bins: %s" % str(time_bins))
-    pts_plots = defaultdict(list)
+    pts_plots = []
     if compute_rates:
         for pop_name, rates in sorted(viewitems(spkrate_dict)):
             inds = rates[0]
             cinds = inds - population_ranges[pop_name][0]
+            initial_pts = coords_dict[pop_name][cinds,:]
             rate_array = np.asarray([this_rates[0] for this_rates in rates[1]])
             category = pop_categories[pop_name]
-            initial_pts = coords_dict[pop_name][cinds,:]
-            if (pop_name in plot_trees) and forest_path:
-                (tree_iter, _) = read_tree_selection(forest_path, pop_name, selection=inds.tolist())
-                color = hex2rgb(category_colors[category%len(category_colors)])
-                for (gid,tree_dict) in tree_iter:
-                    pts_plots[pop_name].append(plot_tree_graph(tree_dict, color, line_width))
-            else:
-                x = initial_pts[:,0]
-                y = initial_pts[:,1]
-                z = initial_pts[:,2]
-                s = rate_array
-                nodes = mlab.points3d(x, y, z, s, colormap=category_colormaps[category], scale_factor=marker_scale)
-                nodes.glyph.color_mode = 'color_by_scalar'
-                pts_plots[pop_name].append(nodes)
+            x = initial_pts[:,0]
+            y = initial_pts[:,1]
+            z = initial_pts[:,2]
+            s = rate_array 
+            nodes = mlab.points3d(x, y, z, s, colormap=category_colormaps[category], scale_factor=marker_scale)
+            nodes.glyph.color_mode = 'color_by_scalar'
+            pts_plots.append(nodes)
     else:
         for p, (pop_name, spkinds, spkts) in enumerate(data):
             rinds = np.where(np.logical_and(spkts >= t0, spkts <= t1))
             cinds = spkinds[rinds] - population_ranges[pop_name][0]
+            initial_pts = coords_dict[pop_name][cinds,:]
             category = pop_categories[pop_name]
             color = hex2rgb(category_colors[category%len(category_colors)])
-            if (pop_name in plot_trees) and forest_path:
-                (tree_iter, _) = read_tree_selection(forest_path, pop_name, selection=spkinds[rinds].tolist())
-                for (gid,tree_dict) in tree_iter:
-                    pts_plots[pop_name].append(plot_tree_graph(tree_dict, color, line_width))
-            else:
-                initial_pts = coords_dict[pop_name][cinds,:]
-                nodes = mlab.points3d(*initial_pts.T, color=color, scale_factor=marker_scale)
-                pts_plots[pop_name].append(nodes)
+            nodes = mlab.points3d(*initial_pts.T, color=color, scale_factor=marker_scale)
+            pts_plots.append(nodes)
 
     #fig.scene.x_plus_view()
 
@@ -1304,33 +1315,16 @@ def plot_spikes_in_volume(config_path, populations, coords_path, coords_namespac
             logger.info('frame %d' % frame)
             t0 = time_bins[frame]
             t1 = time_bins[frame+1]
-            fig.scene.disable_render = True
             for p, (pop_name, spkinds, spkts) in enumerate(data):
                 rinds = np.where(np.logical_and(spkts >= t0, spkts <= t1))
                 cinds = spkinds[rinds] - population_ranges[pop_name][0]
-                if (pop_name in plot_trees) and forest_path:
-                    category = pop_categories[pop_name]
-                    color = hex2rgb(category_colors[category%len(category_colors)])
-                    for obj in pts_plots[pop_name]:
-                        obj.remove()
-                    pts_plots[pop_name].clear()
-                    inds = spkinds[rinds].tolist()
-                    logger.info('reading tree indices %s' % str(inds))
-                    (tree_iter, _) = read_tree_selection(forest_path, pop_name, selection=inds)
-                    for (gid,tree_dict) in tree_iter:
-                        pts_plots[pop_name].append(plot_tree_graph(tree_dict, color, line_width))
-                else:
-                    frame_pts = coords_dict[pop_name][cinds,:]
-                    pts_plots[pop_name][0].mlab_source.reset(x=frame_pts[:,0], y=frame_pts[:,1], z=frame_pts[:,2], scale_factor=marker_scale)
-            # Update time
-            time_text.text = 't = %.02f ms' % t0
+                frame_pts = coords_dict[pop_name][cinds,:]
+                pts_plots[p].mlab_source.reset(x=frame_pts[:,0], y=frame_pts[:,1], z=frame_pts[:,2], scale_factor=marker_scale)
             # Reposition the camera
             if rotate_anim:
                 mlab.view(azimuth=(-1.*frame) % 360.)
-            else:
-                mlab.view(azimuth=0., distance=3000.)
-            fig.scene.disable_render = False
-            logger.info('completed frame %d' % frame)
+            # Update time
+            time_text.text = 't = %.02f ms' % t0
             yield
             
     def anim_rates():
@@ -1340,15 +1334,7 @@ def plot_spikes_in_volume(config_path, populations, coords_path, coords_namespac
             for p, (pop_name, rates) in enumerate(sorted(viewitems(spkrate_dict))):
                 rate_array = np.asarray([this_rates[frame] for this_rates in rates[1]])
                 s = rate_array 
-                if (pop_name in plot_trees) and forest_path:
-                    for obj in pts_plots[pop_name]:
-                        obj.remove()
-                    pts_plots[pop_name].clear()
-                    (tree_iter, _) = read_tree_selection(forest_path, pop_name, selection=spkinds[rinds].tolist())
-                    for (gid,tree_dict) in tree_iter:
-                        pts_plots[pop_name].append(plot_tree_graph(tree_dict, color, line_width))
-                else:
-                    pts_plots[pop_name][0].mlab_source.set(scalars = s)
+                pts_plots[p].mlab_source.set(scalars = s)
             # Reposition the camera
             if rotate_anim:
                 mlab.view(azimuth=(-1.*frame) % 360.)
@@ -1356,9 +1342,9 @@ def plot_spikes_in_volume(config_path, populations, coords_path, coords_namespac
             yield
 
     if compute_rates:
-        do_anim = mlab.animate(anim_rates, support_movie=True)
+        do_anim = mlab.animate(anim_rates)
     else:
-        do_anim = mlab.animate(anim_spikes, support_movie=True)
+        do_anim = mlab.animate(anim_spikes)
 
     if fig_options.saveFig:
         fig.scene.movie_maker.record = True
@@ -1431,7 +1417,7 @@ def plot_population_density(population, soma_coords, distances_namespace, max_u,
     return ax
 
 
-def plot_lfp(config, input_path, time_range = None, compute_psd=False, window_size=1024, frequency_range=(0, 400.), overlap=0.5, **kwargs):
+def plot_lfp(config, input_path, time_range = None, compute_psd=False, window_size=4096, frequency_range=(0, 400.), overlap=0.9, bandpass_filter=False, **kwargs):
     '''
     Line plot of LFP state variable (default: v). Returns figure handle.
 
@@ -1445,12 +1431,13 @@ def plot_lfp(config, input_path, time_range = None, compute_psd=False, window_si
     env = Env(config_file=config)
 
     nrows = len(env.lfpConfig)
+    ncols = 1
+    psd_col = 1
     if compute_psd:
-        ncols = 2
-    else:
-        ncols = 1
+        ncols += 1
 
-    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=fig_options.figSize, squeeze=False)
+    gs  = gridspec.GridSpec(nrows, ncols, width_ratios=[3,1] if ncols > 1 else [1])
+    fig = plt.figure(figsize=fig_options.figSize)
     for iplot, (lfp_label, lfp_config_dict) in enumerate(viewitems(env.lfpConfig)):
         namespace_id = "Local Field Potential %s" % str(lfp_label)
         import h5py
@@ -1471,9 +1458,9 @@ def plot_lfp(config, input_path, time_range = None, compute_psd=False, window_si
             v = np.asarray(vlst)
 
         dt = lfp_config_dict['dt']
-
+        Fs = 1000. / dt
+        
         if compute_psd:
-            Fs = 1000. / dt
 
             nperseg    = window_size
             win        = signal.get_window('hanning', nperseg)
@@ -1491,16 +1478,25 @@ def plot_lfp(config, input_path, time_range = None, compute_psd=False, window_si
 
             peak_index = np.where(psd == np.max(psd))[0]
 
+        filtered_v = None
+        if bandpass_filter:
+           filtered_v = butter_bandpass_filter(v, max(bandpass_filter[0], 1.0), bandpass_filter[1], Fs, order=2)
 
-        axes[iplot, 0].set_title('%s' % (namespace_id), fontsize=fig_options.fontSize)
-        axes[iplot, 0].plot(t, v, label=lfp_label, linewidth=fig_options.lw)
-        axes[iplot, 0].set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
-        axes[iplot, 0].set_ylabel('Field Potential (mV)', fontsize=fig_options.fontSize)
+        ax = plt.subplot(gs[iplot,0])
+        ax.set_title('%s' % (namespace_id), fontsize=fig_options.fontSize)
+        ax.plot(t, v, label=lfp_label, linewidth=fig_options.lw)
+        ax.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
+        ax.set_ylabel('Field Potential (mV)', fontsize=fig_options.fontSize)
+        if bandpass_filter:
+            if filtered_v is not None:
+                ax.plot(t, filtered_v, label='%s (filtered)' % lfp_label,
+                        color='red', linewidth=fig_options.lw)
         if compute_psd:
-            axes[iplot, 1].plot(freqs, psd, linewidth=fig_options.lw)
-            axes[iplot, 1].set_xlabel('Frequency (Hz)', fontsize=fig_options.fontSize)
-            axes[iplot, 1].set_ylabel('Power Spectral Density (dB/Hz)', fontsize=fig_options.fontSize)
-            axes[iplot, 1].set_title('PSD %s (peak: %.3g Hz)' % (namespace_id, freqs[peak_index]), fontsize=fig_options.fontSize)
+            ax = plt.subplot(gs[iplot,psd_col])
+            ax.plot(freqs, psd, linewidth=fig_options.lw)
+            ax.set_xlabel('Frequency (Hz)', fontsize=fig_options.fontSize)
+            ax.set_ylabel('Power Spectral Density (dB/Hz)', fontsize=fig_options.fontSize)
+            ax.set_title('PSD (peak: %.3g Hz)' % (freqs[peak_index]), fontsize=fig_options.fontSize)
 
     # save figure
     if fig_options.saveFig:
@@ -1517,71 +1513,7 @@ def plot_lfp(config, input_path, time_range = None, compute_psd=False, window_si
     return fig
 
 
-def plot_syn_weights(population, syn_path, weights_path, config, line_width=1., sample=0.05, weights_namespace='Synaptic Weights', color_edge_scalars=True, volume_opacity=0.1):
-    
-    env = Env(config_file=config)
-
-    rotate = env.geometry['Parametric Surface']['Rotation']
-
-    pop_min_extent = np.asarray(env.geometry['Cell Layers']['Minimum Extent'][population])
-    pop_max_extent = np.asarray(env.geometry['Cell Layers']['Maximum Extent'][population])
-
-    min_extents = env.geometry['Parametric Surface']['Minimum Extent']
-    max_extents = env.geometry['Parametric Surface']['Maximum Extent']
-    layer_min_extent = None
-    layer_max_extent = None
-    for ((layer_name,max_extent),(_,min_extent)) in zip(viewitems(max_extents),viewitems(min_extents)):
-        if layer_min_extent is None:
-            layer_min_extent = np.asarray(min_extent)
-        else:
-            layer_min_extent = np.minimum(layer_min_extent, np.asarray(min_extent))
-        if layer_max_extent is None:
-            layer_max_extent = np.asarray(max_extent)
-        else:
-            layer_max_extent = np.maximum(layer_max_extent, np.asarray(max_extent))
-
-    logger.info(("Layer minimum extents: %s" % (str(layer_min_extent))))
-    logger.info(("Layer maximum extents: %s" % (str(layer_max_extent))))
-
-    (population_ranges, _) = read_population_ranges(forest_path)
-
-    population_start = population_ranges[population][0]
-    population_count = population_ranges[population][1]
-
-    import networkx as nx
-    
-    if longitudinal_extent is None:
-        #(trees, _) = NeuroH5TreeGen(forest_path, population)
-        if isinstance(sample, numbers.Real):
-            s = np.random.random_sample((population_count,))
-            selection = np.where(s <= sample) + population_start
-        else:
-            selection = list(sample)
-    else:
-        print('Reading distances...')
-        distances = read_cell_attributes(coords_path, population, namespace=distances_namespace)
-    
-        soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
-        del distances
-
-        lst = []
-        for k, v in viewitems(soma_distances):
-            if v[0] >= longitudinal_extent[0] and v[0] <= longitudinal_extent[1]:
-                lst.append(k)
-        sample_range = np.asarray(lst)
-                          
-        if isinstance(sample, numbers.Real):
-            s = np.random.random_sample(sample_range.shape)
-            selection = sample_range[np.where(s <= sample)]
-        else:
-            raise RuntimeError('Sample must be a real number')
-
-    print('%d trees selected from population %s' % (len(selection), population))
-    (tree_iter, _) = read_tree_selection(forest_path, population, selection=selection.tolist())
-
-
-
-def plot_lfp_spectrogram(config, input_path, time_range = None, window_size=1024, overlap=0.5, frequency_range=(0, 400.), **kwargs):
+def plot_lfp_spectrogram(config, input_path, time_range = None, window_size=4096, overlap=0.9, frequency_range=(0, 400.), **kwargs):
     '''
     Line plot of LFP power spectrogram. Returns figure handle.
 
@@ -1619,16 +1551,17 @@ def plot_lfp_spectrogram(config, input_path, time_range = None, window_size=1024
 
         dt = lfp_config_dict['dt']
 
-        Fs = 1000. / dt
+        Fs = int(1000. / dt)
 
         freqs, t, Sxx = power_spectrogram(v, Fs, window_size, overlap)
         freqinds = np.where((freqs >= frequency_range[0]) & (freqs <= frequency_range[1]))
 
         freqs  = freqs[freqinds]
         sxx = Sxx[freqinds,:][0]
-        
+
+        axes[iplot, 0].set_ylim(*frequency_range)
         axes[iplot, 0].set_title('%s' % (namespace_id), fontsize=fig_options.fontSize)
-        axes[iplot, 0].pcolormesh(t, freqs, sxx)
+        axes[iplot, 0].pcolormesh(t, freqs, sxx, cmap='jet')
         axes[iplot, 0].set_xlabel('Time (s)', fontsize=fig_options.fontSize)
         axes[iplot, 0].set_ylabel('Frequency (Hz)', fontsize=fig_options.fontSize)
 
@@ -2315,7 +2248,7 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
     return fig
 
 
-def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', meansub=False, max_units = None, labels = 'legend', bin_size = 100., graph_type='raster2d', progress=False, **kwargs):
+def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', meansub=False, max_units = None, labels = 'legend', bin_size = 100., threshold=None, graph_type='raster2d', progress=False, **kwargs):
     ''' 
     Plot of network firing rates. Returns the figure handle.
 
@@ -2343,7 +2276,7 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
 
     spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable,
                                            time_range=time_range)
-
+    
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
     spktlst          = spkdata['spktlst']
@@ -2358,19 +2291,17 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
     spkrate_dict = {}
     for subset, spkinds, spkts in zip(spkpoplst, spkindlst, spktlst):
         spkdict = spikedata.make_spike_dict(spkinds, spkts)
-        if (max_units is not None) and len(spkdict) > max_units:
-            spksel  = list(spkdict.items())[0:max_units]
-            spkdict = dict(spksel)
         sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, progress=progress)
         i = 0
         rate_dict = {}
         for ind, dct in viewitems(sdf_dict):
             rates       = np.asarray(dct['rate'], dtype=np.float32)
-            meansub_rates = rates - np.mean(rates)
-            peak        = np.mean(rates[np.where(rates >= np.percentile(rates, 90.))[0]])
-            peak_index  = np.where(rates == np.max(rates))[0][0]
-            rate_dict[i] = { 'rate': rates, 'meansub': meansub_rates, 'peak': peak, 'peak index': peak_index }
-            i = i+1
+            if (threshold is None) or (threshold <= np.mean(rates)):
+                meansub_rates = rates - np.mean(rates)
+                peak        = np.mean(rates[np.where(rates >= np.percentile(rates, 90.))[0]])
+                peak_index  = np.where(rates == np.max(rates))[0][0]
+                rate_dict[i] = { 'rate': rates, 'meansub': meansub_rates, 'peak': peak, 'peak index': peak_index }
+                i = i+1
             if max_units is not None:
                 if i >= max_units:
                     break
@@ -2407,33 +2338,25 @@ def plot_spike_rates (input_path, namespace_id, include = ['eachPop'], time_rang
 
         color = dflt_colors[iplot%len(dflt_colors)]
 
-        ax = plt.subplot(len(spkpoplst),1,iplot+1)  # if subplot, create new subplot
+        plt.subplot(len(spkpoplst),1,iplot+1)  # if subplot, create new subplot
         if meansub:
             plt.title ('%s Mean-subtracted Instantaneous Firing Rate' % str(subset), fontsize=fig_options.fontSize)
         else:
             plt.title ('%s Instantaneous Firing Rate' % str(subset), fontsize=fig_options.fontSize)
 
-        if graph_type == 'raster2d':
-            im = plt.imshow(rate_matrix, origin='upper', aspect='auto', interpolation='none',
-                            extent=[time_range[0], time_range[1], 0, rate_matrix.shape[0]], cmap=fig_options['colormap'])
-            im.axes.tick_params(labelsize=fig_options.fontSize)
-            cbar = plt.colorbar(im)
-            cbar.ax.set_ylabel('Firing Rate (Hz)', fontsize=fig_options.fontSize)
-            cbar.ax.tick_params(labelsize=fig_options.fontSize)
-            if iplot == 0: 
-                plt.ylabel('Relative Cell Index', fontsize=fig_options.fontSize)
-        elif graph_type == 'raster1d':
-            segments = [np.column_stack((np.asarray(time_bins), np.array(rate_matrix[i,:]).flatten()))
-                        for i in range(rate_matrix.shape[0])]
-            for segment in segments:
-                plt.plot(segment[:,0], segment[:,1])
-        else:
-            raise RuntimeError('plot_rates: unknown graph type %s' % graph_type)
-            
+        im = plt.imshow(rate_matrix, origin='upper', aspect='auto', interpolation='none',
+                        extent=[time_range[0], time_range[1], 0, rate_matrix.shape[0]], cmap=fig_options['colormap'])
+
+        im.axes.tick_params(labelsize=fig_options.fontSize)
         
+        if iplot == 0: 
+            plt.ylabel('Relative Cell Index', fontsize=fig_options.fontSize)
         if iplot == len(spkpoplst)-1:
             plt.xlabel('Time (ms)', fontsize=fig_options.fontSize)
 
+        cbar = plt.colorbar(im)
+        cbar.ax.set_ylabel('Firing Rate (Hz)', fontsize=fig_options.fontSize)
+        cbar.ax.tick_params(labelsize=fig_options.fontSize)
 
     if fig_options.saveFig:
         if isinstance(fig_options.saveFig, basestring):
@@ -2965,11 +2888,10 @@ def plot_spatial_information(spike_input_path, spike_namespace_id, trajectory_pa
         populations = list(population_names)
 
     this_spike_namespace = '%s %s %s' % (spike_namespace_id, arena_id, trajectory_id)
-    this_spike_namespace = spike_namespace_id
 
     spkdata = spikedata.read_spike_events(spike_input_path, populations, this_spike_namespace,
                                           spike_train_attr_name=spike_train_attr_name, time_range=time_range)
-    
+
     spkpoplst = spkdata['spkpoplst']
     spkindlst = spkdata['spkindlst']
     spktlst = spkdata['spktlst']
@@ -3000,6 +2922,7 @@ def plot_spatial_information(spike_input_path, spike_namespace_id, trajectory_pa
         MI_dict = spikedata.spatial_information(subset, trajectory, spkdict, time_range, position_bin_size,
                                                 arena_id=arena_id, trajectory_id=trajectory_id,
                                                 output_file_path=output_file_path, **kwargs)
+
         MI_lst = []
         for ind in sorted(MI_dict.keys()):
             MI = MI_dict[ind]
@@ -3009,15 +2932,15 @@ def plot_spatial_information(spike_input_path, spike_namespace_id, trajectory_pa
         MI_array = np.asarray(MI_lst, dtype=np.float32)
         del MI_lst
 
-        label = str(subset) + ' (%i active; mean MI %.2f bits)' % (len(MI_array), np.mean(MI_array))
+        label = str(subset) + ' (%i active; mean MI %.2f bits)' % (len(pop_active_cells[subset]), np.mean(MI_array))
         plt.subplot(len(spkpoplst), 1, iplot + 1)
         plt.title(label, fontsize=fig_options.fontSize)
 
         color = dflt_colors[iplot % len(dflt_colors)]
 
-        MI_hist, bin_edges = np.histogram(MI_array, bins=10)
+        MI_hist, bin_edges = np.histogram(MI_array, bins='auto')
         bin_centers = 0.5 * (bin_edges[1:] + bin_edges[:-1])
-        plt.bar(bin_centers, MI_hist, color=color, align='edge', width=0.3 * (np.mean(np.diff(bin_edges))))
+        plt.bar(bin_centers, MI_hist, color=color, width=0.3 * (np.mean(np.diff(bin_edges))))
 
         plt.xticks(fontsize=fig_options.fontSize)
 
@@ -3094,7 +3017,7 @@ def plot_place_cells(features_path, population, nfields=1, to_plot=100, **kwargs
 
 
 def plot_place_fields(spike_input_path, spike_namespace_id, trajectory_path, arena_id, trajectory_id, populations=None,
-                      bin_size=10.0, min_pf_width=10., min_pf_rate=None, spike_train_attr_name='t', time_range=None, alpha_fill=0.2,
+                      bin_size=10.0, min_pf_width=10., spike_train_attr_name='t', time_range=None, alpha_fill=0.2,
                       overlay=False, output_file_path=None, plot_dir_path=None, **kwargs):
     """
     Plots distributions of place fields per cell. Returns figure handle.
@@ -3171,7 +3094,7 @@ def plot_place_fields(spike_input_path, spike_namespace_id, trajectory_path, are
                                                          output_file_path=output_file_path, **kwargs)
         PF_dict = spikedata.place_fields(subset, bin_size, rate_bin_dict, trajectory, arena_id=arena_id,
                                           trajectory_id=trajectory_id, output_file_path=output_file_path,
-                                          min_pf_width=min_pf_width, min_pf_rate=min_pf_rate, **kwargs)
+                                          min_pf_width=min_pf_width, **kwargs)
         
         PF_count_lst  = []
         PF_infield_rate_lst = []
