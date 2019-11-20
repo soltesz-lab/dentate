@@ -260,7 +260,7 @@ def compute_features_firing_rate_fraction_active(x, export=False):
 
     pop_spike_dict = spikedata.get_env_spike_dict(context.env, include_artificial=False)
 
-    t_start = 0.
+    t_start = 250.
     t_stop = context.env.tstop
     
     time_bins  = np.arange(t_start, t_stop, context.bin_size)
@@ -288,7 +288,7 @@ def compute_features_firing_rate_fraction_active(x, export=False):
 
         rank = int(context.env.pc.id())
         if rank == 0:
-            logger.info('population %s: n_active = %d n_total = %d' % (pop_name, n_active, n_total))
+            context.logger.info('population %s: n_active = %d n_total = %d' % (pop_name, n_active, n_total))
 
         results['%s firing rate' % pop_name] = mean_rate
         results['%s fraction active' % pop_name] = fraction_active

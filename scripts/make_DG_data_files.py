@@ -52,11 +52,9 @@ DG_vecstim_file_dict = {
 
 vecstim_dict = {'Input Spikes %s' % stim_id : stim_file for stim_id, stim_file in viewitems(DG_vecstim_file_dict)}
 
-DG_remap_vecstim_file_dict = {                                                                          
-    'A Diag': "DG_remap_spike_trains_20191113_compressed.h5",                                           
-}                                                                                                       
-
-     
+DG_remap_vecstim_file_dict = { 
+    'A Diag': "DG_remap_spike_trains_20191113_compressed.h5",
+}
 
 
 coordinate_files = {

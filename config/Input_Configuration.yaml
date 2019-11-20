@@ -180,7 +180,7 @@ Arena:
         run velocity: 30.  # cm/s
 
     default run velocity: 30.  # cm/s
-        
+
   Remap A:
     Domain:
       vertices: [[-100, -100], [-100, 100], [100, 100], [100, -100]]

@@ -1,7 +1,7 @@
 ### set the number of nodes and the number of PEs per node
 #PBS -l nodes=3200:ppn=32:xe
 ### which queue to use
-#PBS -q normal
+#PBS -q high
 ### set the wallclock time
 #PBS -l walltime=24:00:00
 ### set the job name
@@ -41,9 +41,11 @@ aprun -n 25600 -N 8 -d 4 -b -- bwpy-environ -- \
     --config-file-path=$DG_HOME/config/DG_optimize_network_subworlds_config_LNN.yaml \
     --output-dir=$results_path \
     --pop_size=32 \
-    --max_iter=10 \
+    --max_iter=50 \
     --path_length=1 \
     --framework=pc \
+    --hot_start \
+    --storage_file_path=$DG_HOME/results/optimize_DG_network_subworlds_LNN.10592091.bw/20191103_1319_DG_optimize_network_subworlds_PopulationAnnealing_optimization_history.hdf5 \
     --disp \
     --verbose \
     --procs_per_worker=800 \
