@@ -2,7 +2,6 @@ import sys, os, time, gc, click, logging
 from collections import defaultdict
 from functools import reduce
 import numpy as np
-import dlib
 import scipy.optimize as opt
 from mpi4py import MPI
 import neuroh5
@@ -21,12 +20,12 @@ def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
-sys.excepthook = mpi_excepthook
+#sys.excepthook = mpi_excepthook
 
 def interactive_callback_plasticity_fit(**kwargs):
     import matplotlib.pyplot as plt
     fig = plt.figure(constrained_layout=3)
-    gs = fig.add_gridspec(4, 4)
+    gs = fig.add_gridspec(4, 3)
     initial_weights = kwargs['initial_weights'] 
     modified_weights = kwargs['modified_weights']
     initial_ratemap = kwargs['initial_ratemap']
@@ -71,9 +70,6 @@ def interactive_callback_plasticity_fit(**kwargs):
     ax.set_title('Target')
     p = ax.imshow(target_ratemap, origin='lower')
     fig.colorbar(p, ax=ax)
-    ax = fig.add_subplot(gs[3, 3])
-    ax.set_title('Plasticity kernel')
-    ax.imshow(plasticity_kernel, origin='lower')
     plt.show()
 
 def syn_weights_dict_alltoall(comm, syn_name, initial_weights_dict, query, clear=False):
@@ -133,13 +129,14 @@ def input_features_dict_alltoall(comm, features_attrs, query, clear=False):
     return source_features_attrs_dict
 
 
-def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, logger, scaled_weight=False, max_iter=100, interactive=False):
+def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, logger, max_iter=10, interactive=False):
     source_gids = sorted(plasticity_inputs.keys())
     initial_weights = []
     for i, source_gid in enumerate(source_gids):
         _, initial_weight = source_syn_map[source_gid][0]
         initial_weights.append(initial_weight)
     w = np.asarray(initial_weights, dtype=np.float64)
+    baseline = np.mean(w)
     A = np.column_stack([plasticity_inputs[gid].reshape((-1,)).astype(np.float64) for gid in source_gids])
     initial_ratemap = phi(np.dot(A, w))
     b = plasticity_kernel.reshape((-1,)).astype(np.float64)
@@ -152,9 +149,18 @@ def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, lo
         res = np.subtract(phi(np.dot(A, np.add(w, x))), b)
         return res
 
-    x0 = np.random.rand(len(w),)
-    optres = opt.least_squares(residual, x0, args = (w, A, b, phi), bounds=(lb,ub), xtol=1e-2, ftol=1e-2,
-                                   method='dogbox', verbose=2 if interactive else 0)
+    for i in range(max_iter):
+        try:
+            x0 = np.random.rand(len(w),)
+            optres = opt.least_squares(residual, x0, args = (w, A, b, phi), bounds=(lb,ub), 
+                                       method='dogbox', xtol=1e-2, ftol=1e-2, gtol=1e-4,
+                                       verbose=2 if interactive else 0)
+            break
+        except ValueError:
+            continue
+    if i >= max_iter:
+        raise RuntimeError('plasticity_fit: maximum number of iterations exceeded')
+
     
     delta_weights = optres.x
     logger.info('Least squares fit status: %d (%s)' % (optres.status, optres.message))
@@ -164,18 +170,16 @@ def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, lo
     for source_gid, delta_weight in zip(source_gids, delta_weights):
         syn_count = len(source_syn_map[source_gid])
         if syn_count > 0:
-            if scaled_weight:
-                delta_weight = delta_weight / float(syn_count)
             for syn_id, initial_weight in source_syn_map[source_gid]:
-                syn_weights[syn_id] = max(delta_weight + initial_weight, 0.)
+                syn_weights[syn_id] = max(delta_weight + initial_weight, math.sqrt(initial_weight))
 
     if interactive:
-        modified_weights = np.clip(np.add(w, delta_weights), 0., None)
+        modified_weights = np.maximum(np.add(w, delta_weights), np.sqrt(w))
         modified_ratemap = phi(np.dot(A, modified_weights))
         logger.info('Initial rate map: min: %f max: %f' % (np.min(initial_ratemap), np.max(initial_ratemap)))
         logger.info('Target: min: %f max: %f' % (np.min(b), np.max(b)))
-        logger.info('Initial weights: min: %f max: %f' % (np.min(w), np.max(w)))
-        logger.info('Modified weights: min: %f max: %f' % (np.min(modified_weights), np.max(modified_weights)))
+        logger.info('Initial weights: min: %f max: %f mean: %f' % (np.min(w), np.max(w), np.mean(w)))
+        logger.info('Modified weights: min: %f max: %f mean: %f' % (np.min(modified_weights), np.max(modified_weights), np.mean(modified_weights)))
         logger.info('Modified rate map: min: %f max: %f' % (np.min(modified_ratemap), np.max(modified_ratemap)))
         initial_weights_dict = {}
         for i, source_gid in enumerate(source_gids):
@@ -218,7 +222,8 @@ def exp_phi(x, a = 0.025):
 @click.option("--destination", '-d', type=str)
 @click.option("--sources", '-s', type=str, multiple=True)
 @click.option("--arena-id", '-a', type=str, default='A')
-@click.option("--max-iter", type=int, default=100)
+@click.option("--field-width-scale", type=float, default=1.2)
+@click.option("--max-iter", type=int, default=10)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
@@ -229,7 +234,7 @@ def exp_phi(x, a = 0.025):
 @click.option("--dry-run", is_flag=True)
 @click.option("--interactive", is_flag=True)
 def main(config, input_features_path, input_features_namespaces, output_weights_path, weights_path, synapse_name, initial_weights_namespace,
-         structured_weights_namespace, connections_path, destination, sources, arena_id, max_iter, 
+         structured_weights_namespace, connections_path, destination, sources, arena_id, field_width_scale, max_iter, 
          io_size, chunk_size, value_chunk_size, cache_size, write_size, scatter_io, verbose, dry_run, interactive):
     """
 
@@ -467,7 +472,7 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
                     
             if structured:
                 this_peak_locs = zip(np.nditer(this_x_offset), np.nditer(this_y_offset))
-                this_sigmas    = [width / 3. / np.sqrt(2.) for width in np.nditer(this_field_width)] # cm
+                this_sigmas    = [(width * field_width_scale) / 3. / np.sqrt(2.) for width in np.nditer(this_field_width)] # cm
                 this_plasticity_kernel = reduce(np.add, [plasticity_kernel(x, y, peak_loc[0], peak_loc[1], sigma, sigma)
                                                              for peak_loc, sigma in zip(this_peak_locs, this_sigmas)]) * this_peak_rate
 
@@ -508,11 +513,14 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
             logger.info('Rank: %i received None' % rank)
 
         if iter_count % write_size == 0:
+            gc.collect()
             if not dry_run:
+                count = comm.reduce(len(structured_weights_dict), op=MPI.SUM, root=0)
+                if rank == 0:
+                    logger.info('Destination: %s; appending structured weights for %i cells...' % (destination, count))
                 append_cell_attributes(output_weights_path, destination, structured_weights_dict,
                                        namespace=this_structured_weights_namespace, comm=env.comm, io_size=env.io_size,
                                        chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-                count = comm.reduce(len(structured_weights_dict), op=MPI.SUM, root=0)
                 if rank == 0:
                     logger.info('Destination: %s; appended structured weights for %i cells' % (destination, count))
             structured_weights_dict.clear()

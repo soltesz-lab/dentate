@@ -26,9 +26,9 @@ ulimit -c unlimited
 
 set -x
 
-connectivity_path=$SCRATCH/dentate/Full_Scale_Control/DG_Connections_Full_Scale_20191011.h5
-coords_path=$SCRATCH/dentate/Full_Scale_Control/DG_Cells_Full_Scale_20191011.h5
+connectivity_path=$SCRATCH/dentate/Full_Scale_Control/DG_Connections_Full_Scale_20191016.h5
+coords_path=$SCRATCH/dentate/Full_Scale_Control/DG_Cells_Full_Scale_20191016.h5
 
-ibrun -np 240 python3 ./scripts/compute_vertex_dist.py \
+ibrun -np 240 gdb -batch -x $HOME/gdb_script --args python3 ./scripts/compute_vertex_dist.py \
     -p $connectivity_path -c $coords_path -v \
     -d GC -s AAC -s BC -s MC -s HC -s HCC -s NGFC -s MOPP -s MPP -s LPP

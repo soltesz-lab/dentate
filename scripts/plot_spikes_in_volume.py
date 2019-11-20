@@ -12,8 +12,10 @@ script_name = os.path.basename(__file__)
 @click.option("--spike-events-namespace", '-n', type=str, default='Spike Events')
 @click.option("--coords-path", '-d', required=True, type=click.Path())
 @click.option("--coords-namespace", '-d', type=str, default='Coordinates')
+@click.option("--forest-path", '-f', required=False, type=click.Path())
 @click.option("--populations", '-i', type=str, multiple=True)
 @click.option("--compute-rates", type=bool, default=False, is_flag=True)
+@click.option("--plot-trees", type=str, multiple=True)
 @click.option("--t-variable", type=str, default='t')
 @click.option("--t-max", type=float)
 @click.option("--t-min", type=float)
@@ -23,7 +25,7 @@ script_name = os.path.basename(__file__)
 @click.option("--marker-scale", type=float, default=10.)
 @click.option("--save-fig", type=bool, default=False, is_flag=True)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(config_path, spike_events_path, spike_events_namespace, coords_path, coords_namespace, populations, compute_rates, t_variable, t_max, t_min, t_step, font_size, rotate_anim, marker_scale, save_fig, verbose):
+def main(config_path, spike_events_path, spike_events_namespace, coords_path, coords_namespace, forest_path, populations, compute_rates, plot_trees, t_variable, t_max, t_min, t_step, font_size, rotate_anim, marker_scale, save_fig, verbose):
 
     utils.config_logging(verbose)
     
@@ -39,7 +41,8 @@ def main(config_path, spike_events_path, spike_events_namespace, coords_path, co
         populations = ['eachPop']
         
     plot.plot_spikes_in_volume (config_path, populations, coords_path, coords_namespace, spike_events_path, spike_events_namespace, \
-                                time_range=time_range, time_variable=t_variable, time_step=t_step, compute_rates=compute_rates, \
+                                forest_path=forest_path, plot_trees=plot_trees, time_range=time_range, time_variable=t_variable, \
+                                time_step=t_step, compute_rates=compute_rates, \
                                 fontSize=font_size, marker_scale=marker_scale, rotate_anim=rotate_anim, saveFig=save_fig)
     
 

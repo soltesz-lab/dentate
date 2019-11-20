@@ -97,6 +97,20 @@ class QuickSim(object):
         """
         self.set_state(**self._backup)
 
+    def is_same_cell(self, cell1, cell2):
+        """
+
+        :param cell1: :class:'BiophysCell' or :class:'h.hocObject'
+        :param cell2: :class:'BiophysCell' or :class:'h.hocObject'
+        :return: bool
+        """
+        if cell1 == cell2:
+            return True
+        elif hasattr(cell1, 'tree'):
+            return cell1.tree.root.sec.cell() == cell2
+        else:
+            raise RuntimeError('QuickSim: problem comparing cell objects: %s and %s' % (str(cell1), str(cell2)))
+
     def append_rec(self, cell, node, name=None, loc=None, param='_ref_v', object=None, ylabel='Vm', units='mV',
                    description=''):
         """
@@ -111,7 +125,7 @@ class QuickSim(object):
         :param units: str
         :param description: str
         """
-        if cell.tree.root.sec.cell() != node.sec.cell():
+        if not self.is_same_cell(cell, node.sec.cell()):
             raise RuntimeError('QuickSim: append_rec: target cell does not match target node')
         if name is None:
             name = 'rec%i' % len(self.recs)
@@ -183,12 +197,12 @@ class QuickSim(object):
             if node is None:
                 raise RuntimeError('QuickSim: modify_rec: cannot change target cell without specifying new target '
                                    'node')
-            elif cell.tree.root.sec.cell() != node.sec.cell():
+            elif not self.is_same_cell(cell, node.sec.cell()):
                 raise RuntimeError('QuickSim: modify_rec: target cell does not match target node')
             self.recs[name]['cell'] = cell
 
         if node is not None:
-            if self.recs[name]['cell'].tree.root.sec.cell() != node.sec.cell():
+            if not self.is_same_cell(self.recs[name]['cell'], node.sec.cell()):
                 raise RuntimeError('QuickSim: modify_rec: target cell does not match target node')
             self.recs[name]['node'] = node
 
@@ -215,7 +229,7 @@ class QuickSim(object):
         :param dur: float
         :param description: str
         """
-        if cell.tree.root.sec.cell() != node.sec.cell():
+        if not self.is_same_cell(cell, node.sec.cell()):
             raise RuntimeError('QuickSim: append_stim: target cell does not match target node')
         if name is None:
             name = 'stim%i' % len(self.stims)
@@ -266,12 +280,12 @@ class QuickSim(object):
             if node is None:
                 raise RuntimeError('QuickSim: modify_stim: cannot change target cell without specifying new target '
                                    'node')
-            elif cell.tree.root.sec.cell() != node.sec.cell():
+            elif not self.is_same_cell(cell, node.sec.cell()):
                 raise RuntimeError('QuickSim: modify_stim: target cell does not match target node')
             self.stims[name]['cell'] = cell
         if not (node is None and loc is None):
             if node is not None:
-                if self.stims[name]['cell'].tree.root.sec.cell() != node.sec.cell():
+                if not self.is_same_cell(self.stims[name]['cell'], node.sec.cell()):
                     raise RuntimeError('QuickSim: modify_stim: target cell does not match target node')
                 self.stims[name]['node'] = node
             if loc is None:

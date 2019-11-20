@@ -139,14 +139,17 @@ def vertex_distribution(connectivity_path, coords_path, distances_namespace, des
     if rank == 0:
         logger.info('reading connections %s -> %s...' % (str(sources), destination))
 
-    gg = [ NeuroH5ProjectionGen (connectivity_path, source, destination, cache_size=cache_size, comm=comm) for source in sources ]
 
     dist_bins = defaultdict(dict)
     dist_u_bins = defaultdict(dict)
     dist_v_bins = defaultdict(dict)
+
+    gg = [ NeuroH5ProjectionGen (connectivity_path, source, destination, cache_size=cache_size, comm=comm) for source in sources ]
     
     for prj_gen_tuple in zip_longest(*gg):
         destination_gid = prj_gen_tuple[0][0]
+        if rank == 0 and destination_gid is not None:
+            logger.info('%d' % destination_gid)
         if not all([prj_gen_elt[0] == destination_gid for prj_gen_elt in prj_gen_tuple]):
             raise RuntimeError('destination %s: destination_gid %i not matched across multiple projection generators: '
                                '%s' % (destination, destination_gid, [prj_gen_elt[0] for prj_gen_elt in prj_gen_tuple]))
@@ -179,7 +182,7 @@ def vertex_distribution(connectivity_path, coords_path, distances_namespace, des
     dist_hist_dict = defaultdict(dict)
     dist_u_hist_dict = defaultdict(dict)
     dist_v_hist_dict = defaultdict(dict)
-    
+
     if rank == 0:
         for source in sources:
             dist_hist_dict[destination][source] = finalize_bins(dist_bins[source], bin_size)
