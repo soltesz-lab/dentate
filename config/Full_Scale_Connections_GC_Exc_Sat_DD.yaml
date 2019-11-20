@@ -125,12 +125,18 @@ Synapses:
         GABA_A:
           dur_onset: 0.5
           tau_offset: 
-            expr: 1.55*x + 9.0
+            expr: a*x + b
             parameter: delay
+            const:
+              a: 1.55
+              b: 7.0
           e: -75
           g_unit: 
-            expr: 0.001 * exp(-1.25 * x)
+            expr: a * exp(b * x)
             parameter: delay
+            const:
+              a: 0.001
+              b: -1.25
           weight: 1.0
     BC:   
       type: inhibitory
@@ -143,21 +149,35 @@ Synapses:
           GABA_A:
             dur_onset: 0.5
             tau_offset:
-              expr: 1.55 * x + 9.0
+              expr: a * x + b
               parameter: delay
+              const:
+                a: 1.55
+                b: 7.0
             e: -75
             g_unit: 
-              expr: 0.003 * exp(-1.25 * x)
+              expr: a * exp(b * x)
               parameter: delay
+              const:
+                a: 0.003
+                b: -1.25
             weight: 1.0
         soma:
           GABA_A:
             dur_onset: 0.25
             tau_offset:
-              expr: 1.55*x + 9.0
+              expr: a*x + b
               parameter: delay
+              const:
+                a: 1.55
+                b: 7.0                         
             e: -75
-            g_unit: 0.001
+            g_unit: 
+              expr: a * exp(b * x)
+              parameter: delay
+              const:
+                a: 0.002
+                b: -1.25
             weight: 1.0
     HCC:  
       type: inhibitory
@@ -168,9 +188,9 @@ Synapses:
       mechanisms:
         GABA_A:
           dur_onset: 1.5
-          tau_offset: 9.0
+          tau_offset: 8.0
           e: -75
-          g_unit: 0.003
+          g_unit: 0.004
           weight: 1.0
     HC:   
       type: inhibitory
@@ -181,9 +201,9 @@ Synapses:
       mechanisms:
         GABA_A:
           dur_onset: 2.5
-          tau_offset: 10.0
+          tau_offset: 9.0
           e: -75
-          g_unit: 0.003
+          g_unit: 0.004
           weight: 1.0
     NGFC: 
       type: inhibitory
@@ -221,7 +241,7 @@ Synapses:
       type: excitatory
       sections: [apical]
       layers: [Hilus]
-      proportions: [0.8]
+      proportions: [0.7]
       contacts: 17.5
       mechanisms:
         AMPA:
@@ -238,8 +258,8 @@ Synapses:
       type: excitatory
       sections: [apical]
       layers: [Hilus]
-      proportions: [0.13]
-      contacts: 15.0
+      proportions: [0.07]
+      contacts: 3.0
       mechanisms:
         AMPA:
           dur_onset: 0.5
@@ -255,7 +275,7 @@ Synapses:
       type: excitatory
       sections: [apical]
       layers: [Hilus]
-      proportions: [0.07]
+      proportions: [0.23]
       contacts: 3.0
       mechanisms:
         AMPA:
@@ -274,7 +294,7 @@ Synapses:
       mechanisms:
         GABA_A:
           dur_onset: 1.5
-          tau_offset: 11.0
+          tau_offset: 9.0
           e: -75
           g_unit: 0.00175
           weight: 1.0
@@ -333,7 +353,7 @@ Synapses:
       mechanisms:
         GABA_A:
           dur_onset: 1.5
-          tau_offset: 10.0
+          tau_offset: 9.0
           e: -75
           g_unit: 0.00125
           weight: 1.0
@@ -431,7 +451,7 @@ Synapses:
           dur_onset:  0.5
           tau_offset: 3.0
           e:     0
-          g_unit: 0.0002
+          g_unit: 0.0004
           weight: 1.0
     LPP:
       type: excitatory
@@ -444,7 +464,7 @@ Synapses:
           dur_onset:  0.5
           tau_offset: 3.0
           e:     0
-          g_unit: 0.000225
+          g_unit: 0.00045
           weight: 1.0
     CA3c:   
       type: excitatory
@@ -457,7 +477,7 @@ Synapses:
           dur_onset: 0.5
           tau_offset: 3.6
           e: 0
-          g_unit: 0.0005
+          g_unit: 0.001
           weight: 1.0
           sat: 0.9
     MC:   
@@ -472,7 +492,7 @@ Synapses:
           tau_offset: 3.6
           e: 0
           sat: 0.9
-          g_unit: 0.0005
+          g_unit: 0.001
           weight: 1.0
     BC:   
       type: inhibitory
@@ -606,7 +626,7 @@ Synapses:
           dur_onset:  0.5
           tau_offset: 3.0
           e:     0
-          g_unit: 0.0005
+          g_unit: 0.001
           weight: 1.0
     LPP:
       type: excitatory
@@ -618,7 +638,7 @@ Synapses:
           dur_onset:  0.5
           tau_offset: 3.0
           e:     0
-          g_unit: 0.0006
+          g_unit: 0.0012
           weight: 1.0
     MC:   
       type: excitatory
@@ -631,7 +651,7 @@ Synapses:
           tau_offset: 3.6
           e: 0
           sat: 0.9
-          g_unit: 0.004
+          g_unit: 0.005
           weight: 1.0
     CA3c:   
       type: excitatory
@@ -643,7 +663,7 @@ Synapses:
           dur_onset: 0.3
           tau_offset: 3.6
           e: 0
-          g_unit: 0.004
+          g_unit: 0.005
           weight: 1.0
           sat: 0.9
     HCC:  
@@ -809,7 +829,7 @@ Synapses:
           dur_onset: 0.9
           tau_offset: 3.6
           e: 0
-          g_unit: 0.001
+          g_unit: 0.0005
           weight: 1.0
           sat: 0.9
     HCC:  

@@ -33,7 +33,8 @@ ibrun -np 288 \
     --config=Full_Scale_Basis.yaml \
     --config-prefix=./config \
     --coords-path=${SCRATCH}/dentate/Full_Scale_Control/DG_coords_20190717_compressed.h5 \
-    --output-path=${SCRATCH}/dentate/Full_Scale_Control/DG_input_features_20190909.h5 \
+    --output-path=${SCRATCH}/dentate/Full_Scale_Control/DG_input_features_20191119.h5 \
     --io-size 24 \
-    -p GC -p MPP -p LPP -p CA3c -p MC -v
+    -v
+
 

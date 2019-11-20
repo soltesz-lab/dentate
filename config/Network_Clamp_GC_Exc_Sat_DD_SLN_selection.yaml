@@ -1,13 +1,13 @@
 Network Clamp:  !include Network_Clamp.yaml
-Model Name: dentatenet_Full_Scale_GC_Exc_Sat_DD_SLN
-Dataset Name: Full_Scale_Control
+Model Name: dentatenet_Full_Scale_GC_Exc_Sat_DD_SLN_slice_100
+Dataset Name: Slice
 Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-Cell Data: dentatenet_Full_Scale_GC_Exc_Sat_DD_SLN_selection_compressed.h5
-Connection Data: dentatenet_Full_Scale_GC_Exc_Sat_DD_SLN_selection_compressed.h5
-Gap Junction Data: DG_gapjunctions_20190717.h5
+Cell Data: dentatenet_Full_Scale_GC_Exc_Sat_DD_SLN_slice_10um_compressed.h5
+Connection Data: dentatenet_Full_Scale_GC_Exc_Sat_DD_SLN_slice_10um_compressed.h5
+#Gap Junction Data: DG_gapjunctions_20190717.h5
 Connection Generator: !include Full_Scale_Connections_GC_Exc_Sat_DD.yaml
 LFP: !include LFP.yaml
 Stimulus: !include Input_Configuration.yaml
@@ -21,7 +21,7 @@ Cell Types:
     synapses:
       correct_for_spines: True
       weights: True
-      weights namespace: 'Structured Weights A Diag'
+      weights namespace: 'Structured Weights A'
       density: !include GC_synapse_density.yaml
   MC:
     template: MossyCell

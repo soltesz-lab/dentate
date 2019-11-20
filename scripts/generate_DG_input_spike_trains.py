@@ -151,7 +151,7 @@ def main(config, config_prefix, selectivity_path, arena_id, populations, io_size
     population_ranges = read_population_ranges(selectivity_path, comm)[0]
 
     if len(populations) == 0:
-        populations = ('MC', 'ConMC', 'LPP', 'GC', 'MPP', 'CA3c')
+        populations = sorted(population_ranges.keys())
 
     if arena_id not in env.stimulus_config['Arena']:
         raise RuntimeError('Arena with ID: %s not specified by configuration at file path: %s' %

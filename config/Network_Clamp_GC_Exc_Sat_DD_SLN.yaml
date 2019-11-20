@@ -1,0 +1,75 @@
+Network Clamp:  !include Network_Clamp.yaml
+Model Name: dentatenet_Full_Scale_GC_Exc_Sat_DD_SLN
+Dataset Name: Full_Scale_Control
+Definitions: !include Definitions.yaml
+Global Parameters: !include Global.yaml
+Geometry: !include Geometry.yaml
+Random Seeds: !include Random.yaml
+Cell Data: DG_Cells_Full_Scale_20191114.h5
+Connection Data: DG_Connections_Full_Scale_20191114.h5
+Gap Junction Data: DG_gapjunctions_20191112.h5
+Connection Generator: !include Full_Scale_Connections_GC_Exc_Sat_DD.yaml
+LFP: !include LFP.yaml
+Stimulus: !include Input_Configuration.yaml
+Analysis: !include Analysis_Configuration.yaml
+## Cell types for dentate gyrus model
+Cell Types:
+  GC:
+    template: DGC
+    template file: DGC_Template_minimal.hoc
+    mechanism file: 20181205_DG_GC_excitability_mech.yaml
+    synapses:
+      correct_for_spines: True
+      weights: True
+      weights namespaces: ['Structured Weights A', 'Log-Normal Weights']
+      density: !include GC_synapse_density.yaml
+  MC:
+    template: MossyCell
+    synapses:
+      density: !include MC_synapse_density.yaml
+      weights: True
+      weights namespaces: ['Structured Weights A', 'Log-Normal Weights']
+  HC:
+    template: HIPPCell
+    synapses:
+      density: !include HC_synapse_density.yaml
+  BC:
+    template: BasketCell
+    synapses:
+      density: !include BC_synapse_density.yaml
+  AAC:
+    template: AxoAxonicCell
+    synapses:
+      density: !include AAC_synapse_density.yaml
+  HCC:
+    template: HICAPCell
+    synapses:
+      density: !include HCC_synapse_density.yaml
+  NGFC:
+    template: NGFCell
+    synapses:
+      density: !include NGFC_synapse_density.yaml
+  MOPP:
+    template: MOPPCell
+    synapses:
+      density: !include NGFC_synapse_density.yaml
+  IS:
+    template: ISCell
+    synapses:
+      density: !include IS_synapse_density.yaml
+  MPP:
+    template: MPPCell
+    spike train:
+      namespace: Input Spikes
+      attribute: Spike Train
+  LPP:
+    template: LPPCell
+    spike train:
+      namespace: Input Spikes
+      attribute: Spike Train
+  CA3c:
+    template: CA3Cell
+    spike train:
+      namespace: Input Spikes
+      attribute: Spike Train
+
