@@ -1043,7 +1043,6 @@ def generate_input_spike_trains(env, population, trajectory, selectivity_path, s
 
     spike_hist_sum = defaultdict(lambda: np.zeros(spike_hist_resolution))
 
-    gid_count = defaultdict(lambda: 0)
     process_time = dict()
     for this_selectivity_namespace in sorted(selectivity_type_namespaces[population]):
 
@@ -1055,10 +1054,14 @@ def generate_input_spike_trains(env, population, trajectory, selectivity_path, s
                                                   namespace=this_selectivity_namespace, comm=comm, io_size=io_size,
                                                   cache_size=cache_size)
         spikes_attr_dict = dict()
+        selectivity_type_name = None
+        gid_count = 0
         for iter_count, (gid, selectivity_attr_dict) in enumerate(selectivity_attr_gen):
             if gid is not None:
                 this_selectivity_type = selectivity_attr_dict['Selectivity Type'][0]
                 this_selectivity_type_name = selectivity_type_names[this_selectivity_type]
+                if selectivity_type_name is None:
+                    selectivity_type_name = this_selectivity_type_name
                 input_cell_config = \
                   get_input_cell_config(selectivity_type=this_selectivity_type,
                                             selectivity_type_names=selectivity_type_names,
@@ -1080,26 +1083,18 @@ def generate_input_spike_trains(env, population, trajectory, selectivity_path, s
                 spikes_attr_dict[gid]['Selectivity Type'] = np.array([this_selectivity_type], dtype='uint8')
                 spikes_attr_dict[gid]['Trajectory Rate Map'] = np.asarray(rate_map, dtype='float32')
                 spikes_attr_dict[gid][spike_train_attr_name] = np.asarray(spike_train, dtype='float32')
-                gid_count[this_selectivity_type_name] += 1
+                gid_count += 1
                 spike_hist_edges = np.linspace(min(t), max(t), spike_hist_resolution + 1)
                 hist, edges = np.histogram(spike_train, bins=spike_hist_edges)
                 spike_hist_sum[this_selectivity_type_name] = \
                       np.add(spike_hist_sum[this_selectivity_type_name], hist)
 
-            gid_count_dict = dict(gid_count.items())
-            gid_count_dict = comm.gather(gid_count_dict, root=0)
-            if rank == 0:
-                merged_gid_count = defaultdict(lambda: 0)
-                for each_gid_count in gid_count_dict:
-                    for selectivity_type_name in each_gid_count:
-                        merged_gid_count[selectivity_type_name] += each_gid_count[selectivity_type_name]
-                total_gid_count = np.sum(list(merged_gid_count.values()))
-
             if (iter_count > 0 and iter_count % write_every == 0) or (debug and iter_count == 10):
+
+                total_gid_count = comm.reduce(gid_count, root=0, op=MPI.SUM)
                 if rank == 0:
                     logger.info('generated spike trains for %i %s %s cells' %
-                                (merged_gid_count[this_selectivity_type_name], population,
-                                this_selectivity_type_name))
+                                (total_gid_count, population, selectivity_type_name))
                     
                 if not dry_run:
                     append_cell_attributes(output_path, population, spikes_attr_dict,
@@ -1115,14 +1110,15 @@ def generate_input_spike_trains(env, population, trajectory, selectivity_path, s
             append_cell_attributes(output_path, population, spikes_attr_dict,
                                     namespace=output_namespace, comm=comm, io_size=io_size,
                                     chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+            del spikes_attr_dict
             spikes_attr_dict = dict()
-        process_time[this_selectivity_type_name] = time.time() - start_time
+        process_time = time.time() - start_time
             
+        total_gid_count = comm.reduce(gid_count, root=0, op=MPI.SUM)
         if rank == 0:
-            for selectivity_type_name in merged_gid_count:
-                logger.info('generated spike trains for %i/%i %s %s cells in %.2f s' %
-                            (merged_gid_count[selectivity_type_name], total_gid_count, population,
-                             selectivity_type_name, process_time[selectivity_type_name]))
+            logger.info('generated spike trains for %i %s %s cells in %.2f s' %
+                        (total_gid_count, population,
+                         selectivity_type_name, process_time))
 
     return spike_hist_sum
 

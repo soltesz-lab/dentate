@@ -5,6 +5,12 @@ Electrode 0:
   maxEDist: 100.
   fraction: .1
   dt: 0.1
+Electrode 1:
+  rho: 333.0
+  position: [-1205.5, 2700.3, -411.7]
+  maxEDist: 100.
+  fraction: .1
+  dt: 0.1
 
 
   

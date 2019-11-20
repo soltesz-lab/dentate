@@ -5,7 +5,7 @@
 #SBATCH -N 64
 #SBATCH -n 3584
 #SBATCH -p normal      # Queue (partition) name
-#SBATCH -t 12:00:00
+#SBATCH -t 4:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #SBATCH --mail-type=BEGIN
@@ -34,7 +34,7 @@ ibrun python3 ./scripts/generate_structured_weights_as_cell_attr.py \
     --config=./config/Full_Scale_GC_Exc_Sat_DD_SLN.yaml \
     --initial-weights-namespace='Log-Normal Weights' \
     --structured-weights-namespace='Structured Weights' \
-    --output-weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_MC_syn_weights_SLN_20191108.h5 \
+    --output-weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_MC_syn_weights_SLN_20191113.h5 \
     --weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_Cells_Full_Scale_20190917.h5 \
     --connections-path=$SCRATCH/dentate/Full_Scale_Control/DG_Connections_Full_Scale_20190917.h5 \
     --input-features-path="$SCRATCH/dentate/Full_Scale_Control/DG_input_features_20190909_compressed.h5" \

@@ -15,8 +15,8 @@ module load hdf5
 
 set -x
 export prefix=/oasis/scratch/comet/iraikov/temp_project/dentate/Full_Scale_Control/
-export input=$prefix/DG_remap_spike_trains_20191113.h5
-export output=$prefix/DG_remap_spike_trains_20191113_compressed.h5
+export input=$prefix/DG_input_spike_trains_20191119.h5
+export output=$prefix/DG_input_spike_trains_20191119_compressed.h5
 
 ##h5copy -v -i $input -o $copy -s /Populations -d /Populations
 

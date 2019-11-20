@@ -66,12 +66,12 @@ def global_syn_summary(comm, syn_stats, global_count, root):
                 for syn_type in syn_stats_dict[part_name]:
                     global_syn_count = comm.gather(syn_stats_dict[part_name][syn_type], root=root)
                     if comm.rank == root:
-                        res.append("%s %s %s: mean %s synapses per cell: %f" % (population, part, part_name, syn_type, old_div(np.sum(global_syn_count),global_count)))
+                        res.append("%s %s %s: mean %s synapses per cell: %f" % (population, part, part_name, syn_type, np.sum(global_syn_count) / global_count))
         total_syn_stats_dict = pop_syn_stats['total']
         for syn_type in total_syn_stats_dict:
             global_syn_count = comm.gather(total_syn_stats_dict[syn_type], root=root)
             if comm.rank == root:
-                res.append("%s: mean %s synapses per cell: %f" % (population, syn_type, old_div(np.sum(global_syn_count),global_count)))
+                res.append("%s: mean %s synapses per cell: %f" % (population, syn_type, np.sum(global_syn_count) / global_count))
         
     return str.join('\n', res)
 
