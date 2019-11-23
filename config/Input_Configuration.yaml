@@ -31,7 +31,24 @@ Selectivity Type Probabilities:
     place: 1.0
   CA3c:
     place: 1.0
-
+  AAC:
+    constant: 1.0
+  BC:
+    constant: 1.0
+  HC:
+    constant: 1.0
+  HCC:
+    constant: 1.0
+  HCC:
+    constant: 1.0
+  NGFC:
+    constant: 1.0
+  IS:
+    constant: 1.0
+  MOPP:
+    constant: 1.0
+  
+    
 Non-modular Place Selectivity Populations:
   - GC
   - MC
@@ -52,7 +69,23 @@ Peak Rate:
     place: 20.0
   CA3c:
     place: 20.0
+  BC:
+    constant: 21.0
+  AAC:
+    constant: 21.0
+  HCC:
+    constant: 10.0
+  HC:
+    constant: 16.0
+  IS:
+    constant: 2.0
+  NGFC:
+    constant: 4.0
+  MOPP:
+    constant: 4.0
 
+  
+    
 Place Fraction Active:
   MPP: 0.0862
   LPP: 0.0862

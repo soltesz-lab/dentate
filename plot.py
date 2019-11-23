@@ -3508,6 +3508,62 @@ def plot_selectivity_metrics (env, coords_path, features_path, distances_namespa
         show_figure()
 
 
+def plot_stimulus_ratemap(env, input_path, namespace_id, population, arena_id=None, modules=None, **kwargs):
+    """
+
+        - input_path: file with stimulus data
+        - namespace_id: attribute namespace for stimulus
+        - population: str name of a valid cell population
+    """
+
+    fig_options = copy.copy(default_fig_options)
+    fig_options.update(kwargs)
+
+    if (arena_id is None):
+        ns = namespace_id
+    else:
+        ns = '%s %s' % (namespace_id, arena_id)
+
+    spatial_resolution = env.stimulus_config['Spatial Resolution'] # cm
+    arena = env.stimulus_config['Arena'][arena_id]
+    x, y = stimulus.get_2D_arena_spatial_mesh(arena, spatial_resolution)
+
+    logger.info('Reading feature data from namespace %s for population %s...' % (ns, population ))
+    fig, ax = plt.subplots(1, 1)
+    rate_map_sum = np.zeros((x.shape))
+    n = 0
+    for (gid, rate, module) in stimulus.read_feature(input_path, ns, population):
+        if np.max(rate) > 0.:
+            n = n+1
+            rate_map_sum = rate_map_sum + rate.reshape((x.shape))
+
+    rate_map_mean = rate_map_sum / float(n)
+    title = 'Mean Stimulus Rate %s' % ns
+    ax.set_title(title, fontsize=fig_options.fontSize)
+    img = ax.imshow(rate_map_mean, origin='lower', aspect='auto', cmap=cm.coolwarm)
+    ax.set_ylabel('Y Position [cm]', fontsize=fig_options.fontSize)
+    ax.set_xlabel('X Position [cm]', fontsize=fig_options.fontSize)
+
+    cax, kw = mpl.colorbar.make_axes([ax])
+    cbar = plt.colorbar(img, cax=cax, **kw)
+    cbar.set_label('Firing rate (Hz)', rotation=270., labelpad=20.)
+
+    fig.suptitle(population, fontsize=fig_options.fontSize)
+
+    plt.show()
+    
+    # save figure
+    if fig_options.saveFig:
+        if isinstance(fig_options.saveFig, basestring):
+            filename = fig_options.saveFig
+        else:
+            filename = namespace_id+'_'+'ratemap.%s' % fig_options.figFormat
+        plt.savefig(filename)
+
+    # show fig
+    if fig_options.showFig:
+        show_figure()
+
 
 def plot_stimulus_spatial_rate_map(env, input_path, coords_path, arena_id, trajectory_id, stimulus_namespace, distances_namespace, include, bin_size = 100., from_spikes = True, **kwargs):
     """
@@ -3519,7 +3575,7 @@ def plot_stimulus_spatial_rate_map(env, input_path, coords_path, arena_id, traje
         - include (['eachPop'|<population name>]): List of data series to include. 
             (default: ['eachPop'] - expands to the name of each population)
         - bin_size: length of square edge for 2D histogram (float)
-        - fromSpikes: bool; whether to compute rate maps from stored spikes, or from target function
+        - from_spikes: bool; whether to compute rate maps from stored spikes, or from target function
     """
 
     fig_options = copy.copy(default_fig_options)
