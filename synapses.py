@@ -107,7 +107,7 @@ class SynapseAttributes(object):
         for (gid, attr_dict) in cell_iter:
             self.init_syn_id_attrs(gid, attr_dict)
 
-    def init_syn_id_attrs(self, gid, syn_id_attr_dict):
+    def init_syn_id_attrs(self, gid, syn_id_attr_struct):
         """
         Initializes synaptic attributes for the given cell gid.
         Only the intrinsic properties of a synapse, such as type, layer, location are set.
@@ -128,12 +128,12 @@ class SynapseAttributes(object):
         if gid in self.syn_id_attr_dict:
             raise RuntimeError('Entry %i exists in synapse attribute dictionary' % gid)
         else:
-            syn_ids = syn_id_attr_dict['syn_ids']
-            syn_layers = syn_id_attr_dict['syn_layers']
-            syn_types = syn_id_attr_dict['syn_types']
-            swc_types = syn_id_attr_dict['swc_types']
-            syn_secs = syn_id_attr_dict['syn_secs']
-            syn_locs = syn_id_attr_dict['syn_locs']
+            syn_ids = getattr(syn_id_attr_struct, 'syn_ids')
+            syn_layers = getattr(syn_id_attr_struct, 'syn_layers')
+            syn_types = getattr(syn_id_attr_struct, 'syn_types')
+            swc_types = getattr(syn_id_attr_struct, 'swc_types')
+            syn_secs = getattr(syn_id_attr_struct, 'syn_secs')
+            syn_locs = getattr(syn_id_attr_struct, 'syn_locs')
 
             syn_dict = self.syn_id_attr_dict[gid]
             sec_dict = self.sec_dict[gid]
