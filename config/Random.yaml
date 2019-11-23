@@ -3,6 +3,7 @@ Synapse Locations:                        0 ## Distributing synapse locations
 Connectivity Clustering:             1.5e+6 ## Clustering of connections from same source
 Distance-Dependent Connectivity:     2.0e+6 ## Generating distance-dependent connectivity
 Input Selectivity:                   4.0e+6 ## Generating stimulus and proxy input cell selectivity features
+Input Remap:                         5.0e+6 ## Remapping of stimulus input cells
 Random Connectivity:                 6.0e+6 ## Computing random connectivity (not distance-dependent)
 GC Log-Normal Weights 1:             8.0e+6 ## Computing log-normal weights for GC
 GC Log-Normal Weights 2:            10.0e+6 ## Computing log-normal weights for GC

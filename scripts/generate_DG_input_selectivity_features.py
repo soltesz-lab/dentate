@@ -21,6 +21,7 @@ def mpi_excepthook(type, value, traceback):
 
 
 def debug_callback(context):
+    from dentate.plot import plot_2D_rate_map
     fig_title = '%s %s cell %i' % (context.population, context.this_selectivity_type_name, context.gid)
     fig_options = copy.copy(context.fig_options)
     if context.save_fig is not None:
@@ -126,7 +127,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
     population_ranges = read_population_ranges(coords_path, comm)[0]
 
     if len(populations) == 0:
-        populations = ('MC', 'ConMC', 'LPP', 'GC', 'MPP', 'CA3c')
+        populations = sorted(population_ranges.keys())
 
     reference_u_arc_distance_bounds = None
     if rank == 0:
