@@ -779,7 +779,7 @@ Synapses:
             tau_offset: 6.2
             e: 0
             sat: 0.9
-            g_unit: 0.00235
+            g_unit: 0.00135
             weight: 1.0
         soma:
           AMPA:
@@ -801,7 +801,7 @@ Synapses:
             tau_offset: 3.6
             e: 0
             sat: 0.9
-            g_unit: 0.00128
+            g_unit: 0.0005
             weight: 1.0
         basal:
           AMPA:
@@ -809,7 +809,7 @@ Synapses:
             tau_offset: 3.6
             e: 0
             sat: 0.9
-            g_unit: 0.00283
+            g_unit: 0.0005
             weight: 1.0
         soma:
           AMPA:
