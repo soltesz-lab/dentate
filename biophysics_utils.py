@@ -465,13 +465,14 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
     env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, verbose=verbose)
+    
     configure_hoc_env(env)
 
     mech_file_path = config_prefix + '/' + mech_file
     cell = get_biophys_cell(env, pop_name=pop_name, gid=gid, load_edges=load_edges, load_weights=load_weights,
                             mech_file_path=mech_file_path)
     context.update(locals())
-
+    
     init_biophysics(cell, reset_cable=True, correct_cm=correct_for_spines, correct_g_pas=correct_for_spines,
                     env=env, verbose=verbose)
     init_syn_mech_attrs(cell, env)

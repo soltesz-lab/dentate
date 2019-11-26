@@ -66,3 +66,5 @@ wheels/
 *.egg
 MANIFEST
 
+# Mech files
+*.mod
