@@ -65,6 +65,3 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
-
-# Mech files
-*.mod
