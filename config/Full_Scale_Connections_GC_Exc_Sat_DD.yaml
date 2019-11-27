@@ -787,7 +787,7 @@ Synapses:
             tau_offset: 6.2
             e: 0
             sat: 0.9
-            g_unit: 0.00274
+            g_unit: 0.00174
             weight: 1.0
     MC:   
       type: excitatory

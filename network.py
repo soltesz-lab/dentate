@@ -123,14 +123,15 @@ def connect_cells(env):
         if env.node_ranks is None:
             cell_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
                                                                 namespaces=sorted(cell_attr_namespaces), 
-                                                                comm=env.comm, io_size=env.io_size, return_struct=True)
+                                                                comm=env.comm, io_size=env.io_size, 
+                                                                return_type='tuple')
         else:
             cell_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
                                                                 namespaces=sorted(cell_attr_namespaces), 
                                                                 comm=env.comm, node_rank_map=env.node_ranks,
-                                                                io_size=env.io_size, return_struct=True)
-        syn_attrs_iter = cell_attributes_dict['Synapse Attributes']
-        syn_attrs.init_syn_id_attrs_from_iter(syn_attrs_iter)
+                                                                io_size=env.io_size, return_type='tuple')
+        syn_attrs_iter, syn_attrs_info = cell_attributes_dict['Synapse Attributes']
+        syn_attrs.init_syn_id_attrs_from_iter(syn_attrs_iter, attr_type='tuple', attr_tuple_index=syn_attrs_info)
         del cell_attributes_dict
 
         if has_weights:
@@ -139,41 +140,44 @@ def connect_cells(env):
             weight_attr_mask = list(syn_attrs.syn_mech_names)
             weight_attr_mask.append('syn_id')
             if env.node_ranks is None:
-                weight_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
-                                                                      namespaces=sorted(weights_namespaces), 
-                                                                      mask=set(weight_attr_mask),
-                                                                      comm=env.comm, io_size=env.io_size)
+                weight_attr_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
+                                                                namespaces=sorted(weights_namespaces), 
+                                                                mask=set(weight_attr_mask),
+                                                                comm=env.comm, io_size=env.io_size,
+                                                                return_type='tuple')
             else:
-                weight_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
-                                                                      namespaces=sorted(weights_namespaces), 
-                                                                      mask=set(weight_attr_mask),
-                                                                      comm=env.comm, node_rank_map=env.node_ranks,
-                                                                      io_size=env.io_size)
+                weight_attr_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
+                                                                namespaces=sorted(weights_namespaces), 
+                                                                mask=set(weight_attr_mask),
+                                                                comm=env.comm, node_rank_map=env.node_ranks,
+                                                                io_size=env.io_size, return_type='tuple')
                 
             overwrite_weights = 'error'
             for weights_namespace in weights_namespaces:
-                syn_weights_iter = weight_attributes_dict[weights_namespace]
+                syn_weights_iter, weight_attr_info = weight_attr_dict[weights_namespace]
                 first_gid = None
-                for gid, cell_weights_struct in syn_weights_iter:
+                syn_id_index = weight_attr_info.get('syn_id', None)
+                syn_name_inds = [(syn_name, attr_index) for syn_name, attr_index in sorted(viewitems(weight_attr_info)) if syn_name != 'syn_id']
+                for gid, cell_weights_tuple in syn_weights_iter:
                     if first_gid is None:
                         first_gid = gid
-                    weights_syn_ids = getattr(cell_weights_struct, 'syn_id')
-                    for syn_name in [syn_name for syn_name in sorted(viewattrs(cell_weights_struct)) if syn_name != 'syn_id']:
+                    weights_syn_ids = cell_weights_tuple[syn_id_index]
+                    for syn_name, syn_name_index in syn_name_inds:
                         if syn_name not in syn_attrs.syn_mech_names:
                             if rank == 0 and first_gid == gid:
                                 logger.warning('*** connect_cells: population: %s; gid: %i; syn_name: %s '
                                                'not found in network configuration' %
                                                (postsyn_name, gid, syn_name))
                         else:
-                            weights_values = getattr(cell_weights_struct, syn_name)
+                            weights_values = cell_weights_tuple[syn_name_index]
                             syn_attrs.add_mech_attrs_from_iter(gid, syn_name,
                                                                zip_longest(weights_syn_ids,
                                                                            [{'weight': x} for x in weights_values]), overwrite=overwrite_weights)
                             if rank == 0 and gid == first_gid:
                                 logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
-                                            (postsyn_name, gid, len(getattr(cell_weights_struct, syn_name)), syn_name, weights_namespace))
+                                            (postsyn_name, gid, len(weights_values), syn_name, weights_namespace))
                 overwrite_weights='skip'
-                del weight_attributes_dict[weights_namespace]
+                del weight_attr_dict[weights_namespace]
 
 
         first_gid = None
@@ -350,10 +354,11 @@ def connect_cell_selection(env):
         if rank == 0:
             logger.info('*** Reading synaptic attributes of population %s' % (postsyn_name))
 
-        syn_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name, selection=gid_range,
-                                                            namespace='Synapse Attributes', comm=env.comm, return_struct=True)
+        syn_attrs_iter, syn_attrs_info = read_cell_attribute_selection(forest_file_path, postsyn_name, selection=gid_range,
+                                                                       namespace='Synapse Attributes', comm=env.comm, 
+                                                                       return_type='tuple')
 
-        syn_attrs.init_syn_id_attrs_from_iter(syn_attributes_iter)
+        syn_attrs.init_syn_id_attrs_from_iter(syn_attrs_iter, attr_type='tuple', attr_tuple_index=syn_attrs_info)
         del (syn_attributes_iter)
 
         if has_weights:
@@ -363,24 +368,28 @@ def connect_cell_selection(env):
             weight_attr_mask.append('syn_id')
             overwrite_weights='error'
             for weights_namespace in weights_namespaces:
-                weight_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name,
-                                                                       selection=gid_range, mask=set(weight_attr_mask),
-                                                                       namespace=weights_namespace, comm=env.comm,
-                                                                       return_struct=True)
+                syn_weights_iter, weight_attr_info = read_cell_attribute_selection(forest_file_path, postsyn_name,
+                                                                                   selection=gid_range, 
+                                                                                   mask=set(weight_attr_mask),
+                                                                                   namespace=weights_namespace, 
+                                                                                   comm=env.comm, return_type='tuple')
 
                 first_gid = None
-                for gid, cell_weights_struct in weight_attributes_iter:
+                syn_id_index = weight_attr_info.get('syn_id', None)
+                syn_name_inds = [(syn_name, attr_index) for syn_name, attr_index in sorted(viewitems(weight_attr_info)) if syn_name != 'syn_id']
+
+                for gid, cell_weights_tuple in syn_weights_iter:
                     if first_gid is None:
                         first_gid = gid
-                    weights_syn_ids = getattr(cell_weights_struct, 'syn_id')
-                    for syn_name in [syn_name for syn_name in sorted(viewattrs(cell_weights_dict)) if syn_name != 'syn_id']:
+                    weights_syn_ids = cell_weights_tuple[syn_id_index]
+                    for syn_name, syn_name_index in syn_name_inds:
                         if syn_name not in syn_attrs.syn_mech_names:
                             if rank == 0 and first_gid == gid:
                                 logger.warning('*** connect_cells: population: %s; gid: %i; syn_name: %s '
                                                'not found in network configuration' %
                                                (postsyn_name, gid, syn_name))
                         else:
-                            weights_values = getattr(cell_weights_dict, syn_name)
+                            weights_values = cell_weights_tuple[syn_name_index]
                             syn_attrs.add_mech_attrs_from_iter(gid, syn_name, \
                                                                    zip_longest(weights_syn_ids, \
                                                                                    [{'weight': x} for x in weights_values]), overwrite=overwrite_weights)
@@ -388,7 +397,7 @@ def connect_cell_selection(env):
                                 logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
                                             (postsyn_name, gid, len(weights_values), syn_name, weights_namespace))
                 overwrite_weights='skip'
-                del weight_attributes_iter
+                del syn_weights_iter
 
         first_gid = None
         if postsyn_name in env.biophys_cells:
@@ -654,29 +663,32 @@ def make_cells(env):
                 logger.info("*** Reading coordinates for population %s" % pop_name)
 
             if env.node_ranks is None:
-                cell_attributes_dict = scatter_read_cell_attributes(data_file_path, pop_name,
-                                                                    namespaces=['Coordinates'],
-                                                                    comm=env.comm, io_size=env.io_size,
-                                                                    return_struct=True)
+                cell_attr_dict = scatter_read_cell_attributes(data_file_path, pop_name,
+                                                              namespaces=['Coordinates'],
+                                                              comm=env.comm, io_size=env.io_size,
+                                                              return_type='tuple')
             else:
-                cell_attributes_dict = scatter_read_cell_attributes(data_file_path, pop_name,
-                                                                    namespaces=['Coordinates'],
-                                                                    node_rank_map=env.node_ranks,
-                                                                    comm=env.comm, io_size=env.io_size,
-                                                                    return_struct=True)
+                cell_attr_dict = scatter_read_cell_attributes(data_file_path, pop_name,
+                                                              namespaces=['Coordinates'],
+                                                              node_rank_map=env.node_ranks,
+                                                              comm=env.comm, io_size=env.io_size,
+                                                              return_type='tuple')
             if rank == 0:
                 logger.info("*** Done reading coordinates for population %s" % pop_name)
 
-            coords = cell_attributes_dict['Coordinates']
+            coords_iter, coords_attr_info = cell_attr_dict['Coordinates']
 
-            for i, (gid, cell_coords_struct) in enumerate(coords):
+            x_index = coords_attr_info.get('X Coordinate', None)
+            y_index = coords_attr_info.get('Y Coordinate', None)
+            z_index = coords_attr_info.get('Z Coordinate', None)
+            for i, (gid, cell_coords_tuple) in enumerate(coords_iter):
                 if rank == 0:
                     logger.info("*** Creating %s gid %i" % (pop_name, gid))
 
                 hoc_cell = cells.make_hoc_cell(env, pop_name, gid)
-                cell_x = getattr(cell_coords_struct, 'X Coordinate')[0]
-                cell_y = getattr(cell_coords_struct, 'Y Coordinate')[0]
-                cell_z = getattr(cell_coords_struct, 'Z Coordinate')[0]
+                cell_x = cell_coords_tuple[x_index][0]
+                cell_y = cell_coords_tuple[y_index][0]
+                cell_z = cell_coords_tuple[z_index][0]
                 hoc_cell.position(cell_x, cell_y, cell_z)
 
                 cells.register_cell(env, pop_name, gid, hoc_cell)
@@ -771,20 +783,25 @@ def make_cell_selection(env):
             if rank == 0:
                 logger.info("*** Reading coordinates for population %s" % pop_name)
 
-            cell_attributes_iter = read_cell_attribute_selection(data_file_path, pop_name, selection=gid_range, namespace='Coordinates', comm=env.comm, return_struct=True)
+            coords_iter, coords_attr_info = read_cell_attribute_selection(data_file_path, pop_name, selection=gid_range, 
+                                                                          namespace='Coordinates', comm=env.comm, 
+                                                                          return_type='tuple')
+            x_index = coords_attr_info.get('X Coordinate', None)
+            y_index = coords_attr_info.get('Y Coordinate', None)
+            z_index = coords_attr_info.get('Z Coordinate', None)
 
             if rank == 0:
                 logger.info("*** Done reading coordinates for population %s" % pop_name)
 
-            for i, (gid, cell_coords_struct) in enumerate(cell_attributes_iter):
+            for i, (gid, cell_coords_tuple) in enumerate(coords_attr_iter):
                 if rank == 0:
                     logger.info("*** Creating %s gid %i" % (pop_name, gid))
 
                 hoc_cell = cells.make_hoc_cell(env, pop_name, gid)
 
-                cell_x = getattr(cell_coords_dict, 'X Coordinate')[0]
-                cell_y = getattr(cell_coords_dict, 'Y Coordinate')[0]
-                cell_z = getattr(cell_coords_dict, 'Z Coordinate')[0]
+                cell_x = cell_coords_tuple[x_index][0]
+                cell_y = cell_coords_tuple[y_index][0]
+                cell_z = cell_coords_tuple[z_index][0]
                 hoc_cell.position(cell_x, cell_y, cell_z)
                 cells.register_cell(env, pop_name, gid, hoc_cell)
                 if hoc_cell.is_art() == 0:
@@ -900,29 +917,31 @@ def init_input_cells(env, input_sources=None):
                                                                          namespaces=[vecstim_namespace],
                                                                          mask=set([vecstim_attr]),
                                                                          comm=env.comm, io_size=env.io_size,
-                                                                         return_struct=True)
+                                                                         return_type='tuple')
                     else:
                         cell_vecstim_dict = scatter_read_cell_attributes(input_file_path, pop_name,
                                                                          namespaces=[vecstim_namespace],
                                                                          node_rank_map=env.node_ranks,
                                                                          mask=set([vecstim_attr]),
                                                                          comm=env.comm, io_size=env.io_size,
-                                                                         return_struct=True)
-                    cell_vecstim_iter = cell_vecstim_dict[vecstim_namespace]
+                                                                         return_type='tuple')
+                    vecstim_iter, vecstim_attr_info = cell_vecstim_dict[vecstim_namespace]
                 else:
                     if pop_name in env.cell_selection:
                         gid_range = [gid for gid in env.cell_selection[pop_name] if env.pc.gid_exists(gid)]
                         
-                        cell_vecstim_iter = read_cell_attribute_selection(input_file_path, pop_name, gid_range, \
-                                                                          namespace=vecstim_namespace, \
-                                                                          mask=set([vecstim_attr]), \
-                                                                          comm=env.comm, return_struct=True)
+                        vecstim_iter, vecstim_attr_info = read_cell_attribute_selection(input_file_path, 
+                                                                                        pop_name, gid_range, \
+                                                                                        namespace=vecstim_namespace, \
+                                                                                        mask=set([vecstim_attr]), \
+                                                                                        comm=env.comm, return_type='tuple')
                     else:
-                        cell_vecstim_iter = []
+                        vecstim_iter = []
 
-                for (gid, vecstim_struct) in cell_vecstim_iter:
+                vecstim_attr_index = vecstim_attr_info.get(vecstim_attr, None)
+                for (gid, vecstim_tuple) in vecstim_iter:
 
-                    spiketrain = getattr(vecstim_struct, vecstim_attr)
+                    spiketrain = vecstim_tuple[vecstim_attr_index]
                     if len(spiketrain) > 0:
                         spiketrain = np.sort(spiketrain)
                         spiketrain += float(env.stimulus_config['Equilibration Duration'])
@@ -978,39 +997,42 @@ def init_input_cells(env, input_sources=None):
                 if 'spike train' in env.celltypes[pop_name]:
                     vecstim_attr_set.add(env.celltypes[pop_name]['spike train']['attribute'])
                     
-                cell_spikes_iters = [ read_cell_attribute_selection(input_path, pop_name, \
+                cell_spikes_items = [ read_cell_attribute_selection(input_path, pop_name, \
                                                                     list(this_gid_range), \
                                                                     namespace=input_ns, \
                                                                     mask=vecstim_attr_set, \
-                                                                    comm=env.comm, return_struct=True) for (input_path, input_ns) in spike_input_source_loc ]
-                for gid, cell_spikes_struct in itertools.chain.from_iterable(cell_spikes_iters):
-                    spiketrain = None
-                    if (env.spike_input_attr is not None) and (env.spike_input_attr in viewattrs(cell_spikes_struct)):
-                        spiketrain = getattr(cell_spikes_struct, env.spike_input_attr)
-                    elif vecstim_attr in viewattrs(cell_spikes_struct):
-                        spiketrain = getattr(cell_spikes_struct, vecstim_attr)
-                    elif 't' in viewattrs(cell_spikes_struct):
-                        spiketrain = getattr(cell_spikes_struct, 't')
+                                                                    comm=env.comm, return_type='tuple') for (input_path, input_ns) in spike_input_source_loc ]
+
+                for cell_spikes_iter, cell_spikes_attr_info in itertools.chain.from_iterable(cell_spikes_items):
+                    if (env.spike_input_attr is not None) and (env.spike_input_attr in cell_spikes_attr_info):
+                        spike_train_attr_index = cell_spikes_attr_info.get(env.spike_input_attr, None)
+                    elif vecstim_attr in viewkeys(cell_spikes_attr_info):
+                        spike_train_attr_index = cell_spikes_attr_info.get(vecstim_attr, None)
+                    elif 't' in viewkeys(cell_spikes_attr_info):
+                        spike_train_attr_index = cell_spikes_attr_info.get('t', None)
                     else:
                         raise RuntimeError("init_input_cells: unable to determine spike train attribute in for gid %d in spike input file %s; namespace %s" % (gid, env.spike_input_path, env.spike_input_ns))
                         
-                    if len(spiketrain) > 0:
-                        spiketrain = np.sort(spiketrain)
-                        if np.min(spiketrain) < 0.:
-                            spiketrain += float(env.stimulus_config['Equilibration Duration'])
+                    for gid, cell_spikes_tuple in cell_spikes_iter:
+                        spiketrain = cell_spikes_tuple[spike_train_attr_index]
+                        
+                        if len(spiketrain) > 0:
+                            spiketrain = np.sort(spiketrain)
+                            if np.min(spiketrain) < 0.:
+                                spiketrain += float(env.stimulus_config['Equilibration Duration'])
 
-                        logger.info("*** Spike train for %s input source gid %i is of length %i (%g : %g ms)" %
-                                    (pop_name, gid, len(spiketrain), spiketrain[0], spiketrain[-1]))
-                    else:
-                        logger.info("*** Spike train for %s input source gid %i is of length %i" %
-                                    (pop_name, gid, len(spiketrain)))
+                            logger.info("*** Spike train for %s input source gid %i is of length %i (%g : %g ms)" %
+                                        (pop_name, gid, len(spiketrain), spiketrain[0], spiketrain[-1]))
+                        else:
+                            logger.info("*** Spike train for %s input source gid %i is of length %i" %
+                                        (pop_name, gid, len(spiketrain)))
 
-                    assert(env.pc.gid_exists(gid))
-                    input_cell = env.pc.gid2cell(gid)
-                    if input_cell.is_art() == 1:
-                        input_cell.play(h.Vector(spiketrain))
-                    else:
-                        raise RuntimeError("init_input_cells: input cell gid %d is not an artificial cell (%s)" % (gid, str(input_cell)))
+                        assert(env.pc.gid_exists(gid))
+                        input_cell = env.pc.gid2cell(gid)
+                        if input_cell.is_art() == 1:
+                            input_cell.play(h.Vector(spiketrain))
+                        else:
+                            raise RuntimeError("init_input_cells: input cell gid %d is not an artificial cell (%s)" % (gid, str(input_cell)))
 
             else:
                 if rank == 0:
