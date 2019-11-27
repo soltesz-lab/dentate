@@ -359,7 +359,7 @@ def connect_cell_selection(env):
                                                                        return_type='tuple')
 
         syn_attrs.init_syn_id_attrs_from_iter(syn_attrs_iter, attr_type='tuple', attr_tuple_index=syn_attrs_info)
-        del (syn_attributes_iter)
+        del (syn_attrs_iter)
 
         if has_weights:
             if rank == 0:
@@ -793,7 +793,7 @@ def make_cell_selection(env):
             if rank == 0:
                 logger.info("*** Done reading coordinates for population %s" % pop_name)
 
-            for i, (gid, cell_coords_tuple) in enumerate(coords_attr_iter):
+            for i, (gid, cell_coords_tuple) in enumerate(coords_iter):
                 if rank == 0:
                     logger.info("*** Creating %s gid %i" % (pop_name, gid))
 
