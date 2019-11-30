@@ -1670,7 +1670,7 @@ def write_syn_mech_attrs(env, pop_name, gids, output_path, filters=None, syn_nam
                                                'set in either %s point process or netcon' % (gid, syn_id, k, syn_name))
                         output_dict[syn_name][gid][k].append(v)
 
-    for syn_name, syn_attrs_dict in viewitems(output_dict):
+    for syn_name, syn_attrs_dict in viewitems(sorted(output_dict)):
 
         attr_dict = {}
         for gid, gid_syn_attrs_dict in viewitems(syn_attrs_dict):

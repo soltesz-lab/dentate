@@ -46,7 +46,7 @@ ibrun python3 -m nested.optimize  \
     --framework=pc \
     --disp \
     --verbose \
-    --procs_per_worker=800 \
+    --procs_per_worker=896 \
     --no_cleanup \
     --template_paths=$MODEL_HOME/dgc/Mateos-Aparicio2014:$DG_HOME/templates \
     --dataset_prefix="$SCRATCH/striped/dentate" \
