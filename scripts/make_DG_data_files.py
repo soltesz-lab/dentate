@@ -8,34 +8,32 @@ DG_populations = ["AAC", "BC", "GC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC", "M
 DG_IN_populations = ["AAC", "BC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC"]
 DG_EXT_populations = ["MPP", "LPP", "CA3c"]
 
-DG_cells_file = "DG_Cells_Full_Scale_20191128.h5"
-DG_connections_file = "DG_Connections_Full_Scale_20191128.h5"
+DG_cells_file = "DG_Cells_Full_Scale_20191130.h5"
+DG_connections_file = "DG_Connections_Full_Scale_20191130.h5"
 
 DG_GC_coordinate_file  = "DG_coords_20190717_compressed.h5"
 DG_IN_coordinate_file  = "DG_coords_20190717_compressed.h5"
 DG_EXT_coordinate_file = "DG_coords_20190717_compressed.h5"
 
 DG_GC_forest_file = "DGC_forest_reindex_20190717_compressed.h5"
-DG_IN_forest_file = "DG_IN_forest_20191112_compressed.h5"
+DG_IN_forest_file = "DG_IN_forest_20191130_compressed.h5"
 
 DG_GC_forest_syns_file = "DGC_forest_syns_20190717_compressed.h5"
-DG_IN_forest_syns_file = "DG_IN_forest_syns_20191112_compressed.h5"
+DG_IN_forest_syns_file = "DG_IN_forest_syns_20191130_compressed.h5"
 
 DG_GC_syn_weights_SLN_file = "DG_GC_syn_weights_SLN_20191128_compressed.h5"
 DG_GC_syn_weights_LN_file = "DG_GC_syn_weights_LN_20190717_compressed.h5"
-DG_IN_syn_weights_SLN_file = "DG_IN_syn_weights_SLN_20191128_compressed.h5"
-DG_IN_syn_weights_LN_file = "DG_IN_syn_weights_LN_20190809_compressed.h5"
-DG_IN_syn_weights_N_file = "DG_IN_syn_weights_N_20190809_compressed.h5"
+DG_IN_syn_weights_SLN_file = "DG_IN_syn_weights_SLN_20191130_compressed.h5"
+DG_IN_syn_weights_LN_file = "DG_IN_syn_weights_LN_20191130_compressed.h5"
 
 DG_GC_connectivity_file = "DG_GC_connections_20190717_compressed.h5"
-DG_IN_connectivity_file = "DG_IN_connections_20190806_compressed.h5"
-DG_HC_connectivity_file = "DG_HC_connections_20191110_compressed.h5"
+DG_IN_connectivity_file = "DG_IN_connections_20191130_compressed.h5"
 
 connectivity_files = {
     'AAC': DG_IN_connectivity_file,
     'BC': DG_IN_connectivity_file,
     'GC': DG_GC_connectivity_file,
-    'HC': DG_HC_connectivity_file,
+    'HC': DG_IN_connectivity_file,
     'HCC': DG_IN_connectivity_file,
     'IS': DG_IN_connectivity_file,
     'MC': DG_IN_connectivity_file,
@@ -122,8 +120,7 @@ syn_weight_files = {
              "Log-Normal Weights": DG_GC_syn_weights_LN_file },
 
      'MC': { "Structured Weights A": DG_IN_syn_weights_SLN_file,
-             "Log-Normal Weights": DG_IN_syn_weights_LN_file,
-             "Normal Weights": DG_IN_syn_weights_N_file }
+             "Log-Normal Weights": DG_IN_syn_weights_LN_file }
 
 
 }

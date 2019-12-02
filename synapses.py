@@ -1636,6 +1636,8 @@ def write_syn_mech_attrs(env, pop_name, gids, output_path, filters=None, syn_nam
     :param filters: optional filter for synapses
     """
 
+    rank = int(env.pc.id())
+
     syn_attrs = env.synapse_attributes
     rules = syn_attrs.syn_param_rules
 
@@ -1670,15 +1672,20 @@ def write_syn_mech_attrs(env, pop_name, gids, output_path, filters=None, syn_nam
                                                'set in either %s point process or netcon' % (gid, syn_id, k, syn_name))
                         output_dict[syn_name][gid][k].append(v)
 
-    for syn_name, syn_attrs_dict in viewitems(sorted(output_dict)):
 
+    for syn_name in sorted(output_dict):
+
+        syn_attrs_dict = output_dict[syn_name]
         attr_dict = {}
+        
+
         for gid, gid_syn_attrs_dict in viewitems(syn_attrs_dict):
             for attr_name, attr_vals in viewitems(gid_syn_attrs_dict):
                 if attr_name == 'syn_ids':
                     attr_dict[gid] = {'syn_ids': np.asarray(attr_vals, dtype='uint32')}
                 else:
                     attr_dict[gid] = {attr_name: np.asarray(attr_vals, dtype='float32')}
+        logger.info("write_syn_mech_attrs: rank %d: population %s: writing mechanism %s attributes for %d gids" % (rank, pop_name, syn_name, len(attr_dict)))
         write_cell_attributes(output_path, pop_name, attr_dict,
                               namespace='%s Attributes' % syn_name,
                               **write_kwds)
