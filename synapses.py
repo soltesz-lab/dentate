@@ -99,15 +99,43 @@ class SynapseAttributes(object):
         self.presyn_names = {id: name for name, id in viewitems(env.Populations)}
         self.filter_cache = {}
 
-    def init_syn_id_attrs_from_iter(self, cell_iter):
+    def init_syn_id_attrs_from_iter(self, cell_iter, attr_type='dict', attr_tuple_index=None):
         """
         Initializes synaptic attributes given an iterator that returns (gid, attr_dict).
         See `init_syn_id_attrs` for details on the format of the input dictionary.
         """
-        for (gid, attr_dict) in cell_iter:
-            self.init_syn_id_attrs(gid, attr_dict)
+        
+        if attr_type == 'dict':
+            for (gid, attr_dict) in cell_iter:
+                syn_ids = attr_dict['syn_ids']
+                syn_layers = attr_dict['syn_layers']
+                syn_types = attr_dict['syn_types']
+                swc_types = attr_dict['swc_types']
+                syn_secs = attr_dict['syn_secs']
+                syn_locs = attr_dict['syn_locs']
+                self.init_syn_id_attrs(gid, syn_ids, syn_layers, syn_types, swc_types, syn_secs, syn_locs)
+        elif attr_type == 'tuple':
+            syn_ids_ind = attr_tuple_index.get('syn_ids', None)
+            syn_locs_ind = attr_tuple_index.get('syn_locs', None)
+            syn_layers_ind = attr_tuple_index.get('syn_layers', None)
+            syn_types_ind = attr_tuple_index.get('syn_types', None)
+            swc_types_ind = attr_tuple_index.get('swc_types', None)
+            syn_secs_ind = attr_tuple_index.get('syn_secs', None)
+            syn_locs_ind = attr_tuple_index.get('syn_locs', None)
+            for (gid, attr_tuple) in cell_iter:
+                syn_ids = attr_tuple[syn_ids_ind]
+                syn_layers = attr_tuple[syn_layers_ind]
+                syn_types = attr_tuple[syn_types_ind]
+                swc_types = attr_tuple[swc_types_ind]
+                syn_secs = attr_tuple[syn_secs_ind]
+                syn_locs = attr_tuple[syn_locs_ind]
+                self.init_syn_id_attrs(gid, syn_ids, syn_layers, syn_types, swc_types, syn_secs, syn_locs)
 
-    def init_syn_id_attrs(self, gid, syn_id_attr_dict):
+        else:
+            raise RuntimeError('init_syn_id_attrs_from_iter: unrecognized input attribute type %s' % attr_type)
+
+    def init_syn_id_attrs(self, gid, syn_ids, syn_layers, syn_types, swc_types, syn_secs, syn_locs):
+
         """
         Initializes synaptic attributes for the given cell gid.
         Only the intrinsic properties of a synapse, such as type, layer, location are set.
@@ -116,7 +144,6 @@ class SynapseAttributes(object):
         parameters, and netcon/vecstim objects are initialized to None
         or empty dictionaries.
 
-        :param syn_id_attr_dict: a dictionary containing the following keys:
           - syn_ids: synapse ids
           - syn_layers: layer index for each synapse id
           - syn_types: synapse type for each synapse id
@@ -128,12 +155,6 @@ class SynapseAttributes(object):
         if gid in self.syn_id_attr_dict:
             raise RuntimeError('Entry %i exists in synapse attribute dictionary' % gid)
         else:
-            syn_ids = syn_id_attr_dict['syn_ids']
-            syn_layers = syn_id_attr_dict['syn_layers']
-            syn_types = syn_id_attr_dict['syn_types']
-            swc_types = syn_id_attr_dict['swc_types']
-            syn_secs = syn_id_attr_dict['syn_secs']
-            syn_locs = syn_id_attr_dict['syn_locs']
 
             syn_dict = self.syn_id_attr_dict[gid]
             sec_dict = self.sec_dict[gid]
@@ -1615,6 +1636,8 @@ def write_syn_mech_attrs(env, pop_name, gids, output_path, filters=None, syn_nam
     :param filters: optional filter for synapses
     """
 
+    rank = int(env.pc.id())
+
     syn_attrs = env.synapse_attributes
     rules = syn_attrs.syn_param_rules
 
@@ -1649,15 +1672,20 @@ def write_syn_mech_attrs(env, pop_name, gids, output_path, filters=None, syn_nam
                                                'set in either %s point process or netcon' % (gid, syn_id, k, syn_name))
                         output_dict[syn_name][gid][k].append(v)
 
-    for syn_name, syn_attrs_dict in viewitems(output_dict):
 
+    for syn_name in sorted(output_dict):
+
+        syn_attrs_dict = output_dict[syn_name]
         attr_dict = {}
+        
+
         for gid, gid_syn_attrs_dict in viewitems(syn_attrs_dict):
             for attr_name, attr_vals in viewitems(gid_syn_attrs_dict):
                 if attr_name == 'syn_ids':
                     attr_dict[gid] = {'syn_ids': np.asarray(attr_vals, dtype='uint32')}
                 else:
                     attr_dict[gid] = {attr_name: np.asarray(attr_vals, dtype='float32')}
+        logger.info("write_syn_mech_attrs: rank %d: population %s: writing mechanism %s attributes for %d gids" % (rank, pop_name, syn_name, len(attr_dict)))
         write_cell_attributes(output_path, pop_name, attr_dict,
                               namespace='%s Attributes' % syn_name,
                               **write_kwds)

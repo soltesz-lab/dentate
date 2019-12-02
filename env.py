@@ -570,8 +570,8 @@ class Env(object):
                 try:
                     assert (np.isclose(v, 1.0))
                 except Exception as e:
-                    logger.error('Connection configuration: probabilities for %s do not sum to 1: %s = %f' %
-                                 (key_postsyn, str(k), v))
+                    self.logger.error('Connection configuration: probabilities for %s do not sum to 1: %s = %f' %
+                                      (key_postsyn, str(k), v))
                     raise e
 
         self.connection_config = connection_dict
