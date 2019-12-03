@@ -294,7 +294,7 @@ Synapses:
       mechanisms:
         GABA_A:
           dur_onset: 1.5
-          tau_offset: 11.0
+          tau_offset: 9.0
           e: -75
           g_unit: 0.00175
           weight: 1.0
@@ -302,7 +302,7 @@ Synapses:
       type: inhibitory
       sections: [soma, apical]
       layers: [Hilus, Hilus]
-      proportions: [0.5, 0.17]
+      proportions: [1.0, 0.17]
       contacts: 1.0
       swctype mechanisms:
         soma:
@@ -329,9 +329,9 @@ Synapses:
             weight: 1.0
     AAC:  
       type: inhibitory
-      sections: [soma]
+      sections: [ais]
       layers: [Hilus]
-      proportions: [0.5]
+      proportions: [1.0]
       contacts: 4.0
       mechanisms:
         GABA_A:
@@ -353,7 +353,7 @@ Synapses:
       mechanisms:
         GABA_A:
           dur_onset: 1.5
-          tau_offset: 10.0
+          tau_offset: 9.0
           e: -75
           g_unit: 0.00125
           weight: 1.0
@@ -779,7 +779,7 @@ Synapses:
             tau_offset: 6.2
             e: 0
             sat: 0.9
-            g_unit: 0.00235
+            g_unit: 0.00135
             weight: 1.0
         soma:
           AMPA:
@@ -787,7 +787,7 @@ Synapses:
             tau_offset: 6.2
             e: 0
             sat: 0.9
-            g_unit: 0.00274
+            g_unit: 0.00174
             weight: 1.0
     MC:   
       type: excitatory
@@ -801,7 +801,7 @@ Synapses:
             tau_offset: 3.6
             e: 0
             sat: 0.9
-            g_unit: 0.00128
+            g_unit: 0.0005
             weight: 1.0
         basal:
           AMPA:
@@ -809,7 +809,7 @@ Synapses:
             tau_offset: 3.6
             e: 0
             sat: 0.9
-            g_unit: 0.00283
+            g_unit: 0.0005
             weight: 1.0
         soma:
           AMPA:
@@ -817,7 +817,7 @@ Synapses:
             tau_offset: 3.6
             e: 0
             sat: 0.9
-            g_unit: 0.0009
+            g_unit: 0.0005
             weight: 1.0
     CA3c:   
       type: excitatory
@@ -829,7 +829,7 @@ Synapses:
           dur_onset: 0.9
           tau_offset: 3.6
           e: 0
-          g_unit: 0.001
+          g_unit: 0.0005
           weight: 1.0
           sat: 0.9
     HCC:  

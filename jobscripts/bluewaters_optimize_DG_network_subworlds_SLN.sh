@@ -44,20 +44,21 @@ aprun -n 25600 -N 8 -d 4 -b -- bwpy-environ -- \
     --max_iter=50 \
     --path_length=1 \
     --framework=pc \
-    --hot_start \
-    --storage_file_path=$DG_HOME/results/optimize_DG_network_subworlds.10551825.bw/20191028_1821_DG_optimize_network_subworlds_PopulationAnnealing_optimization_history.hdf5 \
     --disp \
     --verbose \
     --procs_per_worker=800 \
     --no_cleanup \
+    --hot_start \
+    --storage_file_path=$DG_HOME/results/optimize_DG_network_subworlds_SLN.10632700.bw/20191125_0509_DG_optimize_network_subworlds_PopulationAnnealing_optimization_history.hdf5 \
     --template_paths=$MODEL_HOME/dgc/Mateos-Aparicio2014:$DG_HOME/templates \
-    --dataset_prefix="$SCRATCH" \
+    --dataset_prefix="$SCRATCH/dentate" \
     --config_prefix=$DG_HOME/config \
     --results_path=$results_path \
     --cell_selection_path=$DG_HOME/datasets/DG_slice_20190917.yaml \
-    --spike_input_path="$SCRATCH/Full_Scale_Control/DG_input_spike_trains_20190912_compressed.h5" \
+    --spike_input_path="$SCRATCH/dentate/Full_Scale_Control/DG_input_spike_trains_20190912_compressed.h5" \
     --spike_input_namespace='Input Spikes A Diag' \
     --spike_input_attr='Spike Train' \
     --max_walltime_hours=23.75 \
     --io_size=48 \
     -v
+

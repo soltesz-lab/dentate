@@ -10,9 +10,7 @@
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
-module unload python2 
-module load python3
-module load phdf5/1.8.16
+module load phdf5
 
 set -x
 

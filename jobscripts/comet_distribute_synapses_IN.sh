@@ -12,24 +12,26 @@
 
 
 module load python
+module unload intel
+module load gnu
+module load openmpi_ib
+module load mkl
 module load hdf5
-module load scipy
-module load mpi4py
 
-export PYTHONPATH=/share/apps/compute/mpi4py/mvapich2_ib/lib/python2.7/site-packages:/opt/python/lib/python2.7/site-packages:$PYTHONPATH
-export PYTHONPATH=$HOME/bin/nrnpython/lib/python:$PYTHONPATH
-export PYTHONPATH=$HOME/model:$HOME/model/dentate/btmorph:$PYTHONPATH
+
+export PYTHONPATH=$HOME/.local/lib/python3.5/site-packages:/opt/sdsc/lib
+export PYTHONPATH=$HOME/bin/nrnpython3/lib/python:$PYTHONPATH
+export PYTHONPATH=$HOME/model:$PYTHONPATH
 export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
-export LD_PRELOAD=$MPIHOME/lib/libmpi.so
 ulimit -c unlimited
 
 set -x
 
-ibrun -np 24 python ./scripts/distribute_synapse_locs.py \
+ibrun -np 24 python3.5 ./scripts/distribute_synapse_locs.py \
               --distribution=poisson \
-              --config=Full_Scale_Pas.yaml \
+              --config=Full_Scale_Basis.yaml \
               --template-path=$PWD/templates \
               -i AAC -i BC -i MC -i HC -i HCC -i MOPP -i NGFC -i IS \
-              --forest-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_forest_20181226.h5 \
-              --output-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_forest_syns_20190123.h5 \
+              --forest-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_forest_20191130_compressed.h5 \
+              --output-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_forest_syns_20191130.h5 \
               --io-size=2 -v

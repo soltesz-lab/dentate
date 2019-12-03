@@ -142,7 +142,7 @@ def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, lo
     b = plasticity_kernel.reshape((-1,)).astype(np.float64)
 
     lb = -np.inf
-    ub = 3.
+    ub = 4.
 
     #res = opt.lsq_linear(A, b, bounds=(lb, ub), lsmr_tol='auto')
     def residual(x, w, A, b, phi):
