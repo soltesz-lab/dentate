@@ -34,7 +34,7 @@ ibrun python3 ./scripts/generate_structured_weights_as_cell_attr.py \
     --config=./config/Full_Scale_GC_Exc_Sat_DD_SLN.yaml \
     --initial-weights-namespace='Log-Normal Weights' \
     --structured-weights-namespace='Structured Weights' \
-    --output-weights-path=$SCRATCH/striped/dentate/Full_Scale_Control/DG_IN_syn_weights_SLN_20191130.h5 \
+    --output-weights-path=$SCRATCH/striped/dentate/Full_Scale_Control/DG_IN_syn_weights_SLN_20191202.h5 \
     --weights-path=$SCRATCH/striped/dentate/Full_Scale_Control/DG_IN_syn_weights_LN_20191130_compressed.h5 \
     --connections-path=$SCRATCH/striped/dentate/Full_Scale_Control/DG_IN_connections_20191130_compressed.h5 \
     --input-features-path="$SCRATCH/dentate/Full_Scale_Control/DG_input_features_20190909_compressed.h5" \
