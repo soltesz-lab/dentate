@@ -8,6 +8,7 @@ from dentate import utils
 script_name = os.path.basename(__file__)
 
 @click.command()
+@click.option("--config-path", '-c', type=click.Path())
 @click.option("--spike-events-path", '-p', required=True, type=click.Path())
 @click.option("--spike-events-namespace", '-n', type=str, default='Spike Events')
 @click.option("--populations", '-i', type=str, multiple=True)
@@ -26,7 +27,7 @@ script_name = os.path.basename(__file__)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
 
 
-def main(spike_events_path, spike_events_namespace, populations, max_units, t_variable, t_max, t_min, threshold, bin_size, meansub, graph_type, progress, fig_size, font_size, save_format, verbose):
+def main(config_path, spike_events_path, spike_events_namespace, populations, max_units, t_variable, t_max, t_min, threshold, bin_size, meansub, graph_type, progress, fig_size, font_size, save_format, verbose):
 
     utils.config_logging(verbose)
 
@@ -41,7 +42,11 @@ def main(spike_events_path, spike_events_namespace, populations, max_units, t_va
     if not populations:
         populations = ['eachPop']
         
-    plot.plot_spike_rates (spike_events_path, spike_events_namespace, include=populations, max_units=max_units, time_range=time_range, time_variable=t_variable, threshold=threshold, meansub=meansub, bin_size=bin_size, graph_type=graph_type, fontSize=font_size, figSize=fig_size, saveFig=True, figFormat=save_format, progress=progress)
+    plot.plot_spike_rates (spike_events_path, spike_events_namespace, config_path=config_path, include=populations,
+                           max_units=max_units, time_range=time_range, time_variable=t_variable,
+                           threshold=threshold, meansub=meansub, bin_size=bin_size,
+                           graph_type=graph_type, fontSize=font_size, figSize=fig_size,
+                           saveFig=True, figFormat=save_format, progress=progress)
     
 
 if __name__ == '__main__':
