@@ -3244,6 +3244,195 @@ def plot_place_fields(spike_input_path, spike_namespace_id, trajectory_path, are
     return fig
 
 
+def plot_remap_score(spike_input_paths, spike_namespace_ids, trajectory_path, arena_ids, trajectory_id, config_path=None, populations=None,
+                      bin_size=10.0, spike_train_attr_name='t', time_range=None, alpha_fill=0.2,
+                      overlay=False, output_file_path=None, plot_dir_path=None, **kwargs):
+    """
+    Plots remapping score calculated as correlation of place fields between several trajectories. Returns figure handle.
+    :param spike_input_path: str (path to file)
+    :param spike_namespace_id: str
+    :param trajectory_path: str (path to file)
+    :param arena_id: str
+    :param trajectory_id: str
+    :param populations: list of str
+    :param bin_size: float
+    :param min_pf_width: float
+    :param spike_train_attr_name: str
+    :param time_range: list of float
+    :param alpha_fill: float
+    :param overlay: bool
+    :param output_file_path: str (path to file)
+    :param plot_dir_path: str (path to dir)
+    :param kwargs: dict
+    :return: :class:'plt.Figure'
+    """
+    fig_options = copy.copy(default_fig_options)
+    fig_options.update(kwargs)
+
+    baks_config = copy.copy(kwargs)
+    pf_config =  copy.copy(kwargs)
+
+    env = None
+    if config_path is not None:
+        env = Env(config_file=config_path)
+        if env.analysis_config is not None:
+            baks_config.update(env.analysis_config['Firing Rate Inference'])
+            pf_config.update(env.analysis_config['Place Fields'])
+
+    n_inputs = len(spike_input_paths)
+    assert(n_inputs > 1)
+            
+    if len(spike_namespace_ids) == 1:
+        spike_namespace_id = spike_namespace_ids[0]
+        spike_namespace_ids = [spike_namespace_id]*n_inputs
+
+    assert(len(spike_namespace_ids) == n_inputs)
+    assert(len(arena_ids) == n_inputs)
+            
+    trajectories = [stimulus.read_trajectory(trajectory_path, arena_id, trajectory_id) for arena_id in arena_ids]
+
+    (population_ranges, N) = read_population_ranges(spike_input_paths[0])
+    population_names = read_population_names(spike_input_paths[0])
+
+    pop_num_cells = {}
+    for k in population_names:
+        pop_num_cells[k] = population_ranges[k][1]
+
+    if populations is None:
+        populations = list(population_names)
+
+    if output_file_path is not None and not os.path.isfile(output_file_path):
+        input_file = h5py.File(spike_input_path, 'r')
+        output_file = h5py.File(output_file_path, 'w')
+        input_file.copy('/H5Types', output_file)
+        input_file.close()
+        output_file.close()
+
+    PF_arena_dicts = defaultdict(lambda: defaultdict(lambda: None))
+    for spike_input_path, spike_namespace_id, arena_id in zip_longest(spike_input_paths, spike_namespace_ids, arena_ids):
+        
+        this_spike_namespace = '%s %s %s' % (spike_namespace_id, arena_id, trajectory_id)
+        this_spike_namespace = spike_namespace_id
+    
+        spkdata = spikedata.read_spike_events(spike_input_path, populations, this_spike_namespace,
+                                              spike_train_attr_name=spike_train_attr_name, time_range=time_range)
+
+        spkpoplst = spkdata['spkpoplst']
+        spkindlst = spkdata['spkindlst']
+        spktlst = spkdata['spktlst']
+        num_cell_spks = spkdata['num_cell_spks']
+        pop_active_cells = spkdata['pop_active_cells']
+        tmin = spkdata['tmin']
+        tmax = spkdata['tmax']
+
+        if time_range is None:
+            time_range = [tmin, tmax]
+        time_bins  = np.arange(time_range[0], time_range[1], bin_size)
+
+        for i, subset in enumerate(spkpoplst):
+
+            spkts         = spktlst[i]
+            spkinds       = spkindlst[i]
+            spkdict       = spikedata.make_spike_dict(spkinds, spkts)
+
+            rate_bin_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, arena_id=arena_id,
+                                                             trajectory_id=trajectory_id,
+                                                             output_file_path=output_file_path, **baks_config)
+            PF_dict = spikedata.place_fields(subset, bin_size, rate_bin_dict, trajectory, arena_id=arena_id,
+                                             trajectory_id=trajectory_id, output_file_path=output_file_path,
+                                             **pf_config)
+        
+            PF_arena_dicts[arena_id][subset] = PF_dict
+
+    PF_corrs_dict = defaultdict(list)
+    rest = arena_ids
+    while len(rest) > 1:
+        arena_id, rest = rest[0], rest[1:]
+        for population in populations:
+            if population in PF_arena_dicts[arena_id]:
+                pf_corr = spikedata.place_field_corr(PF_arena_dicts[arena_id][population], PF_arena_dicts[rest[0]][population])
+                PF_corrs_dict[population].append(pf_corr)
+            
+    # create fig
+    fig = plt.figure(figsize=fig_options.figSize)
+    gs  = gridspec.GridSpec(len(spkpoplst), 3, height_ratios=[1 for name in spkpoplst ], width_ratios=[1,4,3])
+
+    histlst = []
+    # Plot separate line for each entry in include
+    for iplot, subset in enumerate(populations):
+
+        label = str(subset) 
+            
+        color = dflt_colors[iplot%len(dflt_colors)]
+
+        ax1 = plt.subplot(gs[iplot*3])
+        plt.setp([ax1], title='%s Remapping Score' % subset)
+        
+        PF_unique_count = np.unique(PF_count_array)
+        if len(PF_unique_count) > 1:
+            dmin = np.diff(PF_unique_count).min()
+            left_of_first_bin = PF_count_array.min() - float(dmin)/2
+            right_of_last_bin = PF_count_array.max() + float(dmin)/2
+            bins = np.arange(left_of_first_bin, right_of_last_bin + dmin, dmin)
+            PF_count_hist, bin_edges = np.histogram(PF_count_array, bins=bins)
+        else:
+            PF_count_hist, bin_edges = np.histogram(PF_count_array, bins='auto')
+        bin_centers = 0.5*(bin_edges[1:] + bin_edges[:-1])
+        ax1.bar(bin_centers, PF_count_hist, color=color, width=0.3*(np.mean(np.diff(bin_edges))))
+        ax1.set_xticks(bin_centers)
+        ax1.tick_params(axis="x", labelsize=fig_options.fontSize)
+        ax1.tick_params(axis="y", labelsize=fig_options.fontSize)
+
+        ax2 = plt.subplot(gs[iplot*3 + 1])
+        PF_field_width_hist, bin_edges = np.histogram(PF_field_width_array)
+        bin_centers = 0.5*(bin_edges[1:] + bin_edges[:-1])
+        ax2.bar(bin_centers, PF_field_width_hist, color=color, width=0.3*(np.mean(np.diff(bin_edges))))
+        ax2.set_xticks(bin_centers)
+        ax2.xaxis.set_major_formatter(FormatStrFormatter('%0.1f'))
+        ax2.tick_params(axis="x", labelsize=fig_options.fontSize)
+        ax2.tick_params(axis="y", labelsize=fig_options.fontSize)
+        
+        ax3 = plt.subplot(gs[iplot*3 + 2])
+        PF_infield_rate_hist, bin_edges = np.histogram(PF_infield_rate_array)
+        bin_centers = 0.5*(bin_edges[1:] + bin_edges[:-1])
+        ax3.bar(bin_centers, PF_infield_rate_hist, color=color, width=0.3*(np.mean(np.diff(bin_edges))))
+        ax3.set_xticks(bin_centers)
+        ax3.xaxis.set_major_formatter(FormatStrFormatter('%0.1f'))
+        ax3.tick_params(axis="x", labelsize=fig_options.fontSize)
+        ax3.tick_params(axis="y", labelsize=fig_options.fontSize)
+        
+        if iplot == 0:
+            ax1.set_ylabel('Cell Index', fontsize=fig_options.fontSize)
+        if iplot == len(spkpoplst)-1:
+            ax1.set_xlabel('Number of place fields', fontsize=fig_options.fontSize)
+            ax2.set_xlabel('Mean field width [cm]', fontsize=fig_options.fontSize)
+            ax3.set_xlabel('In-field mean firing rate [Hz]', fontsize=fig_options.fontSize)
+
+        plt.autoscale(enable=True, axis='both', tight=True)
+
+    if len(spkpoplst) < 5:  # if apply tight_layout with many subplots it inverts the y-axis
+        try:
+            plt.tight_layout()
+        except:
+            pass
+
+    # Add legend
+    if overlay:
+        for i,subset in enumerate(spkpoplst):
+            plt.plot(0,0,color=dflt_colors[i%len(dflt_colors)],label=str(subset))
+        plt.legend(fontsize=fig_options.fontSize, bbox_to_anchor=(1.04, 1), loc=2, borderaxespad=0.)
+        maxLabelLen = min(10,max([len(str(l)) for l in populations]))
+        plt.subplots_adjust(right=(0.9-0.012*maxLabelLen))
+
+    if fig_options.saveFig is not None:
+        save_figure('%s place fields %s %s' % (str(fig_options.saveFig), arena_id, trajectory_id), **fig_options())
+
+    if fig_options.showFig:
+        show_figure()
+
+    return fig
+
+
 
 def plot_spike_PSD (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t',
                     bin_size = 1., window_size = 1024, smooth = 0, frequency_range=(0, 100.), overlap=0.5,
