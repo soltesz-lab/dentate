@@ -139,7 +139,7 @@ def init_cell(env, pop_name, gid, load_connections=True):
     ## Load cell gid and its synaptic attributes and connection data
     cell = load_cell(env, pop_name, gid, mech_file_path=mech_file_path, \
                      correct_for_spines=correct_for_spines_flag, \
-                     load_edges=load_connections)
+                     load_connections=load_connections)
     register_cell(env, pop_name, gid, cell)
 
     rec = make_rec(0, pop_name, gid, cell, \
@@ -222,6 +222,7 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
         spk_inds = spkindlst[spk_pop_index]
         spk_ts = spktlst[spk_pop_index]
 
+        
         if presyn_name in generate_inputs_pops:
             if (presyn_name in env.netclamp_config.input_generators):
                 spike_generator = env.netclamp_config.input_generators[presyn_name]
@@ -292,16 +293,18 @@ def run(env):
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
+    env.t_rec.record(h._ref_t, env.dt)
     env.t_vec.resize(0)
     env.id_vec.resize(0)
 
     h.t = 0.0
+    h.dt = env.dt
     h.tstop = env.tstop
 
     h.finitialize(env.v_init)
 
     if rank == 0:
-        logger.info("*** Running simulation with dt = %.02f and tstop = %.02f" % (h.dt, h.tstop))
+        logger.info("*** Running simulation with dt = %.03f and tstop = %.02f" % (h.dt, h.tstop))
 
     env.pc.barrier()
     env.pc.psolve(h.tstop)
@@ -341,13 +344,19 @@ def run_with(env, param_dict):
         biophys_cell_dict = env.biophys_cells[pop_name]
         for gid, params_tuples in viewitems(gid_param_dict):
             biophys_cell = biophys_cell_dict[gid]
-            for source, sec_type, syn_name, param_name, param_value in params_tuples:
+            for destination, source, sec_type, syn_name, param_path, param_value in params_tuples:
+                if isinstance(param_path, tuple):
+                    p, s = param_path
+                else:
+                    p = param_path
+
                 synapses.modify_syn_param(biophys_cell, env, sec_type, syn_name,
-                                          param_name=param_name, value=param_value,
+                                          param_name=p, value=param_value,
                                           filters={'sources': [source]},
                                           origin='soma', update_targets=True)
             cell = env.pc.gid2cell(gid)
 
+    env.t_rec.record(h._ref_t, env.dt)
     env.t_vec.resize(0)
     env.id_vec.resize(0)
 
@@ -355,11 +364,11 @@ def run_with(env, param_dict):
 
     h.t = 0.0
     h.tstop = env.tstop
-
+    h.dt = env.dt
     h.finitialize(env.v_init)
 
     if rank == 0:
-        logger.info("*** Running simulation with dt = %.02f and tstop = %.02f" % (h.dt, h.tstop))
+        logger.info("*** Running simulation with dt = %.03f and tstop = %.02f" % (h.dt, h.tstop))
         logger.info("*** Parameters: %s" % str(param_dict))
 
     env.pc.barrier()
@@ -407,28 +416,46 @@ def optimize_rate(env, pop_name, gid, opt_iter=10):
     if (pop_name in env.netclamp_config.optimize_parameters):
         opt_params = env.netclamp_config.optimize_parameters[pop_name]
         param_ranges = opt_params['Parameter ranges']
-        opt_target = opt_params['Target firing rate']
+        opt_target = opt_params['Targets']['firing rate']
     else:
         raise RuntimeError(
             "network_clamp.optimize_rate: population %s does not have optimization configuration" % pop_name)
 
+
+    param_bounds = {}
+    param_names = []
+    param_initial_dict = {}
     param_range_tuples = []
+        
     for source, source_dict in sorted(viewitems(param_ranges), key=lambda k_v3: k_v3[0]):
         for sec_type, sec_type_dict in sorted(viewitems(source_dict), key=lambda k_v2: k_v2[0]):
             for syn_name, syn_mech_dict in sorted(viewitems(sec_type_dict), key=lambda k_v1: k_v1[0]):
-                for param_name, param_range in sorted(viewitems(syn_mech_dict), key=lambda k_v: k_v[0]):
-                    param_range_tuples.append((source, sec_type, syn_name, param_name, param_range))
-
-    min_values = [(source, sec_type, syn_name, param_name, param_range[0]) for
-                  source, sec_type, syn_name, param_name, param_range in param_range_tuples]
-    max_values = [(source, sec_type, syn_name, param_name, param_range[1]) for
-                  source, sec_type, syn_name, param_name, param_range in param_range_tuples]
+                for param_fst, param_rst in sorted(viewitems(syn_mech_dict), key=lambda k_v: k_v[0]):
+                    if isinstance(param_rst, dict):
+                        for const_name, const_range in sorted(viewitems(param_rst)):
+                            param_path = (param_fst, const_name)
+                            param_range_tuples.append((pop_name, source, sec_type, syn_name, param_path, const_range))
+                            param_key = '%s.%s.%s.%s.%s.%s' % (pop_name, source, sec_type, syn_name, param_fst, const_name)
+                            param_initial_value = (const_range[1] - const_range[0]) / 2.0
+                            param_initial_dict[param_key] = param_initial_value
+                            param_bounds[param_key] = const_range
+                            param_names.append(param_key)
+                    else:
+                        param_name = param_fst
+                        param_range = param_rst
+                        param_range_tuples.append((pop_name, source, sec_type, syn_name, param_name, param_range))
+                        param_key = '%s.%s.%s.%s.%s' % (pop_name, source, sec_type, syn_name, param_name)
+                        param_initial_value = (param_range[1] - param_range[0]) / 2.0
+                        param_initial_dict[param_key] = param_initial_value
+                        param_bounds[param_key] = param_range
+                        param_names.append(param_key)
+        
 
     def from_param_vector(params):
         result = []
         assert (len(params) == len(param_range_tuples))
-        for i, (source, sec_type, syn_name, param_name, param_range) in enumerate(param_range_tuples):
-            result.append((source, sec_type, syn_name, param_name, params[i]))
+        for i, (pop_name, source, sec_type, syn_name, param_name, param_range) in enumerate(param_range_tuples):
+            result.append((pop_name, source, sec_type, syn_name, param_name, params[i]))
         return result
 
     def to_param_vector(params):
@@ -437,6 +464,11 @@ def optimize_rate(env, pop_name, gid, opt_iter=10):
             result.append(param_value)
         return result
 
+    min_values = [(source, sec_type, syn_name, param_name, param_range[0]) for
+                  pop_name, source, sec_type, syn_name, param_path, param_range in param_range_tuples]
+    max_values = [(source, sec_type, syn_name, param_name, param_range[1]) for
+                  pop_name, source, sec_type, syn_name, param_path, param_range in param_range_tuples]
+    
     f_firing_rate = make_firing_rate_target(env, pop_name, gid, opt_target, from_param_vector)
     opt_params, outputs = dlib.find_min_global(f_firing_rate, to_param_vector(min_values), to_param_vector(max_values),
                                                opt_iter)
