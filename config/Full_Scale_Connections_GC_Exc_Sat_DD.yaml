@@ -644,7 +644,7 @@ Synapses:
           dur_onset:  0.5
           tau_offset: 3.0
           e:     0
-          g_unit: 0.0003
+          g_unit: 0.0004
           weight: 1.0
     LPP:
       type: excitatory
@@ -656,7 +656,7 @@ Synapses:
           dur_onset:  0.5
           tau_offset: 3.0
           e:     0
-          g_unit: 0.00032
+          g_unit: 0.00042
           weight: 1.0
     MC:   
       type: excitatory
