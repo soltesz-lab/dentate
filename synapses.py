@@ -514,10 +514,12 @@ class SynapseAttributes(object):
                 if isinstance(mech_param, DExpr):
                     if mech_param.parameter == 'delay':
                         new_val = mech_param(syn.source.delay)
+                        #print("modify %s.%s.%s: delay: %f new val: %f" % (pop_name, syn_name, k, syn.source.delay, new_val))
                     else:
                         raise RuntimeError('modify_mech_attrs: unknown dependent expression parameter %s' % (mech_param.parameter))
                 else:
                     new_val = v
+
                 if k in attr_dict:
                     attr_dict[k] = update(attr_dict[k], new_val)
                 else:

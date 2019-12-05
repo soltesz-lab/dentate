@@ -13,7 +13,7 @@ Input Generator:
   BC:
     template: StimCell
     params:
-      rate: 25.
+      rate: 24.
   AAC:
     template: StimCell
     params:
@@ -119,6 +119,18 @@ Synaptic Optimization:
       fraction active: 0.01
   MC:
     Parameter ranges:
+      GC:
+        apical:
+          AMPA:
+            g_unit: [0.001, 0.007]
+      MC:
+        apical:
+          AMPA:
+            g_unit: [0.001, 0.007]
+      CA3c:
+        apical:
+          AMPA:
+            g_unit: [0.001, 0.007]
       HC:
         apical:
           GABA_A:
@@ -131,20 +143,20 @@ Synaptic Optimization:
         apical:
           GABA_A:
             g_unit: 
-              b: [5.0, 9.0]
+              a: [0.0001, 0.005]
         soma:
           GABA_A:
             g_unit: 
-              b: [5.0, 9.0]
+              a: [0.0001, 0.005]
       AAC:
         soma:
           GABA_A:
             g_unit: 
-              b: [5.0, 9.0]
-#        ais:
-#          GABA_A:
-#            g_unit: 
-#               a: [0.0001, 0.003]
+              a: [0.0001, 0.005]
+        ais:
+          GABA_A:
+            g_unit: 
+               a: [0.0001, 0.005]
     Targets:
       firing rate: 1.5
       fraction active: 0.3

@@ -1,14 +1,20 @@
-import sys, math
+import sys, math, copy
 from collections import defaultdict
 import numpy as np
 from scipy import interpolate
 from neuroh5.io import read_cell_attributes, read_population_names, read_population_ranges, write_cell_attributes
 import dentate
-from dentate.utils import get_module_logger, autocorr, baks, baks, consecutive, mvcorrcoef, viewitems, zip
+from dentate.utils import get_module_logger, Struct, autocorr, baks, consecutive, mvcorrcoef, viewitems, zip
 
 ## This logger will inherit its setting from its root logger, dentate,
 ## which is created in module env
 logger = get_module_logger(__name__)
+
+# Default spike analysis configuration
+default_baks_analysis_options = Struct(**{'BAKS Alpha': 4.77,
+                                          'BAKS Beta': None})
+default_pf_analysis_options = Struct(**{'Minimum Width': 10.,
+                                        'Minimum Rate': None})
 
 
 def get_env_spike_dict(env, t_start=0.0, include_artificial=True):
@@ -235,8 +241,7 @@ def spike_covariate(population, spkdict, time_bins, nbins_before, nbins_after):
 
 
 def spike_density_estimate(population, spkdict, time_bins, arena_id=None, trajectory_id=None, output_file_path=None,
-                            progress=False, baks_alpha=4.77, baks_beta=None,
-                            inferred_rate_attr_name='Inferred Rate Map', **kwargs):
+                            progress=False, inferred_rate_attr_name='Inferred Rate Map', **kwargs):
     """
     Calculates spike density function for the given spike trains.
     :param population:
@@ -246,14 +251,15 @@ def spike_density_estimate(population, spkdict, time_bins, arena_id=None, trajec
     :param trajectory_id: str
     :param output_file_path:
     :param progress:
-    :param baks_alpha: float
-    :param baks_beta: float
     :param inferred_rate_attr_name: str
     :param kwargs: dict
     :return: dict
     """
     if progress:
         from tqdm import tqdm
+
+    analysis_options = copy.copy(default_baks_analysis_options)
+    analysis_options.update(kwargs)
 
     def make_spktrain(lst, t_start, t_stop):
         spkts = np.asarray(lst, dtype=np.float32)
@@ -266,16 +272,17 @@ def spike_density_estimate(population, spkdict, time_bins, arena_id=None, trajec
     spktrains = {ind: make_spktrain(lst, t_start, t_stop) for (ind, lst) in viewitems(spkdict)}
 
     baks_args = dict()
-    if baks_alpha is not None:
-        baks_args['a'] = baks_alpha
-    if baks_beta is not None:
-        baks_args['b'] = baks_beta
+    baks_args['a'] = analysis_options['BAKS Alpha']
+    baks_args['b'] = analysis_options['BAKS Beta']
+    
     if progress:
-        spk_rate_dict = {ind: baks(spkts / 1000., time_bins / 1000., **baks_args)[0].reshape((-1,))
-                         for ind, spkts in tqdm(viewitems(spktrains)) if len(spkts) > 1}
+        seq = tqdm(viewitems(spktrains))
     else:
-        spk_rate_dict = {ind: baks(spkts / 1000., time_bins / 1000., **baks_args)[0].reshape((-1,))
-                         for ind, spkts in viewitems(spktrains) if len(spkts) > 1}
+        seq = viewitems(spktrains)
+        
+    spk_rate_dict = {ind: baks(spkts / 1000., time_bins / 1000., **baks_args)[0].reshape((-1,))
+                     if len(spkts) > 1 else np.zeros(time_bins.shape)
+                     for ind, spkts in seq}
 
     if output_file_path is not None:
         if arena_id is None or trajectory_id is None:
@@ -376,7 +383,7 @@ def spatial_information(population, trajectory, spkdict, time_range, position_bi
 
 
 def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, trajectory_id=None, nstdev=1.5,
-                 binsteps=5, baseline_fraction=None, min_pf_width=10., min_pf_rate=None, output_file_path=None, progress=False, **kwargs):
+                 binsteps=5, baseline_fraction=None, output_file_path=None, progress=False, **kwargs):
     """
     Estimates place fields from the given instantaneous spike rate dictionary.
     :param population: str
@@ -396,7 +403,13 @@ def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, tra
 
     if progress:
         from tqdm import tqdm
-    
+
+    analysis_options = copy.copy(default_pf_analysis_options)
+    analysis_options.update(kwargs)
+
+    min_pf_width = analysis_options['Minimum Width']
+    min_pf_rate = analysis_options['Minimum Rate']     
+
     (x, y, d, t) = trajectory
 
     pf_dict = {}
