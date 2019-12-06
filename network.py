@@ -1003,7 +1003,7 @@ def init_input_cells(env, input_sources=None):
                                                                     mask=vecstim_attr_set, \
                                                                     comm=env.comm, return_type='tuple') for (input_path, input_ns) in spike_input_source_loc ]
 
-                for cell_spikes_iter, cell_spikes_attr_info in itertools.chain.from_iterable(cell_spikes_items):
+                for cell_spikes_iter, cell_spikes_attr_info in cell_spikes_items:
                     if (env.spike_input_attr is not None) and (env.spike_input_attr in cell_spikes_attr_info):
                         spike_train_attr_index = cell_spikes_attr_info.get(env.spike_input_attr, None)
                     elif vecstim_attr in viewkeys(cell_spikes_attr_info):
