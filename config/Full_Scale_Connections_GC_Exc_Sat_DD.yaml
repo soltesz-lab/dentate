@@ -164,7 +164,7 @@ Synapses:
             weight: 1.0
         soma:
           GABA_A:
-            dur_onset: 0.25
+            dur_onset: 0.5
             tau_offset:
               expr: a*x + b
               parameter: delay
@@ -309,23 +309,35 @@ Synapses:
           GABA_A:
             dur_onset: 0.6
             tau_offset: 
-              expr: 2.55*x + 5.0
+              expr: a*x + b
               parameter: delay
+              const:
+                a: 2.55
+                b: 5.0
             e: -75
             g_unit: 
-              expr: 0.0003 * exp(-1.25 * x)
+              expr: a * exp(b * x)
               parameter: delay
+              const:
+                a: 0.0003
+                b: -1.25
             weight: 1.0
         apical:
           GABA_A:
             dur_onset: 0.6
             tau_offset: 
-              expr: 2.55*x + 5.0
+              expr: a*x + b
               parameter: delay
+              const:
+                a: 2.55
+                b: 5.0
             e: -75
             g_unit: 
-              expr: 0.0012 * exp(-1.25 * x)
+              expr: a * exp(b * x)
               parameter: delay
+              const:
+                a: 0.0012
+                b: -1.25
             weight: 1.0
     AAC:  
       type: inhibitory
@@ -337,12 +349,18 @@ Synapses:
         GABA_A:
           dur_onset: 0.6
           tau_offset: 
-            expr: 1.55*x + 5.0
+            expr: a*x + b
             parameter: delay
+            const:
+              a: 1.55
+              b: 5.0
           e: -75
           g_unit: 
-            expr: 0.0012 * exp(-1.25 * x)
+            expr: a * exp(b * x)
             parameter: delay
+            const:
+              a: 0.0012
+              b: -1.25
           weight: 1.0
     HCC:  
       type: inhibitory
@@ -438,7 +456,7 @@ Synapses:
             tau_offset: 6.2
             e: 0
             sat: 0.9
-            g_unit: 0.0047
+            g_unit: 0.0005
             weight: 1.0
     MPP:
       type: excitatory
@@ -451,7 +469,7 @@ Synapses:
           dur_onset:  0.5
           tau_offset: 3.0
           e:     0
-          g_unit: 0.0004
+          g_unit: 0.00012
           weight: 1.0
     LPP:
       type: excitatory
@@ -464,7 +482,7 @@ Synapses:
           dur_onset:  0.5
           tau_offset: 3.0
           e:     0
-          g_unit: 0.00045
+          g_unit: 0.00015
           weight: 1.0
     CA3c:   
       type: excitatory
@@ -477,7 +495,7 @@ Synapses:
           dur_onset: 0.5
           tau_offset: 3.6
           e: 0
-          g_unit: 0.001
+          g_unit: 0.0001
           weight: 1.0
           sat: 0.9
     MC:   
@@ -492,7 +510,7 @@ Synapses:
           tau_offset: 3.6
           e: 0
           sat: 0.9
-          g_unit: 0.001
+          g_unit: 0.0001
           weight: 1.0
     BC:   
       type: inhibitory
@@ -520,7 +538,7 @@ Synapses:
               parameter: delay
             e: -75
             g_unit: 
-              expr: 0.0008 * exp(-1.25 * x)
+              expr: 0.003 * exp(-1.25 * x)
               parameter: delay
             weight: 1.0
     HCC:  
@@ -614,7 +632,7 @@ Synapses:
           tau_offset: 6.2
           e: 0
           sat: 0.9
-          g_unit: 0.0047
+          g_unit: 0.00065
           weight: 1.0
     MPP:
       type: excitatory
@@ -626,7 +644,7 @@ Synapses:
           dur_onset:  0.5
           tau_offset: 3.0
           e:     0
-          g_unit: 0.001
+          g_unit: 0.0005
           weight: 1.0
     LPP:
       type: excitatory
@@ -638,7 +656,7 @@ Synapses:
           dur_onset:  0.5
           tau_offset: 3.0
           e:     0
-          g_unit: 0.0012
+          g_unit: 0.00052
           weight: 1.0
     MC:   
       type: excitatory
@@ -651,7 +669,7 @@ Synapses:
           tau_offset: 3.6
           e: 0
           sat: 0.9
-          g_unit: 0.005
+          g_unit: 0.0005
           weight: 1.0
     CA3c:   
       type: excitatory
@@ -663,7 +681,7 @@ Synapses:
           dur_onset: 0.3
           tau_offset: 3.6
           e: 0
-          g_unit: 0.005
+          g_unit: 0.0005
           weight: 1.0
           sat: 0.9
     HCC:  
