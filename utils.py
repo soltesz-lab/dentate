@@ -6,7 +6,7 @@ from past.builtins import basestring
 from collections import Iterable, defaultdict, namedtuple
 import numpy as np
 import scipy
-from scipy import sparse
+from scipy import sparse, signal
 import yaml
 
 class DExpr(object):
@@ -322,6 +322,11 @@ def list_argsort(f, seq):
     """
     return [i for i, x in sorted(enumerate(seq), key=lambda x: f(x[1]))]
 
+def viewattrs(obj):
+    if hasattr(obj, 'n_sequence_fields'):
+        return dir(obj)[:obj.n_sequence_fields]
+    else:
+        return vars(obj)
 
 def viewitems(obj, **kwargs):
     """
@@ -692,7 +697,7 @@ def power_spectrogram(signal, fs, window_size, window_overlap):
     win        = get_window('hanning', nperseg)
     noverlap   = int(window_overlap * nperseg)
 
-    f, t, sxx = spectrogram(x=signal, fs=fs, window=win, noverlap=noverlap, mode="magnitude")
+    f, t, sxx = spectrogram(x=signal, fs=fs, window=win, noverlap=noverlap, mode="psd")
 
     return f, t, sxx
 
@@ -996,7 +1001,15 @@ def autocorr (y, lag):
     else:
         return r
 
+def butter_bandpass(lowcut, highcut, fs, order=5):
+    nyq = 0.5 * fs
+    low = lowcut / nyq
+    high = highcut / nyq
+    b, a = signal.butter(order, [low, high], btype='band')
+    return b, a
 
-# 2D normal distribution
-def norm2d(x=0, y=0, mx=0, my=0, sx=1, sy=1):
-    return 1. / (2. * np.pi * sx * sy) * np.exp(-((x - mx)**2. / (2. * sx**2.) + (y - my)**2. / (2. * sy**2.)))
+
+def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
+    b, a = butter_bandpass(lowcut, highcut, fs, order=order)
+    y = signal.lfilter(b, a, data)
+    return y

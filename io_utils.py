@@ -163,6 +163,7 @@ def spikeout(env, output_path, t_start=0., clear_data=False):
     else:
         namespace_id = "Spike Events %s" % str(env.results_id)
 
+    equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
     for i, pop_name in enumerate(pop_names):
         spkdict = {}
         sinds = np.where(inds == i)
@@ -178,9 +179,11 @@ def spikeout(env, output_path, t_start=0., clear_data=False):
                     else:
                         spkdict[gid] = {'t': [t]}
             for gid in spkdict:
-                spkdict[gid]['t'] = np.array(spkdict[gid]['t'], dtype=np.float32)
+                spiketrain = np.array(spkdict[gid]['t'], dtype=np.float32)
+                spiketrain -= equilibration_duration
                 if gid in env.spike_onset_delay:
-                    spkdict[gid]['t'] -= env.spike_onset_delay[gid]
+                    spiketrain -= env.spike_onset_delay[gid]
+                spkdict[gid]['t'] = spiketrain
         append_cell_attributes(output_path, pop_name, spkdict, namespace=namespace_id, comm=env.comm, io_size=env.io_size)
         del (spkdict)
 

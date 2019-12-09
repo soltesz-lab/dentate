@@ -20,7 +20,7 @@ get_objectives:
   optimize_network_subworlds: get_objectives
 kwargs:
   config_file: Network_Clamp_GC_Exc_Sat_DD_SLN.yaml
-  tstop: 1500.
+  tstop: 3000.
   v_init: -77.
   vrecord_fraction: 0.1
   dt: 0.025

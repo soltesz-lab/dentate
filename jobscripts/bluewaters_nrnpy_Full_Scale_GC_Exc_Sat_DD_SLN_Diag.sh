@@ -3,7 +3,7 @@
 ### set the number of nodes and the number of PEs per node
 #PBS -l nodes=2048:ppn=32:xe
 ### which queue to use
-#PBS -q normal
+#PBS -q high
 ### set the wallclock time
 #PBS -l walltime=10:00:00
 ### set the job name
@@ -44,7 +44,7 @@ aprun -n 32768 -N 16 -d 2 -b -- bwpy-environ -- \
     --config-file=Full_Scale_GC_Exc_Sat_DD_SLN.yaml  \
     --arena-id=A --trajectory-id=Diag \
     --template-paths=../dgc/Mateos-Aparicio2014:templates \
-    --dataset-prefix="$SCRATCH" \
+    --dataset-prefix="$SCRATCH/dentate" \
     --results-path=$results_path \
     --io-size=256 \
     --tstop=10000 \

@@ -1,8 +1,8 @@
 #!/bin/bash
 #
-#SBATCH -J generate_DG_input_selectivity_features
-#SBATCH -o ./results/generate_DG_input_selectivity_features.%j.o
-#SBATCH --nodes=24
+#SBATCH -J generate_DG_remap_spike_trains
+#SBATCH -o ./results/generate_DG_remap_spike_trains.%j.o
+#SBATCH --nodes=10
 #SBATCH --ntasks-per-node=24
 #SBATCH -t 4:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
@@ -28,13 +28,13 @@ ulimit -c unlimited
 set -x
 
 
-ibrun -np 288 \
-    python3.5 $HOME/model/dentate/scripts/generate_DG_input_selectivity_features.py \
+ibrun -np 240 \
+    gdb -q -batch -x $HOME/gdb_script --args python3.5 ./scripts/generate_DG_input_spike_trains.py \
     --config=Full_Scale_Basis.yaml \
     --config-prefix=./config \
-    --coords-path=${SCRATCH}/dentate/Full_Scale_Control/DG_coords_20190717_compressed.h5 \
-    --output-path=${SCRATCH}/dentate/Full_Scale_Control/DG_input_features_20191119.h5 \
-    --io-size 24 \
-    -v
+    --selectivity-path=${SCRATCH}/dentate/Full_Scale_Control/DG_input_features_remap_20191113.h5 \
+    --output-path=${SCRATCH}/dentate/Full_Scale_Control/DG_remap_spike_trains_20191113.h5 \
+    --io-size 24 --write-size 10000 \
+     -p MPP -p LPP -p CA3c -v
 
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-#SBATCH -J generate_MC_log_normal_weights
-#SBATCH -o ./results/generate_MC_log_normal_weights.%j.o
+#SBATCH -J generate_log_normal_weights_MC
+#SBATCH -o ./results/generate_log_normal_weights_MC.%j.o
 #SBATCH --nodes=30
 #SBATCH --ntasks-per-node=24
 #SBATCH -t 1:00:00
@@ -32,8 +32,8 @@ ibrun -np 720  \
     -d MC -s GC -s CA3c \
     --config-prefix=./config \
     --config=Full_Scale_GC_Exc_Sat_LNN.yaml \
-    --weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_syn_weights_LN_20190809.h5 \
-    --connections-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20190806_compressed.h5 \
+    --weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_syn_weights_LN_20191130.h5 \
+    --connections-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_connections_20191130_compressed.h5 \
     --io-size=160  --value-chunk-size=100000 --chunk-size=20000 --write-size=25 -v 
 
 

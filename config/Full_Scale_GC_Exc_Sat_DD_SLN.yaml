@@ -5,9 +5,9 @@ Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-Cell Data: DG_Cells_Full_Scale_20191016.h5
-Connection Data: DG_Connections_Full_Scale_20191016.h5
-Gap Junction Data: DG_gapjunctions_20190717.h5
+Cell Data: DG_Cells_Full_Scale_20191130.h5
+Connection Data: DG_Connections_Full_Scale_20191130.h5
+Gap Junction Data: DG_gapjunctions_20191112.h5
 Connection Generator: !include Full_Scale_Connections_GC_Exc_Sat_DD.yaml
 LFP: !include LFP.yaml
 Stimulus: !include Input_Configuration.yaml
@@ -25,6 +25,8 @@ Cell Types:
       density: !include GC_synapse_density.yaml
   MC:
     template: MossyCell
+    template file: MossyCell_minimal.hoc
+    mechanism file: 20191029_DG_MC_excitability_mech.yaml
     synapses:
       density: !include MC_synapse_density.yaml
       weights: True

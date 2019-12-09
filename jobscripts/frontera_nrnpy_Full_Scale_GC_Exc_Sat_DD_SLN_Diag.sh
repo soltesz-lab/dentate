@@ -10,9 +10,7 @@
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
-module unload python2 
-module load python3
-module load phdf5/1.8.16
+module load phdf5
 
 set -x
 
@@ -42,7 +40,7 @@ ibrun env PYTHONPATH=$PYTHONPATH $PYTHON ./scripts/main.py  \
     --config-file=Full_Scale_GC_Exc_Sat_DD_SLN.yaml  \
     --arena-id=A --trajectory-id=Diag \
     --template-paths=../dgc/Mateos-Aparicio2014:templates \
-    --dataset-prefix="$SCRATCH/dentate" \
+    --dataset-prefix="$SCRATCH/striped/dentate" \
     --results-path=$results_path \
     --io-size=256 \
     --tstop=10000 \
