@@ -221,6 +221,7 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
             continue
         spk_inds = spkindlst[spk_pop_index]
         spk_ts = spktlst[spk_pop_index]
+        spk_ts += float(env.stimulus_config['Equilibration Duration'])
 
         
         if presyn_name in generate_inputs_pops:
