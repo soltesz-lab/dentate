@@ -2378,10 +2378,6 @@ def plot_spike_rates (input_path, namespace_id, config_path=None, include = ['ea
         if iplot == len(spkpoplst)-1:
             plt.xlabel('Time (ms)', fontsize=fig_options.fontSize)
 
-        cbar = plt.colorbar(im)
-        cbar.ax.set_ylabel('Firing Rate (Hz)', fontsize=fig_options.fontSize)
-        cbar.ax.tick_params(labelsize=fig_options.fontSize)
-
     if fig_options.saveFig:
         if isinstance(fig_options.saveFig, basestring):
             filename = fig_options.saveFig
@@ -3242,7 +3238,6 @@ def plot_place_fields(spike_input_path, spike_namespace_id, trajectory_path, are
         show_figure()
 
     return fig
-
 
 
 

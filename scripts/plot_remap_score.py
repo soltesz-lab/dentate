@@ -12,7 +12,7 @@ script_name = os.path.basename(__file__)
 @click.command()
 @click.option("--config-path", '-c', type=click.Path())
 @click.option("--spike-events-paths", '-p', required=True, multiple=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--spike-events-namespaces", '-n', multiple=True, type=str, default='Spike Events')
+@click.option("--spike-events-namespaces", '-n', multiple=True, type=str, default=['Spike Events'])
 @click.option("--spike-train-attr-name", type=str, default='t')
 @click.option("--populations", '-p', type=str, multiple=True, default=None)
 @click.option("--t-max", type=float)
@@ -56,12 +56,12 @@ def main(config_path, spike_events_paths, spike_events_namespaces, spike_train_a
     """
     utils.config_logging(verbose)
 
-    plot.plot_remap_index(spike_events_paths, spike_events_namespaces, trajectory_path, arena_ids, trajectory_id,
-                            config_path=config_path, populations=populations, bin_size=bin_size,
-                            min_pf_width=min_pf_width, min_pf_rate=min_pf_rate,
-                            spike_train_attr_name=spike_train_attr_name, time_range=[t_min, t_max],
-                            fontSize=font_size, output_file_path=output_file_path, plot_dir_path=plot_dir_path,
-                            progress=progress, saveFig=save_fig, figFormat=fig_format, verbose=verbose)
+    plot.plot_remap_score(spike_events_paths, spike_events_namespaces, trajectory_path, arena_ids, trajectory_id,
+                          config_path=config_path, populations=populations, bin_size=bin_size,
+                          min_pf_width=min_pf_width, min_pf_rate=min_pf_rate,
+                          spike_train_attr_name=spike_train_attr_name, time_range=[t_min, t_max],
+                          fontSize=font_size, output_file_path=output_file_path, plot_dir_path=plot_dir_path,
+                          progress=progress, saveFig=save_fig, figFormat=fig_format, verbose=verbose)
 
 
 if __name__ == '__main__':
