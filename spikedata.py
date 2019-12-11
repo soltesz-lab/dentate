@@ -410,7 +410,7 @@ def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, tra
     min_pf_width = analysis_options['Minimum Width']
     min_pf_rate = analysis_options['Minimum Rate']     
 
-    (x, y, d, t) = trajectory
+    (trj_x, trj_y, trj_d, trj_t) = trajectory
 
     pf_dict = {}
     pf_total_count = 0
@@ -426,7 +426,7 @@ def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, tra
         it = viewitems(rate_dict)
         
     for ind, valdict  in it:
-        x      = valdict['time']
+        t      = valdict['time']
         rate   = valdict['rate']
         m      = np.mean(rate)
         rate1  = np.subtract(rate, m)
@@ -435,16 +435,16 @@ def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, tra
         else:
             k = rate1.shape[0] / baseline_fraction
             s = np.std(rate1[np.argpartition(rate1, k)[:k]])
-        tmin = x[0]
-        tmax = x[-1]
+        tmin = t[0]
+        tmax = t[-1]
         bins = np.arange(tmin, tmax, bin_size)
         bin_rates = []
         bin_norm_rates = []
         pf_ibins = []
         for ibin in range(1, len(bins)):
             binx = np.linspace(bins[ibin - 1], bins[ibin], binsteps)
-            r_n = np.mean(np.interp(binx, x, rate1))
-            r = np.mean(np.interp(binx, x, rate))
+            r_n = np.mean(np.interp(binx, t, rate1))
+            r = np.mean(np.interp(binx, t, rate))
             bin_rates.append(r)
             bin_norm_rates.append(r_n)
             if r_n > nstdev * s:
@@ -462,12 +462,12 @@ def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, tra
                 pf_ibin_range = np.asarray([np.min(pf_ibin_array), np.max(pf_ibin_array)])
                 pf_bin_range = np.asarray([bins[pf_ibin_range[0]], bins[pf_ibin_range[1]]])
                 pf_bin_rates = [bin_rates[ibin] for ibin in pf_ibin_array]
-                pf_width = np.diff(np.interp(pf_bin_range, t, d))[0]
+                pf_width = np.diff(np.interp(pf_bin_range, trj_t, trj_d))[0]
                 pf_consecutive_ibins.append(pf_ibin_range)
                 pf_consecutive_bins.append(pf_bin_range)
                 pf_widths.append(pf_width)
                 pf_rates.append(np.mean(pf_bin_rates))
-
+                
             if min_pf_rate is None:
                 pf_filtered_ibins = [pf_consecutive_ibins[i] for i, pf_width in enumerate(pf_widths)
                                     if pf_width >= min_pf_width]
@@ -483,14 +483,22 @@ def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, tra
             pf_mean_rate = []
             pf_peak_rate = []
             pf_mean_norm_rate = []
+            pf_x_locs = []
+            pf_y_locs = []
             for pf_ibin_iter in pf_ibins:
                 pf_ibin_array = list(pf_ibin_iter)
+                pf_ibin_range = np.asarray([np.min(pf_ibin_array), np.max(pf_ibin_array)])
+                pf_bin_range = np.asarray([bins[pf_ibin_range[0]], bins[pf_ibin_range[1]]])
                 pf_mean_width.append(np.mean(
                     np.asarray([pf_width for pf_width in pf_widths if pf_width >= min_pf_width])))
                 pf_mean_rate.append(np.mean(np.asarray(bin_rates[pf_ibin_array])))
                 pf_peak_rate.append(np.max(np.asarray(bin_rates[pf_ibin_array])))
                 pf_mean_norm_rate.append(np.mean(np.asarray(bin_norm_rates[pf_ibin_array])))
-
+                pf_x_range = np.interp(pf_bin_range, trj_t, trj_x)
+                pf_y_range = np.interp(pf_bin_range, trj_t, trj_y)
+                pf_x_locs.append(np.mean(pf_x_range))
+                pf_y_locs.append(np.mean(pf_y_range))
+                
             pf_min = min(pf_count, pf_min)
             pf_max = max(pf_count, pf_max)
             pf_cell_count += 1
@@ -501,13 +509,17 @@ def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, tra
             pf_mean_rate = []
             pf_peak_rate = []
             pf_mean_norm_rate = []
+            pf_x_locs = []
+            pf_y_locs = []
 
         cell_count += 1
         pf_dict[ind] = {'pf_count': np.asarray([pf_count], dtype=np.uint32),
                         'pf_mean_width': np.asarray(pf_mean_width, dtype=np.float32),
                         'pf_mean_rate': np.asarray(pf_mean_rate, dtype=np.float32),
                         'pf_peak_rate': np.asarray(pf_peak_rate, dtype=np.float32),
-                        'pf_mean_norm_rate': np.asarray(pf_mean_norm_rate, dtype=np.float32)}
+                        'pf_mean_norm_rate': np.asarray(pf_mean_norm_rate, dtype=np.float32),
+                        'pf_x_locs': np.asarray(pf_x_locs),
+                        'pf_y_locs': np.asarray(pf_y_locs)}
 
     logger.info('%s place fields: %i cells min %i max %i mean %f\n' %
                     (population, cell_count, pf_min, pf_max, float(pf_total_count) / float(cell_count)))
