@@ -79,6 +79,13 @@ Weight Generator:
         mu: 0.
         sigma: 1.0
         clip: [0.0, 3.0]
+Scaling Optimization:
+  GC:
+    Parameter ranges:
+      !!python/tuple [MPP, LPP]:
+        apical:
+          AMPA:
+            weight: [0.1, 10.0]
 Synaptic Optimization:
   GC:
     Parameter ranges:

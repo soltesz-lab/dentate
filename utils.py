@@ -9,6 +9,8 @@ import scipy
 from scipy import sparse, signal
 import yaml
 
+        
+
 class DExpr(object):
     def __init__(self, parameter, expr, consts=None):
         self.sympy = importlib.import_module('sympy')
@@ -50,6 +52,14 @@ class Struct(object):
     def __getitem__(self, key):
         return self.__dict__[key]
 
+
+class Closure(object):
+    def __init__(self, func, **items):
+        self.env = Struct(**items)
+        self.func = func
+        
+    def __call__(self, *args):
+        return self.func(self.env, *args)
 
 class Context(object):
     """
@@ -1013,3 +1023,9 @@ def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
     b, a = butter_bandpass(lowcut, highcut, fs, order=order)
     y = signal.lfilter(b, a, data)
     return y
+
+def sed(a, b):
+    delta = a - b
+    sum_squared = np.dot(delta.T, delta)
+    return sum_squared
+

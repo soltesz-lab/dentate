@@ -1,17 +1,18 @@
 """
 Routines for Network Clamp simulation.
 """
-import os, sys
+import os, sys, copy
 from collections import defaultdict
 from mpi4py import MPI
 import numpy as np
 import click
-from dentate import io_utils, spikedata, synapses
+from dentate import io_utils, spikedata, synapses, stimulus
 from dentate.cells import h, get_biophys_cell, init_biophysics, init_spike_detector, make_input_cell, \
     report_topology, register_cell
 from dentate.env import Env
 from dentate.neuron_utils import h, configure_hoc_env, make_rec
-from dentate.utils import list_find, list_index, range, str, viewitems, zip_longest, get_module_logger
+from dentate.utils import Closure, sed, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger
+from neuroh5.io import read_cell_attribute_selection
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
@@ -345,15 +346,22 @@ def run_with(env, param_dict):
         biophys_cell_dict = env.biophys_cells[pop_name]
         for gid, params_tuples in viewitems(gid_param_dict):
             biophys_cell = biophys_cell_dict[gid]
-            for destination, source, sec_type, syn_name, param_path, param_value in params_tuples:
+            for update_operator, destination, source, sec_type, syn_name, param_path, param_value in params_tuples:
                 if isinstance(param_path, tuple):
                     p, s = param_path
                 else:
                     p = param_path
 
+                sources = None
+                if isinstance(source, list):
+                    sources = source
+                else:
+                    if source is not None:
+                        sources = [source]
                 synapses.modify_syn_param(biophys_cell, env, sec_type, syn_name,
                                           param_name=p, value=param_value,
-                                          filters={'sources': [source]},
+                                          filters={'sources': sources} if sources is not None else None,
+                                          update_operator=update_operator,
                                           origin='soma', update_targets=True)
             cell = env.pc.gid2cell(gid)
 
@@ -411,7 +419,110 @@ def make_firing_rate_target(env, pop_name, gid, target_rate, from_param_vector):
     return f
 
 
-def optimize_rate(env, pop_name, gid, opt_iter=10):
+def make_firing_rate_vector_target(env, pop_name, gid, target_rate_vector, time_bins, from_param_vector):
+    def gid_firing_rate_vector(spkdict, gid):
+        if gid in spkdict[pop_name]:
+            spkdict1 = {gid: spkdict[pop_name][gid]}
+        else:
+            spkdict1 = {gid: np.asarray([], dtype=np.float32)}
+        rate_dict = spikedata.spike_rates(spkdict1)
+        spike_density_dict = spikedata.spike_density_estimate (pop_name, spkdict1, time_bins)
+        if gid in spkdict[pop_name]:
+            logger.info('firing rate objective: spikes times of gid %i: %s' % (gid, str(spkdict[pop_name][gid])))
+            logger.info('firing rate objective: min/max rates of gid %i are %.2f/%.2f Hz' % (gid, np.min(spike_density_dict[gid]), np.max(spike_density_dict[gid])))
+        return spike_density[gid]
+
+    f = lambda *v: (sed(gid_firing_rate_vector(run_with(env, {pop_name: {gid: from_param_vector(v)}}), gid), target_rate_vector))
+
+    return f
+
+
+def modify_scaled_syn_param(env, gid, syn_id, old_val, new_val):
+    syn_name = env.syn_name
+    syn_index = env.syn_index
+    mech_name = env.mech_name
+    syn = env.syn_id_attr_dict[gid][syn_id]
+    syn_attr_dict = syn.attr_dict[syn_index]
+    original_val = syn_attr_dict[env.param_name]
+    return original_val * new_val
+
+def optimize_params(env, pop_name, param_type):
+                        
+    param_bounds = {}
+    param_names = []
+    param_initial_dict = {}
+    param_range_tuples = []
+
+    if param_type == 'synaptic':
+        if (pop_name in env.netclamp_config.optimize_parameters['synaptic']):
+            opt_params = env.netclamp_config.optimize_parameters['synaptic'][pop_name]
+            param_ranges = opt_params['Parameter ranges']
+        else:
+            raise RuntimeError(
+                "network_clamp.optimize_params: population %s does not have optimization configuration" % pop_name)
+        update_operator = None
+        for source, source_dict in sorted(viewitems(param_ranges), key=lambda k_v3: k_v3[0]):
+            for sec_type, sec_type_dict in sorted(viewitems(source_dict), key=lambda k_v2: k_v2[0]):
+                for syn_name, syn_mech_dict in sorted(viewitems(sec_type_dict), key=lambda k_v1: k_v1[0]):
+                    for param_fst, param_rst in sorted(viewitems(syn_mech_dict), key=lambda k_v: k_v[0]):
+                        if isinstance(param_rst, dict):
+                            for const_name, const_range in sorted(viewitems(param_rst)):
+                                param_path = (param_fst, const_name)
+                                param_range_tuples.append((update_operator, pop_name, source, sec_type, syn_name, param_path, const_range))
+                                param_key = '%s.%s.%s.%s.%s.%s' % (pop_name, str(source), sec_type, syn_name, param_fst, const_name)
+                                param_initial_value = (const_range[1] - const_range[0]) / 2.0
+                                param_initial_dict[param_key] = param_initial_value
+                                param_bounds[param_key] = const_range
+                                param_names.append(param_key)
+                        else:
+                            param_name = param_fst
+                            param_range = param_rst
+                            param_range_tuples.append((update_operator, pop_name, source, sec_type, syn_name, param_name, param_range))
+                            param_key = '%s.%s.%s.%s.%s' % (pop_name, source, sec_type, syn_name, param_name)
+                            param_initial_value = (param_range[1] - param_range[0]) / 2.0
+                            param_initial_dict[param_key] = param_initial_value
+                            param_bounds[param_key] = param_range
+                            param_names.append(param_key)
+                            
+    elif param_type == 'scaling':
+        if (pop_name in env.netclamp_config.optimize_parameters['scaling']):
+            opt_params = env.netclamp_config.optimize_parameters['scaling'][pop_name]
+            param_ranges = opt_params['Parameter ranges']
+        else:
+            raise RuntimeError(
+                "network_clamp.optimize_params: population %s does not have optimization configuration" % pop_name)
+
+        syn_attrs = env.synapse_attributes
+        copy_syn_id_attr_dict = copy.deepcopy(syn_attrs.syn_id_attr_dict)
+        
+        for source, source_dict in sorted(viewitems(param_ranges), key=lambda k_v3: k_v3[0]):
+            for sec_type, sec_type_dict in sorted(viewitems(source_dict), key=lambda k_v2: k_v2[0]):
+                for syn_name, syn_param_dict in sorted(viewitems(sec_type_dict), key=lambda k_v1: k_v1[0]):
+                    for param_fst, param_rst in sorted(viewitems(syn_param_dict), key=lambda k_v: k_v[0]):
+                        if isinstance(param_rst, dict):
+                            raise RuntimeError("network_clamp.optimize_params: dependent parameter expressions are not supported for parameter type %s" % param_type)
+                        param_name = param_fst
+                        param_range = param_rst
+                        update_operator = Closure(modify_scaled_syn_param, param_name = param_name,
+                                                  syn_name = syn_name, syn_index = syn_attrs.syn_name_index_dict[syn_name],
+                                                  mech_name = syn_attrs.syn_mech_names[syn_name], 
+                                                  syn_id_attr_dict = copy_syn_id_attr_dict) 
+                        param_key = '%s.%s.%s.%s.%s' % (pop_name, str(source), sec_type, syn_name, param_name)
+                        param_initial_value = (param_range[1] - param_range[0]) / 2.0
+                        param_initial_dict[param_key] = param_initial_value
+                        param_bounds[param_key] = param_range
+                        param_names.append(param_key)
+                        param_range_tuples.append((update_operator, pop_name, source, sec_type, syn_name, param_name, param_range))
+                
+        
+    else:
+        raise RuntimeError(
+                "network_clamp.optimize_params: unknown parameter type %s" % param_type)
+
+    return param_bounds, param_names, param_initial_dict, param_range_tuples
+    
+    
+def optimize_rate(env, pop_name, gid, opt_iter=10, param_type='synaptic'):
     import dlib
 
     if (pop_name in env.netclamp_config.optimize_parameters):
@@ -423,55 +534,75 @@ def optimize_rate(env, pop_name, gid, opt_iter=10):
             "network_clamp.optimize_rate: population %s does not have optimization configuration" % pop_name)
 
 
-    param_bounds = {}
-    param_names = []
-    param_initial_dict = {}
-    param_range_tuples = []
-        
-    for source, source_dict in sorted(viewitems(param_ranges), key=lambda k_v3: k_v3[0]):
-        for sec_type, sec_type_dict in sorted(viewitems(source_dict), key=lambda k_v2: k_v2[0]):
-            for syn_name, syn_mech_dict in sorted(viewitems(sec_type_dict), key=lambda k_v1: k_v1[0]):
-                for param_fst, param_rst in sorted(viewitems(syn_mech_dict), key=lambda k_v: k_v[0]):
-                    if isinstance(param_rst, dict):
-                        for const_name, const_range in sorted(viewitems(param_rst)):
-                            param_path = (param_fst, const_name)
-                            param_range_tuples.append((pop_name, source, sec_type, syn_name, param_path, const_range))
-                            param_key = '%s.%s.%s.%s.%s.%s' % (pop_name, source, sec_type, syn_name, param_fst, const_name)
-                            param_initial_value = (const_range[1] - const_range[0]) / 2.0
-                            param_initial_dict[param_key] = param_initial_value
-                            param_bounds[param_key] = const_range
-                            param_names.append(param_key)
-                    else:
-                        param_name = param_fst
-                        param_range = param_rst
-                        param_range_tuples.append((pop_name, source, sec_type, syn_name, param_name, param_range))
-                        param_key = '%s.%s.%s.%s.%s' % (pop_name, source, sec_type, syn_name, param_name)
-                        param_initial_value = (param_range[1] - param_range[0]) / 2.0
-                        param_initial_dict[param_key] = param_initial_value
-                        param_bounds[param_key] = param_range
-                        param_names.append(param_key)
-        
+    param_bounds, param_names, param_initial_dict, param_range_tuples = optimize_params(env, pop_name, param_type)
 
     def from_param_vector(params):
         result = []
         assert (len(params) == len(param_range_tuples))
-        for i, (pop_name, source, sec_type, syn_name, param_name, param_range) in enumerate(param_range_tuples):
+        for i, (update_operator, pop_name, source, sec_type, syn_name, param_name, param_range) in enumerate(param_range_tuples):
             result.append((pop_name, source, sec_type, syn_name, param_name, params[i]))
         return result
 
     def to_param_vector(params):
         result = []
-        for (source, sec_type, syn_name, param_name, param_value) in params:
+        for (update_operator, destination, source, sec_type, syn_name, param_name, param_value) in params:
             result.append(param_value)
         return result
 
     min_values = [(source, sec_type, syn_name, param_name, param_range[0]) for
-                  pop_name, source, sec_type, syn_name, param_path, param_range in param_range_tuples]
+                  update_operator, pop_name, source, sec_type, syn_name, param_name, param_range in param_range_tuples]
     max_values = [(source, sec_type, syn_name, param_name, param_range[1]) for
-                  pop_name, source, sec_type, syn_name, param_path, param_range in param_range_tuples]
+                  update_operator, pop_name, source, sec_type, syn_name, param_name, param_range in param_range_tuples]
     
-    f_firing_rate = make_firing_rate_target(env, pop_name, gid, opt_target, from_param_vector)
+    f_firing_rate = make_firing_rate_target(env, pop_name, gid, opt_target, time_bins, from_param_vector)
     opt_params, outputs = dlib.find_min_global(f_firing_rate, to_param_vector(min_values), to_param_vector(max_values),
+                                               opt_iter)
+
+    logger.info('Optimized parameters: %s' % str(from_param_vector(opt_params)))
+    logger.info('Optimized objective function: %s' % str(outputs))
+
+    return opt_params, outputs
+
+
+def optimize_rate_dist(env, pop_name, gid, 
+                       target_rate_map_path, target_rate_map_namespace,
+                       target_rate_map_arena, target_rate_map_trajectory,
+                       opt_iter=10, param_type='synaptic'):
+    import dlib
+
+
+    input_namespace = '%s %s %s' % (target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory)
+    it = read_cell_attribute_selection(target_rate_map_path, pop_name, namespace=input_namespace,
+                                        selection=[gid], mask=set(['Trajectory Rate Map']))
+    trj_rate_map = dict(it)[gid]['Trajectory Rate Map']
+
+    trj_x, trj_y, trj_d, trj_t = stimulus.read_trajectory(target_rate_map_path, target_rate_map_arena, target_rate_map_trajectory)
+    
+        
+    param_bounds, param_names, param_initial_dict, param_range_tuples = optimize_params(env, pop_name, param_type)
+
+    def from_param_vector(params):
+        result = []
+        assert (len(params) == len(param_range_tuples))
+        for i, (update_operator, pop_name, source, sec_type, syn_name, param_name, param_range) in enumerate(param_range_tuples):
+            result.append((pop_name, source, sec_type, syn_name, param_name, params[i]))
+        return result
+
+    def to_param_vector(params):
+        result = []
+        for (update_operator, destination, source, sec_type, syn_name, param_name, param_value) in params:
+            result.append(param_value)
+        return result
+
+    min_values = [(source, sec_type, syn_name, param_name, param_range[0]) for
+                  update_operator, pop_name, source, sec_type, syn_name, param_path, param_range in
+                      param_range_tuples]
+    max_values = [(source, sec_type, syn_name, param_name, param_range[1]) for
+                  update_operator, pop_name, source, sec_type, syn_name, param_path, param_range in
+                      param_range_tuples]
+    
+    f_firing_rate_vector = make_firing_rate_vector_target(env, pop_name, gid, trj_rate_map, trj_t, from_param_vector)
+    opt_params, outputs = dlib.find_min_global(f_firing_rate_vector, to_param_vector(min_values), to_param_vector(max_values),
                                                opt_iter)
 
     logger.info('Optimized parameters: %s' % str(from_param_vector(opt_params)))
@@ -606,18 +737,29 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='config',
               help='path to directory containing network and cell mechanism config files')
-@click.option("--spike-events-path", '-s', required=True, type=click.Path(),
-              help='path to neuroh5 file containing spike times')
-@click.option("--spike-events-namespace", type=str, default='Spike Events',
-              help='namespace containing spike times')
+@click.option("--param-type", type=str, 
+              help='parameter type for rate optimization (synaptic or scaling)')
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), \
               help='path to directory where output files will be written')
-@click.argument('target')
+@click.option("--spike-events-path", '-s', required=True, type=click.Path(),
+              help='path to neuroh5 file containing spike times')
+@click.option("--spike-events-namespace", type=str, required=False, default='Spike Events',
+              help='namespace containing spike times')
+@click.option("--target-rate-map-path", required=False, type=click.Path(),
+              help='path to neuroh5 file containing target rate maps used for rate optimization')
+@click.option("--target-rate-map-namespace", type=str, required=False, default='Input Spikes',
+              help='namespace containing target rate maps used for rate optimization')
+@click.option("--target-rate-map-arena", type=str, required=False, 
+              help='name of arena used for rate optimization')
+@click.option("--target-rate-map-trajectory", type=str, required=False, 
+              help='name of trajectory used for rate optimization')
+@click.argument('target')# help='rate, rate_dist'
 
 
 def optimize(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter,
-             template_paths,
-             dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, results_path, target):
+             template_paths, dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, param_type,
+             results_path, target_rate_map_path, target_rate_map_namespace, target_rate_map_arena,
+             target_rate_map_trajectory, target):
     """
     Optimize the firing rate of the specified cell in a network clamp configuration.
     """
@@ -637,7 +779,12 @@ def optimize(config_file, population, gid, generate_inputs, generate_weights, t_
          t_var='t', t_min=t_min, t_max=t_max)
 
     if target == 'rate':
-        optimize_rate(env, population, gid, opt_iter=opt_iter)
+        optimize_rate(env, population, gid, opt_iter=opt_iter, param_type=param_type)
+    elif target == 'ratedist' or target == 'rate_dist':
+        optimize_rate_dist(env, population, gid, 
+                           target_rate_map_path, target_rate_map_namespace,
+                           target_rate_map_arena, target_rate_map_trajectory,
+                           opt_iter=opt_iter, param_type=param_type)
     else:
         raise RuntimeError('network_clamp.optimize: unknown optimization target %s' % \
                            target)
