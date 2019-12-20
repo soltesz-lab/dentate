@@ -214,7 +214,8 @@ def exp_phi(x, a = 0.025):
 @click.option("--input-features-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--input-features-namespaces", type=str, multiple=True, default=['Place Selectivity', 'Grid Selectivity'])
 @click.option("--output-weights-path", required=False, type=click.Path(exists=False, file_okay=True, dir_okay=False))
-@click.option("--weights-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--weights-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--h5types-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--synapse-name", type=str, default='AMPA')
 @click.option("--initial-weights-namespace", type=str, default='Weights')
 @click.option("--structured-weights-namespace", type=str, default='Structured Weights')
@@ -233,7 +234,7 @@ def exp_phi(x, a = 0.025):
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
 @click.option("--interactive", is_flag=True)
-def main(config, input_features_path, input_features_namespaces, output_weights_path, weights_path, synapse_name, initial_weights_namespace,
+def main(config, input_features_path, input_features_namespaces, output_weights_path, weights_path, h5types_path, synapse_name, initial_weights_namespace,
          structured_weights_namespace, connections_path, destination, sources, arena_id, field_width_scale, max_iter, 
          io_size, chunk_size, value_chunk_size, cache_size, write_size, scatter_io, verbose, dry_run, interactive):
     """
@@ -271,25 +272,30 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
     env = Env(comm=comm, config_file=config, io_size=io_size)
 
     if output_weights_path is None:
+        if weights_path is None:
+            raise RuntimeError('Output weights path must be specified when weights path is not specified.')
         output_weights_path = weights_path
 
     
     if (not dry_run) and (rank==0):
         if not os.path.isfile(output_weights_path):
-            input_file  = h5py.File(weights_path,'r')
+            if weights_path is not None:
+                input_file  = h5py.File(weights_path,'r')
+            elif h5types_path is not None:
+                input_file  = h5py.File(h5types_path,'r')
+            else:
+                raise RuntimeError('h5types input path must be specified when weights path is not specified.')
             output_file = h5py.File(output_weights_path,'w')
             input_file.copy('/H5Types',output_file)
             input_file.close()
             output_file.close()
     env.comm.barrier()
 
-
     this_structured_weights_namespace = '%s %s' % (structured_weights_namespace, arena_id)
     this_input_features_namespaces = ['%s %s' % (input_features_namespace, arena_id) for input_features_namespace in input_features_namespaces]
 
-
     initial_weights_dict = None
-    if scatter_io:
+    if scatter_io and (weights_path is not None):
         if rank == 0:
             logger.info('Reading initial weights data from %s...' % weights_path)
         env.comm.barrier()
@@ -370,30 +376,32 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
                             'generators: %s' % (rank, destination,
                                                 [attr_gen_items[0] for attr_gen_items in attr_gen_package]))
 
-        if scatter_io:
-            query_initial_weights_dict = comm.alltoall([destination_gid]*nranks)
-            syn_weight_dict = syn_weights_dict_alltoall(comm, synapse_name, initial_weights_dict, query_initial_weights_dict, clear=True)
-        else:
-            if destination_gid is None:
-                selection=[]
+        if weights_path is not None:
+            if scatter_io:
+                query_initial_weights_dict = comm.alltoall([destination_gid]*nranks)
+                syn_weight_dict = syn_weights_dict_alltoall(comm, synapse_name, initial_weights_dict, query_initial_weights_dict, clear=True)
             else:
-                selection=[destination_gid]
-            initial_weights_iter = read_cell_attribute_selection(weights_path, destination, 
-                                                                 namespace=initial_weights_namespace, 
-                                                                 comm=env.comm, selection=selection)
-            syn_weight_attr_dict = dict(initial_weights_iter)
+                if destination_gid is None:
+                    selection=[]
+                else:
+                    selection=[destination_gid]
+                initial_weights_iter = read_cell_attribute_selection(weights_path, destination, 
+                                                                    namespace=initial_weights_namespace, 
+                                                                    comm=env.comm, selection=selection)
+                syn_weight_attr_dict = dict(initial_weights_iter)
 
-            if destination_gid is not None:
-                syn_ids = syn_weight_attr_dict[destination_gid]['syn_id']
-                weights = syn_weight_attr_dict[destination_gid][synapse_name]
-
-                for (syn_id, weight) in zip(syn_ids, weights):
-                    syn_weight_dict[int(syn_id)] = float(weight) 
+                if destination_gid is not None:
+                    syn_ids = syn_weight_attr_dict[destination_gid]['syn_id']
+                    weights = syn_weight_attr_dict[destination_gid][synapse_name]
+                    
+                    for (syn_id, weight) in zip(syn_ids, weights):
+                        syn_weight_dict[int(syn_id)] = float(weight) 
 
         if destination_gid is not None:
 
-            logger.info('Rank %i; destination: %s; gid %i; received synaptic weights for %i synapses' %
-                        (rank, destination, destination_gid, len(syn_weight_dict)))
+            if weights_path is not None:
+                logger.info('Rank %i; destination: %s; gid %i; received synaptic weights for %i synapses' %
+                            (rank, destination, destination_gid, len(syn_weight_dict)))
             local_random.seed(int(destination_gid + seed_offset))
             for source, (this_destination_gid, (source_gid_array, conn_attr_dict)) in zip_longest(sources, attr_gen_package):
                 syn_ids = conn_attr_dict['Synapses']['syn_id']
@@ -402,7 +410,7 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
                 for i in range(len(source_gid_array)):
                     this_source_gid = source_gid_array[i]
                     this_syn_id = syn_ids[i]
-                    this_syn_wgt = syn_weight_dict[this_syn_id]
+                    this_syn_wgt = syn_weight_dict.get(this_syn_id, 0.0)
                     this_source_syn_map[this_source_gid].append((this_syn_id, this_syn_wgt))
                     count += 1
                 logger.info('Rank %i; destination: %s; gid %i; %d synaptic weights from source population %s' %
