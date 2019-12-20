@@ -2093,10 +2093,18 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     syn_attrs = env.synapse_attributes
     synapse_config = env.celltypes[pop_name]['synapses']
 
-    if load_weights and 'weights namespace' in synapse_config:
-        weights_namespace = synapse_config['weights namespace']
+    weights_namespaces = []
+    if 'weights' in synapse_config:
+        has_weights = synapse_config['weights']
+        if has_weights:
+            if 'weights namespace' in synapse_config:
+                weights_namespaces.append(synapse_config['weights namespace'])
+            elif 'weights namespaces' in synapse_config:
+                weights_namespaces.extend(synapse_config['weights namespaces'])
+            else:
+                weights_namespaces.append('Weights')
     else:
-        weights_namespace = None
+        has_weights = False
 
     if load_synapses:
         if synapses_dict is not None:
@@ -2106,22 +2114,28 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
                                                           comm=env.comm)
             syn_attrs.init_syn_id_attrs_from_iter(synapses_iter)
 
-            if weights_namespace is not None:
-                cell_weights_iter = read_cell_attribute_selection(env.data_file_path, pop_name, [gid],
-                                                                  weights_namespace, comm=env.comm)
+            if has_weights:
+                cell_weights_iters = [read_cell_attribute_selection(env.data_file_path, pop_name, [gid],
+                                                                    weights_namespace, comm=env.comm)
+                                        for weights_namespace in weights_namespaces]
             else:
-                cell_weights_iter = None
+                cell_weights_iters = []
 
-            if cell_weights_iter is not None:
-                for gid, cell_weights_dict in cell_weights_iter:
-                    weights_syn_ids = cell_weights_dict['syn_id']
-                    for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
-                        weights_values = cell_weights_dict[syn_name]
-                        syn_attrs.add_mech_attrs_from_iter(
-                            gid, syn_name,
-                            zip_longest(weights_syn_ids, map(lambda x: {'weight': x}, weights_values)))
-                        logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights' %
-                                    (gid, len(cell_weights_dict[syn_name]), syn_name))
+            if has_weights:
+                overwrite_weights = 'error'
+                for cell_weights_iter in cell_weights_iters:
+                    for gid, cell_weights_dict in cell_weights_iter:
+                        weights_syn_ids = cell_weights_dict['syn_id']
+                        for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
+                            weights_values = cell_weights_dict[syn_name]
+                            syn_attrs.add_mech_attrs_from_iter(
+                                gid, syn_name,
+                                zip_longest(weights_syn_ids, map(lambda x: {'weight': x}, weights_values)),
+                                overwrite=overwrite_weights)
+                            logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights' %
+                                        (gid, len(cell_weights_dict[syn_name]), syn_name))
+                    overwrite_weights='skip'
+
         else:
             logger.error('get_biophys_cell: synapse attributes not found for %s: gid: %i' % (pop_name, gid))
             raise Exception

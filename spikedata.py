@@ -39,6 +39,7 @@ def get_env_spike_dict(env, t_start=0.0, include_artificial=True):
     inds = np.digitize(id_vec, bins)
 
     pop_spkdict = {}
+    equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
     for i, pop_name in enumerate(pop_names):
         spkdict = {}
         sinds = np.where(inds == i)
@@ -56,10 +57,11 @@ def get_env_spike_dict(env, t_start=0.0, include_artificial=True):
                     else:
                         spkdict[gid] = [t]
             for gid in spkdict:
-                spkdict[gid] = np.array(spkdict[gid], dtype=np.float32)
+                spiketrain = np.array(spkdict[gid], dtype=np.float32)
+                spiketrain -= equilibration_duration
                 if gid in env.spike_onset_delay:
-                    spkdict[gid] -= env.spike_onset_delay[gid]
-
+                    spiketrain -= env.spike_onset_delay[gid]
+                spkdict[gid] = spiketrain
         pop_spkdict[pop_name] = spkdict
 
     return pop_spkdict
@@ -270,7 +272,6 @@ def spike_density_estimate(population, spkdict, time_bins, arena_id=None, trajec
     t_stop = time_bins[-1]
 
     spktrains = {ind: make_spktrain(lst, t_start, t_stop) for (ind, lst) in viewitems(spkdict)}
-
     baks_args = dict()
     baks_args['a'] = analysis_options['BAKS Alpha']
     baks_args['b'] = analysis_options['BAKS Beta']

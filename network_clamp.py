@@ -95,6 +95,7 @@ def load_cell(env, pop_name, gid, mech_file_path=None, correct_for_spines=False,
     cell = get_biophys_cell(env, pop_name, gid, tree_dict=tree_dict,
                             load_synapses=load_synapses,
                             synapses_dict=synapses_dict,
+                            load_weights=True,
                             load_edges=load_connections,
                             connections=connections,
                             mech_file_path=mech_file_path)
@@ -302,7 +303,8 @@ def run(env):
     h.t = 0.0
     h.dt = env.dt
     h.tstop = env.tstop
-
+    if 'Equilibration Duration' in env.stimulus_config:
+        h.tstop += float(env.stimulus_config['Equilibration Duration'])
     h.finitialize(env.v_init)
 
     if rank == 0:
@@ -353,8 +355,8 @@ def run_with(env, param_dict):
                     p = param_path
 
                 sources = None
-                if isinstance(source, list):
-                    sources = source
+                if isinstance(source, tuple):
+                    sources = list(source)
                 else:
                     if source is not None:
                         sources = [source]
@@ -369,10 +371,13 @@ def run_with(env, param_dict):
     env.t_vec.resize(0)
     env.id_vec.resize(0)
 
-    # h.cvode_active(1)
+    h.cvode_active(1)
 
     h.t = 0.0
     h.tstop = env.tstop
+    if 'Equilibration Duration' in env.stimulus_config:
+        h.tstop += float(env.stimulus_config['Equilibration Duration'])
+
     h.dt = env.dt
     h.finitialize(env.v_init)
 
@@ -412,7 +417,7 @@ def make_firing_rate_target(env, pop_name, gid, target_rate, from_param_vector):
         if gid in spkdict[pop_name]:
             logger.info('firing rate objective: spikes times of gid %i: %s' % (gid, str(spkdict[pop_name][gid])))
         logger.info('firing rate objective: rate of gid %i is %.2f' % (gid, rate_dict[gid]))
-        return rate_dict[gid]
+        return rate_dict[gid]['rate']
 
     f = lambda *v: (abs(gid_firing_rate(run_with(env, {pop_name: {gid: from_param_vector(v)}}), gid) - target_rate))
 
@@ -428,10 +433,13 @@ def make_firing_rate_vector_target(env, pop_name, gid, target_rate_vector, time_
         rate_dict = spikedata.spike_rates(spkdict1)
         spike_density_dict = spikedata.spike_density_estimate (pop_name, spkdict1, time_bins)
         if gid in spkdict[pop_name]:
-            logger.info('firing rate objective: spikes times of gid %i: %s' % (gid, str(spkdict[pop_name][gid])))
-            logger.info('firing rate objective: min/max rates of gid %i are %.2f/%.2f Hz' % (gid, np.min(spike_density_dict[gid]), np.max(spike_density_dict[gid])))
-        return spike_density[gid]
-
+            rate = spike_density_dict[gid]['rate']
+            logger.info('firing rate objective: spike times of gid %i: %s' % (gid, str(spkdict[pop_name][gid])))
+            logger.info('firing rate objective: firing rate of gid %i: %s' % (gid, str(rate)))
+            logger.info('firing rate objective: min/max rates of gid %i are %.2f / %.2f Hz' % (gid, np.min(rate), np.max(rate)))
+        return spike_density_dict[gid]['rate']
+    logger.info("firing rate objective: target time bins: %s" % str(time_bins))
+    logger.info("firing rate objective: target rate vector min/max is %.2f Hz (%.2f ms) / %.2f Hz (%.2f ms)" % (np.min(target_rate_vector), time_bins[np.argmin(target_rate_vector)], np.max(target_rate_vector), time_bins[np.argmax(target_rate_vector)]))
     f = lambda *v: (sed(gid_firing_rate_vector(run_with(env, {pop_name: {gid: from_param_vector(v)}}), gid), target_rate_vector))
 
     return f
@@ -564,12 +572,14 @@ def optimize_rate(env, pop_name, gid, opt_iter=10, param_type='synaptic'):
     return opt_params, outputs
 
 
-def optimize_rate_dist(env, pop_name, gid, 
+def optimize_rate_dist(env, tstop, pop_name, gid, 
                        target_rate_map_path, target_rate_map_namespace,
                        target_rate_map_arena, target_rate_map_trajectory,
                        opt_iter=10, param_type='synaptic'):
     import dlib
 
+    time_step = env.stimulus_config['Temporal Resolution']
+    equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
 
     input_namespace = '%s %s %s' % (target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory)
     it = read_cell_attribute_selection(target_rate_map_path, pop_name, namespace=input_namespace,
@@ -577,15 +587,19 @@ def optimize_rate_dist(env, pop_name, gid,
     trj_rate_map = dict(it)[gid]['Trajectory Rate Map']
 
     trj_x, trj_y, trj_d, trj_t = stimulus.read_trajectory(target_rate_map_path, target_rate_map_arena, target_rate_map_trajectory)
-    
-        
-    param_bounds, param_names, param_initial_dict, param_range_tuples = optimize_params(env, pop_name, param_type)
 
+    time_range = (0., min(np.max(trj_t), tstop))
+    
+    interp_trj_t = np.arange(time_range[0], time_range[1], time_step)
+    interp_trj_rate_map = np.interp(interp_trj_t, trj_t, trj_rate_map)
+    
+    param_bounds, param_names, param_initial_dict, param_range_tuples = optimize_params(env, pop_name, param_type)
+    
     def from_param_vector(params):
         result = []
         assert (len(params) == len(param_range_tuples))
         for i, (update_operator, pop_name, source, sec_type, syn_name, param_name, param_range) in enumerate(param_range_tuples):
-            result.append((pop_name, source, sec_type, syn_name, param_name, params[i]))
+            result.append((update_operator, pop_name, source, sec_type, syn_name, param_name, params[i]))
         return result
 
     def to_param_vector(params):
@@ -594,14 +608,14 @@ def optimize_rate_dist(env, pop_name, gid,
             result.append(param_value)
         return result
 
-    min_values = [(source, sec_type, syn_name, param_name, param_range[0]) for
-                  update_operator, pop_name, source, sec_type, syn_name, param_path, param_range in
+    min_values = [(update_operator, pop_name, source, sec_type, syn_name, param_name, param_range[0]) for
+                  update_operator, pop_name, source, sec_type, syn_name, param_name, param_range in
                       param_range_tuples]
-    max_values = [(source, sec_type, syn_name, param_name, param_range[1]) for
-                  update_operator, pop_name, source, sec_type, syn_name, param_path, param_range in
+    max_values = [(update_operator, pop_name, source, sec_type, syn_name, param_name, param_range[1]) for
+                  update_operator, pop_name, source, sec_type, syn_name, param_name, param_range in
                       param_range_tuples]
     
-    f_firing_rate_vector = make_firing_rate_vector_target(env, pop_name, gid, trj_rate_map, trj_t, from_param_vector)
+    f_firing_rate_vector = make_firing_rate_vector_target(env, pop_name, gid, interp_trj_rate_map, interp_trj_t, from_param_vector)
     opt_params, outputs = dlib.find_min_global(f_firing_rate_vector, to_param_vector(min_values), to_param_vector(max_values),
                                                opt_iter)
 
@@ -641,9 +655,11 @@ def cli():
               help='path to neuroh5 file containing spike times')
 @click.option("--spike-events-namespace", type=str, default='Spike Events',
               help='namespace containing spike times')
+@click.option("--spike-events-t", required=False, type=str, default='t',
+              help='name of variable containing spike times')
 @click.option('--profile-memory', is_flag=True, help='calculate and print heap usage after the simulation is complete')
 def show(config_file, population, gid, tstop, template_paths, dataset_prefix, config_prefix, spike_events_path,
-         spike_events_namespace, profile_memory):
+         spike_events_namespace, spike_events_t, profile_memory):
     """
     Show configuration for the specified cell.
     """
@@ -657,6 +673,10 @@ def show(config_file, population, gid, tstop, template_paths, dataset_prefix, co
     configure_hoc_env(env)
 
     init_cell(env, population, gid, load_connections=False)
+
+    init(env, population, gid, spike_events_path, \
+         spike_events_namespace=spike_events_namespace, \
+         t_var=spike_events_t)
 
     if env.profile_memory:
         profile_memory(logger)
@@ -684,6 +704,8 @@ def show(config_file, population, gid, tstop, template_paths, dataset_prefix, co
               help='path to neuroh5 file containing spike times')
 @click.option("--spike-events-namespace", type=str, default='Spike Events',
               help='namespace containing spike times')
+@click.option("--spike-events-t", required=False, type=str, default='t',
+              help='name of variable containing spike times')
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), \
               help='path to directory where output files will be written')
 @click.option("--results-id", type=str, required=False, default=None, \
@@ -692,7 +714,8 @@ def show(config_file, population, gid, tstop, template_paths, dataset_prefix, co
 
 def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t_max, t_min,
        template_paths, dataset_prefix,
-       config_prefix, spike_events_path, spike_events_namespace, results_path, results_id, profile_memory):
+       config_prefix, spike_events_path, spike_events_namespace, spike_events_t,
+       results_path, results_id, profile_memory):
 
     """
     Runs network clamp simulation for the specified cell.
@@ -709,7 +732,7 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
          generate_inputs_pops=set(generate_inputs), \
          generate_weights_pops=set(generate_weights), \
          spike_events_namespace=spike_events_namespace, \
-         t_var='t', t_min=t_min, t_max=t_max)
+         t_var=spike_events_t, t_min=t_min, t_max=t_max)
 
     run(env)
     write_output(env)
@@ -745,6 +768,8 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
               help='path to neuroh5 file containing spike times')
 @click.option("--spike-events-namespace", type=str, required=False, default='Spike Events',
               help='namespace containing spike times')
+@click.option("--spike-events-t", required=False, type=str, default='t',
+              help='name of variable containing spike times')
 @click.option("--target-rate-map-path", required=False, type=click.Path(),
               help='path to neuroh5 file containing target rate maps used for rate optimization')
 @click.option("--target-rate-map-namespace", type=str, required=False, default='Input Spikes',
@@ -757,8 +782,8 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
 
 
 def optimize(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter,
-             template_paths, dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, param_type,
-             results_path, target_rate_map_path, target_rate_map_namespace, target_rate_map_arena,
+             template_paths, dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, spike_events_t,
+             param_type, results_path, target_rate_map_path, target_rate_map_namespace, target_rate_map_arena,
              target_rate_map_trajectory, target):
     """
     Optimize the firing rate of the specified cell in a network clamp configuration.
@@ -776,12 +801,12 @@ def optimize(config_file, population, gid, generate_inputs, generate_weights, t_
          generate_inputs_pops=set(generate_inputs), \
          generate_weights_pops=set(generate_weights), \
          spike_events_namespace=spike_events_namespace, \
-         t_var='t', t_min=t_min, t_max=t_max)
+         t_var=spike_events_t, t_min=t_min, t_max=t_max)
 
     if target == 'rate':
         optimize_rate(env, population, gid, opt_iter=opt_iter, param_type=param_type)
     elif target == 'ratedist' or target == 'rate_dist':
-        optimize_rate_dist(env, population, gid, 
+        optimize_rate_dist(env, tstop, population, gid, 
                            target_rate_map_path, target_rate_map_namespace,
                            target_rate_map_arena, target_rate_map_trajectory,
                            opt_iter=opt_iter, param_type=param_type)

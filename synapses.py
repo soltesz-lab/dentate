@@ -490,7 +490,7 @@ class SynapseAttributes(object):
         conn_params = self.env.connection_config[pop_name][presyn_name].mechanisms
 
         if update_operator is None:
-            update_uperator=lambda gid, syn_id, old, new: new
+            update_operator=lambda gid, syn_id, old, new: new
         
         if 'default' in conn_params:
             mech_params = conn_params['default'][syn_name]
@@ -511,7 +511,7 @@ class SynapseAttributes(object):
                 if k in attr_dict:
                     attr_dict[k] = update_operator(gid, syn_id, attr_dict[k], new_val)
                 else:
-                    attr_dict[k] = new_val
+                    attr_dict[k] = update_operator(gid, syn_id, None, new_val)
             elif k in rules[mech_name]['netcon_params']:
                 mech_param = mech_params[k]
                 if isinstance(mech_param, DExpr):
@@ -526,7 +526,7 @@ class SynapseAttributes(object):
                 if k in attr_dict:
                     attr_dict[k] = update_operator(gid, syn_id, attr_dict[k], new_val)
                 else:
-                    attr_dict[k] = new_val
+                    attr_dict[k] = update_operator(gid, syn_id, None, new_val)
             else:
                 raise RuntimeError('modify_mech_attrs: unknown type of parameter %s' % k)
 
@@ -1189,7 +1189,7 @@ def get_syn_filter_dict(env, rules, convert=False):
         for i, source in enumerate(rules_dict['sources']):
             if source not in env.Populations:
                 raise ValueError('get_syn_filter_dict: presynaptic population: %s not recognized by network '
-                                 'configuration' % source)
+                                 'configuration' % str(source))
             if convert:
                 rules_dict['sources'][i] = env.Populations[source]
     return rules_dict
