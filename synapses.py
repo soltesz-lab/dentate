@@ -491,16 +491,17 @@ class SynapseAttributes(object):
 
         if update_operator is None:
             update_operator=lambda gid, syn_id, old, new: new
-        
-        if 'default' in conn_params:
-            mech_params = conn_params['default'][syn_name]
-        else:
-            mech_params = conn_params[syn.swc_type][syn_name]
 
+        if 'default' in conn_params:
+            sec_conn_params = conn_params['default']
+        else:
+            sec_conn_params = conn_params[syn.swc_type]
+        mech_params = sec_conn_params.get(syn_name, {})
+        
         attr_dict = syn.attr_dict[syn_index]
         for k, v in viewitems(params):
             if k in rules[mech_name]['mech_params']:
-                mech_param = mech_params[k]
+                mech_param = mech_params.get(k, None)
                 if isinstance(mech_param, DExpr):
                     if mech_param.parameter == 'delay':
                         new_val = mech_param(syn.source.delay)
@@ -513,7 +514,7 @@ class SynapseAttributes(object):
                 else:
                     attr_dict[k] = update_operator(gid, syn_id, None, new_val)
             elif k in rules[mech_name]['netcon_params']:
-                mech_param = mech_params[k]
+                mech_param = mech_params.get(k, None)
                 if isinstance(mech_param, DExpr):
                     if mech_param.parameter == 'delay':
                         new_val = mech_param(syn.source.delay)

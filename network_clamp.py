@@ -371,7 +371,7 @@ def run_with(env, param_dict):
     env.t_vec.resize(0)
     env.id_vec.resize(0)
 
-    h.cvode_active(1)
+    #h.cvode_active(1)
 
     h.t = 0.0
     h.tstop = env.tstop

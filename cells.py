@@ -1609,7 +1609,7 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
 def update_mechanism_by_node(cell, node, mech_name, mech_content, verbose=True):
     """
     This method loops through all the parameters for a single mechanism specified in the mechanism dictionary and
-    calls parse_mech_rules to interpret the rules and set the values for the given node.
+    calls apply_mech_rules to interpret the rules and set the values for the given node.
     :param cell: :class:'BiophysCell'
     :param node: :class:'SHocNode'
     :param mech_name: str
@@ -1621,10 +1621,10 @@ def update_mechanism_by_node(cell, node, mech_name, mech_content, verbose=True):
             # accommodate either a dict, or a list of dicts specifying multiple location constraints for
             # a single parameter
             if isinstance(mech_content[param_name], dict):
-                parse_mech_rules(cell, node, mech_name, param_name, mech_content[param_name], verbose=verbose)
+                apply_mech_rules(cell, node, mech_name, param_name, mech_content[param_name], verbose=verbose)
             elif isinstance(mech_content[param_name], list):
                 for mech_content_entry in mech_content[param_name]:
-                    parse_mech_rules(cell, node, mech_name, param_name, mech_content_entry, verbose=verbose)
+                    apply_mech_rules(cell, node, mech_name, param_name, mech_content_entry, verbose=verbose)
     else:
         node.sec.insert(mech_name)
 
@@ -1653,7 +1653,7 @@ def get_donor(cell, node, origin_type):
     return donor
 
 
-def parse_mech_rules(cell, node, mech_name, param_name, rules, donor=None, verbose=True):
+def apply_mech_rules(cell, node, mech_name, param_name, rules, donor=None, verbose=True):
     """
     Provided a membrane density mechanism, a parameter, a node, and a dict of rules. Interprets the provided rules,
     including complex gradient and inheritance rules. Gradients can be specified as linear, exponential, or sigmoidal.
@@ -1674,13 +1674,13 @@ def parse_mech_rules(cell, node, mech_name, param_name, rules, donor=None, verbo
     if 'origin' in rules and donor is None:
         donor = get_donor(cell, node, rules['origin'])
         if donor is None:
-            raise RuntimeError('parse_mech_rules: problem identifying donor of origin_type: %s for mechanism: '
+            raise RuntimeError('apply_mech_rules: problem identifying donor of origin_type: %s for mechanism: '
                                '%s parameter: %s in sec_type: %s' %
                                (rules['origin'], mech_name, param_name, node.type))
     if 'value' in rules:
         baseline = rules['value']
     elif donor is None:
-        raise RuntimeError('parse_mech_rules: cannot set mechanism: %s parameter: %s in sec_type: %s without a '
+        raise RuntimeError('apply_mech_rules: cannot set mechanism: %s parameter: %s in sec_type: %s without a '
                            'specified origin or value' % (mech_name, param_name, node.type))
     else:
         if (mech_name == 'cable') and (param_name == 'spatial_res'):
@@ -1695,7 +1695,7 @@ def parse_mech_rules(cell, node, mech_name, param_name, rules, donor=None, verbo
             init_nseg(node.sec, get_spatial_res(cell, node), verbose=verbose)
         node.reinit_diam()
     elif 'custom' in rules:
-        parse_custom_mech_rules(cell, node, mech_name, param_name, baseline, rules, donor, verbose=verbose)
+        apply_custom_mech_rules(cell, node, mech_name, param_name, baseline, rules, donor, verbose=verbose)
     else:
         set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor)
 
@@ -1845,9 +1845,9 @@ def zero_h(cell):
 # --------------------------- Custom methods to specify subcellular mechanism gradients ------------------------------ #
 
 
-def parse_custom_mech_rules(cell, node, mech_name, param_name, baseline, rules, donor, verbose=True):
+def apply_custom_mech_rules(cell, node, mech_name, param_name, baseline, rules, donor, verbose=True):
     """
-    If the provided node meets custom criteria, rules are modified and passed back to parse_mech_rules with the
+    If the provided node meets custom criteria, rules are modified and passed back to apply_mech_rules with the
     'custom' item removed. Avoids having to determine baseline and donor over again.
     :param cell: :class:'BiophysCell'
     :param node: :class:'SHocNode'
@@ -1859,12 +1859,12 @@ def parse_custom_mech_rules(cell, node, mech_name, param_name, baseline, rules, 
     :param verbose: bool
     """
     if 'func' not in rules['custom'] or rules['custom']['func'] is None:
-        raise RuntimeError('parse_custom_mech_rules: no custom function provided for mechanism: %s parameter: %s in '
+        raise RuntimeError('apply_custom_mech_rules: no custom function provided for mechanism: %s parameter: %s in '
                            'sec_type: %s' % (mech_name, param_name, node.type))
     if rules['custom']['func'] in globals() and isinstance(globals()[rules['custom']['func']], collections.Callable):
         func = globals()[rules['custom']['func']]
     else:
-        raise RuntimeError('parse_custom_mech_rules: problem locating custom function: %s for mechanism: %s '
+        raise RuntimeError('apply_custom_mech_rules: problem locating custom function: %s for mechanism: %s '
                            'parameter: %s in sec_type: %s' %
                            (rules['custom']['func'], mech_name, param_name, node.type))
     custom = copy.deepcopy(rules['custom'])
@@ -1874,7 +1874,7 @@ def parse_custom_mech_rules(cell, node, mech_name, param_name, baseline, rules, 
     new_rules['value'] = baseline
     new_rules = func(cell, node, baseline, new_rules, donor, **custom)
     if new_rules:
-        parse_mech_rules(cell, node, mech_name, param_name, new_rules, donor, verbose=verbose)
+        apply_mech_rules(cell, node, mech_name, param_name, new_rules, donor, verbose=verbose)
 
 
 def custom_filter_by_branch_order(cell, node, baseline, rules, donor, branch_order, **kwargs):
