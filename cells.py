@@ -2069,7 +2069,7 @@ def make_input_cell(env, gid, pop_id, input_source_dict):
 
 
 def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, load_synapses=True,
-                     load_edges=True, connections=None, load_weights=False,
+                     load_edges=True, connections=None, load_weights=False, weights_scales={},
                      set_edge_delays=True, mech_file_path=None):
     """
     :param env: :class:'Env'
@@ -2123,14 +2123,15 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
 
             if has_weights:
                 overwrite_weights = 'error'
-                for cell_weights_iter in cell_weights_iters:
+                for weights_namespace, cell_weights_iter in zip_longest(weights_namespaces, cell_weights_iters):
+                    weights_scale = weights_scales.get(weights_namespace, 1.0)
                     for gid, cell_weights_dict in cell_weights_iter:
                         weights_syn_ids = cell_weights_dict['syn_id']
                         for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
                             weights_values = cell_weights_dict[syn_name]
                             syn_attrs.add_mech_attrs_from_iter(
                                 gid, syn_name,
-                                zip_longest(weights_syn_ids, map(lambda x: {'weight': x}, weights_values)),
+                                zip_longest(weights_syn_ids, map(lambda x: {'weight': weights_scale*x}, weights_values)),
                                 overwrite=overwrite_weights)
                             logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights' %
                                         (gid, len(cell_weights_dict[syn_name]), syn_name))

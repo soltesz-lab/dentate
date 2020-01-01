@@ -95,7 +95,7 @@ def load_cell(env, pop_name, gid, mech_file_path=None, correct_for_spines=False,
     cell = get_biophys_cell(env, pop_name, gid, tree_dict=tree_dict,
                             load_synapses=load_synapses,
                             synapses_dict=synapses_dict,
-                            load_weights=True,
+                            load_weights=True, #weights_scales={"Structured Weights A": 11.75},
                             load_edges=load_connections,
                             connections=connections,
                             mech_file_path=mech_file_path)
