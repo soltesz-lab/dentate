@@ -332,6 +332,8 @@ def list_argsort(f, seq):
     """
     return [i for i, x in sorted(enumerate(seq), key=lambda x: f(x[1]))]
 
+
+
 def viewattrs(obj):
     if hasattr(obj, 'n_sequence_fields'):
         return dir(obj)[:obj.n_sequence_fields]

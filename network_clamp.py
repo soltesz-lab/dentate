@@ -451,6 +451,7 @@ def modify_scaled_syn_param(env, gid, syn_id, old_val, new_val):
     mech_name = env.mech_name
     syn = env.syn_id_attr_dict[gid][syn_id]
     syn_attr_dict = syn.attr_dict[syn_index]
+    print(syn_attr_dict.keys())
     original_val = syn_attr_dict[env.param_name]
     return original_val * new_val
 
@@ -469,10 +470,11 @@ def optimize_params(env, pop_name, param_type):
             raise RuntimeError(
                 "network_clamp.optimize_params: population %s does not have optimization configuration" % pop_name)
         update_operator = None
-        for source, source_dict in sorted(viewitems(param_ranges), key=lambda k_v3: k_v3[0]):
-            for sec_type, sec_type_dict in sorted(viewitems(source_dict), key=lambda k_v2: k_v2[0]):
-                for syn_name, syn_mech_dict in sorted(viewitems(sec_type_dict), key=lambda k_v1: k_v1[0]):
-                    for param_fst, param_rst in sorted(viewitems(syn_mech_dict), key=lambda k_v: k_v[0]):
+        keyfun = lambda kv: str(kv[0])
+        for source, source_dict in sorted(viewitems(param_ranges), key=keyfun):
+            for sec_type, sec_type_dict in sorted(viewitems(source_dict), key=keyfun):
+                for syn_name, syn_mech_dict in sorted(viewitems(sec_type_dict), key=keyfun):
+                    for param_fst, param_rst in sorted(viewitems(syn_mech_dict), key=keyfun):
                         if isinstance(param_rst, dict):
                             for const_name, const_range in sorted(viewitems(param_rst)):
                                 param_path = (param_fst, const_name)
@@ -502,11 +504,12 @@ def optimize_params(env, pop_name, param_type):
 
         syn_attrs = env.synapse_attributes
         copy_syn_id_attr_dict = copy.deepcopy(syn_attrs.syn_id_attr_dict)
-        
-        for source, source_dict in sorted(viewitems(param_ranges), key=lambda k_v3: k_v3[0]):
-            for sec_type, sec_type_dict in sorted(viewitems(source_dict), key=lambda k_v2: k_v2[0]):
-                for syn_name, syn_param_dict in sorted(viewitems(sec_type_dict), key=lambda k_v1: k_v1[0]):
-                    for param_fst, param_rst in sorted(viewitems(syn_param_dict), key=lambda k_v: k_v[0]):
+
+        keyfun = lambda kv: str(kv[0])
+        for source, source_dict in sorted(viewitems(param_ranges), key=keyfun):
+            for sec_type, sec_type_dict in sorted(viewitems(source_dict), key=keyfun):
+                for syn_name, syn_param_dict in sorted(viewitems(sec_type_dict), key=keyfun):
+                    for param_fst, param_rst in sorted(viewitems(syn_param_dict), key=keyfun):
                         if isinstance(param_rst, dict):
                             raise RuntimeError("network_clamp.optimize_params: dependent parameter expressions are not supported for parameter type %s" % param_type)
                         param_name = param_fst
