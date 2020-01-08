@@ -1430,7 +1430,7 @@ def plot_lfp(config, input_path, time_range = None, compute_psd=False, window_si
 
     env = Env(config_file=config)
 
-    nrows = len(env.lfpConfig)
+    nrows = len(env.LFP_config)
     ncols = 1
     psd_col = 1
     if compute_psd:
@@ -1438,7 +1438,7 @@ def plot_lfp(config, input_path, time_range = None, compute_psd=False, window_si
 
     gs  = gridspec.GridSpec(nrows, ncols, width_ratios=[3,1] if ncols > 1 else [1])
     fig = plt.figure(figsize=fig_options.figSize)
-    for iplot, (lfp_label, lfp_config_dict) in enumerate(viewitems(env.lfpConfig)):
+    for iplot, (lfp_label, lfp_config_dict) in enumerate(viewitems(env.LFP_config)):
         namespace_id = "Local Field Potential %s" % str(lfp_label)
         import h5py
         infile = h5py.File(input_path)
@@ -1526,11 +1526,11 @@ def plot_lfp_spectrogram(config, input_path, time_range = None, window_size=4096
 
     env = Env(config_file=config)
 
-    nrows = len(env.lfpConfig)
+    nrows = len(env.LFP_config)
     ncols = 1
 
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=fig_options.figSize, squeeze=False)
-    for iplot, (lfp_label, lfp_config_dict) in enumerate(viewitems(env.lfpConfig)):
+    for iplot, (lfp_label, lfp_config_dict) in enumerate(viewitems(env.LFP_config)):
         namespace_id = "Local Field Potential %s" % str(lfp_label)
         import h5py
         infile = h5py.File(input_path)

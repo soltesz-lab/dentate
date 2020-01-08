@@ -218,11 +218,13 @@ Synapses:
             tau_offset: 15.0
             e:   -75
             g_unit: 0.0005
+            weight: 1.0
           GABA_B:
             dur_onset:  50.0
             tau_offset: 200.0
             e:   -80
             g_unit: 0.002
+            weight: 1.0
     MOPP: 
       type: inhibitory
       sections: [apical, apical]

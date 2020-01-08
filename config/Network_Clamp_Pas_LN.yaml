@@ -8,7 +8,7 @@ Random Seeds: !include Random.yaml
 Cell Data: DG_Cells_Full_Scale_20181203.h5
 Connection Data: DG_Connections_Full_Scale_20181203.h5
 Connection Generator: !include Full_Scale_Connections.yaml
-LFP: !include LFP.yaml
+Recording: !include Recording.yaml
 Network Clamp: !include Network_Clamp.yaml
 ## Cell types for dentate gyrus model
 Cell Types:

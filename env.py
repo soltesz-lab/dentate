@@ -54,7 +54,7 @@ class Env(object):
 
     def __init__(self, comm=None, config_file=None, template_paths="templates", hoc_lib_path=None,
                  dataset_prefix=None, config_prefix=None, results_path=None, results_id=None,
-                 node_rank_file=None, io_size=0, vrecord_fraction=0, coredat=False, tstop=0,
+                 node_rank_file=None, io_size=0, recording_profile=None, coredat=False, tstop=0,
                  v_init=-65, stimulus_onset=0.0, max_walltime_hours=0.5,
                  checkpoint_interval=500.0, checkpoint_clear_data=True, 
                  results_write_time=0, dt=0.025, ldbal=False, lptbal=False, transfer_debug=False,
@@ -71,7 +71,7 @@ class Env(object):
         :param results_id: str; label for neuroh5 namespaces to write spike and voltage trace data
         :param node_rank_file: str; name of file specifying assignment of node gids to MPI ranks
         :param io_size: int; the number of MPI ranks to be used for I/O operations
-        :param vrecord_fraction: float; fraction of cells to record intracellular voltage from
+        :param recording_profile: str; intracellular recording configuration to use
         :param coredat: bool; Save CoreNEURON data
         :param tstop: int; physical time to simulate (ms)
         :param v_init: float; initialization membrane potential (mV)
@@ -99,7 +99,7 @@ class Env(object):
         self.artificial_cells = defaultdict(dict)
         self.biophys_cells = defaultdict(dict)
         self.spike_onset_delay = {}
-        self.v_sample_dict = {}
+        self.recording_sets = {}
 
         if comm is None:
             self.comm = MPI.COMM_WORLD
@@ -177,10 +177,7 @@ class Env(object):
         self.optlptbal = lptbal
 
         self.transfer_debug = transfer_debug
-
-        # Fraction of cells to record intracellular voltage from
-        self.vrecord_fraction = float(vrecord_fraction)
-
+            
         # Save CoreNEURON data
         self.coredat = coredat
 
@@ -196,32 +193,32 @@ class Env(object):
             if not os.path.isfile(config_file_path):
                 raise RuntimeError("configuration file %s was not found" % config_file_path)
             with open(config_file_path) as fp:
-                self.modelConfig = yaml.load(fp, IncludeLoader)
+                self.model_config = yaml.load(fp, IncludeLoader)
         else:
             raise RuntimeError("missing configuration file")
 
-        if 'Definitions' in self.modelConfig:
+        if 'Definitions' in self.model_config:
             self.parse_definitions()
 
-        if 'Global Parameters' in self.modelConfig:
+        if 'Global Parameters' in self.model_config:
             self.parse_globals()
 
         self.geometry = None
-        if 'Geometry' in self.modelConfig:
-            self.geometry = self.modelConfig['Geometry']
+        if 'Geometry' in self.model_config:
+            self.geometry = self.model_config['Geometry']
 
         if 'Origin' in self.geometry['Parametric Surface']:
             self.parse_origin_coords()
 
-        self.celltypes = self.modelConfig['Cell Types']
+        self.celltypes = self.model_config['Cell Types']
         self.cell_attribute_info = {}
 
         # The name of this model
-        if 'Model Name' in self.modelConfig:
-            self.modelName = self.modelConfig['Model Name']
+        if 'Model Name' in self.model_config:
+            self.modelName = self.model_config['Model Name']
         # The dataset to use for constructing the network
-        if 'Dataset Name' in self.modelConfig:
-            self.datasetName = self.modelConfig['Dataset Name']
+        if 'Dataset Name' in self.model_config:
+            self.datasetName = self.model_config['Dataset Name']
 
         if rank == 0:
             self.logger.info('env.dataset_prefix = %s' % str(self.dataset_prefix))
@@ -256,20 +253,20 @@ class Env(object):
             self.results_file_path = "%s_%s_results.h5" % (self.modelName, self.results_id)
 
             
-        if 'Connection Generator' in self.modelConfig:
+        if 'Connection Generator' in self.model_config:
             self.parse_connection_config()
             self.parse_gapjunction_config()
 
         if self.dataset_prefix is not None:
             self.dataset_path = os.path.join(self.dataset_prefix, self.datasetName)
-            self.data_file_path = os.path.join(self.dataset_path, self.modelConfig['Cell Data'])
+            self.data_file_path = os.path.join(self.dataset_path, self.model_config['Cell Data'])
             if rank == 0:
                 self.logger.info('env.data_file_path = %s' % self.data_file_path)
             self.load_celltypes()
-            self.connectivity_file_path = os.path.join(self.dataset_path, self.modelConfig['Connection Data'])
-            self.forest_file_path = os.path.join(self.dataset_path, self.modelConfig['Cell Data'])
-            if 'Gap Junction Data' in self.modelConfig:
-                self.gapjunctions_file_path = os.path.join(self.dataset_path, self.modelConfig['Gap Junction Data'])
+            self.connectivity_file_path = os.path.join(self.dataset_path, self.model_config['Connection Data'])
+            self.forest_file_path = os.path.join(self.dataset_path, self.model_config['Cell Data'])
+            if 'Gap Junction Data' in self.model_config:
+                self.gapjunctions_file_path = os.path.join(self.dataset_path, self.model_config['Gap Junction Data'])
             else:
                 self.gapjunctions_file_path = None
         else:
@@ -284,19 +281,19 @@ class Env(object):
             self.load_node_ranks(node_rank_file)
 
         self.netclamp_config = None
-        if 'Network Clamp' in self.modelConfig:
+        if 'Network Clamp' in self.model_config:
             self.parse_netclamp_config()
 
         self.stimulus_config = None
         self.arena_id = None
         self.trajectory_id = None
-        if 'Stimulus' in self.modelConfig:
+        if 'Stimulus' in self.model_config:
             self.parse_stimulus_config()
             self.init_stimulus_config(**kwargs)
             
         self.analysis_config = None
-        if 'Analysis' in self.modelConfig:
-            self.analysis_config = self.modelConfig['Analysis']
+        if 'Analysis' in self.model_config:
+            self.analysis_config = self.model_config['Analysis']
 
         self.projection_dict = defaultdict(list)
         if self.dataset_prefix is not None:
@@ -307,10 +304,17 @@ class Env(object):
             if rank == 0:
                 self.logger.info('projection_dict = %s' % str(self.projection_dict))
 
-        self.lfpConfig = {}
-        if 'LFP' in self.modelConfig:
-            for label, config in viewitems(self.modelConfig['LFP']):
-                self.lfpConfig[label] = {'position': tuple(config['position']),
+        # Configuration profile for recording intracellular quantities
+        self.recording_profile = None
+        if 'Recording' in self.model_config:
+            self.recording_profile = self.model_config['Recording']['Intracellular'][recording_profile]
+            self.recording_profile['label'] = recording_profile
+
+        # Configuration profile for recording local field potentials
+        self.LFP_config = {}
+        if 'Recording' in self.model_config:
+            for label, config in viewitems(self.model_config['Recording']['LFP']):
+                self.LFP_config[label] = {'position': tuple(config['position']),
                                          'maxEDist': config['maxEDist'],
                                          'fraction': config['fraction'],
                                          'rho': config['rho'],
@@ -321,7 +325,7 @@ class Env(object):
         self.t_rec = h.Vector() # Timestamps of intracellular traces on this host
         self.recs_dict = {}  # Intracellular samples on this host
         for pop_name, _ in viewitems(self.Populations):
-            self.recs_dict[pop_name] = {'Soma': [], 'Axon hillock': [], 'Apical dendrite': [], 'Basal dendrite': []}
+            self.recs_dict[pop_name] = defaultdict(list)
             
         # used to calculate model construction times and run time
         self.mkcellstime = 0
@@ -375,7 +379,7 @@ class Env(object):
                 raise RuntimeError('init_stimulus_config: trajectory id parameter not found in stimulus configuration')
 
     def parse_stimulus_config(self):
-        stimulus_dict = self.modelConfig['Stimulus']
+        stimulus_dict = self.model_config['Stimulus']
         stimulus_config = {}
 
         for k, v in viewitems(stimulus_dict):
@@ -424,7 +428,7 @@ class Env(object):
 
         :return:
         """
-        netclamp_config_dict = self.modelConfig['Network Clamp']
+        netclamp_config_dict = self.model_config['Network Clamp']
         input_generator_dict = netclamp_config_dict['Input Generator']
         weight_generator_dict = netclamp_config_dict['Weight Generator']
         template_param_rules_dict = netclamp_config_dict['Template Parameter Rules']
@@ -462,7 +466,7 @@ class Env(object):
         self.geometry['Parametric Surface']['Origin'] = coords
 
     def parse_definitions(self):
-        defs = self.modelConfig['Definitions']
+        defs = self.model_config['Definitions']
         self.Populations = defs['Populations']
         self.SWC_Types = defs['SWC Types']
         self.Synapse_Types = defs['Synapse Types']
@@ -470,7 +474,7 @@ class Env(object):
         self.selectivity_types = defs['Input Selectivity Types']
 
     def parse_globals(self):
-        self.globals = self.modelConfig['Global Parameters']
+        self.globals = self.model_config['Global Parameters']
 
     def parse_syn_mechparams(self, mechparams_dict):
         res = {}
@@ -495,7 +499,7 @@ class Env(object):
 
         :return:
         """
-        connection_config = self.modelConfig['Connection Generator']
+        connection_config = self.model_config['Connection Generator']
 
         self.connection_velocity = connection_config['Connection Velocity']
 
@@ -586,7 +590,7 @@ class Env(object):
 
         :return:
         """
-        connection_config = self.modelConfig['Connection Generator']
+        connection_config = self.model_config['Connection Generator']
         if 'Gap Junctions' in connection_config:
             gj_config = connection_config['Gap Junctions']
 

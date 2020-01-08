@@ -8,7 +8,7 @@ import numpy as np
 import click
 from dentate import io_utils, spikedata, synapses, stimulus
 from dentate.cells import h, get_biophys_cell, init_biophysics, init_spike_detector, make_input_cell, \
-    report_topology, register_cell
+    report_topology, register_cell, record_cell
 from dentate.env import Env
 from dentate.neuron_utils import h, configure_hoc_env, make_rec
 from dentate.utils import Closure, sed, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger
@@ -40,7 +40,7 @@ def generate_weights(env, weight_source_rules, this_syn_attrs):
                 weights_name = weight_rule['name']
                 rule_params = weight_rule['params']
                 fraction = rule_params['fraction']
-                seed_offset = int(env.modelConfig['Random Seeds']['Sparse Weights'])
+                seed_offset = int(env.model_config['Random Seeds']['Sparse Weights'])
                 seed = int(seed_offset + 1)
                 weights_dict[presyn_id] = \
                     synapses.generate_sparse_weights(weights_name, fraction, seed, source_syn_dict)
@@ -52,7 +52,7 @@ def generate_weights(env, weight_source_rules, this_syn_attrs):
                 clip = None
                 if 'clip' in rule_params:
                     clip = rule_params['clip']
-                seed_offset = int(env.modelConfig['Random Seeds']['GC Log-Normal Weights 1'])
+                seed_offset = int(env.model_config['Random Seeds']['GC Log-Normal Weights 1'])
                 seed = int(seed_offset + 1)
                 weights_dict[presyn_id] = \
                     synapses.generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict, clip=clip)
@@ -61,7 +61,7 @@ def generate_weights(env, weight_source_rules, this_syn_attrs):
                 rule_params = weight_rule['params']
                 mu = rule_params['mu']
                 sigma = rule_params['sigma']
-                seed_offset = int(env.modelConfig['Random Seeds']['GC Normal Weights'])
+                seed_offset = int(env.model_config['Random Seeds']['GC Normal Weights'])
                 seed = int(seed_offset + 1)
                 weights_dict[presyn_id] = \
                     synapses.generate_normal_weights(weights_name, mu, sigma, seed, source_syn_dict)
@@ -109,6 +109,7 @@ def load_cell(env, pop_name, gid, mech_file_path=None, correct_for_spines=False,
 
     env.biophys_cells[pop_name][gid] = cell
 
+    
     return cell
 
 
@@ -143,24 +144,7 @@ def init_cell(env, pop_name, gid, load_connections=True):
                      correct_for_spines=correct_for_spines_flag, \
                      load_connections=load_connections)
     register_cell(env, pop_name, gid, cell)
-
-    rec = make_rec(0, pop_name, gid, cell, \
-                   sec=cell.soma[0].sec, loc=0.5, param='v', \
-                   dt=h.dt, description='Soma')
-    env.recs_dict[pop_name]['Soma'].append(rec)
-    if len(cell.hillock) > 0:
-        rec = make_rec(1, pop_name, gid, cell, \
-                       sec=cell.hillock[0].sec, loc=0.5, param='v', \
-                       dt=h.dt, description='Axon hillock')
-        env.recs_dict[pop_name]['Axon hillock'].append(rec)
-    if len(cell.apical) > 0:
-        n = len(cell.apical)
-        for i in range(n):
-            rec = make_rec(i + 2, pop_name, gid, cell, \
-                           sec=cell.apical[i].sec, loc=0.5, param='v', \
-                           dt=h.dt, description='Apical dendrite')
-            env.recs_dict[pop_name]['Apical dendrite'].append(rec)
-
+    
     report_topology(cell, env)
 
     return cell
@@ -280,6 +264,8 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
     for sec in list(cell.all):
         h.psection(sec=sec)
 
+    record_cell(env, pop_name, gid)
+        
     env.pc.set_maxstep(10)
     h.stdinit()
 
@@ -451,8 +437,12 @@ def modify_scaled_syn_param(env, gid, syn_id, old_val, new_val):
     mech_name = env.mech_name
     syn = env.syn_id_attr_dict[gid][syn_id]
     syn_attr_dict = syn.attr_dict[syn_index]
-    print(syn_attr_dict.keys())
-    original_val = syn_attr_dict[env.param_name]
+    if env.param_name in syn_attr_dict:
+        original_val = syn_attr_dict[env.param_name]
+    else:
+        original_val = old_val
+        syn_attr_dict[env.param_name] = original_val
+        logger.warning('modify_scaled_syn_param: gid %d syn id %s is missing parameter %s; using value %s' % (gid, str(syn), env.param_name, str(old_val)))
     return original_val * new_val
 
 def optimize_params(env, pop_name, param_type):
@@ -661,8 +651,10 @@ def cli():
 @click.option("--spike-events-t", required=False, type=str, default='t',
               help='name of variable containing spike times')
 @click.option('--profile-memory', is_flag=True, help='calculate and print heap usage after the simulation is complete')
+@click.option('--recording-profile', type=str, default='Network clamp default', help='recording profile to use')
+
 def show(config_file, population, gid, tstop, template_paths, dataset_prefix, config_prefix, spike_events_path,
-         spike_events_namespace, spike_events_t, profile_memory):
+         spike_events_namespace, spike_events_t, profile_memory, recording_profile):
     """
     Show configuration for the specified cell.
     """
@@ -714,11 +706,12 @@ def show(config_file, population, gid, tstop, template_paths, dataset_prefix, co
 @click.option("--results-id", type=str, required=False, default=None, \
               help='identifier that is used to name neuroh5 namespaces that contain output spike and intracellular trace data')
 @click.option('--profile-memory', is_flag=True, help='calculate and print heap usage after the simulation is complete')
+@click.option('--recording-profile', type=str, default='Network clamp default', help='recording profile to use')
 
 def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t_max, t_min,
        template_paths, dataset_prefix,
        config_prefix, spike_events_path, spike_events_namespace, spike_events_t,
-       results_path, results_id, profile_memory):
+       results_path, results_id, profile_memory, recording_profile):
 
     """
     Runs network clamp simulation for the specified cell.
@@ -765,6 +758,7 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
               help='path to directory containing network and cell mechanism config files')
 @click.option("--param-type", type=str, 
               help='parameter type for rate optimization (synaptic or scaling)')
+@click.option('--recording-profile', type=str, default='Network clamp default', help='recording profile to use')
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), \
               help='path to directory where output files will be written')
 @click.option("--spike-events-path", '-s', required=True, type=click.Path(),
@@ -786,8 +780,7 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
 
 def optimize(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter,
              template_paths, dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, spike_events_t,
-             param_type, results_path, target_rate_map_path, target_rate_map_namespace, target_rate_map_arena,
-             target_rate_map_trajectory, target):
+             param_type, recording_profile, results_path, target_rate_map_path, target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory, target):
     """
     Optimize the firing rate of the specified cell in a network clamp configuration.
     """
@@ -800,10 +793,10 @@ def optimize(config_file, population, gid, generate_inputs, generate_weights, t_
     env = Env(**params)
     configure_hoc_env(env)
 
-    init(env, population, gid, spike_events_path, \
-         generate_inputs_pops=set(generate_inputs), \
-         generate_weights_pops=set(generate_weights), \
-         spike_events_namespace=spike_events_namespace, \
+    init(env, population, gid, spike_events_path, 
+         generate_inputs_pops=set(generate_inputs), 
+         generate_weights_pops=set(generate_weights), 
+         spike_events_namespace=spike_events_namespace, 
          t_var=spike_events_t, t_min=t_min, t_max=t_max)
 
     if target == 'rate':

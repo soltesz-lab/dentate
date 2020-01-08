@@ -186,8 +186,10 @@ def make_rec(recid, population, gid, cell, sec, dt=h.dt, loc=None, param='v', de
     vec = h.Vector()
     name = 'rec%i' % recid
     if loc is None:
-        loc = 0.5
-    vec.record(getattr(sec(loc), '_ref_%s' % param), dt)
+        hocobj = sec
+    else:
+        hocobj = sec(loc)
+    vec.record(getattr(hocobj, '_ref_%s' % param), dt)
     rec_dict = {'name': name,
                 'gid': gid,
                 'cell': cell,

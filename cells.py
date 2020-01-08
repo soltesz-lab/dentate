@@ -1,6 +1,6 @@
 import collections, os, sys, traceback, copy, datetime, math
 import numpy as np
-from dentate.neuron_utils import h, d_lambda, default_hoc_sec_lists, default_ordered_sec_types, freq
+from dentate.neuron_utils import h, d_lambda, default_hoc_sec_lists, default_ordered_sec_types, freq, make_rec
 from dentate.utils import get_module_logger, map, range, zip, zip_longest, viewitems, read_from_yaml, write_to_yaml
 from neuroh5.io import read_cell_attribute_selection, read_graph_selection, read_tree_selection
 
@@ -1945,6 +1945,33 @@ def custom_filter_if_terminal(cell, node, baseline, rules, donor, **kwargs):
     return rules
 
 
+def filter_nodes(cell, sections=None, layers=None, swc_types=None):
+    """
+    Returns a subset of the nodes of the given cell according to the given criteria.
+
+    :param cell: 
+    :param sections: sequence of int
+    :param layers: list of enumerated type: layer
+    :param swc_types: list of enumerated type: swc_type
+    :return: list of nodes
+    """
+    matches = lambda items: all(
+        map(lambda query_item: (query_item[0] is None) or (query_item[1] in query_item[0]), items))
+
+    nodes = []
+    if swc_types is None:
+        sections = sorted(cell.nodes.keys())
+    for swc_type in swc_types:
+        nodes.extend(cell.nodes[swc_type])
+            
+
+    result = [v for v in nodes
+                  if matches([(layers, v.get_layer()),
+                              (sections, v.get_sec())])]
+
+    return result
+
+
 # ------------------- Methods to specify cells from hoc templates and neuroh5 trees ---------------------------------- #
 
 def report_topology(cell, env, node=None):
@@ -2197,6 +2224,25 @@ def register_cell(env, pop_name, gid, cell):
     if hasattr(cell, 'spike_onset_delay'):
         env.spike_onset_delay[gid] = cell.spike_onset_delay
 
+
+
+def record_cell(env, pop_name, gid):
+    """
+    Creates a recording object for the given cell, according to configuration in env.recording_profile.
+    """
+    cell = env.biophys_cells[pop_name].get(gid, None)
+    if cell is not None:
+        label = env.recording_profile['label']
+        for recvar, recdict  in viewitems(env.recording_profile['quantity']):
+            nodes = filter_nodes(cell, layers=recdict.get('layers', None),
+                                 swc_types=recdict.get('swc types', None))
+            for node in nodes:
+                sec = node.get_sec()
+                rec = make_rec(gid, pop_name, gid, cell.hoc_cell, sec=sec,
+                                dt=env.dt, loc=0.5, param=recvar, \
+                                description=node.name)
+                env.recs_dict[pop_name][node.type].append(rec)
+        
     
 def find_spike_threshold_minimum(cell, loc=0.5, sec=None, duration=10.0, delay=100.0, initial_amp=0.001):
     """

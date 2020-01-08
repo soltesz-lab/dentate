@@ -9,7 +9,7 @@ Cell Data: dentatenet_Full_Scale_GC_Exc_Sat_DD_LNN_selection.h5
 Connection Data: dentatenet_Full_Scale_GC_Exc_Sat_DD_LNN_selection.h5
 Gap Junction Data: DG_gapjunctions_20190717.h5
 Connection Generator: !include Full_Scale_Connections_GC_Exc_Sat_DD.yaml
-LFP: !include LFP.yaml
+Recording: !include Recording.yaml
 Stimulus: !include Input_Configuration.yaml
 Analysis: !include Analysis_Configuration.yaml
 ## Cell types for dentate gyrus model

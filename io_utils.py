@@ -128,7 +128,7 @@ def mkout(env, results_filename):
     :return:
     """
     dataset_path = os.path.join(env.dataset_prefix, env.datasetName)
-    data_file_path = os.path.join(dataset_path, env.modelConfig['Cell Data'])
+    data_file_path = os.path.join(dataset_path, env.model_config['Cell Data'])
     data_file = h5py.File(data_file_path, 'r')
     results_file = h5py.File(results_filename)
     if 'H5Types' not in results_file:

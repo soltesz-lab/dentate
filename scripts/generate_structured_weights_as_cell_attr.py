@@ -342,7 +342,7 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
 
     local_random = np.random.RandomState()
 
-    seed_offset = int(env.modelConfig['Random Seeds']['GC Structured Weights'])
+    seed_offset = int(env.model_config['Random Seeds']['GC Structured Weights'])
     spatial_resolution = env.stimulus_config['Spatial Resolution'] # cm
 
     arena = env.stimulus_config['Arena'][arena_id]

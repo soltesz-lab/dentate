@@ -162,7 +162,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
     arena = env.stimulus_config['Arena'][arena_id]
 
     local_random = np.random.RandomState()
-    selectivity_seed_offset = int(env.modelConfig['Random Seeds']['Input Selectivity'])
+    selectivity_seed_offset = int(env.model_config['Random Seeds']['Input Selectivity'])
     local_random.seed(selectivity_seed_offset - 1)
 
     selectivity_config = InputSelectivityConfig(env.stimulus_config, local_random)

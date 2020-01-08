@@ -52,7 +52,7 @@ def main(config, template_path, types_path, forest_path, connectivity_path, conn
     configure_hoc_env(env)
 
     gj_config = env.gapjunctions
-    gj_seed = int(env.modelConfig['Random Seeds']['Gap Junctions'])
+    gj_seed = int(env.model_config['Random Seeds']['Gap Junctions'])
 
     soma_coords = {}
 

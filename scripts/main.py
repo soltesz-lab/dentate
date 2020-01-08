@@ -53,8 +53,8 @@ sys.excepthook = mpi_excepthook
 @click.option("--node-rank-file", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False),
                   help='name of file specifying assignment of cell gids to MPI ranks')
 @click.option("--io-size", type=int, default=0, help='the number of MPI ranks to be used for I/O operations')
-@click.option("--vrecord-fraction", type=float, default=0.001,
-              help='fraction of cells to record intracellular voltage from')
+@click.option("--recording-profile", type=str, default='Network default',
+              help='intracellular recording profile to use')
 @click.option("--coredat", is_flag=True, help='Save CoreNEURON data')
 @click.option("--trajectory-id", required=True, type=str,
               help='name of trajectory used for spatial stimulus')

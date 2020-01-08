@@ -28,7 +28,10 @@ class SynapseSource(object):
         self.gid = None
         self.population = None
         self.delay = None
-
+    def __repr__(self): 
+       return 'SynapseSource(%d, %d, %.02f)' % (self.gid, self.population, self.delay)
+    def __str__(self): 
+       return 'SynapseSource(%d, %d, %.02f)' % (self.gid, self.population, self.delay)
 
 SynapsePointProcess = NamedTupleWithDocstring(
     """This class provides information about the point processes associated with a synapse.
@@ -509,10 +512,8 @@ class SynapseAttributes(object):
                         raise RuntimeError('modify_mech_attrs: unknown dependent expression parameter %s' % (mech_param.parameter))
                 else:
                     new_val = v
-                if k in attr_dict:
-                    attr_dict[k] = update_operator(gid, syn_id, attr_dict[k], new_val)
-                else:
-                    attr_dict[k] = update_operator(gid, syn_id, None, new_val)
+                old_val = attr_dict.get(k, mech_param)
+                attr_dict[k] = update_operator(gid, syn_id, old_val, new_val)
             elif k in rules[mech_name]['netcon_params']:
                 mech_param = mech_params.get(k, None)
                 if isinstance(mech_param, DExpr):
@@ -524,10 +525,8 @@ class SynapseAttributes(object):
                 else:
                     new_val = v
 
-                if k in attr_dict:
-                    attr_dict[k] = update_operator(gid, syn_id, attr_dict[k], new_val)
-                else:
-                    attr_dict[k] = update_operator(gid, syn_id, None, new_val)
+                old_val = attr_dict.get(k, mech_param)
+                attr_dict[k] = update_operator(gid, syn_id, old_val, new_val)
             else:
                 raise RuntimeError('modify_mech_attrs: unknown type of parameter %s' % k)
 
@@ -1285,7 +1284,7 @@ def modify_syn_param(cell, env, sec_type, syn_name, param_name=None, value=None,
     backup_mech_dict = copy.deepcopy(cell.mech_dict)
 
     mech_content = {param_name: rules}
-
+    
     # No mechanisms have been specified in this type of section yet
     if sec_type not in cell.mech_dict:
         cell.mech_dict[sec_type] = {'synapses': {syn_name: mech_content}}
@@ -1535,7 +1534,7 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline,
     syn_attrs = env.synapse_attributes
     if not ('min_loc' in rules or 'max_loc' in rules or 'slope' in rules):
         for syn_id in syn_ids:
-            syn_attrs.modify_mech_attrs(cell.pop_name, cell.gid, syn_id, syn_name,
+            syn_attrs.modify_mech_attrs(cell.pop_name, cell.gid, syn_id, syn_name, 
                                         {param_name: baseline}, update_operator=update_operator)
     elif donor is None:
         raise RuntimeError('set_syn_mech_param: cannot set value of synaptic mechanism: %s parameter: %s in '
@@ -1562,7 +1561,7 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline,
                                               min_val, max_val, tau, xhalf, outside)
 
             if value is not None:
-                syn_attrs.modify_mech_attrs(cell.pop_name, cell.gid, syn_id, syn_name,
+                syn_attrs.modify_mech_attrs(cell.pop_name, cell.gid, syn_id, syn_name, 
                                             {param_name: value}, update_operator=update_operator)
 
     if update_targets:
