@@ -23,12 +23,13 @@ def mpi_excepthook(type, value, traceback):
      sys_excepthook(type, value, traceback)
      if MPI.COMM_WORLD.size > 1:
          MPI.COMM_WORLD.Abort(1)
-#sys.excepthook = mpi_excepthook
+sys.excepthook = mpi_excepthook
 
 
 @click.command()
 @click.option("--config", required=True, type=str)
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), default='config')
+@click.option("--include", '-i', type=str, multiple=True)
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--connectivity-path", required=True, type=click.Path())
 @click.option("--connectivity-namespace", type=str, default='Connectivity')
@@ -45,7 +46,7 @@ def mpi_excepthook(type, value, traceback):
 @click.option("--write-size", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, config_prefix, forest_path, connectivity_path, connectivity_namespace, coords_path, 
+def main(config, config_prefix, include, forest_path, connectivity_path, connectivity_namespace, coords_path, 
          coords_namespace, synapses_namespace, distances_namespace, resolution, interp_chunk_size, io_size,
          chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
 
@@ -90,7 +91,14 @@ def main(config, config_prefix, forest_path, connectivity_path, connectivity_nam
         
         gc.collect()
 
-    destination_populations = sorted(read_population_names(forest_path))
+    forest_populations = sorted(read_population_names(forest_path))
+    if include is None:
+         destination_populations = forest_populations
+    else:
+         destination_populations = []
+         for p in include:
+              if p in forest_populations:
+                   destination_populations.append(p)
 
     if len(soma_distances) == 0:
         (origin_ranges, ip_dist_u, ip_dist_v) = make_distance_interpolant(env, resolution=resolution, nsample=nsample)
