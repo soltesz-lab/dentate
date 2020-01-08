@@ -180,23 +180,6 @@ def connect_cells(env):
                 del weight_attr_dict[weights_namespace]
 
 
-        first_gid = None
-        if postsyn_name in env.biophys_cells:
-            for gid in env.biophys_cells[postsyn_name]:
-                if first_gid is None:
-                    first_gid = gid
-                try:
-                    if syn_attrs.has_gid(gid):
-                        biophys_cell = env.biophys_cells[postsyn_name][gid]
-                        cells.init_biophysics(biophys_cell, env=env, 
-                                              reset_cable=True, 
-                                              correct_cm=correct_for_spines,
-                                              correct_g_pas=correct_for_spines, 
-                                              verbose=((rank == 0) and (first_gid == gid)))
-                except KeyError:
-                    raise KeyError('*** connect_cells: population: %s; gid: %i; could not initialize biophysics' %
-                                     (postsyn_name, gid))
-
         env.edge_count[postsyn_name] = 0
         for presyn_name in presyn_names:
 
@@ -221,6 +204,24 @@ def connect_cells(env):
             logger.info('Rank %i: took %.02f s to initialize edge attributes for projection %s -> %s' % \
                         (rank, time.time() - last_time, presyn_name, postsyn_name))
             del graph[postsyn_name][presyn_name]
+
+            
+        first_gid = None
+        if postsyn_name in env.biophys_cells:
+            for gid in env.biophys_cells[postsyn_name]:
+                if first_gid is None:
+                    first_gid = gid
+                try:
+                    if syn_attrs.has_gid(gid):
+                        biophys_cell = env.biophys_cells[postsyn_name][gid]
+                        cells.init_biophysics(biophys_cell, env=env, 
+                                              reset_cable=True, 
+                                              correct_cm=correct_for_spines,
+                                              correct_g_pas=correct_for_spines, 
+                                              verbose=((rank == 0) and (first_gid == gid)))
+                except KeyError:
+                    raise KeyError('*** connect_cells: population: %s; gid: %i; could not initialize biophysics' %
+                                     (postsyn_name, gid))
 
         first_gid = None
         pop_last_time = time.time()
@@ -402,23 +403,6 @@ def connect_cell_selection(env):
                 overwrite_weights='skip'
                 del syn_weights_iter
 
-        first_gid = None
-        if postsyn_name in env.biophys_cells:
-            for gid in env.biophys_cells[postsyn_name]:
-                if first_gid is None:
-                    first_gid = gid
-                try:
-                    if syn_attrs.has_gid(gid):
-                        biophys_cell = env.biophys_cells[postsyn_name][gid]
-                        cells.init_biophysics(biophys_cell,
-                                              reset_cable=True,
-                                              correct_cm=correct_for_spines,
-                                              correct_g_pas=correct_for_spines,
-                                              env=env, verbose=((rank == 0) and (first_gid == gid)))
-                except KeyError:
-                    raise KeyError('connect_cells: population: %s; gid: %i; could not initialize biophysics'
-                                     % (postsyn_name, gid))
-
                 
         (graph, a) = read_graph_selection(connectivity_file_path, selection=gid_range, \
                                           projections=[ (presyn_name, postsyn_name) for presyn_name in sorted(presyn_names) ],
@@ -438,6 +422,23 @@ def connect_cell_selection(env):
 
                 del graph[postsyn_name][presyn_name]
 
+
+        first_gid = None
+        if postsyn_name in env.biophys_cells:
+            for gid in env.biophys_cells[postsyn_name]:
+                if first_gid is None:
+                    first_gid = gid
+                try:
+                    if syn_attrs.has_gid(gid):
+                        biophys_cell = env.biophys_cells[postsyn_name][gid]
+                        cells.init_biophysics(biophys_cell,
+                                              reset_cable=True,
+                                              correct_cm=correct_for_spines,
+                                              correct_g_pas=correct_for_spines,
+                                              env=env, verbose=((rank == 0) and (first_gid == gid)))
+                except KeyError:
+                    raise KeyError('connect_cells: population: %s; gid: %i; could not initialize biophysics'
+                                     % (postsyn_name, gid))
 
     ##
     ## This section instantiates cells that are not part of the

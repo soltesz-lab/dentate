@@ -1037,7 +1037,6 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
                 failed = False
             else:
                 i = mech_rules['netcon_params'][param]
-                
                 if int(nc.wcnt()) >= i:
                     old = nc.weight[i]
                     if isinstance(val, DExpr):

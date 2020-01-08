@@ -2230,19 +2230,39 @@ def record_cell(env, pop_name, gid):
     """
     Creates a recording object for the given cell, according to configuration in env.recording_profile.
     """
-    cell = env.biophys_cells[pop_name].get(gid, None)
-    if cell is not None:
-        label = env.recording_profile['label']
-        for recvar, recdict  in viewitems(env.recording_profile['quantity']):
-            nodes = filter_nodes(cell, layers=recdict.get('layers', None),
-                                 swc_types=recdict.get('swc types', None))
-            for node in nodes:
-                sec = node.get_sec()
-                rec = make_rec(gid, pop_name, gid, cell.hoc_cell, sec=sec,
-                                dt=env.dt, loc=0.5, param=recvar, \
-                                description=node.name)
-                env.recs_dict[pop_name][node.type].append(rec)
-        
+    if env.recording_profile is not None:
+        syn_attrs = env.synapse_attributes
+        cell = env.biophys_cells[pop_name].get(gid, None)
+        if cell is not None:
+            label = env.recording_profile['label']
+            for recvar, recdict  in viewitems(env.recording_profile['section quantity']):
+                nodes = filter_nodes(cell, layers=recdict.get('layers', None),
+                                    swc_types=recdict.get('swc types', None))
+                visited = set([])
+                for node in nodes:
+                    sec = node.get_sec()
+                    if str(sec) not in visited:
+                        rec = make_rec(gid, pop_name, gid, cell.hoc_cell, sec=sec,
+                                        dt=env.dt, loc=0.5, param=recvar, \
+                                        description=node.name)
+                        env.recs_dict[pop_name][node.type].append(rec)
+                        visited.add(str(sec))
+            for recvar, recdict  in viewitems(env.recording_profile['synaptic quantity']):
+                synapses = syn_attrs.filter_synapses(gid, syn_sections=recdict.get('sections', None), \
+                                                      syn_types=recdict.get('syn types', None), \
+                                                      swc_types=recdict.get('swc types', None), \
+                                                      layers=recdict.get('layers', None), \
+                                                      layers=recdict.get('sources', None))
+                syn_names = recdict.get('syn names', syn_attrs.syn_name_index_dict.keys())
+                for syn_id, syn in viewitems(synapses):
+                    for syn_name in syn_names:
+                        pps = syn_attrs.get_pps(self, gid, syn_id, syn_name)
+                        rec = make_rec(gid, pop_name, gid, cell.hoc_cell, ps=pps,
+                                        dt=env.dt, param=recvar, \
+                                        description=node.name)
+                        env.recs_dict[pop_name][syn_name].append(rec)
+                
+                                                      
     
 def find_spike_threshold_minimum(cell, loc=0.5, sec=None, duration=10.0, delay=100.0, initial_amp=0.001):
     """

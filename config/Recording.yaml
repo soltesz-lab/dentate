@@ -2,26 +2,30 @@
 Intracellular:
   Network default:
     fraction: 0.001
-    quantity:
+    section quantity:
       v:
         swc types:
           - soma
   Network clamp default:
     fraction: 1.0
-    quantity:
+    section quantity:
       v:
         swc types:
           - soma
           - hillock
           - apical
+          - basal
   Network clamp synaptic:
     fraction: 1.0
-    quantity:
+    section quantity:
       v:
         swc types:
           - soma
           - hillock
           - apical
+          - basal
+    synaptic quantity:
+      i: {}
 LFP:
   # Configuration for virtual local field potential recordings
   Electrode 0:

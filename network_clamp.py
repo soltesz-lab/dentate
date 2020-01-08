@@ -95,7 +95,7 @@ def load_cell(env, pop_name, gid, mech_file_path=None, correct_for_spines=False,
     cell = get_biophys_cell(env, pop_name, gid, tree_dict=tree_dict,
                             load_synapses=load_synapses,
                             synapses_dict=synapses_dict,
-                            load_weights=True, #weights_scales={"Structured Weights A": 11.75},
+                            load_weights=True, 
                             load_edges=load_connections,
                             connections=connections,
                             mech_file_path=mech_file_path)
@@ -442,7 +442,7 @@ def modify_scaled_syn_param(env, gid, syn_id, old_val, new_val):
     else:
         original_val = old_val
         syn_attr_dict[env.param_name] = original_val
-        logger.warning('modify_scaled_syn_param: gid %d syn id %s is missing parameter %s; using value %s' % (gid, str(syn), env.param_name, str(old_val)))
+        logger.warning('modify_scaled_syn_param: gid %d syn %s is missing parameter %s; using value %s' % (gid, str(syn), env.param_name, str(old_val)))
     return original_val * new_val
 
 def optimize_params(env, pop_name, param_type):
@@ -758,7 +758,7 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
               help='path to directory containing network and cell mechanism config files')
 @click.option("--param-type", type=str, 
               help='parameter type for rate optimization (synaptic or scaling)')
-@click.option('--recording-profile', type=str, default='Network clamp default', help='recording profile to use')
+@click.option('--recording-profile', type=str, help='recording profile to use')
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), \
               help='path to directory where output files will be written')
 @click.option("--spike-events-path", '-s', required=True, type=click.Path(),

@@ -215,9 +215,9 @@ def recsout(env, output_path, t_start=0., clear_data=False):
                 if clear_data:
                     rec['vec'].resize(0)
             if env.results_id is None:
-                namespace_id = "Intracellular Voltage %s" % rec_type
+                namespace_id = "Intracellular %s" % rec_type
             else:
-                namespace_id = "Intracellular Voltage %s %s" % (rec_type, str(env.results_id))
+                namespace_id = "Intracellular %s %s" % (rec_type, str(env.results_id))
             append_cell_attributes(output_path, pop_name, attr_dict, namespace=namespace_id, comm=env.comm, io_size=env.io_size)
     if clear_data:
         env.t_rec.resize(0)

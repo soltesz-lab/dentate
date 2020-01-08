@@ -306,7 +306,7 @@ class Env(object):
 
         # Configuration profile for recording intracellular quantities
         self.recording_profile = None
-        if 'Recording' in self.model_config:
+        if ('Recording' in self.model_config) and (recording_profile is not None):
             self.recording_profile = self.model_config['Recording']['Intracellular'][recording_profile]
             self.recording_profile['label'] = recording_profile
 
