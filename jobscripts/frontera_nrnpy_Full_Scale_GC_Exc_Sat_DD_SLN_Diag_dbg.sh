@@ -40,7 +40,7 @@ ibrun env PYTHONPATH=$PYTHONPATH $PYTHON ./scripts/main.py  \
     --config-file=Full_Scale_GC_Exc_Sat_DD_SLN.yaml  \
     --arena-id=A --trajectory-id=Diag \
     --template-paths=../dgc/Mateos-Aparicio2014:templates \
-    --dataset-prefix="$SCRATCH/dentate" \
+    --dataset-prefix="$SCRATCH/striped/dentate" \
     --results-path=$results_path \
     --io-size=256 \
     --tstop=150 \
