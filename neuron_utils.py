@@ -168,7 +168,7 @@ def configure_hoc_env(env):
         h.nrn_sparse_partrans = 1
 
 
-def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v', dt=h.dt, description=''):
+def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v', label=None, dt=h.dt, description=''):
     """
     Makes a recording vector for the specified quantity in the specified section and location.
 
@@ -192,6 +192,8 @@ def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v
         hocobj = sec(loc)
     else:
         raise RuntimeError('make_rec: either sec and loc or ps must be specified')
+    if label is None:
+        label = param
     vec.record(getattr(hocobj, '_ref_%s' % param), dt)
     rec_dict = {'name': name,
                 'gid': gid,
@@ -200,7 +202,8 @@ def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v
                 'loc': loc,
                 'sec': sec,
                 'description': description,
-                'vec': vec
+                'vec': vec,
+                'label': label
                 }
 
     return rec_dict

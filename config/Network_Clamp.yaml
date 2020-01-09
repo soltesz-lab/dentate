@@ -90,6 +90,9 @@ Scaling Optimization:
         apical:
           GABA_A:
             weight: [0.1, 1.0]
+        soma:
+          GABA_A:
+            weight: [0.1, 1.0]
       AAC:
         ais:
           GABA_A:
@@ -101,6 +104,8 @@ Scaling Optimization:
       !!python/tuple [NGFC, MOPP]:
         apical:
           GABA_A:
+            weight: [0.1, 2.0]
+          GABA_B:
             weight: [0.1, 2.0]
 Synaptic Optimization:
   GC:

@@ -4,7 +4,7 @@ import numpy as np
 from mpi4py import MPI
 import yaml
 from dentate.neuron_utils import h, find_template
-from dentate.synapses import SynapseAttributes
+from dentate.synapses import SynapseAttributes, get_syn_filter_dict
 from dentate.utils import IncludeLoader, DExpr, config_logging, get_root_logger, str, viewitems, zip, viewitems
 from neuroh5.io import read_cell_attribute_info, read_population_names, read_population_ranges, read_projection_names
 
@@ -309,6 +309,18 @@ class Env(object):
         if ('Recording' in self.model_config) and (recording_profile is not None):
             self.recording_profile = self.model_config['Recording']['Intracellular'][recording_profile]
             self.recording_profile['label'] = recording_profile
+            for recvar, recdict  in viewitems(self.recording_profile.get('synaptic quantity', {})):
+                filters = {}
+                if 'syn types' in recdict:
+                    filters['syn_types'] = recdict['syn types']
+                if 'swc types' in recdict:
+                    filters['swc_types'] = recdict['swc types']
+                if 'layers' in recdict:
+                    filters['layers'] = recdict['layers']
+                if 'sources' in recdict:
+                    filters['sources'] = recdict['sources']
+                syn_filters = get_syn_filter_dict(self, filters, convert=True)
+                recdict['syn_filters'] = syn_filters
 
         # Configuration profile for recording local field potentials
         self.LFP_config = {}

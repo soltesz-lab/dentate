@@ -1154,7 +1154,7 @@ def get_syn_mech_param(syn_name, rules, param_name, mech_names=None, nc=None):
                          (param_name, mech_name))
 
 
-def get_syn_filter_dict(env, rules, convert=False):
+def get_syn_filter_dict(env, rules, convert=False, check_valid=True):
     """Used by modify_syn_param. Takes in a series of arguments and
     constructs a validated rules dictionary that specifies to which
     sets of synapses a rule applies. Values of filter queries are
@@ -1166,10 +1166,11 @@ def get_syn_filter_dict(env, rules, convert=False):
     :return: dict
 
     """
-    valid_filter_names = ['syn_types', 'layers', 'sources']
-    for name in rules:
-        if name not in valid_filter_names:
-            raise ValueError('get_syn_filter_dict: unrecognized filter category: %s' % name)
+    valid_filter_names = ['syn_types', 'layers', 'sources', 'swc_types']
+    if check_valid:
+        for name in rules:
+            if name not in valid_filter_names:
+                raise ValueError('get_syn_filter_dict: unrecognized filter category: %s' % name)
     rules_dict = copy.deepcopy(rules)
     if 'syn_types' in rules_dict:
         for i, syn_type in enumerate(rules_dict['syn_types']):
@@ -1178,6 +1179,13 @@ def get_syn_filter_dict(env, rules, convert=False):
                                  syn_type)
             if convert:
                 rules_dict['syn_types'][i] = env.Synapse_Types[syn_type]
+    if 'swc_types' in rules_dict:
+        for i, swc_type in enumerate(rules_dict['swc_types']):
+            if swc_type not in env.SWC_Types:
+                raise ValueError('get_syn_filter_dict: swc_type: %s not recognized by network configuration' %
+                                 syn_type)
+            if convert:
+                rules_dict['swc_types'][i] = env.SWC_Types[syn_type]
     if 'layers' in rules_dict:
         for i, layer in enumerate(rules_dict['layers']):
             if layer not in env.layers:

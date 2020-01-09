@@ -259,12 +259,12 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
                                                zip_longest(weights_syn_ids, \
                                                            [{'weight': x} for x in weights_values]))
     synapses.config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True, verbose=True)
+    record_cell(env, pop_name, gid)
 
     cell = env.pc.gid2cell(gid)
     for sec in list(cell.all):
         h.psection(sec=sec)
 
-    record_cell(env, pop_name, gid)
         
     env.pc.set_maxstep(10)
     h.stdinit()
@@ -282,7 +282,9 @@ def run(env):
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
-    env.t_rec.record(h._ref_t, env.dt)
+    if env.recording_profile is not None:
+        rec_dt = env.recording_profile.get('dt', 0.1) 
+        env.t_rec.record(h._ref_t, rec_dt)
     env.t_vec.resize(0)
     env.id_vec.resize(0)
 
@@ -353,7 +355,10 @@ def run_with(env, param_dict):
                                           origin='soma', update_targets=True)
             cell = env.pc.gid2cell(gid)
 
-    env.t_rec.record(h._ref_t, env.dt)
+    if env.recording_profile is not None:
+        rec_dt = env.recording_profile.get('dt', 0.1) 
+        env.t_rec.record(h._ref_t, rec_dt)
+
     env.t_vec.resize(0)
     env.id_vec.resize(0)
 

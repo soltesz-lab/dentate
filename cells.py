@@ -2096,7 +2096,7 @@ def make_input_cell(env, gid, pop_id, input_source_dict):
 
 
 def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, load_synapses=True,
-                     load_edges=True, connections=None, load_weights=False, weights_scales={},
+                     load_edges=True, connections=None, load_weights=False, weights_scales=None,
                      set_edge_delays=True, mech_file_path=None):
     """
     :param env: :class:'Env'
@@ -2133,6 +2133,9 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     else:
         has_weights = False
 
+    if weights_scales is None:
+        weights_scales = synapse_config.get('weights scales', {})
+        
     if load_synapses:
         if synapses_dict is not None:
             syn_attrs.init_syn_id_attrs(gid, synapses_dict)
@@ -2155,6 +2158,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
                     for gid, cell_weights_dict in cell_weights_iter:
                         weights_syn_ids = cell_weights_dict['syn_id']
                         for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
+                            print('%s weights scale: %f' % (syn_name, weights_scale))
                             weights_values = cell_weights_dict[syn_name]
                             syn_attrs.add_mech_attrs_from_iter(
                                 gid, syn_name,
@@ -2235,7 +2239,8 @@ def record_cell(env, pop_name, gid):
         cell = env.biophys_cells[pop_name].get(gid, None)
         if cell is not None:
             label = env.recording_profile['label']
-            for recvar, recdict  in viewitems(env.recording_profile['section quantity']):
+            dt = env.recording_profile.get('dt', 0.1)
+            for recvar, recdict  in viewitems(env.recording_profile.get('section quantity', {})):
                 nodes = filter_nodes(cell, layers=recdict.get('layers', None),
                                     swc_types=recdict.get('swc types', None))
                 visited = set([])
@@ -2243,24 +2248,24 @@ def record_cell(env, pop_name, gid):
                     sec = node.get_sec()
                     if str(sec) not in visited:
                         rec = make_rec(gid, pop_name, gid, cell.hoc_cell, sec=sec,
-                                        dt=env.dt, loc=0.5, param=recvar, \
+                                        dt=dt, loc=0.5, param=recvar, \
                                         description=node.name)
                         env.recs_dict[pop_name][node.type].append(rec)
                         visited.add(str(sec))
-            for recvar, recdict  in viewitems(env.recording_profile['synaptic quantity']):
-                synapses = syn_attrs.filter_synapses(gid, syn_sections=recdict.get('sections', None), \
-                                                      syn_types=recdict.get('syn types', None), \
-                                                      swc_types=recdict.get('swc types', None), \
-                                                      layers=recdict.get('layers', None), \
-                                                      layers=recdict.get('sources', None))
+            for recvar, recdict  in viewitems(env.recording_profile.get('synaptic quantity', {})):
+                syn_filters = recdict.get('syn_filters', {})
+                synapses = syn_attrs.filter_synapses(gid, syn_sections=recdict.get('sections', None),
+                                                     **syn_filters)
                 syn_names = recdict.get('syn names', syn_attrs.syn_name_index_dict.keys())
                 for syn_id, syn in viewitems(synapses):
                     for syn_name in syn_names:
-                        pps = syn_attrs.get_pps(self, gid, syn_id, syn_name)
-                        rec = make_rec(gid, pop_name, gid, cell.hoc_cell, ps=pps,
-                                        dt=env.dt, param=recvar, \
-                                        description=node.name)
-                        env.recs_dict[pop_name][syn_name].append(rec)
+                        pps = syn_attrs.get_pps(gid, syn_id, syn_name, throw_error=False)
+                        if pps is not None:
+                            rec = make_rec(gid, pop_name, gid, cell.hoc_cell, ps=pps,
+                                            dt=dt, param=recvar,
+                                            label='%s.%s' % (syn_name, recvar),
+                                            description='%s.%s' % (syn_name, recvar))
+                            env.recs_dict[pop_name][syn_name].append(rec)
                 
                                                       
     

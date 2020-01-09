@@ -1133,7 +1133,10 @@ def run(env, output=True, shutdown=True):
     if rank == 0:
         logger.info("*** Running simulation")
 
-    env.t_rec.record(h._ref_t, env.dt)
+    if env.recording_profile is not None:
+        rec_dt = env.recording_profile.get('dt', 0.1) 
+        env.t_rec.record(h._ref_t, rec_dt)
+
     env.t_rec.resize(0)
     env.t_vec.resize(0)
     env.id_vec.resize(0)
