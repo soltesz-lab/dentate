@@ -159,10 +159,10 @@ def spikeout(env, output_path, t_start=0., clear_data=False):
     bins = binvect[sort_idx][1:]
     inds = np.digitize(id_vec, bins)
 
-    if env.results_id is None:
+    if env.results_namespace_id is None:
         namespace_id = "Spike Events"
     else:
-        namespace_id = "Spike Events %s" % str(env.results_id)
+        namespace_id = "Spike Events %s" % str(env.results_namespace_id)
 
     equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
     for i, pop_name in enumerate(pop_names):
@@ -220,10 +220,10 @@ def recsout(env, output_path, t_start=0., clear_data=False):
                     attr_dict[gid]['t'] = time_vec[tinds]
                 if clear_data:
                     rec['vec'].resize(0)
-            if env.results_id is None:
+            if env.results_namespace_id is None:
                 namespace_id = "Intracellular %s" % (rec_type)
             else:
-                namespace_id = "Intracellular %s %s" % (rec_type, str(env.results_id))
+                namespace_id = "Intracellular %s %s" % (rec_type, str(env.results_namespace_id))
             append_cell_attributes(output_path, pop_name, attr_dict, namespace=namespace_id,
                                    comm=env.comm, io_size=env.io_size)
     if clear_data:
@@ -242,10 +242,10 @@ def lfpout(env, output_path):
 
     for lfp in list(env.lfp.values()):
 
-        if env.results_id is None:
+        if env.results_namespace_id is None:
             namespace_id = "Local Field Potential %s" % str(lfp.label)
         else:
-            namespace_id = "Local Field Potential %s %s" % (str(lfp.label), str(env.results_id))
+            namespace_id = "Local Field Potential %s %s" % (str(lfp.label), str(env.results_namespace_id))
         import h5py
         output = h5py.File(output_path, 'a')
 

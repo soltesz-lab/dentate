@@ -53,7 +53,8 @@ class Env(object):
     """
 
     def __init__(self, comm=None, config_file=None, template_paths="templates", hoc_lib_path=None,
-                 dataset_prefix=None, config_prefix=None, results_path=None, results_id=None,
+                 dataset_prefix=None, config_prefix=None, results_path=None, results_file_id=None,
+                 results_namespace_id=None,
                  node_rank_file=None, io_size=0, recording_profile=None, coredat=False, tstop=0,
                  v_init=-65, stimulus_onset=0.0, max_walltime_hours=0.5,
                  checkpoint_interval=500.0, checkpoint_clear_data=True, 
@@ -68,7 +69,8 @@ class Env(object):
         :param dataset_prefix: str; path to directory containing required neuroh5 data files
         :param config_prefix: str; path to directory containing network and cell mechanism config files
         :param results_path: str; path to directory to export output files
-        :param results_id: str; label for neuroh5 namespaces to write spike and voltage trace data
+        :param results_file_id: str; label for neuroh5 files to write spike and voltage trace data
+        :param results_namespace_id: str; label for neuroh5 namespaces to write spike and voltage trace data
         :param node_rank_file: str; name of file specifying assignment of node gids to MPI ranks
         :param io_size: int; the number of MPI ranks to be used for I/O operations
         :param recording_profile: str; intracellular recording configuration to use
@@ -146,7 +148,9 @@ class Env(object):
         self.results_path = results_path
 
         # Identifier used to construct results data namespaces
-        self.results_id = results_id
+        self.results_namespace_id = results_namespace_id
+        # Identifier used to construct results data files
+        self.results_file_id = results_file_id
 
         # Number of MPI ranks to be used for I/O operations
         self.io_size = int(io_size)
@@ -245,13 +249,15 @@ class Env(object):
             if rank == 0:
                 self.logger.info('env.spike_input_attribute_info = %s' % str(self.spike_input_attribute_info))
         if results_path:
-            if self.results_id is None:
+            if self.results_file_id is None:
                 self.results_file_path = "%s/%s_results.h5" % (self.results_path, self.modelName)
             else:
-                self.results_file_path = "%s/%s_%s_results.h5" % (self.results_path, self.modelName, self.results_id)
+                self.results_file_path = "%s/%s_results_%s.h5" % (self.results_path, self.modelName, self.results_file_id)
         else:
-            self.results_file_path = "%s_%s_results.h5" % (self.modelName, self.results_id)
-
+            if self.results_file_id is None:
+                self.results_file_path = "%s_results.h5" % (self.modelName)
+            else:
+                self.results_file_path = "%s_results_%s.h5" % (self.modelName, self.results_file_id)
             
         if 'Connection Generator' in self.model_config:
             self.parse_connection_config()

@@ -67,8 +67,8 @@ def config_worker():
     """
     utils.config_logging(context.verbose)
     context.logger = utils.get_script_logger(os.path.basename(__file__))
-    if 'results_id' not in context():
-        context.results_id = 'DG_optimize_network_subworlds_%s_%s' % \
+    if 'results_file_id' not in context():
+        context.results_file_id = 'DG_optimize_network_subworlds_%s_%s' % \
                              (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M'))
     if 'env' not in context():
         try:
@@ -147,8 +147,8 @@ def config_controller():
     """
     utils.config_logging(context.verbose)
     context.logger = utils.get_script_logger(os.path.basename(__file__))
-    if 'results_id' not in context():
-        context.results_id = 'DG_optimize_network_subworlds_%s_%s' % \
+    if 'results_file_id' not in context():
+        context.results_file_id = 'DG_optimize_network_subworlds_%s_%s' % \
                              (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M'))
     if 'env' not in context():
         try:
@@ -163,14 +163,14 @@ def init_env():
     """
 
     """
-    context.env = Env(comm=context.comm, results_id=context.results_id, **context.kwargs)
+    context.env = Env(comm=context.comm, results_file_id=context.results_file_id, **context.kwargs)
     
 def init_network():
     """
 
     """
     np.seterr(all='raise')
-    context.env = Env(comm=context.comm, results_id=context.results_id, **context.kwargs)
+    context.env = Env(comm=context.comm, results_file_id=context.results_file_id, **context.kwargs)
     network.init(context.env)
 
 
@@ -236,7 +236,7 @@ def compute_features_network_walltime(x, export=False):
     update_source_contexts(x, context)
     results['modify_network_time'] = time.time() - start_time
     start_time = time.time()
-    context.env.results_id = '%s_%s' % \
+    context.env.results_file_id = '%s_%s' % \
                              (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M%S'))
     network.run(context.env, output=context.output_results, shutdown=False)
     results['sim_network_time'] = time.time() - start_time
@@ -253,7 +253,7 @@ def compute_features_firing_rate_fraction_active(x, export=False):
     """
     results = dict()
     update_source_contexts(x, context)
-    context.env.results_id = '%s_%s' % \
+    context.env.results_file_id = '%s_%s' % \
                              (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M%S'))
 
     network.run(context.env, output=context.output_results, shutdown=False)

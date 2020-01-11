@@ -1,7 +1,7 @@
 """
 Routines for Network Clamp simulation.
 """
-import os, sys, copy
+import os, sys, copy, uuid
 from collections import defaultdict
 from mpi4py import MPI
 import numpy as np
@@ -11,7 +11,7 @@ from dentate.cells import h, get_biophys_cell, init_biophysics, init_spike_detec
     report_topology, register_cell, record_cell
 from dentate.env import Env
 from dentate.neuron_utils import h, configure_hoc_env, make_rec
-from dentate.utils import Closure, sed, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger
+from dentate.utils import Closure, mse, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger
 from neuroh5.io import read_cell_attribute_selection
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -175,10 +175,7 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
             t_range = [t_min, t_max]
 
     ## Attribute namespace that contains recorded spike events
-    if env.results_id is None:
-        namespace_id = spike_events_namespace
-    else:
-        namespace_id = "%s %s" % (spike_events_namespace, str(env.results_id))
+    namespace_id = spike_events_namespace
 
     ## Determine presynaptic populations that connect to this cell type
     presyn_names = env.projection_dict[pop_name]
@@ -431,7 +428,7 @@ def make_firing_rate_vector_target(env, pop_name, gid, target_rate_vector, time_
         return spike_density_dict[gid]['rate']
     logger.info("firing rate objective: target time bins: %s" % str(time_bins))
     logger.info("firing rate objective: target rate vector min/max is %.2f Hz (%.2f ms) / %.2f Hz (%.2f ms)" % (np.min(target_rate_vector), time_bins[np.argmin(target_rate_vector)], np.max(target_rate_vector), time_bins[np.argmax(target_rate_vector)]))
-    f = lambda *v: (sed(gid_firing_rate_vector(run_with(env, {pop_name: {gid: from_param_vector(v)}}), gid), target_rate_vector))
+    f = lambda *v: (mse(gid_firing_rate_vector(run_with(env, {pop_name: {gid: from_param_vector(v)}}), gid), target_rate_vector))
 
     return f
 
@@ -708,7 +705,9 @@ def show(config_file, population, gid, tstop, template_paths, dataset_prefix, co
               help='name of variable containing spike times')
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), \
               help='path to directory where output files will be written')
-@click.option("--results-id", type=str, required=False, default=None, \
+@click.option("--results-file-id", type=str, required=False, default=None, \
+              help='identifier that is used to name neuroh5 files that contain output spike and intracellular trace data')
+@click.option("--results-namespace-id", type=str, required=False, default=None, \
               help='identifier that is used to name neuroh5 namespaces that contain output spike and intracellular trace data')
 @click.option('--profile-memory', is_flag=True, help='calculate and print heap usage after the simulation is complete')
 @click.option('--recording-profile', type=str, default='Network clamp default', help='recording profile to use')
@@ -716,12 +715,14 @@ def show(config_file, population, gid, tstop, template_paths, dataset_prefix, co
 def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t_max, t_min,
        template_paths, dataset_prefix,
        config_prefix, spike_events_path, spike_events_namespace, spike_events_t,
-       results_path, results_id, profile_memory, recording_profile):
+       results_path, results_file_id, results_namespace_id, profile_memory, recording_profile):
 
     """
     Runs network clamp simulation for the specified cell.
     """
 
+    if results_file_id is None:
+        results_file_id = uuid.uuid4()
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
     verbose = True
@@ -790,6 +791,7 @@ def optimize(config_file, population, gid, generate_inputs, generate_weights, t_
     Optimize the firing rate of the specified cell in a network clamp configuration.
     """
 
+    results_file_id = uuid.uuid4()
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
     verbose = True

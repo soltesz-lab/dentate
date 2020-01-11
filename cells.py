@@ -2263,8 +2263,8 @@ def record_cell(env, pop_name, gid):
                         if pps is not None:
                             rec = make_rec(gid, pop_name, gid, cell.hoc_cell, ps=pps,
                                             dt=dt, param=recvar,
-                                            label='%s.%s' % (syn_name, recvar),
-                                            description='%s.%s' % (syn_name, recvar))
+                                            label='%s' % (str(recvar)),
+                                            description='%s' % (str(recvar)))
                             env.recs_dict[pop_name][syn_name].append(rec)
                 
                                                       

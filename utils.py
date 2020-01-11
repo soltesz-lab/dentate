@@ -1031,3 +1031,9 @@ def sed(a, b):
     sum_squared = np.dot(delta.T, delta)
     return sum_squared
 
+def mse(a, b):
+    ssq = sed(a, b)
+    n = len(a)
+    return (1./n) * ssq
+
+
