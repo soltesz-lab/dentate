@@ -1083,8 +1083,8 @@ def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0.,
         onset_delay = config['onset delay']
 
     if node is None:
-        if cell.axon:
-            node = cell.axon[0]
+        if cell.ais:
+            node = cell.ais[0]
         elif cell.soma:
             node = cell.soma[0]
         else:
