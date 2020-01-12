@@ -105,11 +105,11 @@ def update_network(x, context=None):
             for presyn_name, param_name, syn_name, syn_param_name in \
                     zip(['BC'], ['BC_GC.GABA_A.g_unit'], ['GABA_A'], ['g_unit']):
                 sec_types = \
-                    context.env.modelConfig['Connection Generator']['Synapses'][postsyn_name][presyn_name]['sections']
+                    context.env.model_config['Connection Generator']['Synapses'][postsyn_name][presyn_name]['sections']
                 layers = \
-                    context.env.modelConfig['Connection Generator']['Synapses'][postsyn_name][presyn_name]['layers']
+                    context.env.model_config['Connection Generator']['Synapses'][postsyn_name][presyn_name]['layers']
                 syn_types = \
-                    [context.env.modelConfig['Connection Generator']['Synapses'][postsyn_name][presyn_name]['type']]
+                    [context.env.model_config['Connection Generator']['Synapses'][postsyn_name][presyn_name]['type']]
                 for sec_type in sec_types:
                     synapses.modify_syn_param(cell, context.env, sec_type, syn_name=syn_name, 
                                               param_name=syn_param_name,

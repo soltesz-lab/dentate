@@ -94,7 +94,7 @@ def main(config, config_prefix, arena_id, populations, module_ids, target_fracti
         get_2D_arena_spatial_mesh(arena=arena, spatial_resolution=env.stimulus_config['Spatial Resolution'])
 
     local_random = np.random.RandomState()
-    selectivity_seed_offset = int(env.modelConfig['Random Seeds']['Input Selectivity'])
+    selectivity_seed_offset = int(env.model_config['Random Seeds']['Input Selectivity'])
     local_random.seed(selectivity_seed_offset - 1)
 
     selectivity_config = InputSelectivityConfig(env.stimulus_config, local_random)

@@ -94,7 +94,7 @@ def main(config, config_prefix, types_path, template_path, geometry_path, output
 
     env = Env(comm=comm, config_file=config, config_prefix=config_prefix)
 
-    random_seed = int(env.modelConfig['Random Seeds']['Soma Locations'])
+    random_seed = int(env.model_config['Random Seeds']['Soma Locations'])
     random.seed(random_seed)
     
     layer_extents = env.geometry['Parametric Surface']['Layer Extents']

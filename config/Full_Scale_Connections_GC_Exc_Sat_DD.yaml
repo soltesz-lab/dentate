@@ -159,7 +159,7 @@ Synapses:
               expr: a * exp(b * x)
               parameter: delay
               const:
-                a: 0.003
+                a: 0.001
                 b: -1.25
             weight: 1.0
         soma:
@@ -176,7 +176,7 @@ Synapses:
               expr: a * exp(b * x)
               parameter: delay
               const:
-                a: 0.002
+                a: 0.001
                 b: -1.25
             weight: 1.0
     HCC:  
@@ -190,7 +190,7 @@ Synapses:
           dur_onset: 1.5
           tau_offset: 8.0
           e: -75
-          g_unit: 0.004
+          g_unit: 0.001
           weight: 1.0
     HC:   
       type: inhibitory
@@ -203,7 +203,7 @@ Synapses:
           dur_onset: 2.5
           tau_offset: 9.0
           e: -75
-          g_unit: 0.004
+          g_unit: 0.001
           weight: 1.0
     NGFC: 
       type: inhibitory
@@ -218,11 +218,13 @@ Synapses:
             tau_offset: 15.0
             e:   -75
             g_unit: 0.0005
+            weight: 1.0
           GABA_B:
             dur_onset:  50.0
             tau_offset: 200.0
             e:   -80
-            g_unit: 0.003
+            g_unit: 0.002
+            weight: 1.0
     MOPP: 
       type: inhibitory
       sections: [apical, apical]
@@ -234,8 +236,8 @@ Synapses:
           dur_onset:  6.0
           tau_offset: 15.0
           e:   -75
-          g_unit: 0.004
-          weight: 1.0
+          g_unit: 0.002
+          weight: 0.1
   MC:
     GC:   
       type: excitatory

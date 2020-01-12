@@ -7,7 +7,7 @@ Random Seeds: !include Random.yaml
 Cell Data: GC_MC_BC_trees_syns_connections_20181126.h5  # MC_BC_trees_syns_20180817.h5
 Connection Data: GC_MC_BC_trees_syns_connections_20181126.h5  # MC_BC_connections_20180905.h5
 Connection Generator: !include Small_Scale_Connections_tune_GC_synapses.yaml
-LFP: !include LFP.yaml
+Recording: !include Recording.yaml
 ## Cell types for dentate gyrus model
 Cell Types: 
   GC:

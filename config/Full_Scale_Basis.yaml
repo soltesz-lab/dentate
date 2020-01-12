@@ -6,7 +6,7 @@ Global Parameters: !include Global.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
 Connection Generator: !include Full_Scale_Connections_GC_Exc_Sat_DD.yaml
-LFP: !include LFP.yaml
+Recording: !include Recording.yaml
 Stimulus: !include Input_Configuration.yaml
 Analysis: !include Analysis_Configuration.yaml
 ## Cell types for dentate gyrus model

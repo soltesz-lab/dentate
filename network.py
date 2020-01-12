@@ -180,23 +180,6 @@ def connect_cells(env):
                 del weight_attr_dict[weights_namespace]
 
 
-        first_gid = None
-        if postsyn_name in env.biophys_cells:
-            for gid in env.biophys_cells[postsyn_name]:
-                if first_gid is None:
-                    first_gid = gid
-                try:
-                    if syn_attrs.has_gid(gid):
-                        biophys_cell = env.biophys_cells[postsyn_name][gid]
-                        cells.init_biophysics(biophys_cell, env=env, 
-                                              reset_cable=True, 
-                                              correct_cm=correct_for_spines,
-                                              correct_g_pas=correct_for_spines, 
-                                              verbose=((rank == 0) and (first_gid == gid)))
-                except KeyError:
-                    raise KeyError('*** connect_cells: population: %s; gid: %i; could not initialize biophysics' %
-                                     (postsyn_name, gid))
-
         env.edge_count[postsyn_name] = 0
         for presyn_name in presyn_names:
 
@@ -221,6 +204,24 @@ def connect_cells(env):
             logger.info('Rank %i: took %.02f s to initialize edge attributes for projection %s -> %s' % \
                         (rank, time.time() - last_time, presyn_name, postsyn_name))
             del graph[postsyn_name][presyn_name]
+
+            
+        first_gid = None
+        if postsyn_name in env.biophys_cells:
+            for gid in env.biophys_cells[postsyn_name]:
+                if first_gid is None:
+                    first_gid = gid
+                try:
+                    if syn_attrs.has_gid(gid):
+                        biophys_cell = env.biophys_cells[postsyn_name][gid]
+                        cells.init_biophysics(biophys_cell, env=env, 
+                                              reset_cable=True, 
+                                              correct_cm=correct_for_spines,
+                                              correct_g_pas=correct_for_spines, 
+                                              verbose=((rank == 0) and (first_gid == gid)))
+                except KeyError:
+                    raise KeyError('*** connect_cells: population: %s; gid: %i; could not initialize biophysics' %
+                                     (postsyn_name, gid))
 
         first_gid = None
         pop_last_time = time.time()
@@ -256,6 +257,9 @@ def connect_cells(env):
                 synapses.sample_syn_mech_attrs(env, postsyn_name, [gid], comm=comm0)
 
             env.edge_count[postsyn_name] += syn_count
+
+            if gid in env.recording_sets.get(pop_name, {}):
+                cells.record_cell(env, pop_name, gid)
 
             if env.cleanup:
                 syn_attrs.del_syn_id_attr_dict(gid)
@@ -399,23 +403,6 @@ def connect_cell_selection(env):
                 overwrite_weights='skip'
                 del syn_weights_iter
 
-        first_gid = None
-        if postsyn_name in env.biophys_cells:
-            for gid in env.biophys_cells[postsyn_name]:
-                if first_gid is None:
-                    first_gid = gid
-                try:
-                    if syn_attrs.has_gid(gid):
-                        biophys_cell = env.biophys_cells[postsyn_name][gid]
-                        cells.init_biophysics(biophys_cell,
-                                              reset_cable=True,
-                                              correct_cm=correct_for_spines,
-                                              correct_g_pas=correct_for_spines,
-                                              env=env, verbose=((rank == 0) and (first_gid == gid)))
-                except KeyError:
-                    raise KeyError('connect_cells: population: %s; gid: %i; could not initialize biophysics'
-                                     % (postsyn_name, gid))
-
                 
         (graph, a) = read_graph_selection(connectivity_file_path, selection=gid_range, \
                                           projections=[ (presyn_name, postsyn_name) for presyn_name in sorted(presyn_names) ],
@@ -435,6 +422,23 @@ def connect_cell_selection(env):
 
                 del graph[postsyn_name][presyn_name]
 
+
+        first_gid = None
+        if postsyn_name in env.biophys_cells:
+            for gid in env.biophys_cells[postsyn_name]:
+                if first_gid is None:
+                    first_gid = gid
+                try:
+                    if syn_attrs.has_gid(gid):
+                        biophys_cell = env.biophys_cells[postsyn_name][gid]
+                        cells.init_biophysics(biophys_cell,
+                                              reset_cable=True,
+                                              correct_cm=correct_for_spines,
+                                              correct_g_pas=correct_for_spines,
+                                              env=env, verbose=((rank == 0) and (first_gid == gid)))
+                except KeyError:
+                    raise KeyError('connect_cells: population: %s; gid: %i; could not initialize biophysics'
+                                     % (postsyn_name, gid))
 
     ##
     ## This section instantiates cells that are not part of the
@@ -474,6 +478,9 @@ def connect_cell_selection(env):
             hoc_cell = env.pc.gid2cell(gid)
             for sec in list(hoc_cell.all):
                 h.psection(sec=sec)
+
+        if gid in env.recording_sets.get(pop_name, {}):
+            cells.record_cell(env, pop_name, gid)
 
         env.edge_count[pop_name] += syn_count
         if env.cleanup:
@@ -578,9 +585,9 @@ def make_cells(env):
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
-    v_sample_seed = int(env.modelConfig['Random Seeds']['Intracellular Voltage Sample'])
-    ranstream_v_sample = np.random.RandomState()
-    ranstream_v_sample.seed(v_sample_seed)
+    recording_seed = int(env.model_config['Random Seeds']['Intracellular Recording Sample'])
+    ranstream_recording = np.random.RandomState()
+    ranstream_recording.seed(recording_seed)
 
     dataset_path = env.dataset_path
     data_file_path = env.data_file_path
@@ -591,15 +598,14 @@ def make_cells(env):
             logger.info("*** Creating population %s" % pop_name)
         env.load_cell_template(pop_name)
 
-        
-        v_sample_set = set([])
-        env.v_sample_dict[pop_name] = v_sample_set
 
+        recording_set = set([])
         for gid in range(env.celltypes[pop_name]['start'],
                          env.celltypes[pop_name]['start'] + env.celltypes[pop_name]['num']):
-            if ranstream_v_sample.uniform() <= env.vrecord_fraction:
-                v_sample_set.add(gid)
-
+            if ranstream_recording.uniform() <= env.recording_profile['fraction']:
+                recording_set.add(gid)
+        env.recording_sets[pop_name] = recording_set
+                
         if 'mech_file_path' in env.celltypes[pop_name]:
             mech_file_path = env.celltypes[pop_name]['mech_file_path']
             if rank == 0:
@@ -646,14 +652,6 @@ def make_cells(env):
                 if rank == 0 and first_gid == gid:
                     for sec in list(hoc_cell.all):
                         h.psection(sec=sec)
-                # Record voltages from a subset of cells
-                if hoc_cell.is_art() == 0:
-                    if gid in env.v_sample_dict[pop_name]:
-                        rec = make_rec(gid, pop_name, gid, hoc_cell, \
-                                       sec=list(hoc_cell.soma)[0], \
-                                       dt=env.dt, loc=0.5, param='v', \
-                                       description='Soma')
-                        env.recs_dict[pop_name]['Soma'].append(rec)
 
                 num_cells += 1
             del trees
@@ -720,13 +718,7 @@ def make_cell_selection(env):
         env.load_cell_template(pop_name)
         templateClass = getattr(h, env.celltypes[pop_name]['template'])
 
-        v_sample_set = set([])
-        env.v_sample_dict[pop_name] = v_sample_set
-
         gid_range = [gid for gid in env.cell_selection[pop_name] if gid % nhosts == rank]
-
-        for gid in gid_range:
-            v_sample_set.add(gid)
 
         if 'mech_file_path' in env.celltypes[pop_name]:
             mech_file_path = env.celltypes[pop_name]['mech_file_path']
@@ -769,14 +761,6 @@ def make_cell_selection(env):
                     for sec in list(hoc_cell.all):
                         h.psection(sec=sec)
 
-                if hoc_cell.is_art() == 0:
-                    if gid in env.v_sample_dict[pop_name]:
-                        rec = make_rec(gid, pop_name, gid, hoc_cell, \
-                                       sec=list(hoc_cell.soma)[0], \
-                                       dt=env.dt, loc=0.5, param='v', \
-                                       description='Soma')
-                        env.recs_dict[pop_name]['Soma'].append(rec)
-
                 num_cells += 1
 
         elif (pop_name in env.cell_attribute_info) and ('Coordinates' in env.cell_attribute_info[pop_name]):
@@ -804,13 +788,6 @@ def make_cell_selection(env):
                 cell_z = cell_coords_tuple[z_index][0]
                 hoc_cell.position(cell_x, cell_y, cell_z)
                 cells.register_cell(env, pop_name, gid, hoc_cell)
-                if hoc_cell.is_art() == 0:
-                    if gid in env.v_sample_dict[pop_name]:
-                        rec = make_rec(gid, pop_name, gid, hoc_cell, \
-                                       sec=list(hoc_cell.soma)[0], \
-                                       dt=env.dt, loc=0.5, param='v', \
-                                       description='Soma')
-                        env.recs_dict[pop_name]['Soma'].append(rec)
 
                 num_cells += 1
 
@@ -1107,7 +1084,7 @@ def init(env):
         logger.info("*** Connections created in %g seconds" % env.connectcellstime)
     edge_count = int(sum([env.edge_count[dest] for dest in env.edge_count]))
     logger.info("*** Rank %i created %i connections" % (rank, edge_count))
-
+    
     if env.profile_memory and rank == 0:
         profile_memory(logger)
 
@@ -1118,12 +1095,12 @@ def init(env):
         logger.info("*** Stimuli created in %g seconds" % env.mkstimtime)
     st = time.time()
     if env.cell_selection is None:
-        for lfp_label, lfp_config_dict in sorted(viewitems(env.lfpConfig)):
+        for lfp_label, lfp_config_dict in sorted(viewitems(env.LFP_config)):
             env.lfp[lfp_label] = \
                 lfp.LFP(lfp_label, env.pc, env.celltypes, lfp_config_dict['position'], rho=lfp_config_dict['rho'],
                         dt_lfp=lfp_config_dict['dt'], fdst=lfp_config_dict['fraction'],
                         maxEDist=lfp_config_dict['maxEDist'],
-                        seed=int(env.modelConfig['Random Seeds']['Local Field Potential']))
+                        seed=int(env.model_config['Random Seeds']['Local Field Potential']))
         if rank == 0:
             logger.info("*** LFP objects instantiated")
     lfp_time = time.time() - st
@@ -1156,7 +1133,10 @@ def run(env, output=True, shutdown=True):
     if rank == 0:
         logger.info("*** Running simulation")
 
-    env.t_rec.record(h._ref_t, env.dt)
+    if env.recording_profile is not None:
+        rec_dt = env.recording_profile.get('dt', 0.1) 
+        env.t_rec.record(h._ref_t, rec_dt)
+
     env.t_rec.resize(0)
     env.t_vec.resize(0)
     env.id_vec.resize(0)
@@ -1181,7 +1161,7 @@ def run(env, output=True, shutdown=True):
             if rank == 0:
                 logger.info("*** Writing spike data up to %.2f ms" % h.t)
             io_utils.spikeout(env, env.results_file_path, t_start=env.last_checkpoint, clear_data=env.checkpoint_clear_data)
-            if env.vrecord_fraction > 0.:
+            if env.recording_profile is not None:
                 if rank == 0:
                     logger.info("*** Writing intracellular data up to %.2f ms" % h.t)
                 io_utils.recsout(env, env.results_file_path, t_start=env.last_checkpoint, clear_data=env.checkpoint_clear_data)

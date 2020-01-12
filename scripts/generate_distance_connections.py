@@ -114,15 +114,15 @@ def main(config, config_prefix, include, forest_path, connectivity_path, connect
         connection_prob = ConnectionProb(destination_population, soma_coords, soma_distances, \
                                          env.connection_extents)
 
-        synapse_seed = int(env.modelConfig['Random Seeds']['Synapse Projection Partitions'])
+        synapse_seed = int(env.model_config['Random Seeds']['Synapse Projection Partitions'])
         
-        connectivity_seed = int(env.modelConfig['Random Seeds']['Distance-Dependent Connectivity'])
-        cluster_seed = int(env.modelConfig['Random Seeds']['Connectivity Clustering'])
+        connectivity_seed = int(env.model_config['Random Seeds']['Distance-Dependent Connectivity'])
+        cluster_seed = int(env.model_config['Random Seeds']['Connectivity Clustering'])
 
         if rank == 0:
             logger.info('Generating connections for population %s...' % destination_population)
 
-        populations_dict = env.modelConfig['Definitions']['Populations']
+        populations_dict = env.model_config['Definitions']['Populations']
         generate_uv_distance_connections(comm, populations_dict,
                                          connection_config,
                                          connection_prob, forest_path,

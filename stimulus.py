@@ -914,7 +914,7 @@ def generate_input_selectivity_features(env, population, arena, selectivity_conf
     arena_x_mesh = comm.bcast(arena_x_mesh, root=0)
     arena_y_mesh = comm.bcast(arena_y_mesh, root=0)
     
-    selectivity_seed_offset = int(env.modelConfig['Random Seeds']['Input Selectivity'])
+    selectivity_seed_offset = int(env.model_config['Random Seeds']['Input Selectivity'])
     local_random = np.random.RandomState()
     
     pop_norm_distances = {}
@@ -1039,7 +1039,7 @@ def generate_input_spike_trains(env, population, trajectory, selectivity_path, s
 
     
     local_random = np.random.RandomState()
-    input_spike_train_offset = int(env.modelConfig['Random Seeds']['Input Spiketrains'])
+    input_spike_train_offset = int(env.model_config['Random Seeds']['Input Spiketrains'])
 
     spike_hist_sum = defaultdict(lambda: np.zeros(spike_hist_resolution))
 
@@ -1150,7 +1150,7 @@ def remap_input_selectivity_features(env, arena, population, selectivity_path, s
     rank = comm.rank
     
     local_random = np.random.RandomState()
-    remap_offset = int(env.modelConfig['Random Seeds']['Input Remap'])
+    remap_offset = int(env.model_config['Random Seeds']['Input Remap'])
 
     num_modules = env.stimulus_config['Number Modules']
     grid_orientation_offset = [local_random.uniform(0., np.pi / 3.) for i in range(num_modules)]

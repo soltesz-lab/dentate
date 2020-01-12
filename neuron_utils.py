@@ -168,7 +168,7 @@ def configure_hoc_env(env):
         h.nrn_sparse_partrans = 1
 
 
-def make_rec(recid, population, gid, cell, sec, dt=h.dt, loc=None, param='v', description=''):
+def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v', label=None, dt=h.dt, description=''):
     """
     Makes a recording vector for the specified quantity in the specified section and location.
 
@@ -177,17 +177,24 @@ def make_rec(recid, population, gid, cell, sec, dt=h.dt, loc=None, param='v', de
     :param gid: integer
     :param cell: :class:'BiophysCell'
     :param sec: :class:'HocObject'
-    :param dt: float
     :param loc: float
+    :param ps: :class:'HocObject'
     :param param: str
+    :param dt: float
     :param ylabel: str
     :param description: str
     """
     vec = h.Vector()
     name = 'rec%i' % recid
-    if loc is None:
-        loc = 0.5
-    vec.record(getattr(sec(loc), '_ref_%s' % param), dt)
+    if (sec is None) and (loc is None) and (ps is not None):
+        hocobj = ps
+    elif (sec is not None) and (loc is not None):
+        hocobj = sec(loc)
+    else:
+        raise RuntimeError('make_rec: either sec and loc or ps must be specified')
+    if label is None:
+        label = param
+    vec.record(getattr(hocobj, '_ref_%s' % param), dt)
     rec_dict = {'name': name,
                 'gid': gid,
                 'cell': cell,
@@ -195,7 +202,8 @@ def make_rec(recid, population, gid, cell, sec, dt=h.dt, loc=None, param='v', de
                 'loc': loc,
                 'sec': sec,
                 'description': description,
-                'vec': vec
+                'vec': vec,
+                'label': label
                 }
 
     return rec_dict

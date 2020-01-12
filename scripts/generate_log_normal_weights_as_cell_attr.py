@@ -73,7 +73,7 @@ def main(config, config_prefix, weights_path, weights_namespace, weights_name, c
             output_file.close()
     comm.barrier()
 
-    seed_offset = int(env.modelConfig['Random Seeds']['GC Log-Normal Weights 1'])
+    seed_offset = int(env.model_config['Random Seeds']['GC Log-Normal Weights 1'])
 
     pop_ranges, pop_size = read_population_ranges(connections_path, comm=comm)
 

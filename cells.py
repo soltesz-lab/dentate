@@ -1,6 +1,6 @@
 import collections, os, sys, traceback, copy, datetime, math
 import numpy as np
-from dentate.neuron_utils import h, d_lambda, default_hoc_sec_lists, default_ordered_sec_types, freq
+from dentate.neuron_utils import h, d_lambda, default_hoc_sec_lists, default_ordered_sec_types, freq, make_rec
 from dentate.utils import get_module_logger, map, range, zip, zip_longest, viewitems, read_from_yaml, write_to_yaml
 from neuroh5.io import read_cell_attribute_selection, read_graph_selection, read_tree_selection
 
@@ -1083,8 +1083,8 @@ def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0.,
         onset_delay = config['onset delay']
 
     if node is None:
-        if cell.axon:
-            node = cell.axon[0]
+        if cell.ais:
+            node = cell.ais[0]
         elif cell.soma:
             node = cell.soma[0]
         else:
@@ -1945,6 +1945,33 @@ def custom_filter_if_terminal(cell, node, baseline, rules, donor, **kwargs):
     return rules
 
 
+def filter_nodes(cell, sections=None, layers=None, swc_types=None):
+    """
+    Returns a subset of the nodes of the given cell according to the given criteria.
+
+    :param cell: 
+    :param sections: sequence of int
+    :param layers: list of enumerated type: layer
+    :param swc_types: list of enumerated type: swc_type
+    :return: list of nodes
+    """
+    matches = lambda items: all(
+        map(lambda query_item: (query_item[0] is None) or (query_item[1] in query_item[0]), items))
+
+    nodes = []
+    if swc_types is None:
+        sections = sorted(cell.nodes.keys())
+    for swc_type in swc_types:
+        nodes.extend(cell.nodes[swc_type])
+            
+
+    result = [v for v in nodes
+                  if matches([(layers, v.get_layer()),
+                              (sections, v.get_sec())])]
+
+    return result
+
+
 # ------------------- Methods to specify cells from hoc templates and neuroh5 trees ---------------------------------- #
 
 def report_topology(cell, env, node=None):
@@ -2069,7 +2096,7 @@ def make_input_cell(env, gid, pop_id, input_source_dict):
 
 
 def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, load_synapses=True,
-                     load_edges=True, connections=None, load_weights=False,
+                     load_edges=True, connections=None, load_weights=False, weights_scales=None,
                      set_edge_delays=True, mech_file_path=None):
     """
     :param env: :class:'Env'
@@ -2106,6 +2133,9 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     else:
         has_weights = False
 
+    if weights_scales is None:
+        weights_scales = synapse_config.get('weights scales', {})
+        
     if load_synapses:
         if synapses_dict is not None:
             syn_attrs.init_syn_id_attrs(gid, synapses_dict)
@@ -2123,14 +2153,16 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
 
             if has_weights:
                 overwrite_weights = 'error'
-                for cell_weights_iter in cell_weights_iters:
+                for weights_namespace, cell_weights_iter in zip_longest(weights_namespaces, cell_weights_iters):
+                    weights_scale = weights_scales.get(weights_namespace, 1.0)
                     for gid, cell_weights_dict in cell_weights_iter:
                         weights_syn_ids = cell_weights_dict['syn_id']
                         for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
+                            print('%s weights scale: %f' % (syn_name, weights_scale))
                             weights_values = cell_weights_dict[syn_name]
                             syn_attrs.add_mech_attrs_from_iter(
                                 gid, syn_name,
-                                zip_longest(weights_syn_ids, map(lambda x: {'weight': x}, weights_values)),
+                                zip_longest(weights_syn_ids, map(lambda x: {'weight': weights_scale*x}, weights_values)),
                                 overwrite=overwrite_weights)
                             logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights' %
                                         (gid, len(cell_weights_dict[syn_name]), syn_name))
@@ -2196,6 +2228,46 @@ def register_cell(env, pop_name, gid, cell):
     if hasattr(cell, 'spike_onset_delay'):
         env.spike_onset_delay[gid] = cell.spike_onset_delay
 
+
+
+def record_cell(env, pop_name, gid):
+    """
+    Creates a recording object for the given cell, according to configuration in env.recording_profile.
+    """
+    if env.recording_profile is not None:
+        syn_attrs = env.synapse_attributes
+        cell = env.biophys_cells[pop_name].get(gid, None)
+        if cell is not None:
+            label = env.recording_profile['label']
+            dt = env.recording_profile.get('dt', 0.1)
+            for recvar, recdict  in viewitems(env.recording_profile.get('section quantity', {})):
+                nodes = filter_nodes(cell, layers=recdict.get('layers', None),
+                                    swc_types=recdict.get('swc types', None))
+                visited = set([])
+                for node in nodes:
+                    sec = node.get_sec()
+                    if str(sec) not in visited:
+                        rec = make_rec(gid, pop_name, gid, cell.hoc_cell, sec=sec,
+                                        dt=dt, loc=0.5, param=recvar, \
+                                        description=node.name)
+                        env.recs_dict[pop_name][node.type].append(rec)
+                        visited.add(str(sec))
+            for recvar, recdict  in viewitems(env.recording_profile.get('synaptic quantity', {})):
+                syn_filters = recdict.get('syn_filters', {})
+                synapses = syn_attrs.filter_synapses(gid, syn_sections=recdict.get('sections', None),
+                                                     **syn_filters)
+                syn_names = recdict.get('syn names', syn_attrs.syn_name_index_dict.keys())
+                for syn_id, syn in viewitems(synapses):
+                    for syn_name in syn_names:
+                        pps = syn_attrs.get_pps(gid, syn_id, syn_name, throw_error=False)
+                        if pps is not None:
+                            rec = make_rec(gid, pop_name, gid, cell.hoc_cell, ps=pps,
+                                            dt=dt, param=recvar,
+                                            label='%s' % (str(recvar)),
+                                            description='%s' % (str(recvar)))
+                            env.recs_dict[pop_name][syn_name].append(rec)
+                
+                                                      
     
 def find_spike_threshold_minimum(cell, loc=0.5, sec=None, duration=10.0, delay=100.0, initial_amp=0.001):
     """

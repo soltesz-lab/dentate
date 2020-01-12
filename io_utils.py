@@ -1,4 +1,5 @@
 import os, itertools
+from collections import defaultdict
 import h5py
 import numpy as np
 import dentate
@@ -128,7 +129,7 @@ def mkout(env, results_filename):
     :return:
     """
     dataset_path = os.path.join(env.dataset_prefix, env.datasetName)
-    data_file_path = os.path.join(dataset_path, env.modelConfig['Cell Data'])
+    data_file_path = os.path.join(dataset_path, env.model_config['Cell Data'])
     data_file = h5py.File(data_file_path, 'r')
     results_file = h5py.File(results_filename)
     if 'H5Types' not in results_file:
@@ -139,7 +140,7 @@ def mkout(env, results_filename):
 
 def spikeout(env, output_path, t_start=0., clear_data=False):
     """
-    Writes spike time to specified NeuroH5 output file.
+    Writes spike times to specified NeuroH5 output file.
 
     :param env:
     :param output_path:
@@ -158,10 +159,10 @@ def spikeout(env, output_path, t_start=0., clear_data=False):
     bins = binvect[sort_idx][1:]
     inds = np.digitize(id_vec, bins)
 
-    if env.results_id is None:
+    if env.results_namespace_id is None:
         namespace_id = "Spike Events"
     else:
-        namespace_id = "Spike Events %s" % str(env.results_id)
+        namespace_id = "Spike Events %s" % str(env.results_namespace_id)
 
     equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
     for i, pop_name in enumerate(pop_names):
@@ -191,10 +192,11 @@ def spikeout(env, output_path, t_start=0., clear_data=False):
         env.t_vec.resize(0)
         env.id_vec.resize(0)
 
+    logger.info("*** Output spike results to file %s" % output_path)
 
-def recsout(env, output_path, t_start=0., clear_data=False):
+def recsout(env, output_path, clear_data=False):
     """
-    Writes intracellular voltage traces to specified NeuroH5 output file.
+    Writes intracellular state traces to specified NeuroH5 output file.
 
     :param env:
     :param output_path:
@@ -202,26 +204,35 @@ def recsout(env, output_path, t_start=0., clear_data=False):
     :return:
     """
     t_rec = env.t_rec
+    equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
 
     for pop_name in sorted(env.celltypes.keys()):
         for rec_type, recs in sorted(viewitems(env.recs_dict[pop_name])):
-            attr_dict = {}
+            attr_dict = defaultdict(lambda: {})
             for rec in recs:
                 gid = rec['gid']
                 data_vec = np.array(rec['vec'], copy=clear_data, dtype=np.float32)
                 time_vec = np.array(t_rec, copy=clear_data, dtype=np.float32)[:-1]
-                tinds = np.where(time_vec >= t_start)[0]
-                attr_dict[gid] = {'v': data_vec[tinds], 't': time_vec[tinds] }
+                time_vec -= equilibration_duration
+                label = rec['label']
+                if label in attr_dict[gid]:
+                    attr_dict[gid][label] += data_vec
+                else:
+                    attr_dict[gid][label] = data_vec
+                    attr_dict[gid]['t'] = time_vec
                 if clear_data:
                     rec['vec'].resize(0)
-            if env.results_id is None:
-                namespace_id = "Intracellular Voltage %s" % rec_type
+            if env.results_namespace_id is None:
+                namespace_id = "Intracellular %s" % (rec_type)
             else:
-                namespace_id = "Intracellular Voltage %s %s" % (rec_type, str(env.results_id))
-            append_cell_attributes(output_path, pop_name, attr_dict, namespace=namespace_id, comm=env.comm, io_size=env.io_size)
+                namespace_id = "Intracellular %s %s" % (rec_type, str(env.results_namespace_id))
+            append_cell_attributes(output_path, pop_name, attr_dict, namespace=namespace_id,
+                                   comm=env.comm, io_size=env.io_size)
     if clear_data:
         env.t_rec.resize(0)
-            
+
+    logger.info("*** Output intracellular state results to file %s" % output_path)
+
 
 def lfpout(env, output_path):
     """
@@ -235,10 +246,10 @@ def lfpout(env, output_path):
 
     for lfp in list(env.lfp.values()):
 
-        if env.results_id is None:
+        if env.results_namespace_id is None:
             namespace_id = "Local Field Potential %s" % str(lfp.label)
         else:
-            namespace_id = "Local Field Potential %s %s" % (str(lfp.label), str(env.results_id))
+            namespace_id = "Local Field Potential %s %s" % (str(lfp.label), str(env.results_namespace_id))
         import h5py
         output = h5py.File(output_path, 'a')
 
@@ -248,6 +259,8 @@ def lfpout(env, output_path):
         grp['v'] = np.asarray(lfp.meanlfp, dtype=np.float32)
 
         output.close()
+
+    logger.info("*** Output LFP results to file %s" % output_path)
 
 
 def get_h5py_attr(attrs, key):
