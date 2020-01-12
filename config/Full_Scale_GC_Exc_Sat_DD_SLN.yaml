@@ -17,7 +17,7 @@ Cell Types:
   GC:
     template: DGC
     template file: DGC_Template_minimal.hoc
-    mechanism file: 20181205_DG_GC_excitability_mech.yaml
+    mechanism file: 20190205_DG_GC_tuned_NMDA_mech.yaml
     synapses:
       correct_for_spines: True
       weights: True
