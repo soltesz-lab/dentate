@@ -2146,9 +2146,9 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
     sctplots = []
     
     for i, pop_name in enumerate(include):
-        pop_spkinds, pop_spkts = pop_spk_dict[pop_name]
+        pop_spkinds, pop_spkts = pop_spk_dict.get(pop_name, ([], []))
 
-        sctplots.append(axes[i].scatter(pop_spkts, pop_spkinds, s=10, linewidths=fig_options.lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
+        sctplots.append(axes[i].scatter(pop_spkts, pop_spkinds, s=10, linewidths=fig_options.lw, marker=marker, c=pop_colors.get(pop_name, dflt_colors[0]), alpha=0.5, label=pop_name))
 
         N = pop_num_cells[pop_name]
         S = pop_start_inds[pop_name]
