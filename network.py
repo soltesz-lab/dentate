@@ -253,13 +253,13 @@ def connect_cells(env):
                 for sec in list(hoc_cell.all):
                     h.psection(sec=sec)
 
-            if gid == first_gid:
-                synapses.sample_syn_mech_attrs(env, postsyn_name, [gid], comm=comm0)
+#            if gid == first_gid:
+#                synapses.sample_syn_mech_attrs(env, postsyn_name, [gid], comm=comm0)
 
             env.edge_count[postsyn_name] += syn_count
 
-            if gid in env.recording_sets.get(pop_name, {}):
-                cells.record_cell(env, pop_name, gid)
+            if gid in env.recording_sets.get(postsyn_name, {}):
+                cells.record_cell(env, postsyn_name, gid)
 
             if env.cleanup:
                 syn_attrs.del_syn_id_attr_dict(gid)

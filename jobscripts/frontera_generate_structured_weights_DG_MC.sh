@@ -23,9 +23,9 @@ set -x
 
 export I_MPI_EXTRA_FILESYSTEM=enable
 export I_MPI_EXTRA_FILESYSTEM_LIST=lustre
-export I_MPI_ADJUST_ALLGATHER=4
-export I_MPI_ADJUST_ALLGATHERV=4
-export I_MPI_ADJUST_ALLTOALL=4
+#export I_MPI_ADJUST_ALLGATHER=4
+#export I_MPI_ADJUST_ALLGATHERV=4
+#export I_MPI_ADJUST_ALLTOALL=4
 
 cd $SLURM_SUBMIT_DIR
 
@@ -34,10 +34,10 @@ ibrun python3 ./scripts/generate_structured_weights_as_cell_attr.py \
     --config=./config/Full_Scale_GC_Exc_Sat_DD_SLN.yaml \
     --initial-weights-namespace='Log-Normal Weights' \
     --structured-weights-namespace='Structured Weights' \
-    --output-weights-path=$SCRATCH/striped/dentate/Full_Scale_Control/DG_IN_syn_weights_SLN_20191202.h5 \
-    --weights-path=$SCRATCH/striped/dentate/Full_Scale_Control/DG_IN_syn_weights_LN_20191130_compressed.h5 \
-    --connections-path=$SCRATCH/striped/dentate/Full_Scale_Control/DG_IN_connections_20191130_compressed.h5 \
-    --input-features-path="$SCRATCH/dentate/Full_Scale_Control/DG_input_features_20190909_compressed.h5" \
+    --output-weights-path=$SCRATCH/striped/dentate/Full_Scale_Control/DG_IN_syn_weights_SLN_20200112.h5 \
+    --weights-path=$SCRATCH/striped/dentate/Full_Scale_Control/DG_IN_syn_weights_LN_20200112_compressed.h5 \
+    --connections-path=$SCRATCH/striped/dentate/Full_Scale_Control/DG_IN_connections_20200112_compressed.h5 \
+    --input-features-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20191119_compressed.h5" \
     --arena-id=A  --field-width-scale=1.33 \
     --io-size=256 --cache-size=10  --value-chunk-size=100000 --chunk-size=20000 --write-size=4 -v
 

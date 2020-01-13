@@ -112,9 +112,6 @@ Synapses:
           g_unit: 0.00035
           weight: 1.0
           sat: 0.9
-        NMDA:
-          g_unit: 0.00035
-          weight: 1.0
     AAC:
       type: inhibitory
       sections: [ais]
@@ -237,7 +234,7 @@ Synapses:
           tau_offset: 15.0
           e:   -75
           g_unit: 0.002
-          weight: 0.1
+          weight: 1.0
   MC:
     GC:   
       type: excitatory

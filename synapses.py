@@ -981,6 +981,11 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
                                            'netcon for mechanism %s' % (gid, syn_id, syn_name))
 
                     params = syn.attr_dict[syn_index]
+                    for param_name, param_val in viewitems(params):
+                        if param_val is None:
+                            raise RuntimeError('config_hoc_cell_syns: insert: cell gid %i synapse %i presyn source %s does not have a '
+                                               'value set for parameter %s' % (gid, syn_id, presyn_name, param_name))
+                            
                     (mech_set, nc_set) = config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
                                                     mech_names=syn_attrs.syn_mech_names, syn=this_pps, nc=this_netcon,
                                                     **params)
@@ -1053,6 +1058,10 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
                         else:
                             failed = True
                     else:
+                        if val is None:
+                            raise AttributeError('config_syn: netcon attribute %s is None for synaptic mechanism: %s' %
+                                                 (param, mech_name))
+                            
                         nc.weight[i] = val
                         nc_param = True
                         failed = False
