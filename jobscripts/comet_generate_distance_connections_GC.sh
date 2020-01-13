@@ -10,28 +10,17 @@
 #SBATCH --mail-type=BEGIN
 #
 
+. $HOME/comet_env.sh
 
-module load python
-module unload intel
-module load gnu
-module load openmpi_ib
-module load mkl
-module load hdf5
-
-
-export PYTHONPATH=$HOME/.local/lib/python3.5/site-packages:/opt/sdsc/lib
-export PYTHONPATH=$HOME/bin/nrnpython3/lib/python:$PYTHONPATH
-export PYTHONPATH=$HOME/model:$PYTHONPATH
-export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
 ulimit -c unlimited
 
 set -x
 
-ibrun -np 768 python3.5 ./scripts/generate_distance_connections.py \
+$MPIRUN python3 ./scripts/generate_distance_connections.py \
        --config-prefix=./config \
        --config=Full_Scale_GC_Exc_Sat.yaml \
        --forest-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_syns_20190717_compressed.h5 \
-       --connectivity-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_connections_20190717.h5 \
+       --connectivity-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_connections_20191207.h5 \
        --connectivity-namespace=Connections \
        --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_coords_20190717.h5 \
        --coords-namespace=Coordinates \

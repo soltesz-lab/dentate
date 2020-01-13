@@ -11,15 +11,11 @@
 #
 
 module load python
-module unload intel
-module load gnu
-module load openmpi_ib
-module load mkl
 module load hdf5
 
 set -x
 
-export PYTHONPATH=$HOME/.local/lib/python3.5/site-packages:/opt/sdsc/lib
+export PYTHONPATH=$HOME/.local/lib/python3.6/site-packages:/opt/sdsc/lib
 export PYTHONPATH=$HOME/bin/nrnpython3/lib/python:$PYTHONPATH
 export PYTHONPATH=$HOME/model:$PYTHONPATH
 export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
