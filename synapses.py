@@ -470,8 +470,10 @@ class SynapseAttributes(object):
             if k in attr_dict:
                 raise RuntimeError('add_mech_attrs: gid %i synapse id %i mechanism %s already has parameter %s' %
                                    (gid, syn_id, syn_name, str(k)))
-            else:
-                attr_dict[k] = v
+            if v is None:
+                raise RuntimeError('add_mech_attrs: gid %i synapse id %i mechanism %s parameter %s has no value' %
+                                   (gid, syn_id, syn_name, str(k)))
+            attr_dict[k] = v
 
     def modify_mech_attrs(self, pop_name, gid, syn_id, syn_name, params, update_operator=lambda gid, syn_id, old, new: new):
         """
@@ -512,6 +514,7 @@ class SynapseAttributes(object):
                         raise RuntimeError('modify_mech_attrs: unknown dependent expression parameter %s' % (mech_param.parameter))
                 else:
                     new_val = v
+                assert(new_val is not None)
                 old_val = attr_dict.get(k, mech_param)
                 attr_dict[k] = update_operator(gid, syn_id, old_val, new_val)
             elif k in rules[mech_name]['netcon_params']:
@@ -524,7 +527,7 @@ class SynapseAttributes(object):
                         raise RuntimeError('modify_mech_attrs: unknown dependent expression parameter %s' % (mech_param.parameter))
                 else:
                     new_val = v
-
+                assert(new_val is not None)
                 old_val = attr_dict.get(k, mech_param)
                 attr_dict[k] = update_operator(gid, syn_id, old_val, new_val)
             else:
@@ -559,6 +562,9 @@ class SynapseAttributes(object):
 
             attr_dict = syn.attr_dict[syn_index]
             for k, v in viewitems(params_dict):
+                if v is None:
+                    raise RuntimeError('add_mech_attrs_from_iter: gid %i synapse id %i mechanism %s parameter %s has no value' %
+                                       (gid, syn_id, syn_name, str(k)))
                 attr_dict[k] = v
 
     def filter_synapses(self, gid, syn_sections=None, syn_indexes=None, syn_types=None, layers=None, sources=None,

@@ -48,7 +48,6 @@ ibrun env PYTHONPATH=$PYTHONPATH $PYTHON ./scripts/main.py  \
     --results-write-time=600 \
     --stimulus-onset=0.0 \
     --max-walltime-hours=1.9 \
-    --vrecord-fraction=0.001 \
     --checkpoint-interval=50.0 \
     --checkpoint-clear-data \
     --verbose
