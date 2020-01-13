@@ -92,13 +92,15 @@ def main(config, config_prefix, include, forest_path, connectivity_path, connect
         gc.collect()
 
     forest_populations = sorted(read_population_names(forest_path))
-    if include is None:
+    if (include is None) or (len(include) == 0):
          destination_populations = forest_populations
     else:
          destination_populations = []
          for p in include:
               if p in forest_populations:
                    destination_populations.append(p)
+    if rank == 0:
+         logger.info('Generating connectivity for populations %s...' % str(destination_populations))
 
     if len(soma_distances) == 0:
         (origin_ranges, ip_dist_u, ip_dist_v) = make_distance_interpolant(env, resolution=resolution, nsample=nsample)
