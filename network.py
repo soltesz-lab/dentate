@@ -122,16 +122,18 @@ def connect_cells(env):
 
         if env.node_ranks is None:
             cell_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
-                                                                namespaces=sorted(cell_attr_namespaces), 
-                                                                comm=env.comm, io_size=env.io_size, 
+                                                                namespaces=sorted(cell_attr_namespaces),
+                                                                comm=env.comm, io_size=env.io_size,
                                                                 return_type='tuple')
         else:
             cell_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
                                                                 namespaces=sorted(cell_attr_namespaces), 
                                                                 comm=env.comm, node_rank_map=env.node_ranks,
-                                                                io_size=env.io_size, return_type='tuple')
+                                                                io_size=env.io_size,
+                                                                return_type='tuple')
+
         syn_attrs_iter, syn_attrs_info = cell_attributes_dict['Synapse Attributes']
-        syn_attrs.init_syn_id_attrs_from_iter(syn_attrs_iter, attr_type='tuple', attr_tuple_index=syn_attrs_info)
+        syn_attrs.init_syn_id_attrs_from_iter(syn_attrs_iter, attr_type='tuple', attr_tuple_index=syn_attrs_info, debug=(rank == 0))
         del cell_attributes_dict
 
         if has_weights:
@@ -212,13 +214,13 @@ def connect_cells(env):
                 if first_gid is None:
                     first_gid = gid
                 try:
-                    if syn_attrs.has_gid(gid):
-                        biophys_cell = env.biophys_cells[postsyn_name][gid]
-                        cells.init_biophysics(biophys_cell, env=env, 
-                                              reset_cable=True, 
-                                              correct_cm=correct_for_spines,
-                                              correct_g_pas=correct_for_spines, 
-                                              verbose=((rank == 0) and (first_gid == gid)))
+                    biophys_cell = env.biophys_cells[postsyn_name][gid]
+                    cells.init_biophysics(biophys_cell, env=env, 
+                                          reset_cable=True, 
+                                          correct_cm=correct_for_spines,
+                                          correct_g_pas=correct_for_spines, 
+                                          verbose=((rank == 0) and (first_gid == gid)))
+                    synapses.init_syn_mech_attrs(biophys_cell, env)
                 except KeyError:
                     raise KeyError('*** connect_cells: population: %s; gid: %i; could not initialize biophysics' %
                                      (postsyn_name, gid))
@@ -232,16 +234,13 @@ def connect_cells(env):
         for gid in gids:
             if first_gid is None:
                 first_gid = gid
-            if gid in env.biophys_cells[postsyn_name]:
-                biophys_cell = env.biophys_cells[postsyn_name][gid]
-                synapses.init_syn_mech_attrs(biophys_cell, env)
-
             postsyn_cell = env.pc.gid2cell(gid)
 
             if rank == 0 and gid == first_gid:
                 logger.info('Rank %i: configuring synapses for gid %i' % (rank, gid))
 
             last_time = time.time()
+            
             syn_count, mech_count, nc_count = synapses.config_hoc_cell_syns(
                 env, gid, postsyn_name, cell=postsyn_cell, unique=unique, insert=True, insert_netcons=True)
 
@@ -436,6 +435,7 @@ def connect_cell_selection(env):
                                               correct_cm=correct_for_spines,
                                               correct_g_pas=correct_for_spines,
                                               env=env, verbose=((rank == 0) and (first_gid == gid)))
+                        synapses.init_syn_mech_attrs(biophys_cell, env)
                 except KeyError:
                     raise KeyError('connect_cells: population: %s; gid: %i; could not initialize biophysics'
                                      % (postsyn_name, gid))
@@ -463,14 +463,10 @@ def connect_cell_selection(env):
         cell = env.pc.gid2cell(gid)
         pop_name = find_gid_pop(env.celltypes, gid)
 
-        if gid in env.biophys_cells[pop_name]:
-            biophys_cell = env.biophys_cells[pop_name][gid]
-            synapses.init_syn_mech_attrs(biophys_cell, env)
             
         syn_count, mech_count, nc_count = synapses.config_hoc_cell_syns(env, gid, pop_name, \
                                                                         cell=cell, unique=unique, \
                                                                         insert=True, insert_netcons=True)
-
         if rank == 0 and gid == first_gid:
             logger.info('Rank %i: took %.02f s to configure %i synapses, %i synaptic mechanisms, %i network '
                         'connections for gid %d; cleanup flag is %s' % \
@@ -624,6 +620,7 @@ def make_cells(env):
             else:
                 (trees, forestSize) = scatter_read_trees(data_file_path, pop_name, comm=env.comm, \
                                                          io_size=env.io_size, node_rank_map=env.node_ranks)
+            env.comm.Barrier()
             if rank == 0:
                 logger.info("*** Done reading trees for population %s" % pop_name)
 

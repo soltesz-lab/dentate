@@ -4,7 +4,7 @@
 #SBATCH -o ./results/dentate.o%j       # Name of stdout output file
 #SBATCH -e ./results/dentate.e%j       # Name of stderr error file
 #SBATCH -p normal      # Queue (partition) name
-#SBATCH -N 128             # Total # of nodes 
+#SBATCH -N 192             # Total # of nodes 
 #SBATCH --ntasks-per-node=56            # # of mpi tasks per node
 #SBATCH -t 2:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com

@@ -1,4 +1,4 @@
-import sys, collections, copy, itertools, math
+import sys, collections, copy, itertools, math, pprint
 import time
 import traceback
 from collections import defaultdict
@@ -29,9 +29,17 @@ class SynapseSource(object):
         self.population = None
         self.delay = None
     def __repr__(self): 
-       return 'SynapseSource(%d, %d, %.02f)' % (self.gid, self.population, self.delay)
+       if self.delay is None:
+           repr_delay = 'None'
+       else:
+           repr_delay = '%.02f' % self.delay
+       return 'SynapseSource(%s, %s, %s)' % (str(self.gid), str(self.population), repr_delay)
     def __str__(self): 
-       return 'SynapseSource(%d, %d, %.02f)' % (self.gid, self.population, self.delay)
+       if self.delay is None:
+           str_delay = 'None'
+       else:
+           str_delay = '%.02f' % self.delay
+       return 'SynapseSource(%s, %s, %s)' % (str(self.gid), str(self.population), str_delay)
 
 SynapsePointProcess = NamedTupleWithDocstring(
     """This class provides information about the point processes associated with a synapse.
@@ -102,12 +110,13 @@ class SynapseAttributes(object):
         self.presyn_names = {id: name for name, id in viewitems(env.Populations)}
         self.filter_cache = {}
 
-    def init_syn_id_attrs_from_iter(self, cell_iter, attr_type='dict', attr_tuple_index=None):
+    def init_syn_id_attrs_from_iter(self, cell_iter, attr_type='dict', attr_tuple_index=None, debug=False):
         """
         Initializes synaptic attributes given an iterator that returns (gid, attr_dict).
         See `init_syn_id_attrs` for details on the format of the input dictionary.
         """
         
+        first_gid = True
         if attr_type == 'dict':
             for (gid, attr_dict) in cell_iter:
                 syn_ids = attr_dict['syn_ids']
@@ -117,6 +126,10 @@ class SynapseAttributes(object):
                 syn_secs = attr_dict['syn_secs']
                 syn_locs = attr_dict['syn_locs']
                 self.init_syn_id_attrs(gid, syn_ids, syn_layers, syn_types, swc_types, syn_secs, syn_locs)
+                if gid == 8615:
+                    print('init_syn_id_attrs: gid = %d syn_types = %s sec_dict:' % (gid, str(set(syn_types))))
+                    pprint.pprint(self.sec_dict[gid])
+                    first_gid = False
         elif attr_type == 'tuple':
             syn_ids_ind = attr_tuple_index.get('syn_ids', None)
             syn_locs_ind = attr_tuple_index.get('syn_locs', None)
@@ -133,6 +146,10 @@ class SynapseAttributes(object):
                 syn_secs = attr_tuple[syn_secs_ind]
                 syn_locs = attr_tuple[syn_locs_ind]
                 self.init_syn_id_attrs(gid, syn_ids, syn_layers, syn_types, swc_types, syn_secs, syn_locs)
+                if gid == 8615:
+                    print('init_syn_id_attrs: gid = %d syn_types = %s sec_dict:' % (gid, str(set(syn_types))))
+                    pprint.pprint(self.sec_dict[gid])
+                    first_gid = False
 
         else:
             raise RuntimeError('init_syn_id_attrs_from_iter: unrecognized input attribute type %s' % attr_type)
@@ -158,7 +175,6 @@ class SynapseAttributes(object):
         if gid in self.syn_id_attr_dict:
             raise RuntimeError('Entry %i exists in synapse attribute dictionary' % gid)
         else:
-
             syn_dict = self.syn_id_attr_dict[gid]
             sec_dict = self.sec_dict[gid]
             for i, (syn_id, syn_layer, syn_type, swc_type, syn_sec, syn_loc) in \
@@ -507,6 +523,7 @@ class SynapseAttributes(object):
             else:
                 section_syn_params = connection_syn_params[syn.swc_type]
             mech_params = section_syn_params.get(syn_name, {})
+
         
         attr_dict = syn.attr_dict[syn_index]
         for k, v in viewitems(params):
@@ -537,6 +554,7 @@ class SynapseAttributes(object):
                 attr_dict[k] = update_operator(gid, syn_id, old_val, new_val)
             else:
                 raise RuntimeError('modify_mech_attrs: unknown type of parameter %s' % k)
+        syn.attr_dict[syn_index] = attr_dict
 
     def add_mech_attrs_from_iter(self, gid, syn_name, params_iter, overwrite='error'):
         """
@@ -767,7 +785,6 @@ def insert_hoc_cell_syns(env, gid, cell, syn_ids, syn_params, unique=False, inse
         swc_type = syn.swc_type
         syn_loc = syn.syn_loc
         syn_section = syn.syn_section
-        syn_attr_dict = syn.attr_dict
         
         sec = py_sections[syn_section]
         if swc_type in syns_dict_by_type:
@@ -952,7 +969,7 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
             if (presyn_name is not None) and (source_syns is not None):
                 source_syn_ids = [x[0] for x in source_syns]
                 connection_syn_params = env.connection_config[postsyn_name][presyn_name].mechanisms
-                syn_count, mech_count, nc_count = insert_hoc_cell_syns(env, connection_syn_params, gid, cell, source_syn_ids,
+                syn_count, mech_count, nc_count = insert_hoc_cell_syns(env, gid, cell, source_syn_ids, connection_syn_params, 
                                                                        unique=unique, insert_netcons=insert_netcons,
                                                                        insert_vecstims=insert_vecstims)
                 if verbose:
@@ -1490,7 +1507,10 @@ def apply_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, 
                            'sec_type: %s without a provided origin or value' % (syn_name, param_name, node.type))
     else:
         baseline = inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filters)
-
+    if baseline is None:
+        print("baseline is None for gid %d sec_dict: " % cell.gid)
+        pprint.pprint(env.synapse_attributes.sec_dict[cell.gid].keys())
+    assert(baseline is not None)
     if 'custom' in rules:
         apply_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor,
                                     update_targets, verbose)
@@ -1594,6 +1614,7 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline,
             distance = get_distance_to_node(cell, donor, node, syn_loc)
             value = get_param_val_by_distance(distance, baseline, slope, min_distance, max_distance,
                                               min_val, max_val, tau, xhalf, outside)
+                
             if value is not None:
                 syn_attrs.modify_mech_attrs(cell.pop_name, cell.gid, syn_id, syn_name, 
                                             {param_name: value})
@@ -1659,6 +1680,7 @@ def init_syn_mech_attrs(cell, env=None, reset_mech_dict=False, update_targets=Fa
     for sec_type in default_ordered_sec_types:
         if sec_type in cell.mech_dict and sec_type in cell.nodes:
             if cell.nodes[sec_type] and 'synapses' in cell.mech_dict[sec_type]:
+
                 for syn_name in cell.mech_dict[sec_type]['synapses']:
                     update_syn_mech_by_sec_type(cell, env, sec_type, syn_name,
                                                 cell.mech_dict[sec_type]['synapses'][syn_name],
