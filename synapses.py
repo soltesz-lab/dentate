@@ -99,15 +99,43 @@ class SynapseAttributes(object):
         self.presyn_names = {id: name for name, id in viewitems(env.Populations)}
         self.filter_cache = {}
 
-    def init_syn_id_attrs_from_iter(self, cell_iter):
+    def init_syn_id_attrs_from_iter(self, cell_iter, attr_type='dict', attr_tuple_index=None):
         """
         Initializes synaptic attributes given an iterator that returns (gid, attr_dict).
         See `init_syn_id_attrs` for details on the format of the input dictionary.
         """
-        for (gid, attr_dict) in cell_iter:
-            self.init_syn_id_attrs(gid, attr_dict)
+        
+        if attr_type == 'dict':
+            for (gid, attr_dict) in cell_iter:
+                syn_ids = attr_dict['syn_ids']
+                syn_layers = attr_dict['syn_layers']
+                syn_types = attr_dict['syn_types']
+                swc_types = attr_dict['swc_types']
+                syn_secs = attr_dict['syn_secs']
+                syn_locs = attr_dict['syn_locs']
+                self.init_syn_id_attrs(gid, syn_ids, syn_layers, syn_types, swc_types, syn_secs, syn_locs)
+        elif attr_type == 'tuple':
+            syn_ids_ind = attr_tuple_index.get('syn_ids', None)
+            syn_locs_ind = attr_tuple_index.get('syn_locs', None)
+            syn_layers_ind = attr_tuple_index.get('syn_layers', None)
+            syn_types_ind = attr_tuple_index.get('syn_types', None)
+            swc_types_ind = attr_tuple_index.get('swc_types', None)
+            syn_secs_ind = attr_tuple_index.get('syn_secs', None)
+            syn_locs_ind = attr_tuple_index.get('syn_locs', None)
+            for (gid, attr_tuple) in cell_iter:
+                syn_ids = attr_tuple[syn_ids_ind]
+                syn_layers = attr_tuple[syn_layers_ind]
+                syn_types = attr_tuple[syn_types_ind]
+                swc_types = attr_tuple[swc_types_ind]
+                syn_secs = attr_tuple[syn_secs_ind]
+                syn_locs = attr_tuple[syn_locs_ind]
+                self.init_syn_id_attrs(gid, syn_ids, syn_layers, syn_types, swc_types, syn_secs, syn_locs)
 
-    def init_syn_id_attrs(self, gid, syn_id_attr_dict):
+        else:
+            raise RuntimeError('init_syn_id_attrs_from_iter: unrecognized input attribute type %s' % attr_type)
+
+    def init_syn_id_attrs(self, gid, syn_ids, syn_layers, syn_types, swc_types, syn_secs, syn_locs):
+
         """
         Initializes synaptic attributes for the given cell gid.
         Only the intrinsic properties of a synapse, such as type, layer, location are set.
@@ -116,7 +144,6 @@ class SynapseAttributes(object):
         parameters, and netcon/vecstim objects are initialized to None
         or empty dictionaries.
 
-        :param syn_id_attr_dict: a dictionary containing the following keys:
           - syn_ids: synapse ids
           - syn_layers: layer index for each synapse id
           - syn_types: synapse type for each synapse id
@@ -128,12 +155,6 @@ class SynapseAttributes(object):
         if gid in self.syn_id_attr_dict:
             raise RuntimeError('Entry %i exists in synapse attribute dictionary' % gid)
         else:
-            syn_ids = syn_id_attr_dict['syn_ids']
-            syn_layers = syn_id_attr_dict['syn_layers']
-            syn_types = syn_id_attr_dict['syn_types']
-            swc_types = syn_id_attr_dict['swc_types']
-            syn_secs = syn_id_attr_dict['syn_secs']
-            syn_locs = syn_id_attr_dict['syn_locs']
 
             syn_dict = self.syn_id_attr_dict[gid]
             sec_dict = self.sec_dict[gid]
@@ -449,7 +470,7 @@ class SynapseAttributes(object):
             else:
                 attr_dict[k] = v
 
-    def modify_mech_attrs(self, pop_name, gid, syn_id, syn_name, params, update=lambda old, new: new):
+    def modify_mech_attrs(self, pop_name, gid, syn_id, syn_name, params, update_operator=lambda gid, syn_id, old, new: new):
         """
         Modifies mechanism attributes for the given cell id/synapse id/mechanism name. 
 
@@ -468,6 +489,9 @@ class SynapseAttributes(object):
         presyn_name = self.presyn_names[syn.source.population]
         conn_params = self.env.connection_config[pop_name][presyn_name].mechanisms
 
+        if update_operator is None:
+            update_uperator=lambda gid, syn_id, old, new: new
+        
         if 'default' in conn_params:
             mech_params = conn_params['default'][syn_name]
         else:
@@ -485,7 +509,7 @@ class SynapseAttributes(object):
                 else:
                     new_val = v
                 if k in attr_dict:
-                    attr_dict[k] = update(attr_dict[k], new_val)
+                    attr_dict[k] = update_operator(gid, syn_id, attr_dict[k], new_val)
                 else:
                     attr_dict[k] = new_val
             elif k in rules[mech_name]['netcon_params']:
@@ -493,12 +517,14 @@ class SynapseAttributes(object):
                 if isinstance(mech_param, DExpr):
                     if mech_param.parameter == 'delay':
                         new_val = mech_param(syn.source.delay)
+                        #print("modify %s.%s.%s: delay: %f new val: %f" % (pop_name, syn_name, k, syn.source.delay, new_val))
                     else:
                         raise RuntimeError('modify_mech_attrs: unknown dependent expression parameter %s' % (mech_param.parameter))
                 else:
                     new_val = v
+
                 if k in attr_dict:
-                    attr_dict[k] = update(attr_dict[k], new_val)
+                    attr_dict[k] = update_operator(gid, syn_id, attr_dict[k], new_val)
                 else:
                     attr_dict[k] = new_val
             else:
@@ -1193,7 +1219,7 @@ def validate_syn_mech_param(env, syn_name, param_name):
 
 def modify_syn_param(cell, env, sec_type, syn_name, param_name=None, value=None, origin=None, slope=None, tau=None,
                      xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None, custom=None,
-                     append=False, filters=None, origin_filters=None, update_targets=False, verbose=False):
+                     append=False, filters=None, origin_filters=None, update_targets=False, update_operator=None, verbose=False):
     """Modifies a cell's mechanism dictionary to specify attributes of a
     synaptic mechanism by sec_type. This method is meant to be called
     manually during initial model specification, or during parameter
@@ -1281,7 +1307,7 @@ def modify_syn_param(cell, env, sec_type, syn_name, param_name=None, value=None,
         cell.mech_dict[sec_type]['synapses'][syn_name][param_name] = rules
 
     try:
-        update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, update_targets, verbose)
+        update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, update_targets, update_operator, verbose)
     except Exception as e:
         cell.mech_dict = copy.deepcopy(backup_mech_dict)
         traceback.print_exc(file=sys.stdout)
@@ -1290,7 +1316,7 @@ def modify_syn_param(cell, env, sec_type, syn_name, param_name=None, value=None,
         raise e
 
 
-def update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, update_targets=False, verbose=False):
+def update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, update_targets=False, update_operator=None, verbose=False):
     """For the provided sec_type and synaptic mechanism, this method
     loops through the parameters specified in the mechanism
     dictionary, interprets the rules, and sets placeholder values in
@@ -1315,11 +1341,11 @@ def update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, upd
                                'specified properly' % (syn_name, param_name))
         for param_content_entry in mech_param_contents:
             update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, param_content_entry,
-                                              update_targets, verbose)
+                                              update_targets, update_operator, verbose)
 
 
 def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, rules, update_targets=False,
-                                      verbose=False):
+                                      update_operator=None, verbose=False):
     """For the provided synaptic mechanism and parameter, this method
     loops through nodes of the provided sec_type, interprets the
     provided rules, and sets placeholder values in the
@@ -1350,15 +1376,15 @@ def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name,
     if sec_type in cell.nodes:
         for node in cell.nodes[sec_type]:
             update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, new_rules, filters, origin_filters,
-                                          update_targets, verbose)
+                                          update_targets, update_operator, verbose)
 
 
 def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, filters=None, origin_filters=None,
-                                  update_targets=False, verbose=False):
+                                  update_targets=False, update_operator=None, verbose=False):
     """For the provided synaptic mechanism and parameter, this method
     first determines the set of placeholder synapses in the provided
     node that match any provided filters. Then calls
-    parse_syn_mech_rules to interpret the provided rules, and set
+    apply_syn_mech_rules to interpret the provided rules, and set
     placeholder values in the syn_mech_attr_dict of a
     SynapseAttributes object.
 
@@ -1384,12 +1410,12 @@ def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, 
 
     if len(filtered_syns) > 0:
         syn_ids = list(filtered_syns.keys())
-        parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, origin_filters,
-                             update_targets=update_targets, verbose=verbose)
+        apply_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, origin_filters,
+                             update_targets=update_targets, update_operator=update_operator, verbose=verbose)
 
 
-def parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, origin_filters=None, donor=None,
-                         update_targets=False, verbose=False):
+def apply_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, origin_filters=None, donor=None,
+                         update_targets=False, update_operator=None, verbose=False):
     """Provided a synaptic mechanism, a parameter, a node, a list of
     syn_ids, and a dict of rules. Interprets the provided rules,
     including complex gradient and inheritance rules. Gradients can be
@@ -1419,23 +1445,23 @@ def parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, 
     if 'origin' in rules and donor is None:
         donor = get_donor(cell, node, rules['origin'])
         if donor is None:
-            raise RuntimeError('parse_syn_mech_rules: problem identifying donor of origin_type: %s for synaptic '
+            raise RuntimeError('apply_syn_mech_rules: problem identifying donor of origin_type: %s for synaptic '
                                'mechanism: %s parameter: %s in sec_type: %s' %
                                (rules['origin'], syn_name, param_name, node.type))
     if 'value' in rules:
         baseline = rules['value']
     elif donor is None:
-        raise RuntimeError('parse_syn_mech_rules: cannot set value of synaptic mechanism: %s parameter: %s in '
+        raise RuntimeError('apply_syn_mech_rules: cannot set value of synaptic mechanism: %s parameter: %s in '
                            'sec_type: %s without a provided origin or value' % (syn_name, param_name, node.type))
     else:
         baseline = inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filters)
 
     if 'custom' in rules:
-        parse_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor,
+        apply_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor,
                                     update_targets, verbose)
     else:
-        set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor, update_targets,
-                           verbose)
+        set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor,
+                            update_targets, update_operator, verbose)
 
 
 def inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filters=None):
@@ -1482,7 +1508,7 @@ def inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filter
 
 
 def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor=None,
-                       update_targets=False, verbose=False):
+                       update_targets=False, update_operator=None, verbose=False):
     """Provided a synaptic mechanism, a parameter, a node, a list of
     syn_ids, and a dict of rules. Sets placeholder values for each
     provided syn_id in the syn_mech_attr_dict of a SynapseAttributes
@@ -1508,7 +1534,8 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline,
     syn_attrs = env.synapse_attributes
     if not ('min_loc' in rules or 'max_loc' in rules or 'slope' in rules):
         for syn_id in syn_ids:
-            syn_attrs.modify_mech_attrs(cell.pop_name, cell.gid, syn_id, syn_name, {param_name: baseline})
+            syn_attrs.modify_mech_attrs(cell.pop_name, cell.gid, syn_id, syn_name,
+                                        {param_name: baseline}, update_operator=update_operator)
     elif donor is None:
         raise RuntimeError('set_syn_mech_param: cannot set value of synaptic mechanism: %s parameter: %s in '
                            'sec_type: %s without a provided donor node' % (syn_name, param_name, node.type))
@@ -1530,17 +1557,18 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline,
             syn = syn_id_attr_dict[syn_id]
             syn_loc = syn.syn_loc
             distance = get_distance_to_node(cell, donor, node, syn_loc)
-            value = get_param_val_by_distance(distance, baseline, slope, min_distance, max_distance, min_val, max_val,
-                                              tau, xhalf, outside)
+            value = get_param_val_by_distance(distance, baseline, slope, min_distance, max_distance,
+                                              min_val, max_val, tau, xhalf, outside)
 
             if value is not None:
-                syn_attrs.modify_mech_attrs(cell.pop_name, cell.gid, syn_id, syn_name, {param_name: value})
+                syn_attrs.modify_mech_attrs(cell.pop_name, cell.gid, syn_id, syn_name,
+                                            {param_name: value}, update_operator=update_operator)
 
     if update_targets:
         config_biophys_cell_syns(env, cell.gid, cell.pop_name, syn_ids=syn_ids, insert=False, verbose=verbose)
 
 
-def parse_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor,
+def apply_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor,
                                 update_targets=False, verbose=False):
     """If the provided node meets custom criteria, rules are modified and
     passed back to parse_mech_rules with the 'custom' item
@@ -1560,12 +1588,12 @@ def parse_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, 
     :param verbose: bool
     """
     if 'func' not in rules['custom'] or rules['custom']['func'] is None:
-        raise RuntimeError('parse_custom_syn_mech_rules: no custom function provided for synaptic mechanism: %s '
+        raise RuntimeError('apply_custom_syn_mech_rules: no custom function provided for synaptic mechanism: %s '
                            'parameter: %s in sec_type: %s' % (syn_name, param_name, node.type))
     if rules['custom']['func'] in globals() and isinstance(globals()[rules['custom']['func']], collections.Callable):
         func = globals()[rules['custom']['func']]
     else:
-        raise RuntimeError('parse_custom_syn_mech_rules: problem locating custom function: %s for synaptic '
+        raise RuntimeError('apply_custom_syn_mech_rules: problem locating custom function: %s for synaptic '
                            'mechanism: %s parameter: %s in sec_type: %s' %
                            (rules['custom']['func'], syn_name, param_name, node.type))
     custom = copy.deepcopy(rules['custom'])
@@ -1575,7 +1603,7 @@ def parse_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, 
     new_rules['value'] = baseline
     new_rules = func(cell, node, baseline, new_rules, donor, **custom)
     if new_rules:
-        parse_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, new_rules, donor=donor,
+        apply_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, new_rules, donor=donor,
                              update_targets=update_targets, verbose=verbose)
 
 
@@ -1615,6 +1643,8 @@ def write_syn_mech_attrs(env, pop_name, gids, output_path, filters=None, syn_nam
     :param filters: optional filter for synapses
     """
 
+    rank = int(env.pc.id())
+
     syn_attrs = env.synapse_attributes
     rules = syn_attrs.syn_param_rules
 
@@ -1649,15 +1679,20 @@ def write_syn_mech_attrs(env, pop_name, gids, output_path, filters=None, syn_nam
                                                'set in either %s point process or netcon' % (gid, syn_id, k, syn_name))
                         output_dict[syn_name][gid][k].append(v)
 
-    for syn_name, syn_attrs_dict in viewitems(output_dict):
 
+    for syn_name in sorted(output_dict):
+
+        syn_attrs_dict = output_dict[syn_name]
         attr_dict = {}
+        
+
         for gid, gid_syn_attrs_dict in viewitems(syn_attrs_dict):
             for attr_name, attr_vals in viewitems(gid_syn_attrs_dict):
                 if attr_name == 'syn_ids':
                     attr_dict[gid] = {'syn_ids': np.asarray(attr_vals, dtype='uint32')}
                 else:
                     attr_dict[gid] = {attr_name: np.asarray(attr_vals, dtype='float32')}
+        logger.info("write_syn_mech_attrs: rank %d: population %s: writing mechanism %s attributes for %d gids" % (rank, pop_name, syn_name, len(attr_dict)))
         write_cell_attributes(output_path, pop_name, attr_dict,
                               namespace='%s Attributes' % syn_name,
                               **write_kwds)

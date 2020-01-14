@@ -6,3 +6,7 @@ Firing Rate Inference:
 
 Mutual Information:
   Spatial Resolution: 5.  # cm
+
+Place Fields:
+  Minimum Width: 10.
+  Minimum Rate: 1.

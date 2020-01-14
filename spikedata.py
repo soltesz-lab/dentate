@@ -1,14 +1,20 @@
-import sys, math
+import sys, math, copy
 from collections import defaultdict
 import numpy as np
 from scipy import interpolate
 from neuroh5.io import read_cell_attributes, read_population_names, read_population_ranges, write_cell_attributes
 import dentate
-from dentate.utils import get_module_logger, autocorr, baks, baks, consecutive, mvcorrcoef, viewitems, zip
+from dentate.utils import get_module_logger, Struct, autocorr, baks, consecutive, mvcorrcoef, viewitems, zip
 
 ## This logger will inherit its setting from its root logger, dentate,
 ## which is created in module env
 logger = get_module_logger(__name__)
+
+# Default spike analysis configuration
+default_baks_analysis_options = Struct(**{'BAKS Alpha': 4.77,
+                                          'BAKS Beta': None})
+default_pf_analysis_options = Struct(**{'Minimum Width': 10.,
+                                        'Minimum Rate': None})
 
 
 def get_env_spike_dict(env, t_start=0.0, include_artificial=True):
@@ -235,8 +241,7 @@ def spike_covariate(population, spkdict, time_bins, nbins_before, nbins_after):
 
 
 def spike_density_estimate(population, spkdict, time_bins, arena_id=None, trajectory_id=None, output_file_path=None,
-                            progress=False, baks_alpha=4.77, baks_beta=0.42,
-                            inferred_rate_attr_name='Inferred Rate Map', **kwargs):
+                            progress=False, inferred_rate_attr_name='Inferred Rate Map', **kwargs):
     """
     Calculates spike density function for the given spike trains.
     :param population:
@@ -246,14 +251,15 @@ def spike_density_estimate(population, spkdict, time_bins, arena_id=None, trajec
     :param trajectory_id: str
     :param output_file_path:
     :param progress:
-    :param baks_alpha: float
-    :param baks_beta: float
     :param inferred_rate_attr_name: str
     :param kwargs: dict
     :return: dict
     """
     if progress:
         from tqdm import tqdm
+
+    analysis_options = copy.copy(default_baks_analysis_options)
+    analysis_options.update(kwargs)
 
     def make_spktrain(lst, t_start, t_stop):
         spkts = np.asarray(lst, dtype=np.float32)
@@ -266,10 +272,9 @@ def spike_density_estimate(population, spkdict, time_bins, arena_id=None, trajec
     spktrains = {ind: make_spktrain(lst, t_start, t_stop) for (ind, lst) in viewitems(spkdict)}
 
     baks_args = dict()
-    if baks_alpha is not None:
-        baks_args['a'] = baks_alpha
-    if baks_beta is not None:
-        baks_args['b'] = baks_beta
+    baks_args['a'] = analysis_options['BAKS Alpha']
+    baks_args['b'] = analysis_options['BAKS Beta']
+    
     if progress:
         seq = tqdm(viewitems(spktrains))
     else:
@@ -378,7 +383,7 @@ def spatial_information(population, trajectory, spkdict, time_range, position_bi
 
 
 def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, trajectory_id=None, nstdev=1.5,
-                 binsteps=5, baseline_fraction=None, min_pf_width=10., min_pf_rate=None, output_file_path=None, progress=False, **kwargs):
+                 binsteps=5, baseline_fraction=None, output_file_path=None, progress=False, **kwargs):
     """
     Estimates place fields from the given instantaneous spike rate dictionary.
     :param population: str
@@ -398,8 +403,14 @@ def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, tra
 
     if progress:
         from tqdm import tqdm
-    
-    (x, y, d, t) = trajectory
+
+    analysis_options = copy.copy(default_pf_analysis_options)
+    analysis_options.update(kwargs)
+
+    min_pf_width = analysis_options['Minimum Width']
+    min_pf_rate = analysis_options['Minimum Rate']     
+
+    (trj_x, trj_y, trj_d, trj_t) = trajectory
 
     pf_dict = {}
     pf_total_count = 0
@@ -415,7 +426,7 @@ def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, tra
         it = viewitems(rate_dict)
         
     for ind, valdict  in it:
-        x      = valdict['time']
+        t      = valdict['time']
         rate   = valdict['rate']
         m      = np.mean(rate)
         rate1  = np.subtract(rate, m)
@@ -424,16 +435,16 @@ def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, tra
         else:
             k = rate1.shape[0] / baseline_fraction
             s = np.std(rate1[np.argpartition(rate1, k)[:k]])
-        tmin = x[0]
-        tmax = x[-1]
+        tmin = t[0]
+        tmax = t[-1]
         bins = np.arange(tmin, tmax, bin_size)
         bin_rates = []
         bin_norm_rates = []
         pf_ibins = []
         for ibin in range(1, len(bins)):
             binx = np.linspace(bins[ibin - 1], bins[ibin], binsteps)
-            r_n = np.mean(np.interp(binx, x, rate1))
-            r = np.mean(np.interp(binx, x, rate))
+            r_n = np.mean(np.interp(binx, t, rate1))
+            r = np.mean(np.interp(binx, t, rate))
             bin_rates.append(r)
             bin_norm_rates.append(r_n)
             if r_n > nstdev * s:
@@ -451,12 +462,12 @@ def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, tra
                 pf_ibin_range = np.asarray([np.min(pf_ibin_array), np.max(pf_ibin_array)])
                 pf_bin_range = np.asarray([bins[pf_ibin_range[0]], bins[pf_ibin_range[1]]])
                 pf_bin_rates = [bin_rates[ibin] for ibin in pf_ibin_array]
-                pf_width = np.diff(np.interp(pf_bin_range, t, d))[0]
+                pf_width = np.diff(np.interp(pf_bin_range, trj_t, trj_d))[0]
                 pf_consecutive_ibins.append(pf_ibin_range)
                 pf_consecutive_bins.append(pf_bin_range)
                 pf_widths.append(pf_width)
                 pf_rates.append(np.mean(pf_bin_rates))
-
+                
             if min_pf_rate is None:
                 pf_filtered_ibins = [pf_consecutive_ibins[i] for i, pf_width in enumerate(pf_widths)
                                     if pf_width >= min_pf_width]
@@ -472,14 +483,22 @@ def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, tra
             pf_mean_rate = []
             pf_peak_rate = []
             pf_mean_norm_rate = []
+            pf_x_locs = []
+            pf_y_locs = []
             for pf_ibin_iter in pf_ibins:
                 pf_ibin_array = list(pf_ibin_iter)
+                pf_ibin_range = np.asarray([np.min(pf_ibin_array), np.max(pf_ibin_array)])
+                pf_bin_range = np.asarray([bins[pf_ibin_range[0]], bins[pf_ibin_range[1]]])
                 pf_mean_width.append(np.mean(
                     np.asarray([pf_width for pf_width in pf_widths if pf_width >= min_pf_width])))
                 pf_mean_rate.append(np.mean(np.asarray(bin_rates[pf_ibin_array])))
                 pf_peak_rate.append(np.max(np.asarray(bin_rates[pf_ibin_array])))
                 pf_mean_norm_rate.append(np.mean(np.asarray(bin_norm_rates[pf_ibin_array])))
-
+                pf_x_range = np.interp(pf_bin_range, trj_t, trj_x)
+                pf_y_range = np.interp(pf_bin_range, trj_t, trj_y)
+                pf_x_locs.append(np.mean(pf_x_range))
+                pf_y_locs.append(np.mean(pf_y_range))
+                
             pf_min = min(pf_count, pf_min)
             pf_max = max(pf_count, pf_max)
             pf_cell_count += 1
@@ -490,13 +509,17 @@ def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, tra
             pf_mean_rate = []
             pf_peak_rate = []
             pf_mean_norm_rate = []
+            pf_x_locs = []
+            pf_y_locs = []
 
         cell_count += 1
         pf_dict[ind] = {'pf_count': np.asarray([pf_count], dtype=np.uint32),
                         'pf_mean_width': np.asarray(pf_mean_width, dtype=np.float32),
                         'pf_mean_rate': np.asarray(pf_mean_rate, dtype=np.float32),
                         'pf_peak_rate': np.asarray(pf_peak_rate, dtype=np.float32),
-                        'pf_mean_norm_rate': np.asarray(pf_mean_norm_rate, dtype=np.float32)}
+                        'pf_mean_norm_rate': np.asarray(pf_mean_norm_rate, dtype=np.float32),
+                        'pf_x_locs': np.asarray(pf_x_locs),
+                        'pf_y_locs': np.asarray(pf_y_locs)}
 
     logger.info('%s place fields: %i cells min %i max %i mean %f\n' %
                     (population, cell_count, pf_min, pf_max, float(pf_total_count) / float(cell_count)))

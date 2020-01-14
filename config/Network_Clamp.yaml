@@ -13,7 +13,7 @@ Input Generator:
   BC:
     template: StimCell
     params:
-      rate: 25.
+      rate: 24.
   AAC:
     template: StimCell
     params:
@@ -79,6 +79,13 @@ Weight Generator:
         mu: 0.
         sigma: 1.0
         clip: [0.0, 3.0]
+Scaling Optimization:
+  GC:
+    Parameter ranges:
+      !!python/tuple [MPP, LPP]:
+        apical:
+          AMPA:
+            weight: [0.1, 10.0]
 Synaptic Optimization:
   GC:
     Parameter ranges:
@@ -86,16 +93,16 @@ Synaptic Optimization:
         ais:
           GABA_A:
             g_unit: 
-             a: [0.0005, 0.004]
+             b: [5.0, 9.0]
       BC:
         soma:
           GABA_A:
             g_unit: 
-             a: [0.0005, 0.004]
+             b: [5.0, 9.0]
         apical:
           GABA_A:
             g_unit: 
-             a: [0.0005, 0.004]
+             b: [5.0, 9.0]
       HC:
         apical:
           GABA_A:
@@ -119,6 +126,18 @@ Synaptic Optimization:
       fraction active: 0.01
   MC:
     Parameter ranges:
+      GC:
+        apical:
+          AMPA:
+            g_unit: [0.001, 0.007]
+      MC:
+        apical:
+          AMPA:
+            g_unit: [0.001, 0.007]
+      CA3c:
+        apical:
+          AMPA:
+            g_unit: [0.001, 0.007]
       HC:
         apical:
           GABA_A:
@@ -131,20 +150,20 @@ Synaptic Optimization:
         apical:
           GABA_A:
             g_unit: 
-              a: [0.0005, 0.004]
+              a: [0.0001, 0.005]
         soma:
           GABA_A:
             g_unit: 
-              a: [0.0005, 0.004]
+              a: [0.0001, 0.005]
       AAC:
         soma:
           GABA_A:
             g_unit: 
-              a: [0.0001, 0.004]
-#        ais:
-#          GABA_A:
-#            g_unit: 
-#               a: [0.0001, 0.003]
+              a: [0.0001, 0.005]
+        ais:
+          GABA_A:
+            g_unit: 
+               a: [0.0001, 0.005]
     Targets:
       firing rate: 1.5
       fraction active: 0.3

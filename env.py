@@ -418,6 +418,7 @@ class Env(object):
 
         self.stimulus_config = stimulus_config
 
+        
     def parse_netclamp_config(self):
         """
 
@@ -427,7 +428,11 @@ class Env(object):
         input_generator_dict = netclamp_config_dict['Input Generator']
         weight_generator_dict = netclamp_config_dict['Weight Generator']
         template_param_rules_dict = netclamp_config_dict['Template Parameter Rules']
-        opt_param_rules_dict = netclamp_config_dict['Synaptic Optimization']
+        opt_param_rules_dict = {}
+        if 'Synaptic Optimization' in netclamp_config_dict:
+            opt_param_rules_dict['synaptic'] = netclamp_config_dict['Synaptic Optimization']
+        if 'Scaling Optimization' in netclamp_config_dict:
+            opt_param_rules_dict['scaling'] = netclamp_config_dict['Scaling Optimization']
 
         template_params = {}
         for (template_name, params) in viewitems(template_param_rules_dict):
@@ -570,8 +575,8 @@ class Env(object):
                 try:
                     assert (np.isclose(v, 1.0))
                 except Exception as e:
-                    logger.error('Connection configuration: probabilities for %s do not sum to 1: %s = %f' %
-                                 (key_postsyn, str(k), v))
+                    self.logger.error('Connection configuration: probabilities for %s do not sum to 1: %s = %f' %
+                                      (key_postsyn, str(k), v))
                     raise e
 
         self.connection_config = connection_dict

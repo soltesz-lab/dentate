@@ -259,6 +259,7 @@ def generate_synaptic_connections(rank,
     synapse_prj_partition = defaultdict(lambda: defaultdict(list))
     maxit = 10
     it = 0
+    print(synapse_dict)
     ## assign each synapse to a projection
     while (np.count_nonzero(synapse_prj_counts) < num_projections) and (it < maxit):
         log_flag = it > 1

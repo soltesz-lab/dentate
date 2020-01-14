@@ -1,16 +1,16 @@
 begintemplate HICAPCell
 
 public connect2target, subsets, is_art, is_connected
-public all, soma, basal, apical, ais, hillock, axon, allaxon
-public somaidx, basalidx, apicalidx, axonidx
+public all, soma, dend, basal, apical, allsomadend, ais, hillock, axon, allaxon
+public somaidx, dendidx, basalidx, apicalidx, axonidx
 public xx, yy, zz, position
 public syns, layers
 public syn_stim, syntest
 
 create sections[1]
 
-objref all, soma, basal, apical, ais, hillock, axon, allaxon
-objref apicalidx, basalidx, somaidx, axonidx, aisidx, hilidx
+objref all, soma, dend, basal, apical, ais, allsomadend, hillock, axon, allaxon
+objref apicalidx, dendidx, basalidx, somaidx, axonidx, aisidx, hilidx
 objref syns, layers
 
 gid = -1
@@ -31,11 +31,10 @@ proc assert() { local test strdef errmsg
 
 proc init() {
     
-    // dendrites 1*ndendsec and 2*ndendsec are apical
-    // dendrites 3*ndendsec and 4*ndendsec are basal
     
     apicalidx = new Vector()
     basalidx = new Vector()
+    dendidx = new Vector()
     somaidx = new Vector()
     axonidx = new Vector()
     aisidx = new Vector()
@@ -84,12 +83,17 @@ proc subsets() { local i, ndends, ndendsec
     
     all = new SectionList()
     sections[0] all.append()
-    for i=0, nDends-1 { 
+    for i=0, nSoma+nDends-1 { 
         sections[i+1] all.append() 
     }
     
     soma = new SectionList()
     sections[0] soma.append()
+    
+    dend = new SectionList()
+    for i=0, dendidx.size()-1 { 
+        sections[dendidx.x[i]] dend.append() 
+    }
     
     basal = new SectionList()
     for i=0, basalidx.size()-1 { 
@@ -218,151 +222,165 @@ proc topol() {
 
 
 proc biophys() {
-    celsius = 23.0
+
+	// resting membrane potential. Must lie between Na+ and K+ reversal potentials
+	Vrest=-61
+	
+	// Temperature of simulation
+	celsius = 34.0  
+
+	// Membrane resistance in ohm*cm2
+	RmDend = 80000
+	RmSoma = 80000
+
+	// Membrane capacitance in uF/cm2
+	CmSoma= 1.0
+	CmDend = 1.0
+
+	// Axial resistance in ohm*cm
+	RaDend= 150
+	RaSoma= 150
+	
+	// Calcium concentrations in mM
+	ca_outside = 2
+	ca_inside = 5.e-6
+	catau = 10
+
+	// reversal potentials in mV
+	ekval = -90	
+	enaval = 55
+	eHCNval = -40
+	ecaval = 8.314*(273.15+celsius)/(2*9.649e4)*log(ca_outside/ca_inside)*1000 // about 170, otherwise set to 130
+        eleak = Vrest
+	
+	if (Vrest<ekval) Vrest=ekval // Cell cannot rest lower than K+ reversal potential
+	if (Vrest>enaval) Vrest=enaval // Cell cannot rest higher than Na+ reversal potential
+        
+        g_leak_decay_dend = 4.5
+        
+	// max ion channel conductances in mho/cm2
+ 	gNav     = 0.005*1.8 // soma: // 0.12 //original 0.030 to .055 ; lm: //0.5  	//original 0.015
+	gKdr     = 0.003    // Delayed rectifier potassium
+ 	gsKdr    = 0.0011 //0.1465/1
+ 	gKvA 	 = 0.0010 // Proximal A-type potassium
+	gHCN     = 0.00002 // HCN (hyperpolarization-activated cyclic nucleotide-gated channel)
+ 	gCavN    = 0.00001 //   N-type calcium
+ 	gCavL    = 0.00025 //  L-type calcium
+ 	gKvCaB	 = 0.0001 // Big potassium channel: voltage and calcium gated 
+	gKCaS	 = 0.02 //  Small potassium channel: calcium gated	
+	gKvM	 = 0.06
+        
+	forsec soma { distance() }
+        
+	forsec all {
+		insert iconc_Ca
+		
+		insert KAcck // KvA
+		gmax_KAcck = gKvA		// A-type K+ conductance
+		
+		insert nca  			// N-type Ca2+ conductance
+		gmax_nca = gCavN
+		
+		insert CavLcck
+		gmax_CavLcck = gCavL
+		
+		insert gskch
+		gbar_gskch = gKCaS
+		
+		insert KvCaB
+		gmax_KvCaB = gKvCaB
+
+		insert HCNcck
+		gmax_HCN=gHCN
+
+		Ra = RaSoma
+	} 
+
+	forsec soma {
+		insert nax//cck	
+		gbar_nax = gNav
+		ena = enaval
+                
+		insert fKdrcck
+		gmax_fKdrcck = gKdr
+                
+		insert sKdrcck
+		gmax_sKdrcck = gsKdr
+		
+		insert KvM
+		gmax_KvM = gKvM		// M-type K+ conductance
+		
+		insert pas
+		g_pas = 1/RmSoma
+                e_pas = eleak
+                
+		cm=CmSoma
+	} 
+
+	forsec dend {
+            
+		cm=CmDend
+		
+		for (x,0) {
+		    insert pas
+		    g_pas(x) = 1/RmDend * exp(-g_leak_decay_dend * distance(x)/1000)
+                    e_pas = eleak
+                    
+		    insert nax//cck
+		    gbar_nax(x)=gNav*.5
+		    ena = enaval
+                    
+		    insert fKdrcck
+		    gmax_fKdrcck(x)=gKdr //*10
+                    
+		    insert sKdrcck
+		    gmax_sKdrcck(x) = gsKdr //*2
+		}
+	    }	
+            
+            
+        forsec ais {
+	        insert fKdrcck
+	        gmax_fKdrcck = gKdr
+	        insert nax
+	        gbar_nax = gNav
+	        insert pas
+	        g_pas = 1/RmSoma
+	        e_pas = eleak  	
+            }
+            
+            forsec hillock {
+	        insert fKdrcck
+	        gmax_fKdrcck = gKdr
+	        insert nax
+	        gbar_nax = gNav
+	        insert pas
+	        g_pas = 1/RmSoma
+	        e_pas = eleak  	
+            }
+            
+            forsec axon {
+	        insert fKdrcck
+	        gmax_fKdrcck = gKdr
+	        insert nax
+	        gbar_nax = gNav
+                
+	        insert pas
+	        g_pas = 1/RmSoma
+	        e_pas = eleak  	
+            }
     
-    Vrest = -70
-    
-    Rm = 5e4
-    
-    gH = 0.0005
-    
-    g_KA_soma = 0.005 // .3 * 1.5
-    g_KA_dend = 0.001  // .7 * 1.5
-    
-    g_fKdr_axon =  0.002
-    g_fKdr_soma =  0.006
-    g_fKdr_dend =  0.003
-    
-    g_sKdr_soma =  0.003
-    g_sKdr_dend =  0.001
-    
-    g_Na_soma = 0.0107
-    g_Na_dend = 0.0117
-    g_Na_axon = 0.01712
-    
-    g_leak_decay_apical = 4.5 //0.6
-    g_leak_decay_basal = 4.5 //0.8
-    g_leak_decay_axon = 4. //0.8
-    
-    eleak = -70
 
     forsec all {
-        Ra = 150
-        cm = 0.9
+        ek = ekval
+        ena = enaval
     }
-    
-    forsec soma { distance() }
-    
-    forsec soma {
-        insert KAsom
-    	gmax_KAsom = g_KA_soma
-	insert fKdrsom  
-	gmax_fKdrsom = g_fKdr_soma 
-	insert sKdrsom 
-	gmax_sKdrsom = g_sKdr_soma 
- 	insert HCNsom
-	gmax_HCNsom = gH
-	insert nas
-	gmax_nas = g_Na_soma
-	insert pas
-	g_pas = 0.00001
-	e_pas = eleak  	
-    } 
-    
-    forsec apical {
-	insert nas
-	gmax_nas = g_Na_dend
-	insert sKdrsom 
-	gmax_sKdrsom = g_sKdr_dend
-	insert fKdrsom 
-	gmax_fKdrsom = g_fKdr_dend
-        for (x,0) {
-            insert KAsom
-            r = 10
-    	    gmax_KAsom =  g_KA_dend * r^(distance(x)/1000)
-            if (gmax_KAsom < 0.) {
-                gmax_KAsom = 0.
-            }
-            if (gmax_sKdrsom < 0.) {
-                gmax_sKdrsom = 0.
-            }
-	    insert pas
-	    g_pas = 1/Rm * exp(-g_leak_decay_apical * distance(x)/1000)
-	    e_pas = eleak  	
-        }
-    }
-    
-    forsec basal {
-	insert nas
-	gmax_nas = g_Na_dend
-	insert sKdrsom 
-	gmax_sKdrsom = g_sKdr_dend
-        if (gmax_sKdrsom < 0.) {
-            gmax_sKdrsom = 0.
-        }
-	insert fKdrsom 
-	gmax_fKdrsom = g_fKdr_dend
-        if (gmax_fKdrsom < 0.) {
-            gmax_fKdrsom = 0.
-        }
-        for (x,0) {
-            r = 10
-            insert KAsom
-    	    gmax_KAsom = g_KA_dend *  r^(distance(x)/1000)
-            if (gmax_KAsom < 0.) {
-                gmax_KAsom = 0.
-            }
-	    insert pas
-	    g_pas = 1/Rm * exp(-g_leak_decay_basal * distance(x)/1000)
-	    e_pas = eleak  	
-        }
-    }
-    
-    
-    forsec ais {
-	insert fKdrsom 
-	gmax_fKdrsom = g_fKdr_axon
-	insert Naxsom
-	gmax_Naxsom = g_Na_axon
-	insert pas
-        for (x,0) {
-	    insert pas
-	    g_pas = 1/Rm * exp(-g_leak_decay_axon * distance(x)/1000)
-	    e_pas = eleak  	
-        }
-    }
-    
-    forsec hillock {
-	insert fKdrsom
-	gmax_fKdrsom = g_fKdr_axon
-	insert Naxsom
-	gmax_Naxsom = g_Na_axon
-	insert pas
-        for (x,0) {
-	    insert pas
-	    g_pas = 1/Rm * exp(-g_leak_decay_axon * distance(x)/1000)
-	    e_pas = eleak  	
-        }
-    }
-    
-    forsec axon {
-	insert fKdrsom  
-	gmax_fKdrsom = g_fKdr_axon
-	insert Naxsom
-	gmax_Naxsom = g_Na_axon
-        for (x,0) {
-	    insert pas
-	    g_pas = 1/Rm * exp(-g_leak_decay_axon * distance(x)/1000)
-	    e_pas = eleak  	
-        }
-    }
-    
 
-    forsec all {
-        ek = -95
-        ena = 55
+    forsec allaxon {
+        ek = ekval
+        ena = enaval
     }
-    
+
 }
 
 
@@ -396,10 +414,12 @@ proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vsrc, vdst, sec
         }
         if (swc_type == 4) {
             apicalidx.append(s)
+            dendidx.append(s)
             nDends = nDends + 1
         }
         if (swc_type == 3) {
             basalidx.append(s)
+            dendidx.append(s)
             nDends = nDends + 1
         }
         if (swc_type == 2) {
