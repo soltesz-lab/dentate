@@ -2121,7 +2121,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     synapse_config = env.celltypes[pop_name]['synapses']
 
     weights_namespaces = []
-    if 'weights' in synapse_config:
+    if load_weights and ('weights' in synapse_config):
         has_weights = synapse_config['weights']
         if has_weights:
             if 'weights namespace' in synapse_config:
@@ -2150,27 +2150,26 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
                                         for weights_namespace in weights_namespaces]
             else:
                 cell_weights_iters = []
-
-            if has_weights:
-                overwrite_weights = 'error'
-                for weights_namespace, cell_weights_iter in zip_longest(weights_namespaces, cell_weights_iters):
-                    weights_scale = weights_scales.get(weights_namespace, 1.0)
-                    for gid, cell_weights_dict in cell_weights_iter:
-                        weights_syn_ids = cell_weights_dict['syn_id']
-                        for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
-                            print('%s weights scale: %f' % (syn_name, weights_scale))
-                            weights_values = cell_weights_dict[syn_name]
-                            syn_attrs.add_mech_attrs_from_iter(
-                                gid, syn_name,
-                                zip_longest(weights_syn_ids, map(lambda x: {'weight': weights_scale*x}, weights_values)),
-                                overwrite=overwrite_weights)
-                            logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights' %
-                                        (gid, len(cell_weights_dict[syn_name]), syn_name))
-                    overwrite_weights='skip'
-
         else:
             logger.error('get_biophys_cell: synapse attributes not found for %s: gid: %i' % (pop_name, gid))
             raise Exception
+
+        if has_weights:
+            overwrite_weights = 'error'
+            for weights_namespace, cell_weights_iter in zip_longest(weights_namespaces, cell_weights_iters):
+                weights_scale = weights_scales.get(weights_namespace, 1.0)
+                for gid, cell_weights_dict in cell_weights_iter:
+                    weights_syn_ids = cell_weights_dict['syn_id']
+                    for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
+                        weights_values = cell_weights_dict[syn_name]
+                        syn_attrs.add_mech_attrs_from_iter(
+                            gid, syn_name,
+                            zip_longest(weights_syn_ids, map(lambda x: {'weight': weights_scale*x}, weights_values)),
+                            overwrite=overwrite_weights)
+                        logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights' %
+                                        (gid, len(cell_weights_dict[syn_name]), syn_name))
+                overwrite_weights='skip'
+
 
     if load_edges:
         if os.path.isfile(env.connectivity_file_path):

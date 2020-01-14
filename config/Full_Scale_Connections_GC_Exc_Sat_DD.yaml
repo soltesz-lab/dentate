@@ -109,12 +109,12 @@ Synapses:
           dur_onset: 0.5
           tau_offset: 5.5
           e: 0
-          g_unit: 0.00035
+          g_unit: 0.002
           weight: 1.0
           sat: 0.9
-        NMDA:
-          g_unit: 0.00035
-          weight: 1.0
+#        NMDA:
+#          g_unit: 0.00035
+#          weight: 1.0
     AAC:
       type: inhibitory
       sections: [ais]
@@ -217,7 +217,7 @@ Synapses:
             dur_onset:  6.0
             tau_offset: 15.0
             e:   -75
-            g_unit: 0.0005
+            g_unit: 0.002
             weight: 1.0
           GABA_B:
             dur_onset:  50.0
@@ -237,7 +237,7 @@ Synapses:
           tau_offset: 15.0
           e:   -75
           g_unit: 0.002
-          weight: 0.1
+          weight: 1.0
   MC:
     GC:   
       type: excitatory
