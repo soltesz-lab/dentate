@@ -176,9 +176,13 @@ def synapse_test(template_class, mech_file_path, gid, tree, synapses_dict, v_ini
 
     syn_attrs = env.synapse_attributes
 
+    print(tree)
+    hoc_cell = cells.make_hoc_cell(env, postsyn_name, gid, neurotree_dict=tree)
+    h.topology(hoc_cell)
+    
     cell = network_clamp.load_cell(env, postsyn_name, gid, mech_file_path=mech_file_path, \
                                    tree_dict=tree, synapses_dict=synapses_dict, \
-                                   correct_for_spines=True, load_edges=False)
+                                   correct_for_spines=True, load_connections=False)
 
     network_clamp.register_cell(env, postsyn_name, gid, cell)
 
