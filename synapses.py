@@ -126,10 +126,6 @@ class SynapseAttributes(object):
                 syn_secs = attr_dict['syn_secs']
                 syn_locs = attr_dict['syn_locs']
                 self.init_syn_id_attrs(gid, syn_ids, syn_layers, syn_types, swc_types, syn_secs, syn_locs)
-                if gid == 8615:
-                    print('init_syn_id_attrs: gid = %d syn_types = %s sec_dict:' % (gid, str(set(syn_types))))
-                    pprint.pprint(self.sec_dict[gid])
-                    first_gid = False
         elif attr_type == 'tuple':
             syn_ids_ind = attr_tuple_index.get('syn_ids', None)
             syn_locs_ind = attr_tuple_index.get('syn_locs', None)
@@ -146,11 +142,6 @@ class SynapseAttributes(object):
                 syn_secs = attr_tuple[syn_secs_ind]
                 syn_locs = attr_tuple[syn_locs_ind]
                 self.init_syn_id_attrs(gid, syn_ids, syn_layers, syn_types, swc_types, syn_secs, syn_locs)
-                if gid == 8615:
-                    print('init_syn_id_attrs: gid = %d syn_types = %s sec_dict:' % (gid, str(set(syn_types))))
-                    pprint.pprint(self.sec_dict[gid])
-                    first_gid = False
-
         else:
             raise RuntimeError('init_syn_id_attrs_from_iter: unrecognized input attribute type %s' % attr_type)
 
@@ -524,7 +515,6 @@ class SynapseAttributes(object):
                 section_syn_params = connection_syn_params[syn.swc_type]
             mech_params = section_syn_params.get(syn_name, {})
 
-        
         attr_dict = syn.attr_dict[syn_index]
         for k, v in viewitems(params):
             if k in rules[mech_name]['mech_params']:
@@ -1508,8 +1498,7 @@ def apply_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, 
     else:
         baseline = inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filters)
     if baseline is None:
-        print("baseline is None for gid %d sec_dict: " % cell.gid)
-        pprint.pprint(env.synapse_attributes.sec_dict[cell.gid].keys())
+        baseline = inherit_syn_mech_param(cell, env, node, syn_name, param_name, origin_filters)
     assert(baseline is not None)
     if 'custom' in rules:
         apply_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor,
@@ -1542,7 +1531,6 @@ def inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filter
     else:
         filtered_syns = syn_attrs.filter_synapses(gid, syn_sections=[donor.index], cache=cache_queries,
                                                   **origin_filters)
-
     if len(filtered_syns) > 0:
         valid_syns = []
         for syn_id, syn in viewitems(filtered_syns):
@@ -1680,7 +1668,6 @@ def init_syn_mech_attrs(cell, env=None, reset_mech_dict=False, update_targets=Fa
     for sec_type in default_ordered_sec_types:
         if sec_type in cell.mech_dict and sec_type in cell.nodes:
             if cell.nodes[sec_type] and 'synapses' in cell.mech_dict[sec_type]:
-
                 for syn_name in cell.mech_dict[sec_type]['synapses']:
                     update_syn_mech_by_sec_type(cell, env, sec_type, syn_name,
                                                 cell.mech_dict[sec_type]['synapses'][syn_name],
