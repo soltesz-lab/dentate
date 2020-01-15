@@ -1499,13 +1499,13 @@ def apply_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, 
         baseline = inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filters)
     if baseline is None:
         baseline = inherit_syn_mech_param(cell, env, node, syn_name, param_name, origin_filters)
-    assert(baseline is not None)
-    if 'custom' in rules:
-        apply_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor,
-                                    update_targets, verbose)
-    else:
-        set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor,
-                            update_targets, verbose)
+    if baseline is not None:
+        if 'custom' in rules:
+            apply_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor,
+                                        update_targets, verbose)
+        else:
+            set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor,
+                               update_targets, verbose)
 
 
 def inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filters=None):

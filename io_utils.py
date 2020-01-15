@@ -1,5 +1,6 @@
 import os, itertools
 from collections import defaultdict
+from mpi4py import MPI
 import h5py
 import numpy as np
 import dentate
@@ -26,6 +27,11 @@ path_population_projections = '/%s/Population projections' % grp_h5types
 # Default I/O configuration
 default_io_options = Struct(io_size=-1, chunk_size=1000, value_chunk_size=1000, cache_size=50, write_size=10000)
 
+
+def list_concat(a, b, datatype):
+    return a+b
+
+mpi_op_concat = MPI.Op.Create(list_concat, commute=True)
 
 
 def h5_get_group(h, groupname):
@@ -138,7 +144,7 @@ def mkout(env, results_filename):
     results_file.close()
 
 
-def spikeout(env, output_path, t_start=0., clear_data=False):
+def spikeout(env, output_path, t_start=None, clear_data=False):
     """
     Writes spike times to specified NeuroH5 output file.
 
@@ -174,7 +180,7 @@ def spikeout(env, output_path, t_start=0., clear_data=False):
             for j in range(0, len(ids)):
                 gid = ids[j]
                 t = ts[j]
-                if t >= t_start:
+                if (t_start is None) or (t >= t_start):
                     if gid in spkdict:
                         spkdict[gid]['t'].append(t)
                     else:
@@ -192,9 +198,11 @@ def spikeout(env, output_path, t_start=0., clear_data=False):
         env.t_vec.resize(0)
         env.id_vec.resize(0)
 
-    logger.info("*** Output spike results to file %s" % output_path)
+    env.comm.barrier()
+    if env.comm.Get_rank() == 0:
+        logger.info("*** Output spike results to file %s" % output_path)
 
-def recsout(env, output_path, clear_data=False):
+def recsout(env, output_path, t_start=None, clear_data=False):
     """
     Writes intracellular state traces to specified NeuroH5 output file.
 
@@ -206,15 +214,24 @@ def recsout(env, output_path, clear_data=False):
     t_rec = env.t_rec
     equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
 
+
     for pop_name in sorted(env.celltypes.keys()):
-        for rec_type, recs in sorted(viewitems(env.recs_dict[pop_name])):
+        local_rec_types = list(env.recs_dict[pop_name].keys())
+        rec_types = sorted(set(env.comm.allreduce(local_rec_types, op=mpi_op_concat)))
+        for rec_type in rec_types:
+            recs = env.recs_dict[pop_name][rec_type]
             attr_dict = defaultdict(lambda: {})
             for rec in recs:
                 gid = rec['gid']
                 data_vec = np.array(rec['vec'], copy=clear_data, dtype=np.float32)
                 time_vec = np.array(t_rec, copy=clear_data, dtype=np.float32)[:-1]
                 time_vec -= equilibration_duration
+                if t_start is not None:
+                    time_inds = np.where(time_vec >= t_start)[0]
+                    time_vec = time_vec[time_inds]
+                    data_vec = data_vec[time_inds]
                 label = rec['label']
+                
                 if label in attr_dict[gid]:
                     attr_dict[gid][label] += data_vec
                 else:
@@ -231,7 +248,10 @@ def recsout(env, output_path, clear_data=False):
     if clear_data:
         env.t_rec.resize(0)
 
-    logger.info("*** Output intracellular state results to file %s" % output_path)
+    env.comm.barrier()
+    if env.comm.Get_rank() == 0:
+        logger.info("*** Output intracellular state results to file %s" % output_path)
+
 
 
 def lfpout(env, output_path):
@@ -260,7 +280,8 @@ def lfpout(env, output_path):
 
         output.close()
 
-    logger.info("*** Output LFP results to file %s" % output_path)
+    if env.comm.Get_rank() == 0:
+        logger.info("*** Output LFP results to file %s" % output_path)
 
 
 def get_h5py_attr(attrs, key):
