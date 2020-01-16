@@ -108,12 +108,24 @@ apical:
             - excitatory
     NMDA:
       Kd:
+        filters:
+          syn_types:
+            - excitatory
         value: 4.331929
       g_unit:
+        filters:
+          syn_types:
+            - excitatory
         value: 0.004316527
       gamma:
+        filters:
+          syn_types:
+            - excitatory
         value: 0.08130658
       vshift:
+        filters:
+          syn_types:
+            - excitatory
         value: 9.592656
 axon:
   DGC_KM:

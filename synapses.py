@@ -482,7 +482,8 @@ class SynapseAttributes(object):
                                    (gid, syn_id, syn_name, str(k)))
             attr_dict[k] = v
 
-    def modify_mech_attrs(self, pop_name, gid, syn_id, syn_name, params, update_operator=lambda gid, syn_id, old, new: new):
+    def modify_mech_attrs(self, pop_name, gid, syn_id, syn_name, params,
+                          update_operator=lambda gid, syn_id, old, new: new):
         """
         Modifies mechanism attributes for the given cell id/synapse id/mechanism name. 
 
@@ -523,22 +524,26 @@ class SynapseAttributes(object):
                     if mech_param.parameter == 'delay':
                         new_val = mech_param(syn.source.delay)
                     else:
-                        raise RuntimeError('modify_mech_attrs: unknown dependent expression parameter %s' % (mech_param.parameter))
+                        raise RuntimeError('modify_mech_attrs: unknown dependent expression parameter %s' %
+                                           mech_param.parameter)
                 else:
                     new_val = v
                 assert(new_val is not None)
                 old_val = attr_dict.get(k, mech_param)
                 attr_dict[k] = update_operator(gid, syn_id, old_val, new_val)
             elif k in rules[mech_name]['netcon_params']:
+<<<<<<< HEAD
                 mech_param = mech_params.get(k, None)
                 if isinstance(mech_param, DExpr):
                     if mech_param.parameter == 'delay':
                         new_val = mech_param(syn.source.delay)
                         #print("modify %s.%s.%s: delay: %f new val: %f" % (pop_name, syn_name, k, syn.source.delay, new_val))
                     else:
-                        raise RuntimeError('modify_mech_attrs: unknown dependent expression parameter %s' % (mech_param.parameter))
+                        raise RuntimeError('modify_mech_attrs: unknown dependent expression parameter %s' %
+                                           mech_param.parameter)
                 else:
                     new_val = v
+
                 assert(new_val is not None)
                 old_val = attr_dict.get(k, mech_param)
                 attr_dict[k] = update_operator(gid, syn_id, old_val, new_val)
