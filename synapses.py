@@ -490,7 +490,7 @@ class SynapseAttributes(object):
         conn_params = self.env.connection_config[pop_name][presyn_name].mechanisms
 
         if update_operator is None:
-            update_uperator=lambda gid, syn_id, old, new: new
+            update_operator=lambda gid, syn_id, old, new: new
         
         if 'default' in conn_params:
             mech_params = conn_params['default'][syn_name]
@@ -499,6 +499,8 @@ class SynapseAttributes(object):
 
         attr_dict = syn.attr_dict[syn_index]
         for k, v in viewitems(params):
+            print('debug: mech_params: %s' % str(mech_params))
+            sys.stdout.flush()
             if k in rules[mech_name]['mech_params']:
                 mech_param = mech_params[k]
                 if isinstance(mech_param, DExpr):
