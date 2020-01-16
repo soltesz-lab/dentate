@@ -4,16 +4,17 @@ Dataset Name: Small_Scale
 Definitions: !include Definitions.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-Cell Data: GC_tree_syns_connections_20181127.h5  # DG_small_scale_tree_syns_weights_skip_MC_20180413.h5
-Connection Data: GC_tree_syns_connections_20181127.h5  # DG_GC_test_connections_20180402.h5
+#Cell Data: MC_shortdend_20200114.h5
+Cell Data: MC_shortdend_20200114.h5 
+#Connection Data: MC_shortdend_20200114.h5
 Connection Generator: !include Small_Scale_Connections_tune_GC_synapses.yaml
-Recording: !include Recording.yaml
+LFP: !include LFP.yaml
 ## Cell types for dentate gyrus model
 Cell Types: 
   GC:
     template: DGC
     template file: DGC_Template_minimal.hoc
-    mechanism file: 20190205_DG_GC_tuned_NMDA_mech.yaml
+    mechanism file: 20181205_DG_GC_excitability_mech.yaml
     synapses:
       correct_for_spines: True
       weights: True
@@ -21,6 +22,7 @@ Cell Types:
       density: !include GC_synapse_density.yaml
   MC:
     template: MossyCell
+    template file: MossyCell_minimal.hoc
     synapses:
       weights: False
       density: !include MC_synapse_density.yaml
@@ -30,6 +32,8 @@ Cell Types:
       density: !include HC_synapse_density.yaml
   BC:
     template: BasketCell
+    template file: BasketCell_minimal.hoc
+    mech_file: 20180831_BC_mech.yaml
     synapses:
       density: !include BC_synapse_density.yaml
   AAC:
