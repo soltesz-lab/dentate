@@ -2,14 +2,12 @@
 Intracellular:
   Network default:
     dt: 0.1
-    fraction: 0.001
     section quantity:
       v:
         swc types:
           - soma
   Network clamp default:
     dt: 0.1
-    fraction: 1.0
     section quantity:
       v:
         swc types:
@@ -18,8 +16,8 @@ Intracellular:
           - apical
           - basal
   Network clamp inh synaptic:
-    dt: 0.5
-    fraction: 1.0
+    dt: 0.1
+    reduce: True
     section quantity:
       v:
         swc types:
@@ -32,8 +30,8 @@ Intracellular:
         syn types:
           - inhibitory
   Network clamp all synaptic:
-    dt: 0.5
-    fraction: 1.0
+    dt: 0.1
+    reduce: True
     section quantity:
       v:
         swc types:

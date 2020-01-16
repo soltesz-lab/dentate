@@ -172,7 +172,7 @@ def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v
     """
     Makes a recording vector for the specified quantity in the specified section and location.
 
-    :param recid: integer
+    :param recid: str
     :param population: str
     :param gid: integer
     :param cell: :class:'BiophysCell'
@@ -185,7 +185,6 @@ def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v
     :param description: str
     """
     vec = h.Vector()
-    name = 'rec%i' % recid
     if (sec is None) and (loc is None) and (ps is not None):
         hocobj = ps
     elif (sec is not None) and (loc is not None):
@@ -195,7 +194,7 @@ def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v
     if label is None:
         label = param
     vec.record(getattr(hocobj, '_ref_%s' % param), dt)
-    rec_dict = {'name': name,
+    rec_dict = {'name': recid,
                 'gid': gid,
                 'cell': cell,
                 'population': population,

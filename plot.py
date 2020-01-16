@@ -2211,7 +2211,7 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
         for (gid, cell_states) in viewitems(pop_states):
             st_x, st_y = cell_states
             pch = interpolate.pchip(st_x, st_y)
-            res_npts = int((st_x.max() - st_x.min()))
+            res_npts = int((st_x.max() - st_x.min())) * 10
             st_x_res = np.linspace(st_x.min(), st_x.max(), res_npts, endpoint=True)
             st_y_res = pch(st_x_res)
             stplots.append(ax3.plot(st_x_res, st_y_res, linewidth=fig_options.lw, marker=marker, alpha=0.5, label=pop_name))

@@ -209,11 +209,12 @@ def recsout(env, output_path, t_start=None, clear_data=False):
     :param env:
     :param output_path:
     :param clear_data:
+    :param reduce_data:
     :return:
     """
     t_rec = env.t_rec
     equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
-
+    reduce_data = env.recording_profile.get('reduce', None)
 
     for pop_name in sorted(env.celltypes.keys()):
         local_rec_types = list(env.recs_dict[pop_name].keys())
@@ -233,7 +234,12 @@ def recsout(env, output_path, t_start=None, clear_data=False):
                 label = rec['label']
                 
                 if label in attr_dict[gid]:
-                    attr_dict[gid][label] += data_vec
+                    if reduce_data is None:
+                        raise RuntimeError('recsout: duplicate recorder labels and no reduce strategy specified')
+                    elif reduce_data is True:
+                        attr_dict[gid][label] += data_vec
+                    else:
+                        raise RuntimeError('recsout: unsupported reduce strategy specified')
                 else:
                     attr_dict[gid][label] = data_vec
                     attr_dict[gid]['t'] = time_vec

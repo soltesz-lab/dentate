@@ -2242,14 +2242,21 @@ def record_cell(env, pop_name, gid):
             for recvar, recdict  in viewitems(env.recording_profile.get('section quantity', {})):
                 nodes = filter_nodes(cell, layers=recdict.get('layers', None),
                                     swc_types=recdict.get('swc types', None))
+                node_type_count = collections.defaultdict(int)
+                for node in nodes:
+                    node_type_count[node.type] += 1
                 visited = set([])
                 for node in nodes:
                     sec = node.get_sec()
                     if str(sec) not in visited:
-                        rec = make_rec(gid, pop_name, gid, cell.hoc_cell, sec=sec,
+                        if node_type_count[node.type] == 1:
+                            rec_id = '%s' % (node.type)
+                        else:
+                            rec_id = '%s.%i' % (node.type, node.index)
+                        rec = make_rec(rec_id, pop_name, gid, cell.hoc_cell, sec=sec,
                                         dt=dt, loc=0.5, param=recvar, \
                                         description=node.name)
-                        env.recs_dict[pop_name][node.type].append(rec)
+                        env.recs_dict[pop_name][rec_id].append(rec)
                         visited.add(str(sec))
             for recvar, recdict  in viewitems(env.recording_profile.get('synaptic quantity', {})):
                 syn_filters = recdict.get('syn_filters', {})

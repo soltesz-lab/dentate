@@ -598,7 +598,7 @@ def make_cells(env):
         recording_set = set([])
         for gid in range(env.celltypes[pop_name]['start'],
                          env.celltypes[pop_name]['start'] + env.celltypes[pop_name]['num']):
-            if ranstream_recording.uniform() <= env.recording_profile['fraction']:
+            if ranstream_recording.uniform() <= env.recording_fraction:
                 recording_set.add(gid)
         env.recording_sets[pop_name] = recording_set
                 
