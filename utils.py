@@ -748,10 +748,10 @@ def baks(spktimes, time, a=1.5, b=None):
         sumdenom = sumdenom + denominator
 
     h = (gamma(a) / gamma(a + 0.5)) * (sumnum / sumdenom)
-
     rate = np.zeros((len(time),))
     for j in range(n):
-        K = (1. / (np.sqrt(2. * np.pi) * h)) * np.exp(-((time - spktimes[j]) ** 2) / (2. * h ** 2))
+        x = np.asarray(-((time - spktimes[j]) ** 2) / (2. * h ** 2), dtype=np.float128)
+        K = (1. / (np.sqrt(2. * np.pi) * h)) * np.exp(x)
         rate = rate + K
 
     return rate, h

@@ -1,7 +1,7 @@
 """
 Routines for Network Clamp simulation.
 """
-import os, sys, copy, uuid
+import os, sys, copy, uuid, pprint
 from collections import defaultdict
 from mpi4py import MPI
 import numpy as np
@@ -285,6 +285,8 @@ def run(env):
     env.t_vec.resize(0)
     env.id_vec.resize(0)
 
+    h.cvode_active(1)
+
     h.t = 0.0
     h.dt = env.dt
     h.tstop = env.tstop
@@ -359,7 +361,7 @@ def run_with(env, param_dict):
     env.t_vec.resize(0)
     env.id_vec.resize(0)
 
-    #h.cvode_active(1)
+    h.cvode_active(1)
 
     h.t = 0.0
     h.tstop = env.tstop
@@ -371,7 +373,8 @@ def run_with(env, param_dict):
 
     if rank == 0:
         logger.info("*** Running simulation with dt = %.03f and tstop = %.02f" % (h.dt, h.tstop))
-        logger.info("*** Parameters: %s" % str(param_dict))
+        
+        logger.info("*** Parameters: %s" % pprint.pformat(param_dict))
 
     env.pc.barrier()
     env.pc.psolve(h.tstop)
@@ -403,7 +406,7 @@ def make_firing_rate_target(env, pop_name, gid, target_rate, from_param_vector):
             spkdict1 = {gid: np.asarray([], dtype=np.float32)}
         rate_dict = spikedata.spike_rates(spkdict1)
         if gid in spkdict[pop_name]:
-            logger.info('firing rate objective: spikes times of gid %i: %s' % (gid, str(spkdict[pop_name][gid])))
+            logger.info('firing rate objective: spikes times of gid %i: %s' % (gid, pprint.pformat(spkdict[pop_name][gid])))
         logger.info('firing rate objective: rate of gid %i is %.2f' % (gid, rate_dict[gid]))
         return rate_dict[gid]['rate']
 
@@ -562,8 +565,8 @@ def optimize_rate(env, pop_name, gid, opt_iter=10, param_type='synaptic'):
     opt_params, outputs = dlib.find_min_global(f_firing_rate, to_param_vector(min_values), to_param_vector(max_values),
                                                opt_iter)
 
-    logger.info('Optimized parameters: %s' % str(from_param_vector(opt_params)))
-    logger.info('Optimized objective function: %s' % str(outputs))
+    logger.info('Optimized parameters: %s' % pprint.pformat(from_param_vector(opt_params)))
+    logger.info('Optimized objective function: %s' % pprint.pformat(outputs))
 
     return opt_params, outputs
 
@@ -615,8 +618,8 @@ def optimize_rate_dist(env, tstop, pop_name, gid,
     opt_params, outputs = dlib.find_min_global(f_firing_rate_vector, to_param_vector(min_values), to_param_vector(max_values),
                                                opt_iter)
 
-    logger.info('Optimized parameters: %s' % str(from_param_vector(opt_params)))
-    logger.info('Optimized objective function: %s' % str(outputs))
+    logger.info('Optimized parameters: %s' % pprint.pformat(from_param_vector(opt_params)))
+    logger.info('Optimized objective function: %s' % pprint.pformat(outputs))
 
     return opt_params, outputs
 

@@ -55,8 +55,8 @@ class Env(object):
     def __init__(self, comm=None, config_file=None, template_paths="templates", hoc_lib_path=None,
                  dataset_prefix=None, config_prefix=None, results_path=None, results_file_id=None,
                  results_namespace_id=None,
-                 node_rank_file=None, io_size=0, recording_profile=None, coredat=False, tstop=0,
-                 v_init=-65, stimulus_onset=0.0, max_walltime_hours=0.5,
+                 node_rank_file=None, io_size=0, recording_profile=None, recording_fraction=1.0,
+                 coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hours=0.5,
                  checkpoint_interval=500.0, checkpoint_clear_data=True, 
                  results_write_time=0, dt=0.025, ldbal=False, lptbal=False, transfer_debug=False,
                  cell_selection_path=None, spike_input_path=None, spike_input_namespace=None, spike_input_attr=None,
@@ -311,6 +311,8 @@ class Env(object):
                 self.logger.info('projection_dict = %s' % str(self.projection_dict))
 
         # Configuration profile for recording intracellular quantities
+        assert((recording_fraction >= 0.0) and (recording_fraction <= 1.0))
+        self.recording_fraction = recording_fraction
         self.recording_profile = None
         if ('Recording' in self.model_config) and (recording_profile is not None):
             self.recording_profile = self.model_config['Recording']['Intracellular'][recording_profile]
