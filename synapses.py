@@ -470,7 +470,8 @@ class SynapseAttributes(object):
             else:
                 attr_dict[k] = v
 
-    def modify_mech_attrs(self, pop_name, gid, syn_id, syn_name, params, update_operator=lambda gid, syn_id, old, new: new):
+    def modify_mech_attrs(self, pop_name, gid, syn_id, syn_name, params,
+                          update_operator=lambda gid, syn_id, old, new: new):
         """
         Modifies mechanism attributes for the given cell id/synapse id/mechanism name. 
 
@@ -490,7 +491,7 @@ class SynapseAttributes(object):
         conn_params = self.env.connection_config[pop_name][presyn_name].mechanisms
 
         if update_operator is None:
-            update_operator=lambda gid, syn_id, old, new: new
+            update_operator = lambda gid, syn_id, old, new: new
         
         if 'default' in conn_params:
             mech_params = conn_params['default'][syn_name]
@@ -499,15 +500,17 @@ class SynapseAttributes(object):
 
         attr_dict = syn.attr_dict[syn_index]
         for k, v in viewitems(params):
-            print('debug: mech_params: %s' % str(mech_params))
-            sys.stdout.flush()
             if k in rules[mech_name]['mech_params']:
-                mech_param = mech_params[k]
-                if isinstance(mech_param, DExpr):
-                    if mech_param.parameter == 'delay':
-                        new_val = mech_param(syn.source.delay)
+                if k in mech_params:
+                    mech_param = mech_params[k]
+                    if isinstance(mech_param, DExpr):
+                        if mech_param.parameter == 'delay':
+                            new_val = mech_param(syn.source.delay)
+                        else:
+                            raise RuntimeError('modify_mech_attrs: unknown dependent expression parameter %s' %
+                                               mech_param.parameter)
                     else:
-                        raise RuntimeError('modify_mech_attrs: unknown dependent expression parameter %s' % (mech_param.parameter))
+                        new_val = v
                 else:
                     new_val = v
                 if k in attr_dict:
@@ -515,16 +518,19 @@ class SynapseAttributes(object):
                 else:
                     attr_dict[k] = new_val
             elif k in rules[mech_name]['netcon_params']:
-                mech_param = mech_params[k]
-                if isinstance(mech_param, DExpr):
-                    if mech_param.parameter == 'delay':
-                        new_val = mech_param(syn.source.delay)
-                        #print("modify %s.%s.%s: delay: %f new val: %f" % (pop_name, syn_name, k, syn.source.delay, new_val))
+                if k in mech_params:
+                    mech_param = mech_params[k]
+                    if isinstance(mech_param, DExpr):
+                        if mech_param.parameter == 'delay':
+                            new_val = mech_param(syn.source.delay)
+                            #print("modify %s.%s.%s: delay: %f new val: %f" % (pop_name, syn_name, k, syn.source.delay, new_val))
+                        else:
+                            raise RuntimeError('modify_mech_attrs: unknown dependent expression parameter %s' %
+                                               mech_param.parameter)
                     else:
-                        raise RuntimeError('modify_mech_attrs: unknown dependent expression parameter %s' % (mech_param.parameter))
+                        new_val = v
                 else:
                     new_val = v
-
                 if k in attr_dict:
                     attr_dict[k] = update_operator(gid, syn_id, attr_dict[k], new_val)
                 else:
