@@ -266,7 +266,10 @@ class Env(object):
             if rank == 0:
                 self.logger.info('env.data_file_path = %s' % self.data_file_path)
             self.load_celltypes()
-            self.connectivity_file_path = os.path.join(self.dataset_path, self.modelConfig['Connection Data'])
+            if 'Connection Data' in self.modelConfig:		
+                self.connectivity_file_path = os.path.join(self.dataset_path, self.modelConfig['Connection Data'])
+            else:
+                self.connectivity_file_path = None
             self.forest_file_path = os.path.join(self.dataset_path, self.modelConfig['Cell Data'])
             if 'Gap Junction Data' in self.modelConfig:
                 self.gapjunctions_file_path = os.path.join(self.dataset_path, self.modelConfig['Gap Junction Data'])
@@ -302,10 +305,11 @@ class Env(object):
         if self.dataset_prefix is not None:
             if rank == 0:
                 self.logger.info('env.connectivity_file_path = %s' % str(self.connectivity_file_path))
-            for (src, dst) in read_projection_names(self.connectivity_file_path, comm=self.comm):
-                self.projection_dict[dst].append(src)
-            if rank == 0:
-                self.logger.info('projection_dict = %s' % str(self.projection_dict))
+            if self.connectivity_file_path is not None:
+                for (src, dst) in read_projection_names(self.connectivity_file_path, comm=self.comm):
+                    self.projection_dict[dst].append(src)
+                if rank == 0:
+                    self.logger.info('projection_dict = %s' % str(self.projection_dict))
 
         self.lfpConfig = {}
         if 'LFP' in self.modelConfig:
