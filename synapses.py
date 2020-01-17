@@ -532,7 +532,6 @@ class SynapseAttributes(object):
                 old_val = attr_dict.get(k, mech_param)
                 attr_dict[k] = update_operator(gid, syn_id, old_val, new_val)
             elif k in rules[mech_name]['netcon_params']:
-<<<<<<< HEAD
                 mech_param = mech_params.get(k, None)
                 if isinstance(mech_param, DExpr):
                     if mech_param.parameter == 'delay':
