@@ -263,14 +263,16 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
         import dentate.plot
         from dentate.plot import plot_synaptic_attribute_distribution
         syn_attrs = env.synapse_attributes
-        biophys_cell = env.biophys_cells[pop_name]
+        biophys_cell = env.biophys_cells[pop_name][gid]
         syn_name = 'AMPA'
         syn_mech_name = syn_attrs.syn_mech_names[syn_name]
         for param_name in ['weight', 'g_unit']:
             param_label = '%s; %s; %s' % (syn_name, syn_mech_name, param_name)
             plot_synaptic_attribute_distribution(biophys_cell, env, syn_name, param_name, filters=None, from_mech_attrs=True,
                                                  from_target_attrs=True, param_label=param_label,
-                                                 export='syn_params_%d.h5' % gid, description='network_clamp', show=show)
+                                                 export='syn_params_%d.h5' % gid, description='network_clamp', show=False,
+                                                 svg_title="Synaptic parameters for gid %d" % (syn_name, gid),
+                                                 output_dir=env.results_path)
         
         
     
