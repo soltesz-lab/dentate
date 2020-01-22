@@ -1189,6 +1189,7 @@ def plot_cell_tree(gid, tree_dict):
     mlab.savefig('cell_tree_%d.tiff' % gid, magnification=10)
     mlab.show()
 
+
     
     
 def plot_spikes_in_volume(config_path, populations, coords_path, coords_namespace, spike_input_path,
@@ -1647,7 +1648,7 @@ def plot_lfp_spectrogram(config, input_path, time_range = None, window_size=4096
 
 
 ## Plot intracellular state trace 
-def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], time_range = None, time_variable='t', state_variable='v', max_units = 1, unit_no = None, labels = None, marker = '|', **kwargs): 
+def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], time_range = None, time_variable='t', state_variable='v', max_units = 1, unit_no = None, labels = None,  **kwargs): 
     ''' 
     Line plot of intracellular state variable (default: v). Returns the figure handle.
 
@@ -1658,7 +1659,6 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
     state_variable: Name of state variable (default: 'v')
     max_units (int): maximum number of units from each population that will be plotted  (default: 1)
     labels = ('legend', 'overlay'): Show population labels in a legend or overlayed on one side of raster (default: 'legend')
-    marker (char): Marker for each spike (default: '|')
     '''
 
     fig_options = copy.copy(default_fig_options)
@@ -1764,6 +1764,133 @@ def interpolate_state(st_x, st_y):
     pch = interpolate.pchip(st_x, st_y)
     st_y_res = pch(st_x_res)
     return st_y_res
+
+
+## Plot intracellular state trace 
+def plot_intracellular_state_in_tree (gid, population, forest_path, state_input_path, namespace_ids, time_range = None, time_variable='t', state_variable='v',  **kwargs): 
+    ''' 
+    Aggregate plot of intracellular state variable in the cell morphology (default: v). Returns the figure handle.
+
+    input_path: file with spike data
+    namespace_ids: attribute namespaces  
+    time_range ([start:stop]): Time range of spikes shown; if None shows all (default: None)
+    time_variable: Name of variable containing spike times (default: 't')
+    state_variable: Name of state variable (default: 'v')
+    '''
+
+    fig_options = copy.copy(default_fig_options)
+    fig_options.update(kwargs)
+
+    (population_ranges, N) = read_population_ranges(input_path)
+    population_names  = read_population_names(input_path)
+
+    pop_num_cells = {}
+    for k in population_names:
+        pop_num_cells[k] = population_ranges[k][1]
+
+
+    states_dict = defaultdict(lambda: defaultdict(lambda: dict()))
+    for namespace_id in namespace_ids:
+        data = read_state (input_path, [population], namespace_id, time_variable=time_variable,
+                            state_variable=state_variable, time_range=time_range, unit_no = gid)
+        states  = data['states']
+        
+        for (gid, cell_states) in viewitems(pop_states):
+            states_dict[gid][namespace_id] = cell_states
+
+
+    state_mat_dict = {}
+    for (gid, cell_state_dict) in viewitems(states_dict):
+        cell_state_items = list(sorted(viewitems(cell_state_dict)))
+        cell_state_x = cell_state_items[0][1][0]
+        cell_state_mat = np.matrix([cell_state_item[1][1] for cell_state_item in cell_state_items], dtype=np.float32)
+        cell_state_distances = [cell_state_item[1][2] for cell_state_item in cell_state_items]
+        cell_state_labels = [cell_state_item[0] for cell_state_item in cell_state_items]
+        state_mat_dict[gid] = (cell_state_x, cell_state_mat, cell_state_labels, cell_state_distances)
+
+        
+        for (gid, cell_state_mat) in viewitems(pop_states):
+            
+            n = cell_state_mat[0].shape[0]
+            m = cell_state_mat[1].shape[0]
+            for i in range(m):
+                line, = ax.plot(cell_state_mat[0],
+                                np.asarray(cell_state_mat[1][i,:]).reshape((n,)),
+                                label='%s (%s um)' % (cell_state_mat[2][i], cell_state_mat[3][i]))
+                stplots.append(line)
+            ax.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
+            ax.set_ylabel(state_variable, fontsize=fig_options.fontSize)
+            ax.legend()
+
+
+    (tree_iter, _) = read_tree_selection(forest_path, population, selection=[gid])
+    _, tree_dict = next(tree_iter)
+
+    import networkx as nx
+    from mayavi import mlab
+
+    mlab.figure(bgcolor=(0,0,0))
+
+
+    mlab.figure(bgcolor=(0,0,0))
+
+    logger.info('plotting tree %i' % gid)
+    xcoords = tree_dict['x']
+    ycoords = tree_dict['y']
+    zcoords = tree_dict['z']
+    swc_type = tree_dict['swc_type']
+    layer    = tree_dict['layer']
+    secnodes = tree_dict['section_topology']['nodes']
+    src      = tree_dict['section_topology']['src']
+    dst      = tree_dict['section_topology']['dst']
+
+    dend_idxs = np.where(swc_type == 4)[0]
+    dend_idx_set = set(dend_idxs.flat)
+
+    edges = []
+    for sec, nodes in viewitems(secnodes):
+        for i in range(1, len(nodes)):
+            srcnode = nodes[i-1]
+            dstnode = nodes[i]
+            if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
+                edges.append((srcnode, dstnode))
+    for (s,d) in zip(src,dst):
+        srcnode = secnodes[s][-1]
+        dstnode = secnodes[d][0]
+        if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
+            edges.append((srcnode, dstnode))
+                
+    x = xcoords[dend_idxs].reshape(-1,)
+    y = ycoords[dend_idxs].reshape(-1,)
+    z = zcoords[dend_idxs].reshape(-1,)
+
+    # Make a NetworkX graph out of our point and edge data
+    g = make_geometric_graph(x, y, z, edges)
+
+    # Compute minimum spanning tree using networkx
+    # nx.mst returns an edge generator
+    edges = nx.minimum_spanning_tree(g).edges(data=True)
+    start_idx, end_idx, _ = np.array(list(edges)).T
+    start_idx = start_idx.astype(np.int)
+    end_idx   = end_idx.astype(np.int)
+    if color_edge_scalars:
+        edge_scalars = z[start_idx]
+        edge_color = None
+    else:
+        edge_scalars = None
+        edge_color = hex2rgb(rainbow_colors[gid%len(rainbow_colors)])
+                                        
+    # Plot this with Mayavi
+    plot_graph(x, y, z, start_idx, end_idx, edge_scalars=edge_scalars, edge_color=edge_color, \
+                   opacity=0.8, colormap='summer', line_width=line_width)
+                   
+    mlab.gcf().scene.x_plus_view()
+    mlab.show()
+
+        
+    
+    
+    return fig
 
 
 
