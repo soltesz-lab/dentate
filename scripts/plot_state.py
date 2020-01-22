@@ -42,10 +42,10 @@ def main(state_path, state_namespace, state_namespace_pattern, populations, max_
     if query:
         for this_namespace_id in namespace_id_lst:
             print("Namespace: %s" % str(this_namespace_id))
-            for attr_name, attr_cell_index in attr_info_dict[pop_name][this_namespace_id]:
-                print("\tAttribute: %s" % str(attr_name))
-                for i in attr_cell_index:
-                    print("\t%d" % i)
+            #for attr_name, attr_cell_index in attr_info_dict[pop_name][this_namespace_id]:
+            #    print("\tAttribute: %s" % str(attr_name))
+            #    for i in attr_cell_index:
+            #        print("\t%d" % i)
         sys.exit()
 
     state_namespaces = []

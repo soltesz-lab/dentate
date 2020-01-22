@@ -1,4 +1,4 @@
-import os, itertools
+import os, itertools, pprint
 from collections import defaultdict
 from mpi4py import MPI
 import h5py
@@ -232,7 +232,6 @@ def recsout(env, output_path, t_start=None, clear_data=False):
                     time_vec = time_vec[time_inds]
                     data_vec = data_vec[time_inds]
                 label = rec['label']
-                
                 if label in attr_dict[gid]:
                     if reduce_data is None:
                         raise RuntimeError('recsout: duplicate recorder labels and no reduce strategy specified')

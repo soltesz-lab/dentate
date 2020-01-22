@@ -1699,8 +1699,6 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
                 cell_state_labels = [cell_state_item[0] for cell_state_item in cell_state_items]
                 pop_state_mat_dict[pop_name][gid] = (cell_state_x, cell_state_mat, cell_state_labels, cell_state_distances)
     
-    pop_colors = { pop_name: dflt_colors[ipop%len(dflt_colors)] for ipop, pop_name in enumerate(states) }
-    
     stplots = []
     
     fig, ax = plt.subplots(figsize=fig_options.figSize,sharex='all',sharey='all')
@@ -1722,7 +1720,6 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
 
     
     # Add legend
-    pop_labels = pop_name
     
     if labels == 'legend':
         legend_labels = pop_labels
@@ -1752,7 +1749,7 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
         if isinstance(fig_options.saveFig, basestring):
             filename = fig_options.saveFig
         else:
-            filename = namespace_id+' '+'state.%s' % fig_options.figFormat
+            filename = input_path+' '+'state.%s' % fig_options.figFormat
             plt.savefig(filename)
                 
     # show fig 

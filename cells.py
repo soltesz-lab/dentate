@@ -2264,12 +2264,12 @@ def record_cell(env, pop_name, gid):
                 syn_names = recdict.get('syn names', syn_attrs.syn_name_index_dict.keys())
                 for syn_id, syn in viewitems(synapses):
                     syn_swc_type_name = env.SWC_Type_index[syn.swc_type]
-                    syn_section = syn.section
+                    syn_section = syn.syn_section
                     for syn_name in syn_names:
                         pps = syn_attrs.get_pps(gid, syn_id, syn_name, throw_error=False)
                         if pps is not None:
                             rec_id = '%d.%s.%s' % (syn_id, syn_name, str(recvar))
-                            label = '%s' % (str(recvar)),
+                            label = '%s' % (str(recvar))
                             rec = make_rec(rec_id, pop_name, gid, cell.hoc_cell, ps=pps, dt=dt, param=recvar,
                                             label=label, description='%s' % label)
                             ns = '%s%d.%s' % (syn_swc_type_name, syn_section, syn_name)
