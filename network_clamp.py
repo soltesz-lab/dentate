@@ -115,7 +115,7 @@ def load_cell(env, pop_name, gid, mech_file_path=None, correct_for_spines=False,
 
 
 
-def init_cell(env, pop_name, gid, load_connections=True):
+def init_cell(env, pop_name, gid, load_connections=True, write_cell=False):
     """
     Instantiates a cell and all its synapses.
 
@@ -148,11 +148,18 @@ def init_cell(env, pop_name, gid, load_connections=True):
     
     report_topology(cell, env)
 
+    env.cell_selection[pop_name].append(gid)
+    if write_cell:
+        write_selection_file_path =  "%s/%s_%d.h5" % (env.results_path, env.modelName, gid)
+        io_utils.write_cell_selection(env, write_selection_file_path)
+        if load_connections:
+            io_utils.write_connection_selection(env, write_selection_file_path)
+    
     return cell
 
 
 def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), generate_weights_pops=set([]),
-         spike_events_namespace='Spike Events', t_var='t', t_min=None, t_max=None, plot_cell=False):
+         spike_events_namespace='Spike Events', t_var='t', t_min=None, t_max=None, write_cell=False, plot_cell=False):
     """
     Instantiates a cell and all its synapses and connections and loads
     or generates spike times for all synaptic connections.
@@ -182,7 +189,7 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
     presyn_names = env.projection_dict[pop_name]
 
     ## Load cell gid and its synaptic attributes and connection data
-    cell = init_cell(env, pop_name, gid)
+    cell = init_cell(env, pop_name, gid, write_cell=write_cell)
 
     ## Load spike times of presynaptic cells
     spkdata = spikedata.read_spike_events(spike_events_path, \
@@ -675,11 +682,12 @@ def cli():
 @click.option("--spike-events-t", required=False, type=str, default='t',
               help='name of variable containing spike times')
 @click.option('--plot-cell', is_flag=True, help='plot the distribution of weight and g_unit synaptic parameters')
+@click.option('--write-cell', is_flag=True, help='write out selected cell tree morphology and connections')
 @click.option('--profile-memory', is_flag=True, help='calculate and print heap usage after the simulation is complete')
 @click.option('--recording-profile', type=str, default='Network clamp default', help='recording profile to use')
 
 def show(config_file, population, gid, tstop, template_paths, dataset_prefix, config_prefix, spike_events_path,
-         spike_events_namespace, spike_events_t, plot_cell, profile_memory, recording_profile):
+         spike_events_namespace, spike_events_t, plot_cell, write_cell, profile_memory, recording_profile):
     """
     Show configuration for the specified cell.
     """
@@ -696,7 +704,7 @@ def show(config_file, population, gid, tstop, template_paths, dataset_prefix, co
 
     init(env, population, gid, spike_events_path, \
          spike_events_namespace=spike_events_namespace, \
-         t_var=spike_events_t, plot_cell=plot)
+         t_var=spike_events_t, plot_cell=plot, write_cell=write_cell)
 
     if env.profile_memory:
         profile_memory(logger)
@@ -733,13 +741,14 @@ def show(config_file, population, gid, tstop, template_paths, dataset_prefix, co
 @click.option("--results-namespace-id", type=str, required=False, default=None, \
               help='identifier that is used to name neuroh5 namespaces that contain output spike and intracellular trace data')
 @click.option('--plot-cell', is_flag=True, help='plot the distribution of weight and g_unit synaptic parameters')
+@click.option('--write-cell', is_flag=True, help='write out selected cell tree morphology and connections')
 @click.option('--profile-memory', is_flag=True, help='calculate and print heap usage after the simulation is complete')
 @click.option('--recording-profile', type=str, default='Network clamp default', help='recording profile to use')
 
 def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t_max, t_min,
        template_paths, dataset_prefix,
        config_prefix, spike_events_path, spike_events_namespace, spike_events_t,
-       results_path, results_file_id, results_namespace_id, plot_cell, profile_memory, recording_profile):
+       results_path, results_file_id, results_namespace_id, plot_cell, write_cell, profile_memory, recording_profile):
 
     """
     Runs network clamp simulation for the specified cell.
@@ -758,7 +767,8 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
          generate_inputs_pops=set(generate_inputs), \
          generate_weights_pops=set(generate_weights), \
          spike_events_namespace=spike_events_namespace, \
-         t_var=spike_events_t, t_min=t_min, t_max=t_max, plot_cell=plot_cell)
+         t_var=spike_events_t, t_min=t_min, t_max=t_max,
+         plot_cell=plot_cell, write_cell=write_cell)
 
     run(env)
     write_output(env)
