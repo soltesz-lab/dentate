@@ -185,10 +185,18 @@ def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v
     :param description: str
     """
     vec = h.Vector()
-    if (sec is None) and (loc is None) and (ps is not None):
+    if (loc is None) and (ps is not None):
         hocobj = ps
+        seg = ps.get_segment()
+        if seg is not None:
+            origin = list(cell.soma)[0]
+            distance = h.distance(origin(0.5), seg)
+        else:
+            distance = None
     elif (sec is not None) and (loc is not None):
         hocobj = sec(loc)
+        origin = list(cell.soma)[0]
+        distance = h.distance(origin(0.5), sec(loc))
     else:
         raise RuntimeError('make_rec: either sec and loc or ps must be specified')
     if label is None:
@@ -200,6 +208,7 @@ def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v
                 'population': population,
                 'loc': loc,
                 'sec': sec,
+                'distance': distance,
                 'description': description,
                 'vec': vec,
                 'label': label

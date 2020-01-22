@@ -243,6 +243,9 @@ def recsout(env, output_path, t_start=None, clear_data=False):
                 else:
                     attr_dict[gid][label] = data_vec
                     attr_dict[gid]['t'] = time_vec
+                distance = rec.get('distance', None)
+                if distance is not None:
+                    attr_dict[gid]['distance'] = np.asarray([distance], dtype=np.float32)
                 if clear_data:
                     rec['vec'].resize(0)
             if env.results_namespace_id is None:

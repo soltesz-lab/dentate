@@ -1124,6 +1124,72 @@ def plot_trees_in_volume(population, forest_path, config, line_width=1., sample=
     mlab.savefig('%s_trees_in_volume.tiff' % population, magnification=10)
     mlab.show()
 
+
+def plot_cell_tree(gid, tree_dict):
+
+    import networkx as nx
+    from mayavi import mlab
+
+    print('%d trees selected from population %s' % (len(selection), population))
+    (tree_iter, _) = read_tree_selection(forest_path, population, selection=selection.tolist())
+
+    mlab.figure(bgcolor=(0,0,0))
+
+    logger.info('plotting tree %i' % gid)
+    xcoords = tree_dict['x']
+    ycoords = tree_dict['y']
+    zcoords = tree_dict['z']
+    swc_type = tree_dict['swc_type']
+    layer    = tree_dict['layer']
+    secnodes = tree_dict['section_topology']['nodes']
+    src      = tree_dict['section_topology']['src']
+    dst      = tree_dict['section_topology']['dst']
+
+    dend_idxs = np.where(swc_type == 4)[0]
+    dend_idx_set = set(dend_idxs.flat)
+
+    edges = []
+    for sec, nodes in viewitems(secnodes):
+        for i in range(1, len(nodes)):
+            srcnode = nodes[i-1]
+            dstnode = nodes[i]
+            if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
+                edges.append((srcnode, dstnode))
+    for (s,d) in zip(src,dst):
+        srcnode = secnodes[s][-1]
+        dstnode = secnodes[d][0]
+        if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
+            edges.append((srcnode, dstnode))
+                
+    x = xcoords[dend_idxs].reshape(-1,)
+    y = ycoords[dend_idxs].reshape(-1,)
+    z = zcoords[dend_idxs].reshape(-1,)
+
+    # Make a NetworkX graph out of our point and edge data
+    g = make_geometric_graph(x, y, z, edges)
+
+    # Compute minimum spanning tree using networkx
+    # nx.mst returns an edge generator
+    edges = nx.minimum_spanning_tree(g).edges(data=True)
+    start_idx, end_idx, _ = np.array(list(edges)).T
+    start_idx = start_idx.astype(np.int)
+    end_idx   = end_idx.astype(np.int)
+    if color_edge_scalars:
+        edge_scalars = z[start_idx]
+        edge_color = None
+    else:
+        edge_scalars = None
+        edge_color = hex2rgb(rainbow_colors[gid%len(rainbow_colors)])
+                                        
+    # Plot this with Mayavi
+    plot_graph(x, y, z, start_idx, end_idx, edge_scalars=edge_scalars, edge_color=edge_color, \
+                   opacity=0.8, colormap='summer', line_width=line_width)
+                   
+    mlab.gcf().scene.x_plus_view()
+    #mlab.savefig('%s_trees_in_volume.tiff' % population, magnification=10)
+    mlab.show()
+
+    
     
 def plot_spikes_in_volume(config_path, populations, coords_path, coords_namespace, spike_input_path,
                           spike_input_namespace, time_variable='t', marker_scale=10., compute_rates=False, 
@@ -1581,15 +1647,15 @@ def plot_lfp_spectrogram(config, input_path, time_range = None, window_size=4096
 
 
 ## Plot intracellular state trace 
-def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', variable='v', max_units = 1, unit_no = None, labels = None, marker = '|', **kwargs): 
+def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], time_range = None, time_variable='t', state_variable='v', max_units = 1, unit_no = None, labels = None, marker = '|', **kwargs): 
     ''' 
     Line plot of intracellular state variable (default: v). Returns the figure handle.
 
     input_path: file with spike data
-    namespace_id: attribute namespace for spike events
+    namespace_ids: attribute namespaces  
     time_range ([start:stop]): Time range of spikes shown; if None shows all (default: None)
     time_variable: Name of variable containing spike times (default: 't')
-    variable: Name of state variable (default: 'v')
+    state_variable: Name of state variable (default: 'v')
     max_units (int): maximum number of units from each population that will be plotted  (default: 1)
     labels = ('legend', 'overlay'): Show population labels in a legend or overlayed on one side of raster (default: 'legend')
     marker (char): Marker for each spike (default: '|')
@@ -1611,28 +1677,49 @@ def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], t
         for pop in population_names:
             include.append(pop)
 
-    data = read_state (input_path, include, namespace_id, time_variable=time_variable,
-                       variable=variable, time_range=time_range, 
-                       max_units = max_units, unit_no = unit_no)
+    pop_states_dict = defaultdict(lambda: defaultdict(lambda: dict()))
+    for namespace_id in namespace_ids:
+        data = read_state (input_path, include, namespace_id, time_variable=time_variable,
+                            state_variable=state_variable, time_range=time_range, max_units = max_units,
+                            unit_no = unit_no)
+        states  = data['states']
+        
+        for (pop_name, pop_states) in viewitems(states):
+            for (gid, cell_states) in viewitems(pop_states):
+                pop_states_dict[pop_name][gid][namespace_id] = cell_states
 
-    states     = data['states']
+
+    pop_state_mat_dict = defaultdict(lambda: dict())
+    for (pop_name, pop_states) in viewitems(pop_states_dict):
+            for (gid, cell_state_dict) in viewitems(pop_states):
+                cell_state_items = list(sorted(viewitems(cell_state_dict)))
+                cell_state_x = cell_state_items[0][1][0]
+                cell_state_mat = np.matrix([cell_state_item[1][1] for cell_state_item in cell_state_items], dtype=np.float32)
+                cell_state_distances = [cell_state_item[1][2] for cell_state_item in cell_state_items]
+                cell_state_labels = [cell_state_item[0] for cell_state_item in cell_state_items]
+                pop_state_mat_dict[pop_name][gid] = (cell_state_x, cell_state_mat, cell_state_labels, cell_state_distances)
     
     pop_colors = { pop_name: dflt_colors[ipop%len(dflt_colors)] for ipop, pop_name in enumerate(states) }
     
     stplots = []
     
-    fig, ax1 = plt.subplots(figsize=fig_options.figSize,sharex='all',sharey='all')
+    fig, ax = plt.subplots(figsize=fig_options.figSize,sharex='all',sharey='all')
         
-    for (pop_name, pop_states) in viewitems(states):
+    for (pop_name, pop_states) in viewitems(pop_state_mat_dict):
         
-        for (gid, cell_states) in viewitems(pop_states):
+        for (gid, cell_state_mat) in viewitems(pop_states):
             
-            stplots.append(ax1.plot(cell_states[0], cell_states[1], linewidth=fig_options.lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
-            
+            n = cell_state_mat[0].shape[0]
+            m = cell_state_mat[1].shape[0]
+            for i in range(m):
+                line, = ax.plot(cell_state_mat[0],
+                                np.asarray(cell_state_mat[1][i,:]).reshape((n,)),
+                                label='%s (%s um)' % (cell_state_mat[2][i], cell_state_mat[3][i]))
+                stplots.append(line)
+            ax.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
+            ax.set_ylabel(state_variable, fontsize=fig_options.fontSize)
+            ax.legend()
 
-    ax1.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
-    ax1.set_ylabel(variable, fontsize=fig_options.fontSize)
-    #ax1.set_xlim(time_range)
     
     # Add legend
     pop_labels = pop_name
@@ -1673,6 +1760,14 @@ def plot_intracellular_state (input_path, namespace_id, include = ['eachPop'], t
         show_figure()
     
     return fig
+
+def interpolate_state(st_x, st_y):
+    res_npts = int((st_x.max() - st_x.min()))
+    st_x_res = np.linspace(st_x.min(), st_y.max(), res_npts, endpoint=True)
+    pch = interpolate.pchip(st_x, st_y)
+    st_y_res = pch(st_x_res)
+    return st_y_res
+
 
 
 ## Plot spike raster
@@ -2094,7 +2189,7 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
     spkdata = spikedata.read_spike_events (input_path, include, spike_namespace, \
                                            spike_train_attr_name=time_variable, time_range=time_range)
     indata  = read_state (input_path, [popName], intracellular_namespace, time_variable=time_variable, \
-                          variable=intracellular_variable, time_range=time_range, unit_no = [unit_no])
+                          state_variable=intracellular_variable, time_range=time_range, unit_no = [unit_no])
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']

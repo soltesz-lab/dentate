@@ -2241,7 +2241,7 @@ def record_cell(env, pop_name, gid):
             dt = env.recording_profile.get('dt', 0.1)
             for recvar, recdict  in viewitems(env.recording_profile.get('section quantity', {})):
                 nodes = filter_nodes(cell, layers=recdict.get('layers', None),
-                                    swc_types=recdict.get('swc types', None))
+                                     swc_types=recdict.get('swc types', None))
                 node_type_count = collections.defaultdict(int)
                 for node in nodes:
                     node_type_count[node.type] += 1
@@ -2253,9 +2253,8 @@ def record_cell(env, pop_name, gid):
                             rec_id = '%s' % (node.type)
                         else:
                             rec_id = '%s.%i' % (node.type, node.index)
-                        rec = make_rec(rec_id, pop_name, gid, cell.hoc_cell, sec=sec,
-                                        dt=dt, loc=0.5, param=recvar, \
-                                        description=node.name)
+                        rec = make_rec(rec_id, pop_name, gid, cell.hoc_cell, sec=sec, dt=dt, loc=0.5,
+                                        param=recvar, description=node.name)
                         env.recs_dict[pop_name][rec_id].append(rec)
                         visited.add(str(sec))
             for recvar, recdict  in viewitems(env.recording_profile.get('synaptic quantity', {})):
@@ -2267,8 +2266,7 @@ def record_cell(env, pop_name, gid):
                     for syn_name in syn_names:
                         pps = syn_attrs.get_pps(gid, syn_id, syn_name, throw_error=False)
                         if pps is not None:
-                            rec = make_rec(gid, pop_name, gid, cell.hoc_cell, ps=pps,
-                                            dt=dt, param=recvar,
+                            rec = make_rec(gid, pop_name, gid, cell.hoc_cell, ps=pps, dt=dt, param=recvar,
                                             label='%s' % (str(recvar)),
                                             description='%s' % (str(recvar)))
                             env.recs_dict[pop_name][syn_name].append(rec)

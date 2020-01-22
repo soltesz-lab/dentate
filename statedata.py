@@ -25,21 +25,16 @@ def query_state(input_file, population_names, namespace_id=None):
             namespace_id_lst = attr_info_dict[pop_name].keys()
         else:
             namespace_id_lst = [namespace_id]
-        for this_namespace_id in namespace_id_lst:
-            print("Namespace: %s" % str(this_namespace_id))
-            for attr_name, attr_cell_index in attr_info_dict[pop_name][this_namespace_id]:
-                print("\tAttribute: %s" % str(attr_name))
-                for i in attr_cell_index:
-                    print("\t%d" % i)
+    return namespace_id_lst
 
 
-def read_state(input_file, population_names, namespace_id, time_variable='t', variable='v', time_range=None,
+def read_state(input_file, population_names, namespace_id, time_variable='t', state_variable='v', time_range=None,
                max_units=None, unit_no=None, comm=None):
     if comm is None:
         comm = MPI.COMM_WORLD
     pop_state_dict = {}
 
-    logger.info('Reading state data...')
+    logger.info('Reading state data from populations %s, namespace %s...' % (str(population_names), namespace_id))
 
     attr_info_dict = read_cell_attribute_info(input_file, populations=population_names, read_cell_index=True)
 
@@ -47,7 +42,7 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', va
         cell_index = None
         pop_state_dict[pop_name] = {}
         for attr_name, attr_cell_index in attr_info_dict[pop_name][namespace_id]:
-            if variable == attr_name:
+            if state_variable == attr_name:
                 cell_index = attr_cell_index
 
         cell_set = set(cell_index)
@@ -75,23 +70,29 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', va
         if time_range is None:
             for cellind, vals in valiter:
                 if cellind is not None:
+                    distance = vals.get('distance', None)
                     tlst = []
                     vlst = []
-                    for (t, v) in zip(vals[time_variable], vals[variable]):
+                    for (t, v) in zip(vals[time_variable], vals[state_variable]):
                         tlst.append(t)
                         vlst.append(v)
-                    state_dict[cellind] = (np.asarray(tlst, dtype=np.float32), np.asarray(vlst, dtype=np.float32))
+                    state_dict[cellind] = (np.asarray(tlst, dtype=np.float32),
+                                           np.asarray(vlst, dtype=np.float32),
+                                           distance)
         else:
             for cellind, vals in valiter:
                 if cellind is not None:
+                    distance = vals.get('distance', None)
                     tlst = []
                     vlst = []
-                    for (t, v) in zip(vals[time_variable], vals[variable]):
+                    for (t, v) in zip(vals[time_variable], vals[state_variable]):
                         if time_range[0] <= t <= time_range[1]:
                             tlst.append(t)
                             vlst.append(v)
-                    state_dict[cellind] = (np.asarray(tlst, dtype=np.float32), np.asarray(vlst, dtype=np.float32))
+                    state_dict[cellind] = (np.asarray(tlst, dtype=np.float32),
+                                           np.asarray(vlst, dtype=np.float32),
+                                           distance)
 
         pop_state_dict[pop_name] = state_dict
 
-    return {'states': pop_state_dict, 'time_variable': time_variable, 'variable': variable}
+    return {'states': pop_state_dict, 'time_variable': time_variable, 'state_variable': state_variable}
