@@ -124,6 +124,8 @@ def init_cell(env, pop_name, gid, load_connections=True, write_cell=False):
     :param gid: gid
     """
 
+    rank = int(env.pc.id())
+
     ## Determine if a mechanism configuration file exists for this cell type
     if 'mech_file_path' in env.celltypes[pop_name]:
         mech_file_path = env.celltypes[pop_name]['mech_file_path']
@@ -148,9 +150,12 @@ def init_cell(env, pop_name, gid, load_connections=True, write_cell=False):
     
     report_topology(cell, env)
 
-    env.cell_selection[pop_name].append(gid)
+    env.cell_selection[pop_name] = [gid]
     if write_cell:
         write_selection_file_path =  "%s/%s_%d.h5" % (env.results_path, env.modelName, gid)
+        if rank == 0:
+            io_utils.mkout(env, write_selection_file_path)
+        env.comm.barrier()
         io_utils.write_cell_selection(env, write_selection_file_path)
         if load_connections:
             io_utils.write_connection_selection(env, write_selection_file_path)
@@ -172,6 +177,8 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
     """
     io_utils.mkout(env, env.results_file_path)
 
+    env.cell_selection = {}
+    
     ## If specified, presynaptic spikes that only fall within this time range
     ## will be loaded or generated
     if t_max is None:
@@ -675,6 +682,8 @@ def cli():
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='config',
               help='path to directory containing network and cell mechanism config files')
+@click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), \
+              help='path to directory where output files will be written')
 @click.option("--spike-events-path", '-s', required=True, type=click.Path(),
               help='path to neuroh5 file containing spike times')
 @click.option("--spike-events-namespace", type=str, default='Spike Events',
@@ -686,8 +695,8 @@ def cli():
 @click.option('--profile-memory', is_flag=True, help='calculate and print heap usage after the simulation is complete')
 @click.option('--recording-profile', type=str, default='Network clamp default', help='recording profile to use')
 
-def show(config_file, population, gid, tstop, template_paths, dataset_prefix, config_prefix, spike_events_path,
-         spike_events_namespace, spike_events_t, plot_cell, write_cell, profile_memory, recording_profile):
+def show(config_file, population, gid, template_paths, dataset_prefix, config_prefix, results_path,
+         spike_events_path, spike_events_namespace, spike_events_t, plot_cell, write_cell, profile_memory, recording_profile):
     """
     Show configuration for the specified cell.
     """
@@ -700,11 +709,9 @@ def show(config_file, population, gid, tstop, template_paths, dataset_prefix, co
     env = Env(**params)
     configure_hoc_env(env)
 
-    init_cell(env, population, gid, load_connections=False)
-
     init(env, population, gid, spike_events_path, \
          spike_events_namespace=spike_events_namespace, \
-         t_var=spike_events_t, plot_cell=plot, write_cell=write_cell)
+         t_var=spike_events_t, plot_cell=plot_cell, write_cell=write_cell)
 
     if env.profile_memory:
         profile_memory(logger)
