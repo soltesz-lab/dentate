@@ -1,10 +1,10 @@
 import sys
-
 import numpy as np
-
 import click
 from dentate import plot
 from mpi4py import MPI
+
+script_name = os.path.basename(__file__)
 
 
 def list_find (f, lst):
@@ -32,17 +32,17 @@ def main(config, forest_path, coords_path, population, line_width, sample, longi
 
 
     if len(gid) == 0:
-        plot.plot_trees_in_volume (population, forest_path, config, coords_path=coords_path, \
-                                   sample=sample, longitudinal_extent=longitudinal_extent, \
-                                   volume=volume_plot, line_width=line_width, \
-                                   color_edge_scalars=color_edge_scalars, \
-                                   verbose=verbose)
+        plot.plot_cell_trees_in_volume (population, forest_path, config, coords_path=coords_path, \
+                                        sample=sample, longitudinal_extent=longitudinal_extent, \
+                                        volume=volume_plot, line_width=line_width, \
+                                        color_edge_scalars=color_edge_scalars, \
+                                        verbose=verbose)
     else:
-        plot.plot_trees_in_volume (population, forest_path, config, \
-                                   sample=set(gid), volume=volume_plot, line_width=line_width,  \
-                                   color_edge_scalars=color_edge_scalars, verbose=verbose)
+        plot.plot_cell_trees_in_volume (population, forest_path, config, \
+                                        sample=set(gid), volume=volume_plot, line_width=line_width,  \
+                                        color_edge_scalars=color_edge_scalars, verbose=verbose)
         
         
 
 if __name__ == '__main__':
-    main(args=sys.argv[(list_find(lambda s: s.find("plot_trees_in_volume.py") != -1,sys.argv)+1):])
+    main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])

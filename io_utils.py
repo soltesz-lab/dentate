@@ -246,6 +246,12 @@ def recsout(env, output_path, t_start=None, clear_data=False):
                 distance = rec.get('distance', None)
                 if distance is not None:
                     attr_dict[gid]['distance'] = np.asarray([distance], dtype=np.float32)
+                section = rec.get('section', None)
+                if section is not None:
+                    attr_dict[gid]['section'] = np.asarray([section], dtype=np.int16)
+                loc = rec.get('loc', None)
+                if loc is not None:
+                    attr_dict[gid]['loc'] = np.asarray([loc], dtype=np.float32)
                 if clear_data:
                     rec['vec'].resize(0)
             if env.results_namespace_id is None:

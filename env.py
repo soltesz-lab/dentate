@@ -91,6 +91,7 @@ class Env(object):
         self.kwargs = kwargs
         
         self.SWC_Types = {}
+        self.SWC_Type_index = {}
         self.Synapse_Types = {}
         self.layers = {}
         self.globals = {}
@@ -203,7 +204,9 @@ class Env(object):
 
         if 'Definitions' in self.model_config:
             self.parse_definitions()
+            self.SWC_Type_index = dict([(item[1], item[0]) from item in viewitems(self.SWC_Types)])
 
+            
         if 'Global Parameters' in self.model_config:
             self.parse_globals()
 

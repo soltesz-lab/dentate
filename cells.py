@@ -2259,17 +2259,21 @@ def record_cell(env, pop_name, gid):
                         visited.add(str(sec))
             for recvar, recdict  in viewitems(env.recording_profile.get('synaptic quantity', {})):
                 syn_filters = recdict.get('syn_filters', {})
-                synapses = syn_attrs.filter_synapses(gid, syn_sections=recdict.get('sections', None),
-                                                     **syn_filters)
+                syn_sections = recdict.get('sections', None)
+                synapses = syn_attrs.filter_synapses(gid, syn_sections=syn_sections, **syn_filters)
                 syn_names = recdict.get('syn names', syn_attrs.syn_name_index_dict.keys())
                 for syn_id, syn in viewitems(synapses):
+                    syn_swc_type_name = env.SWC_Type_index[syn.swc_type]
+                    syn_section = syn.section
                     for syn_name in syn_names:
                         pps = syn_attrs.get_pps(gid, syn_id, syn_name, throw_error=False)
                         if pps is not None:
-                            rec = make_rec(gid, pop_name, gid, cell.hoc_cell, ps=pps, dt=dt, param=recvar,
-                                            label='%s' % (str(recvar)),
-                                            description='%s' % (str(recvar)))
-                            env.recs_dict[pop_name][syn_name].append(rec)
+                            rec_id = '%d.%s.%s' % (syn_id, syn_name, str(recvar))
+                            label = '%s' % (str(recvar)),
+                            rec = make_rec(rec_id, pop_name, gid, cell.hoc_cell, ps=pps, dt=dt, param=recvar,
+                                            label=label, description='%s' % label)
+                            ns = '%s%d.%s' % (syn_swc_type_name, syn_section, syn_name)
+                            env.recs_dict[pop_name][ns].append(rec)
                 
                                                       
     

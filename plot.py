@@ -977,7 +977,7 @@ def plot_coords_in_volume(populations, coords_path, coords_namespace, config, sc
     mlab.show()
 
 
-def plot_trees_in_volume(population, forest_path, config, line_width=1., sample=0.05, coords_path=None, distances_namespace='Arc Distances', longitudinal_extent=None, volume='full', color_edge_scalars=True, volume_opacity=0.1):
+def plot_cell_trees_in_volume(population, forest_path, config, line_width=1., sample=0.05, coords_path=None, distances_namespace='Arc Distances', longitudinal_extent=None, volume='full', color_edge_scalars=True, volume_opacity=0.1):
     
     env = Env(config_file=config)
 
@@ -1186,7 +1186,7 @@ def plot_cell_tree(gid, tree_dict):
                    opacity=0.8, colormap='summer', line_width=line_width)
                    
     mlab.gcf().scene.x_plus_view()
-    #mlab.savefig('%s_trees_in_volume.tiff' % population, magnification=10)
+    mlab.savefig('cell_tree_%d.tiff' % gid, magnification=10)
     mlab.show()
 
     
