@@ -25,7 +25,7 @@ def query_state(input_file, population_names, namespace_id=None):
             namespace_id_lst = attr_info_dict[pop_name].keys()
         else:
             namespace_id_lst = [namespace_id]
-    return namespace_id_lst
+    return namespace_id_lst, attr_info_dict
 
 
 def read_state(input_file, population_names, namespace_id, time_variable='t', state_variable='v', time_range=None,
@@ -37,7 +37,7 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', st
     logger.info('Reading state data from populations %s, namespace %s...' % (str(population_names), namespace_id))
 
     attr_info_dict = read_cell_attribute_info(input_file, populations=population_names, read_cell_index=True)
-
+    
     for pop_name in population_names:
         cell_index = None
         pop_state_dict[pop_name] = {}
@@ -70,7 +70,9 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', st
         if time_range is None:
             for cellind, vals in valiter:
                 if cellind is not None:
-                    distance = vals.get('distance', None)
+                    distance = vals.get('distance', [None])[0]
+                    section = vals.get('section', [None])[0]
+                    loc = vals.get('loc', [None])[0]
                     tlst = []
                     vlst = []
                     for (t, v) in zip(vals[time_variable], vals[state_variable]):
@@ -78,11 +80,13 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', st
                         vlst.append(v)
                     state_dict[cellind] = (np.asarray(tlst, dtype=np.float32),
                                            np.asarray(vlst, dtype=np.float32),
-                                           distance)
+                                           distance, section, loc)
         else:
             for cellind, vals in valiter:
                 if cellind is not None:
-                    distance = vals.get('distance', None)
+                    distance = vals.get('distance', [None])[0]
+                    section = vals.get('section', [None])[0]
+                    loc = vals.get('loc', [None])[0]
                     tlst = []
                     vlst = []
                     for (t, v) in zip(vals[time_variable], vals[state_variable]):
@@ -91,7 +95,7 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', st
                             vlst.append(v)
                     state_dict[cellind] = (np.asarray(tlst, dtype=np.float32),
                                            np.asarray(vlst, dtype=np.float32),
-                                           distance)
+                                           distance, section, loc)
 
         pop_state_dict[pop_name] = state_dict
 

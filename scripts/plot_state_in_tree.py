@@ -7,20 +7,21 @@ from mpi4py import MPI
 script_name = os.path.basename(__file__)
 
 @click.command()
+@click.option("--forest-path", '-f', required=True, type=click.Path())
 @click.option("--state-path", '-p', required=True, type=click.Path())
 @click.option("--state-namespace", '-n', type=str)
 @click.option("--state-namespace-pattern", type=str)
-@click.option("--populations", '-i', type=str, multiple=True)
-@click.option("--max-units", type=int, default=1)
-@click.option("--unit-no", '-u', type=int, default=None, multiple=True)
+@click.option("--population", '-i', type=str)
+@click.option("--gid", type=int, default=None)
 @click.option("--t-variable", type=str, default='t')
 @click.option("--state-variable", type=str, default='v')
 @click.option("--t-max", type=float)
 @click.option("--t-min", type=float)
 @click.option("--font-size", type=float, default=14)
+@click.option("--colormap", type=str, default='coolwarm')
 @click.option("--query", "-q", type=bool, default=False, is_flag=True)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(state_path, state_namespace, state_namespace_pattern, populations, max_units, unit_no, t_variable, state_variable, t_max, t_min, font_size, query, verbose):
+def main(forest_path, state_path, state_namespace, state_namespace_pattern, population, gid, t_variable, state_variable, t_max, t_min, font_size, colormap, query, verbose):
 
     utils.config_logging(verbose)
 
@@ -33,12 +34,7 @@ def main(state_path, state_namespace, state_namespace_pattern, populations, max_
         else:
             time_range = [t_min, t_max]
 
-    if not populations:
-        populations = ['eachPop']
-    else:
-        populations = list(populations)
-
-    namespace_id_lst, attr_info_dict = statedata.query_state(state_path, populations, namespace_id=state_namespace)
+    namespace_id_lst, attr_info_dict = statedata.query_state(state_path, [population], namespace_id=state_namespace)
     if query:
         for this_namespace_id in namespace_id_lst:
             print("Namespace: %s" % str(this_namespace_id))
@@ -58,13 +54,9 @@ def main(state_path, state_namespace, state_namespace_pattern, populations, max_
             if m:
                 state_namespaces.append(namespace_id)
         
-    if len(unit_no) == 0:
-        unit_no = None
-
-    plot.plot_intracellular_state (state_path, state_namespaces, include=populations, time_range=time_range,
-                                   time_variable=t_variable, state_variable=state_variable,
-                                   max_units=max_units, unit_no=unit_no,
-                                   fontSize=font_size, saveFig=True)
+    plot.plot_intracellular_state_in_tree (gid, population, forest_path, state_path, state_namespaces, time_range=time_range,
+                                            time_variable=t_variable, state_variable=state_variable, 
+                                            fontSize=font_size, colormap=colormap, saveFig=True)
     
 
 

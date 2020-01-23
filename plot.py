@@ -121,7 +121,7 @@ def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, edge_color=None, 
         kwargs['color'] = edge_color
     mlab.points3d(x[0],y[0],z[0],
                   mode='cone',
-                  scale_factor=50,
+                  scale_factor=10,
                   **kwargs)
     vec = mlab.quiver3d(x[start_idx],
                         y[start_idx],
@@ -135,6 +135,8 @@ def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, edge_color=None, 
                         **kwargs)
     if edge_scalars is not None:
         vec.glyph.color_mode = 'color_by_scalar'
+        cb = mlab.colorbar(vec, label_fmt='%.1f')
+        cb.label_text_property.font_size=14
     return vec
 
 
@@ -977,6 +979,79 @@ def plot_coords_in_volume(populations, coords_path, coords_namespace, config, sc
     mlab.show()
 
 
+
+## Plot cell tree 
+def plot_cell_tree (gid, population, forest_path, synapse_path=None, colormap='coolwarm', line_width=3., **kwargs): 
+    ''' 
+    Plot cell morphology and optionally synapse locations.
+
+    forest_path: file with cell morphologies
+    '''
+
+    fig_options = copy.copy(default_fig_options)
+    fig_options.update(kwargs)
+
+    import networkx as nx
+    from mayavi import mlab
+
+    (tree_iter, _) = read_tree_selection(forest_path, population, selection=[gid])
+    _, tree_dict = next(tree_iter)
+
+    mlab.figure(bgcolor=(0,0,0))
+
+    logger.info('plotting tree %i' % gid)
+    xcoords = tree_dict['x']
+    ycoords = tree_dict['y']
+    zcoords = tree_dict['z']
+    swc_type = tree_dict['swc_type']
+    layer    = tree_dict['layer']
+    secnodes = tree_dict['section_topology']['nodes']
+    src      = tree_dict['section_topology']['src']
+    dst      = tree_dict['section_topology']['dst']
+
+    dend_idxs = np.where(swc_type == 4)[0]
+    dend_idx_set = set(dend_idxs.flat)
+    sec_idxs = {}
+    edges = []
+    for sec, nodes in viewitems(secnodes):
+        sec_idxs[nodes[0]] = sec
+        for i in range(1, len(nodes)):
+            sec_idxs[nodes[i]] = sec
+            srcnode = nodes[i-1]
+            dstnode = nodes[i]
+            if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
+                edges.append((srcnode, dstnode))
+    for (s,d) in zip(src,dst):
+        srcnode = secnodes[s][-1]
+        dstnode = secnodes[d][0]
+        if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
+            edges.append((srcnode, dstnode))
+    x = xcoords[dend_idxs].reshape(-1,)
+    y = ycoords[dend_idxs].reshape(-1,)
+    z = zcoords[dend_idxs].reshape(-1,)
+
+    # Make a NetworkX graph out of our point and edge data
+    g = make_geometric_graph(x, y, z, edges)
+
+    # Compute minimum spanning tree using networkx
+    # nx.mst returns an edge generator
+    edges = nx.minimum_spanning_tree(g).edges(data=True)
+    start_idx, end_idx, _ = np.array(list(edges)).T
+    start_idx = start_idx.astype(np.int)
+    end_idx   = end_idx.astype(np.int)
+
+    edge_scalars = layer[start_idx]
+                                        
+    # Plot this with Mayavi
+    plot_graph(x, y, z, start_idx, end_idx, edge_scalars=edge_scalars, 
+                   opacity=0.8, colormap=colormap, line_width=line_width)
+    
+    mlab.gcf().scene.x_plus_view()
+    mlab.show()
+    
+    return mlab.gcf()
+
+    
 def plot_cell_trees_in_volume(population, forest_path, config, line_width=1., sample=0.05, coords_path=None, distances_namespace='Arc Distances', longitudinal_extent=None, volume='full', color_edge_scalars=True, volume_opacity=0.1):
     
     env = Env(config_file=config)
@@ -1123,72 +1198,6 @@ def plot_cell_trees_in_volume(population, forest_path, config, line_width=1., sa
     mlab.gcf().scene.x_plus_view()
     mlab.savefig('%s_trees_in_volume.tiff' % population, magnification=10)
     mlab.show()
-
-
-def plot_cell_tree(gid, tree_dict):
-
-    import networkx as nx
-    from mayavi import mlab
-
-    print('%d trees selected from population %s' % (len(selection), population))
-    (tree_iter, _) = read_tree_selection(forest_path, population, selection=selection.tolist())
-
-    mlab.figure(bgcolor=(0,0,0))
-
-    logger.info('plotting tree %i' % gid)
-    xcoords = tree_dict['x']
-    ycoords = tree_dict['y']
-    zcoords = tree_dict['z']
-    swc_type = tree_dict['swc_type']
-    layer    = tree_dict['layer']
-    secnodes = tree_dict['section_topology']['nodes']
-    src      = tree_dict['section_topology']['src']
-    dst      = tree_dict['section_topology']['dst']
-
-    dend_idxs = np.where(swc_type == 4)[0]
-    dend_idx_set = set(dend_idxs.flat)
-
-    edges = []
-    for sec, nodes in viewitems(secnodes):
-        for i in range(1, len(nodes)):
-            srcnode = nodes[i-1]
-            dstnode = nodes[i]
-            if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
-                edges.append((srcnode, dstnode))
-    for (s,d) in zip(src,dst):
-        srcnode = secnodes[s][-1]
-        dstnode = secnodes[d][0]
-        if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
-            edges.append((srcnode, dstnode))
-                
-    x = xcoords[dend_idxs].reshape(-1,)
-    y = ycoords[dend_idxs].reshape(-1,)
-    z = zcoords[dend_idxs].reshape(-1,)
-
-    # Make a NetworkX graph out of our point and edge data
-    g = make_geometric_graph(x, y, z, edges)
-
-    # Compute minimum spanning tree using networkx
-    # nx.mst returns an edge generator
-    edges = nx.minimum_spanning_tree(g).edges(data=True)
-    start_idx, end_idx, _ = np.array(list(edges)).T
-    start_idx = start_idx.astype(np.int)
-    end_idx   = end_idx.astype(np.int)
-    if color_edge_scalars:
-        edge_scalars = z[start_idx]
-        edge_color = None
-    else:
-        edge_scalars = None
-        edge_color = hex2rgb(rainbow_colors[gid%len(rainbow_colors)])
-                                        
-    # Plot this with Mayavi
-    plot_graph(x, y, z, start_idx, end_idx, edge_scalars=edge_scalars, edge_color=edge_color, \
-                   opacity=0.8, colormap='summer', line_width=line_width)
-                   
-    mlab.gcf().scene.x_plus_view()
-    mlab.savefig('cell_tree_%d.tiff' % gid, magnification=10)
-    mlab.show()
-
 
     
     
@@ -1652,7 +1661,7 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
     ''' 
     Line plot of intracellular state variable (default: v). Returns the figure handle.
 
-    input_path: file with spike data
+    input_path: file with state data
     namespace_ids: attribute namespaces  
     time_range ([start:stop]): Time range of spikes shown; if None shows all (default: None)
     time_variable: Name of variable containing spike times (default: 't')
@@ -1716,7 +1725,7 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
                 stplots.append(line)
             ax.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
             ax.set_ylabel(state_variable, fontsize=fig_options.fontSize)
-            ax.legend()
+            #ax.legend()
 
     
     # Add legend
@@ -1766,12 +1775,12 @@ def interpolate_state(st_x, st_y):
     return st_y_res
 
 
-## Plot intracellular state trace 
-def plot_intracellular_state_in_tree (gid, population, forest_path, state_input_path, namespace_ids, time_range = None, time_variable='t', state_variable='v',  **kwargs): 
+## Plot intracellular state mapped onto cell morphology
+def plot_intracellular_state_in_tree (gid, population, forest_path, state_input_path, namespace_ids, time_range = None, time_variable='t', state_variable='v',  colormap='coolwarm', line_width=3., **kwargs): 
     ''' 
     Aggregate plot of intracellular state variable in the cell morphology (default: v). Returns the figure handle.
 
-    input_path: file with spike data
+    state_input_path: file with state data
     namespace_ids: attribute namespaces  
     time_range ([start:stop]): Time range of spikes shown; if None shows all (default: None)
     time_variable: Name of variable containing spike times (default: 't')
@@ -1781,56 +1790,35 @@ def plot_intracellular_state_in_tree (gid, population, forest_path, state_input_
     fig_options = copy.copy(default_fig_options)
     fig_options.update(kwargs)
 
-    (population_ranges, N) = read_population_ranges(input_path)
-    population_names  = read_population_names(input_path)
+    (population_ranges, N) = read_population_ranges(state_input_path)
+    population_names  = read_population_names(state_input_path)
 
     pop_num_cells = {}
     for k in population_names:
         pop_num_cells[k] = population_ranges[k][1]
 
 
-    states_dict = defaultdict(lambda: defaultdict(lambda: dict()))
+    cell_state_dict = {}
     for namespace_id in namespace_ids:
-        data = read_state (input_path, [population], namespace_id, time_variable=time_variable,
-                            state_variable=state_variable, time_range=time_range, unit_no = gid)
+        data = read_state (state_input_path, [population], namespace_id, time_variable=time_variable,
+                            state_variable=state_variable, time_range=time_range, unit_no = [gid])
         states  = data['states']
-        
-        for (gid, cell_states) in viewitems(pop_states):
-            states_dict[gid][namespace_id] = cell_states
+        cell_state_dict[namespace_id] = states[population][gid]
 
 
-    state_mat_dict = {}
-    for (gid, cell_state_dict) in viewitems(states_dict):
-        cell_state_items = list(sorted(viewitems(cell_state_dict)))
-        cell_state_x = cell_state_items[0][1][0]
-        cell_state_mat = np.matrix([cell_state_item[1][1] for cell_state_item in cell_state_items], dtype=np.float32)
-        cell_state_distances = [cell_state_item[1][2] for cell_state_item in cell_state_items]
-        cell_state_labels = [cell_state_item[0] for cell_state_item in cell_state_items]
-        state_mat_dict[gid] = (cell_state_x, cell_state_mat, cell_state_labels, cell_state_distances)
+    cell_state_items = list(sorted(viewitems(cell_state_dict)))
+    cell_state_x = cell_state_items[0][1][0]
+    cell_state_mat = np.matrix([cell_state_item[1][1] for cell_state_item in cell_state_items], dtype=np.float32)
+    cell_state_distances = [cell_state_item[1][2] for cell_state_item in cell_state_items]
+    cell_state_labels = [cell_state_item[0] for cell_state_item in cell_state_items]
 
-        
-        for (gid, cell_state_mat) in viewitems(pop_states):
-            
-            n = cell_state_mat[0].shape[0]
-            m = cell_state_mat[1].shape[0]
-            for i in range(m):
-                line, = ax.plot(cell_state_mat[0],
-                                np.asarray(cell_state_mat[1][i,:]).reshape((n,)),
-                                label='%s (%s um)' % (cell_state_mat[2][i], cell_state_mat[3][i]))
-                stplots.append(line)
-            ax.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
-            ax.set_ylabel(state_variable, fontsize=fig_options.fontSize)
-            ax.legend()
-
+    sec_state_dict = dict([(cell_state_item[1][3], np.sum(cell_state_item[1][1])) for cell_state_item in cell_state_items])
 
     (tree_iter, _) = read_tree_selection(forest_path, population, selection=[gid])
     _, tree_dict = next(tree_iter)
 
     import networkx as nx
     from mayavi import mlab
-
-    mlab.figure(bgcolor=(0,0,0))
-
 
     mlab.figure(bgcolor=(0,0,0))
 
@@ -1846,10 +1834,12 @@ def plot_intracellular_state_in_tree (gid, population, forest_path, state_input_
 
     dend_idxs = np.where(swc_type == 4)[0]
     dend_idx_set = set(dend_idxs.flat)
-
+    sec_idxs = {}
     edges = []
     for sec, nodes in viewitems(secnodes):
+        sec_idxs[nodes[0]] = sec
         for i in range(1, len(nodes)):
+            sec_idxs[nodes[i]] = sec
             srcnode = nodes[i-1]
             dstnode = nodes[i]
             if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
@@ -1859,7 +1849,6 @@ def plot_intracellular_state_in_tree (gid, population, forest_path, state_input_
         dstnode = secnodes[d][0]
         if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
             edges.append((srcnode, dstnode))
-                
     x = xcoords[dend_idxs].reshape(-1,)
     y = ycoords[dend_idxs].reshape(-1,)
     z = zcoords[dend_idxs].reshape(-1,)
@@ -1873,24 +1862,21 @@ def plot_intracellular_state_in_tree (gid, population, forest_path, state_input_
     start_idx, end_idx, _ = np.array(list(edges)).T
     start_idx = start_idx.astype(np.int)
     end_idx   = end_idx.astype(np.int)
-    if color_edge_scalars:
-        edge_scalars = z[start_idx]
-        edge_color = None
-    else:
-        edge_scalars = None
-        edge_color = hex2rgb(rainbow_colors[gid%len(rainbow_colors)])
+    
+    edge_scalars = np.asarray([sec_state_dict.get(sec_idxs[s], 0.0) for s in start_idx])
+    edge_scalars_max = np.max(np.abs(edge_scalars))
+    if edge_scalars_max > 0.0:
+        edge_scalars = edge_scalars / edge_scalars_max
+    edge_color = None
                                         
     # Plot this with Mayavi
     plot_graph(x, y, z, start_idx, end_idx, edge_scalars=edge_scalars, edge_color=edge_color, \
-                   opacity=0.8, colormap='summer', line_width=line_width)
-                   
+                   opacity=0.8, colormap=colormap, line_width=line_width)
+    
     mlab.gcf().scene.x_plus_view()
     mlab.show()
-
-        
     
-    
-    return fig
+    return mlab.gcf()
 
 
 
