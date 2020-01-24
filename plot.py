@@ -982,7 +982,7 @@ def plot_coords_in_volume(populations, coords_path, coords_namespace, config, sc
 
 
 ## Plot cell tree 
-def plot_cell_tree (gid, population, forest_path, synapse_path=None, synapse_type='excitatory', colormap='coolwarm', line_width=3., **kwargs): 
+def plot_cell_tree (gid, population, synapse_type='excitatory', colormap='coolwarm', line_width=3., **kwargs): 
     ''' 
     Plot cell morphology and optionally synapse locations.
 

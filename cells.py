@@ -2020,6 +2020,62 @@ def make_neurotree_graph(neurotree_dict):
     return sec_graph
 
 
+def make_morph_graph(biophys_cell, node_filters={}):
+    """
+    Creates a graph of 3d points that follows the morphological organization of the given neuron.
+    :param neurotree_dict:
+    :return: NetworkX.DiGraph
+    """
+    import networkx as nx
+
+    nodes = filter_nodes(biophys_cell, **node_filters)
+
+    xs = []
+    ys = []
+    zs = []
+    pt_idxs = []
+    pt_idx = 0
+    sec_pts = defaultdict(list)
+    for node in nodes:
+        sec = node.sec
+        nn = sec.n3d()
+        for in range(nn):
+            xs.append(sec.x3d(ii))
+            ys.append(sec.y3d(ii))
+            zs.append(sec.z3d(ii))
+            pt_idxs.append(pt_idx)
+            sec_pts[node.index].append(pt_idx)
+            pt_idx += 1
+
+    src_sec = ...
+    dst_sec = ...
+            
+    x = np.asarray(xs, dtype=np.float32)
+    y = np.asarray(ys, dtype=np.float32)
+    z = np.asarray(zs, dtype=np.float32)
+            
+    sec_pt_idxs = {}
+    edges = []
+    for sec, pts in viewitems(sec_nodes):
+        sec_pt_idxs[pts[0]] = sec
+        for i in range(1, len(pts)):
+            sec_pt_idxs[pts[i]] = sec
+            src_pt = pts[i-1]
+            dst_pt = pts[i]
+            edges.append((src_pt, dst_pt))
+    for (s,d) in zip(src_sec, dst_sec):
+        src_pt = sec_pt_idxs[s][-1]
+        dst_pt = sec_pt_idxs[d][0]
+        edges.append((src_pt, dst_pt))
+
+    morph_graph = nx.DiGraph()
+    for i in 
+    for i, j in edges:
+        morph_graph.add_edge(i, j)
+
+    return morph_graph
+
+
 def make_neurotree_cell(template_class, gid=0, dataset_path="", neurotree_dict={}):
     """
 
