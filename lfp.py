@@ -8,12 +8,10 @@ setting dt_lfp.
 """
 from __future__ import division
 
-import itertools
-import math
+import itertools, math
 from builtins import object, range
 
 from neuron import h
-from past.utils import old_div
 
 h('objref strfun')
 h.strfun = h.StringFunctions()
@@ -31,8 +29,8 @@ def interpxyz(nn, nsegs, xx, yy, zz, ll, xint, yint, zint):
 
     ## initialize the destination "independent" vector
     rangev = h.Vector(nsegs + 2)
-    rangev.indgen(old_div(1, nsegs))
-    rangev.sub(old_div(1, (2 * nsegs)))
+    rangev.indgen(1.0 / nsegs)
+    rangev.sub(1.0 / (2 * nsegs))
     rangev.x[0] = 0
     rangev.x[nsegs + 1] = 1
 
@@ -118,12 +116,12 @@ class LFP(object):
                             ## rd is the perpendicular distance from the electrode to a line through the compartment
                             ## ld is longitudinal distance along this line from the electrode to one end of the compartment
                             ## sd = l - ld is longitudinal distance to the other end of the compartment
-                            l = old_div(sec.L, sec.nseg)
+                            l = float(sec.L) / sec.nseg
                             rd = math.sqrt((ex - sx) * (ex - sx) + (ey - sy) * (ey - sy) + (ez - sz) * (ez - sz))
                             ld = math.sqrt((sx - sx0) * (sx - sx0) + (sy - sy0) * (sy - sy0) + (sz - sz0) * (sz - sz0))
                             sd = l - ld
-                            k = 0.0001 * h.area(seg.x) * (old_div(self.rho, (4.0 * math.pi * l))) * abs(math.log(
-                                old_div((math.sqrt(ld * ld + rd * rd) - ld), (math.sqrt(sd * sd + rd * rd) - sd))))
+                            k = 0.0001 * h.area(seg.x) * (self.rho / (4.0 * math.pi * l)) * abs(math.log(
+                                ((math.sqrt(ld * ld + rd * rd) - ld) / (math.sqrt(sd * sd + rd * rd) - sd))))
                             if math.isnan(k):
                                 k = 0.
                             ## Distal cell

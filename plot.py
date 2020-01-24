@@ -22,6 +22,7 @@ from dentate.env import Env
 from dentate.synapses import get_syn_filter_dict, get_syn_mech_param
 from dentate.utils import get_module_logger, Struct, add_bins, update_bins, finalize_bins
 from dentate.utils import power_spectrogram, butter_bandpass_filter, kde_scipy, make_geometric_graph, viewitems, zip_longest, basestring
+from dentate.neuron_utils import interplocs
 from dentate.io_utils import get_h5py_attr, set_h5py_attr
 from neuroh5.io import NeuroH5ProjectionGen, bcast_cell_attributes, read_cell_attributes, read_population_names, read_population_ranges, read_projection_names, read_tree_selection
 
@@ -981,7 +982,7 @@ def plot_coords_in_volume(populations, coords_path, coords_namespace, config, sc
 
 
 ## Plot cell tree 
-def plot_cell_tree (gid, population, forest_path, synapse_path=None, colormap='coolwarm', line_width=3., **kwargs): 
+def plot_cell_tree (gid, population, forest_path, synapse_path=None, synapse_type='excitatory', colormap='coolwarm', line_width=3., **kwargs): 
     ''' 
     Plot cell morphology and optionally synapse locations.
 
@@ -997,6 +998,21 @@ def plot_cell_tree (gid, population, forest_path, synapse_path=None, colormap='c
     (tree_iter, _) = read_tree_selection(forest_path, population, selection=[gid])
     _, tree_dict = next(tree_iter)
 
+    syn_dict = {}
+    if synapse_path is not None:
+        syn_iter = read_cell_attribute_selection(synapse_path, population, [gid], 'Synapse Attributes')
+        _, syn_dict = next(syn_iter)
+
+    syn_ids = syn_dict['syn_ids']
+    syn_locs = syn_dict['syn_locs']
+    syn_secs = syn_dict['syn_secs']
+    syn_secs = syn_dict['syn_secs']
+    syn_types = syn_dict['syn_types']
+
+    sec_syn_dict = defaultdict(list)
+    for syn_id, sec_id, syn_loc in zip(syn_ids, syn_secs, syn_locs):
+        sec_syn_dict[sec_id].append(syn_id, syn_loc)
+    
     mlab.figure(bgcolor=(0,0,0))
 
     logger.info('plotting tree %i' % gid)
@@ -1045,6 +1061,16 @@ def plot_cell_tree (gid, population, forest_path, synapse_path=None, colormap='c
     # Plot this with Mayavi
     plot_graph(x, y, z, start_idx, end_idx, edge_scalars=edge_scalars, 
                    opacity=0.8, colormap=colormap, line_width=line_width)
+
+
+    # If synapses provided, obtain synapse xyz locations
+    syn_xyz = {}
+    if len(sec_syn_dict) > 0:
+        for secid, syn_lst in viewitems(secnodes):
+            sec = ...
+            syn_locs = [ syn_loc for (syn_id, syn_loc) in syn_lst ]
+            syn_xyz[secid] = interplocs(sec, syn_locs)
+                    
     
     mlab.gcf().scene.x_plus_view()
     mlab.show()
