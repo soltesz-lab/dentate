@@ -23,7 +23,7 @@ script_name = os.path.basename(__file__)
 def main(state_path, state_namespace, state_namespace_pattern, populations, max_units, unit_no, t_variable, state_variable, t_max, t_min, font_size, query, verbose):
 
     utils.config_logging(verbose)
-
+    logger = utils.get_script_logger(script_name)
     
     if t_max is None:
         time_range = None

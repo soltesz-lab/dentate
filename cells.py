@@ -2030,46 +2030,61 @@ def make_morph_graph(biophys_cell, node_filters={}):
 
     nodes = filter_nodes(biophys_cell, **node_filters)
 
-    xs = []
-    ys = []
-    zs = []
+    sec_layers = {}
+    src_sec = []
+    dst_sec = []
+    connection_locs = []
+    pt_xs = []
+    pt_ys = []
+    pt_zs = []
+    pt_locs = []
     pt_idxs = []
+    pt_layers = []
     pt_idx = 0
-    sec_pts = defaultdict(list)
+    sec_pts = collections.defaultdict(list)
     for node in nodes:
         sec = node.sec
         nn = sec.n3d()
-        for in range(nn):
-            xs.append(sec.x3d(ii))
-            ys.append(sec.y3d(ii))
-            zs.append(sec.z3d(ii))
+        L = sec.L
+        for i in range(nn):
+            pt_xs.append(sec.x3d(i))
+            pt_ys.append(sec.y3d(i))
+            pt_zs.append(sec.z3d(i))
+            loc = sec.arc3d(i) / L
+            pt_locs.append(loc)
+            pt_layers.append(node.get_layer(loc))
             pt_idxs.append(pt_idx)
             sec_pts[node.index].append(pt_idx)
             pt_idx += 1
 
-    src_sec = ...
-    dst_sec = ...
-            
-    x = np.asarray(xs, dtype=np.float32)
-    y = np.asarray(ys, dtype=np.float32)
-    z = np.asarray(zs, dtype=np.float32)
+        for child in node.children:
+            src_sec.append(node.index)
+            dst_sec.append(child.index)
+            connection_locs.append(h.parent_connection(sec=child.sec))
             
     sec_pt_idxs = {}
     edges = []
-    for sec, pts in viewitems(sec_nodes):
+    for sec, pts in viewitems(sec_pts):
         sec_pt_idxs[pts[0]] = sec
         for i in range(1, len(pts)):
             sec_pt_idxs[pts[i]] = sec
             src_pt = pts[i-1]
             dst_pt = pts[i]
             edges.append((src_pt, dst_pt))
-    for (s,d) in zip(src_sec, dst_sec):
-        src_pt = sec_pt_idxs[s][-1]
-        dst_pt = sec_pt_idxs[d][0]
-        edges.append((src_pt, dst_pt))
 
-    morph_graph = nx.DiGraph()
-    for i in 
+    for (s,d,parent_loc) in zip(src_sec, dst_sec, connection_locs):
+        for src_pt in sec_pts[s]:
+            if pt_locs[src_pt] >= parent_loc:
+                break
+        dst_pt = sec_pts[d][0]
+        edges.append((src_pt, dst_pt))
+        
+#        print('connection %d -> %d: points %d( %.02f %.02f %.02f )   -> %d( %.02f %.02f %.02f ): ' % (s, d, src_pt, pt_xs[src_pt], pt_ys[src_pt], pt_zs[src_pt],
+#                                                                                                          dst_pt, pt_xs[dst_pt], pt_ys[dst_pt], pt_zs[dst_pt]))
+
+    morph_graph = nx.Graph()
+    morph_graph.add_nodes_from([(i, {'x': x, 'y': y, 'z': z, 'sec': sec_pt_idxs[i], 'loc': loc, 'layer': layer})
+                                    for (i,x,y,z,loc,layer) in zip(range(len(pt_idxs)), pt_xs, pt_ys, pt_zs, pt_locs, pt_layers)])
     for i, j in edges:
         morph_graph.add_edge(i, j)
 
@@ -2095,8 +2110,9 @@ def make_neurotree_cell(template_class, gid=0, dataset_path="", neurotree_dict={
     secnodes = neurotree_dict['section_topology']['nodes']
     vsrc = neurotree_dict['section_topology']['src']
     vdst = neurotree_dict['section_topology']['dst']
+    vloc = neurotree_dict['section_topology']['loc']
     swc_type = neurotree_dict['swc_type']
-    cell = template_class(gid, dataset_path, secnodes, vlayer, vsrc, vdst, vx, vy, vz, vradius, swc_type)
+    cell = template_class(gid, dataset_path, secnodes, vlayer, vsrc, vdst, vloc, vx, vy, vz, vradius, swc_type)
     return cell
 
 
@@ -2169,7 +2185,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     """
     env.load_cell_template(pop_name)
     if tree_dict is None:
-        tree_attr_iter, _ = read_tree_selection(env.data_file_path, pop_name, [gid], comm=env.comm)
+        tree_attr_iter, _ = read_tree_selection(env.data_file_path, pop_name, [gid], comm=env.comm, topology=True)
         _, tree_dict = next(tree_attr_iter)
     hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict)
     cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env, mech_file_path=mech_file_path)

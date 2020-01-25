@@ -1,4 +1,4 @@
-import numbers, os, copy
+import numbers, os, copy, pprint
 from collections import defaultdict
 from scipy import interpolate, signal
 import numpy as np
@@ -17,7 +17,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from dentate.graph import vertex_distribution, vertex_metrics
 from dentate.statedata import read_state
-from dentate.cells import default_ordered_sec_types, get_distance_to_node
+from dentate.cells import default_ordered_sec_types, get_distance_to_node, make_morph_graph
 from dentate.env import Env
 from dentate.synapses import get_syn_filter_dict, get_syn_mech_param
 from dentate.utils import get_module_logger, Struct, add_bins, update_bins, finalize_bins
@@ -131,8 +131,8 @@ def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, edge_color=None, 
                         y[end_idx] - y[start_idx],
                         z[end_idx] - z[start_idx],
                         scalars=edge_scalars,
-                        mode='2ddash',
                         scale_factor=1,
+                        mode='2ddash',
                         **kwargs)
     if edge_scalars is not None:
         vec.glyph.color_mode = 'color_by_scalar'
@@ -981,12 +981,13 @@ def plot_coords_in_volume(populations, coords_path, coords_namespace, config, sc
 
 
 
-## Plot cell tree 
-def plot_cell_tree (gid, population, synapse_type='excitatory', colormap='coolwarm', line_width=3., **kwargs): 
+## Plot biophys cell tree 
+def plot_biophys_cell_tree (biophys_cell, node_filters={'swc_types': ['apical', 'basal']},
+                            plot_synapses=False, synapse_filters={'syn_type': 'excitatory'},
+                            colormap='coolwarm', line_width=3., **kwargs): 
     ''' 
     Plot cell morphology and optionally synapse locations.
 
-    forest_path: file with cell morphologies
     '''
 
     fig_options = copy.copy(default_fig_options)
@@ -995,81 +996,37 @@ def plot_cell_tree (gid, population, synapse_type='excitatory', colormap='coolwa
     import networkx as nx
     from mayavi import mlab
 
-    (tree_iter, _) = read_tree_selection(forest_path, population, selection=[gid])
-    _, tree_dict = next(tree_iter)
-
-    syn_dict = {}
-    if synapse_path is not None:
-        syn_iter = read_cell_attribute_selection(synapse_path, population, [gid], 'Synapse Attributes')
-        _, syn_dict = next(syn_iter)
-
-    syn_ids = syn_dict['syn_ids']
-    syn_locs = syn_dict['syn_locs']
-    syn_secs = syn_dict['syn_secs']
-    syn_secs = syn_dict['syn_secs']
-    syn_types = syn_dict['syn_types']
-
-    sec_syn_dict = defaultdict(list)
-    for syn_id, sec_id, syn_loc in zip(syn_ids, syn_secs, syn_locs):
-        sec_syn_dict[sec_id].append(syn_id, syn_loc)
+    
+    morph_graph = make_morph_graph(biophys_cell, node_filters=node_filters)
     
     mlab.figure(bgcolor=(0,0,0))
+    
+    #layers = np.asarray([ layer for (i, layer) in morph_graph.nodes.data('layer') ], dtype=np.int32)
+    xcoords = np.asarray([ x for (i, x) in morph_graph.nodes.data('x') ], dtype=np.float32)
+    ycoords = np.asarray([ y for (i, y) in morph_graph.nodes.data('y') ], dtype=np.float32)
+    zcoords = np.asarray([ z for (i, z) in morph_graph.nodes.data('z') ], dtype=np.float32)
 
-    logger.info('plotting tree %i' % gid)
-    xcoords = tree_dict['x']
-    ycoords = tree_dict['y']
-    zcoords = tree_dict['z']
-    swc_type = tree_dict['swc_type']
-    layer    = tree_dict['layer']
-    secnodes = tree_dict['section_topology']['nodes']
-    src      = tree_dict['section_topology']['src']
-    dst      = tree_dict['section_topology']['dst']
-
-    dend_idxs = np.where(swc_type == 4)[0]
-    dend_idx_set = set(dend_idxs.flat)
-    sec_idxs = {}
-    edges = []
-    for sec, nodes in viewitems(secnodes):
-        sec_idxs[nodes[0]] = sec
-        for i in range(1, len(nodes)):
-            sec_idxs[nodes[i]] = sec
-            srcnode = nodes[i-1]
-            dstnode = nodes[i]
-            if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
-                edges.append((srcnode, dstnode))
-    for (s,d) in zip(src,dst):
-        srcnode = secnodes[s][-1]
-        dstnode = secnodes[d][0]
-        if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
-            edges.append((srcnode, dstnode))
-    x = xcoords[dend_idxs].reshape(-1,)
-    y = ycoords[dend_idxs].reshape(-1,)
-    z = zcoords[dend_idxs].reshape(-1,)
-
-    # Make a NetworkX graph out of our point and edge data
-    g = make_geometric_graph(x, y, z, edges)
-
-    # Compute minimum spanning tree using networkx
-    # nx.mst returns an edge generator
-    edges = nx.minimum_spanning_tree(g).edges(data=True)
+    edges = nx.minimum_spanning_tree(morph_graph).edges(data=True)
+    edges = morph_graph.edges(data=True)
     start_idx, end_idx, _ = np.array(list(edges)).T
     start_idx = start_idx.astype(np.int)
     end_idx   = end_idx.astype(np.int)
-
-    edge_scalars = layer[start_idx]
-                                        
+    #edge_scalars = layers[start_idx]
+    
+    logger.info('plotting tree %i' % biophys_cell.gid)
+    
     # Plot this with Mayavi
-    plot_graph(x, y, z, start_idx, end_idx, edge_scalars=edge_scalars, 
-                   opacity=0.8, colormap=colormap, line_width=line_width)
+    plot_graph(xcoords, ycoords, zcoords, start_idx, end_idx, 
+                opacity=0.8, colormap=colormap, line_width=line_width)
 
 
     # If synapses provided, obtain synapse xyz locations
-    syn_xyz = {}
-    if len(sec_syn_dict) > 0:
-        for secid, syn_lst in viewitems(secnodes):
-            sec = ...
-            syn_locs = [ syn_loc for (syn_id, syn_loc) in syn_lst ]
-            syn_xyz[secid] = interplocs(sec, syn_locs)
+    #syn_xyz = {}
+    #if len(sec_syn_dict) > 0:
+    #    for secid, syn_lst in viewitems(secnodes):
+    #        sec = ...
+    #        syn_locs = [ syn_loc for (syn_id, syn_loc) in syn_lst ]
+    #        syn_xyz[secid] = interplocs(sec, syn_locs)
                     
     
     mlab.gcf().scene.x_plus_view()
