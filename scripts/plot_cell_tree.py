@@ -20,10 +20,14 @@ script_name = os.path.basename(__file__)
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='config',
               help='path to directory containing network and cell mechanism config files')
+@click.option("--load-synapses", "-s", type=bool, default=False, is_flag=True)
+@click.option("--syn-sources", multiple=True, type=str, help='synapse filter for source populations')
+@click.option("--syn-source-threshold", type=float, help='only show synapses for sources in top n percentile')
+@click.option("--syn-types", multiple=True, type=str, help='synapse filter for synapse types')
 @click.option("--font-size", type=float, default=14)
 @click.option("--colormap", type=str, default='coolwarm')
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(config_file, population, gid, template_paths, dataset_prefix, config_prefix, font_size, colormap, verbose):
+def main(config_file, population, gid, template_paths, dataset_prefix, config_prefix, load_synapses, syn_types, syn_sources, syn_source_threshold, font_size, colormap, verbose):
 
     utils.config_logging(verbose)
     logger = utils.get_script_logger(script_name)
@@ -41,16 +45,25 @@ def main(config_file, population, gid, template_paths, dataset_prefix, config_pr
 
     logger.info('loading tree %i' % gid)
 
-    load_synapses = False
     load_weights = False
     biophys_cell = get_biophys_cell(env, population, gid, 
                                     load_synapses=load_synapses,
                                     load_weights=load_weights, 
-                                    load_edges=False,
+                                    load_edges=load_synapses,
                                     mech_file_path=mech_file_path)
 
-    
-    plot.plot_biophys_cell_tree (biophys_cell, colormap=colormap, saveFig=True)
+    if len(syn_types) == 0:
+        syn_types = None
+    else:
+        syn_types = list(syn_types)
+    if len(syn_sources) == 0:
+        syn_sources = None
+    else:
+        syn_sources = list(syn_sources)
+        
+    plot.plot_biophys_cell_tree (env, biophys_cell, colormap=colormap, saveFig=True,
+                                     syn_source_threshold=syn_source_threshold,
+                                     synapse_filters={'syn_types': syn_types, 'sources': syn_sources})
     
 
 if __name__ == '__main__':

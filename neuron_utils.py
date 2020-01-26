@@ -251,7 +251,6 @@ def interplocs(sec, locs):
     """
     nn = sec.n3d()
 
-
     xx = h.Vector(nn)
     yy = h.Vector(nn)
     zz = h.Vector(nn)
@@ -275,7 +274,8 @@ def interplocs(sec, locs):
     pch_y = interpolate.pchip(ll, yy)
     pch_z = interpolate.pchip(ll, zz)
 
-    return [(pch_x(loc), pch_y(loc), pch_z(loc)) for loc in locs]
+    res = np.asarray([(pch_x(loc), pch_y(loc), pch_z(loc)) for loc in locs], dtype=np.float32)
+    return res
 
         
     

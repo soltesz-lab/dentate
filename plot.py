@@ -982,8 +982,8 @@ def plot_coords_in_volume(populations, coords_path, coords_namespace, config, sc
 
 
 ## Plot biophys cell tree 
-def plot_biophys_cell_tree (biophys_cell, node_filters={'swc_types': ['apical', 'basal']},
-                            plot_synapses=False, synapse_filters={'syn_type': 'excitatory'},
+def plot_biophys_cell_tree (env, biophys_cell, node_filters={'swc_types': ['apical', 'basal']},
+                            plot_synapses=False, synapse_filters=None, syn_source_threshold=0.0,
                             colormap='coolwarm', line_width=3., **kwargs): 
     ''' 
     Plot cell morphology and optionally synapse locations.
@@ -1001,10 +1001,10 @@ def plot_biophys_cell_tree (biophys_cell, node_filters={'swc_types': ['apical', 
     
     mlab.figure(bgcolor=(0,0,0))
     
-    #layers = np.asarray([ layer for (i, layer) in morph_graph.nodes.data('layer') ], dtype=np.int32)
     xcoords = np.asarray([ x for (i, x) in morph_graph.nodes.data('x') ], dtype=np.float32)
     ycoords = np.asarray([ y for (i, y) in morph_graph.nodes.data('y') ], dtype=np.float32)
     zcoords = np.asarray([ z for (i, z) in morph_graph.nodes.data('z') ], dtype=np.float32)
+    #layers = np.asarray([ layer for (i, layer) in morph_graph.nodes.data('layer') ], dtype=np.int32)
 
     edges = nx.minimum_spanning_tree(morph_graph).edges(data=True)
     edges = morph_graph.edges(data=True)
@@ -1015,20 +1015,47 @@ def plot_biophys_cell_tree (biophys_cell, node_filters={'swc_types': ['apical', 
     
     logger.info('plotting tree %i' % biophys_cell.gid)
     
-    # Plot this with Mayavi
+    # Plot morphology graph with Mayavi
     plot_graph(xcoords, ycoords, zcoords, start_idx, end_idx, 
                 opacity=0.8, colormap=colormap, line_width=line_width)
 
 
-    # If synapses provided, obtain synapse xyz locations
-    #syn_xyz = {}
-    #if len(sec_syn_dict) > 0:
-    #    for secid, syn_lst in viewitems(secnodes):
-    #        sec = ...
-    #        syn_locs = [ syn_loc for (syn_id, syn_loc) in syn_lst ]
-    #        syn_xyz[secid] = interplocs(sec, syn_locs)
-                    
-    
+    # Obtain and plot synapse xyz locations
+    syn_attrs = env.synapse_attributes
+    synapse_filters = get_syn_filter_dict(env, synapse_filters, convert=True)
+    syns_dict = syn_attrs.filter_synapses(biophys_cell.gid, **synapse_filters)
+    syn_sec_dict = defaultdict(list)
+    if (syn_source_threshold is not None) and (syn_source_threshold > 0.0):
+        syn_source_count = defaultdict(int)
+        for syn_id, syn in viewitems(syns_dict):
+            syn_source_count[syn.source.gid] += 1
+        syn_source_max = 0
+        syn_source_pctile = {}
+        for source_id, source_id_count in viewitems(syn_source_count):
+            syn_source_max = max(syn_source_max, source_id_count)
+        logger.info("synapse source max count is %d" % (syn_source_max))
+        for syn_id, syn in viewitems(syns_dict):
+            count = syn_source_count[syn.source.gid]
+            syn_source_pctile[syn_id] = float(count) / float(syn_source_max)
+        syns_dict = { syn_id: syn for syn_id, syn in viewitems(syns_dict)
+                          if syn_source_pctile[syn_id] >= syn_source_threshold}
+    for syn_id, syn in viewitems(syns_dict):
+        syn_sec_dict[syn.syn_section].append(syn)
+    syn_xyz_sec_dict = {}
+    syn_src_sec_dict = {}
+    for sec_id, syns in viewitems(syn_sec_dict):
+        sec = biophys_cell.hoc_cell.sections[sec_id]
+        syn_locs = [syn.syn_loc for syn in syns]
+        syn_xyz_sec_dict[sec_id] = interplocs(sec, syn_locs)
+        syn_sources = [syn.source.gid for syn in syns]
+        syn_src_sec_dict[sec_id] = np.asarray(syn_sources)
+
+    #pprint.pprint(syns_dict)
+    logger.info('plotting %i synapses' % len(syns_dict))
+    for sec_id, syn_xyz in viewitems(syn_xyz_sec_dict):
+        syn_sources = syn_src_sec_dict[sec_id]
+        mlab.points3d(syn_xyz[:,0], syn_xyz[:,1], syn_xyz[:,2], syn_sources, scale_mode='vector',scale_factor=2.0)
+        
     mlab.gcf().scene.x_plus_view()
     mlab.show()
     

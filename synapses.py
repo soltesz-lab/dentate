@@ -1211,28 +1211,32 @@ def get_syn_filter_dict(env, rules, convert=False, check_valid=True):
             if name not in valid_filter_names:
                 raise ValueError('get_syn_filter_dict: unrecognized filter category: %s' % name)
     rules_dict = copy.deepcopy(rules)
-    if 'syn_types' in rules_dict:
-        for i, syn_type in enumerate(rules_dict['syn_types']):
+    syn_types = rules_dict.get('syn_types', None)
+    swc_types = rules_dict.get('swc_types', None)
+    layers = rules_dict.get('layers', None)
+    sources = rules_dict.get('sources', None)
+    if syn_types is not None:
+        for i, syn_type in enumerate(syn_types):
             if syn_type not in env.Synapse_Types:
                 raise ValueError('get_syn_filter_dict: syn_type: %s not recognized by network configuration' %
                                  syn_type)
             if convert:
                 rules_dict['syn_types'][i] = env.Synapse_Types[syn_type]
-    if 'swc_types' in rules_dict:
-        for i, swc_type in enumerate(rules_dict['swc_types']):
+    if swc_types is not None:
+        for i, swc_type in enumerate(swc_types):
             if swc_type not in env.SWC_Types:
                 raise ValueError('get_syn_filter_dict: swc_type: %s not recognized by network configuration' %
                                  syn_type)
             if convert:
                 rules_dict['swc_types'][i] = env.SWC_Types[syn_type]
-    if 'layers' in rules_dict:
-        for i, layer in enumerate(rules_dict['layers']):
+    if layers is not None:
+        for i, layer in enumerate(layers):
             if layer not in env.layers:
                 raise ValueError('get_syn_filter_dict: layer: %s not recognized by network configuration' % layer)
             if convert:
                 rules_dict['layers'][i] = env.layers[layer]
-    if 'sources' in rules_dict:
-        for i, source in enumerate(rules_dict['sources']):
+    if sources is not None:
+        for i, source in enumerate(sources):
             if source not in env.Populations:
                 raise ValueError('get_syn_filter_dict: presynaptic population: %s not recognized by network '
                                  'configuration' % str(source))
