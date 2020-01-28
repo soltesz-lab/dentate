@@ -738,10 +738,12 @@ class Env(object):
             self.logger.info('population_ranges = %s' % str(population_ranges))
 
         for k in typenames:
-            celltypes[k]['start'] = population_ranges[k][0]
-            celltypes[k]['num'] = population_ranges[k][1]
-            if 'mechanism file' in celltypes[k]:
-                celltypes[k]['mech_file_path'] = '%s/%s' % (self.config_prefix, celltypes[k]['mechanism file'])
+            population_range = population_ranges.get(k, None)
+            if population_range is not None:
+                celltypes[k]['start'] = population_ranges[k][0]
+                celltypes[k]['num'] = population_ranges[k][1]
+                if 'mechanism file' in celltypes[k]:
+                    celltypes[k]['mech_file_path'] = '%s/%s' % (self.config_prefix, celltypes[k]['mechanism file'])
 
         population_names = read_population_names(self.data_file_path, self.comm)
         if rank == 0:

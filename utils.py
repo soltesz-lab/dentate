@@ -569,6 +569,23 @@ def random_clustered_shuffle(centers, n_samples_per_center, center_ids=None, clu
     return y[s].ravel()
 
 
+def rejection_sampling(gen, n, clip):
+    if clip is None:
+        result = gen(n)
+    else:
+        clip_min, clip_max = clip
+        remaining = n
+        samples = []
+        while remaining > 0:
+            sample = gen(remaining)
+            filtered = sample[np.where((sample >= clip_min) & (sample <= clip_max))]
+            samples.append(filtered)
+            remaining -= len(filtered)
+        result = np.concatenate(tuple(samples))
+
+    return result
+
+
 def NamedTupleWithDocstring(docstring, *ntargs):
     """
     A convenience wrapper to add docstrings to named tuples. This is only needed in
@@ -1036,4 +1053,16 @@ def mse(a, b):
     n = len(a)
     return (1./n) * ssq
 
+
+def gauss2d(x=0, y=0, mx=0, my=0, sx=1, sy=1, A=1.):
+    return A * np.exp(-((x - mx)**2. / (2. * sx**2.) + (y - my)**2. / (2. * sy**2.)))
+
+
+def sigmoid_phi(x, a = 0.05, peak_rate = 1.):
+    res = peak_rate / (1. + np.exp(-a * x))
+    return res
+
+def exp_phi(x, a = 0.025):
+    res = 1. / np.exp(-a * x)
+    return res
 
