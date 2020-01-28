@@ -2401,11 +2401,19 @@ def get_spike_shape(vm, spike_times, equilibrate=0., dt=0.025, th_dvdt=10.):
     dvdt = np.gradient(vm, dt)  # slope of voltage change
     th_x_indexes = np.where(dvdt >= th_dvdt)[0]
     if th_x_indexes.any():
-        th_x = th_x_indexes[0] - int(1.6 / dt)  # the true spike onset is before the slope threshold is crossed
+        try_th_x = th_x_indexes[0] - int(1.6 / dt)  # the true spike onset is before the slope threshold is crossed
+        if try_th_x < 0:
+            return None
+        else:
+            th_x = try_th_x
     else:
         th_x_indexes = np.where(vm > -30.)[0]
         if th_x_indexes.any():
-            th_x = th_x_indexes[0] - int(2. / dt)
+            try_th_x = th_x_indexes[0] - int(2. / dt)
+            if try_th_x < 0:
+                return None
+            else:
+                th_x = try_th_x
         else:
             return None
     th_v = vm[th_x]
