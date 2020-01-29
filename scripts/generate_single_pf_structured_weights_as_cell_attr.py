@@ -87,6 +87,9 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
             input_file.close()
             output_file.close()
 
+    
+    this_input_features_namespaces = ['%s %s' % (input_features_namespace, arena_id) for input_features_namespace in input_features_namespaces]
+
     initial_weights_dict = None
     if weights_path is not None:
         logger.info('Reading initial weights data from %s...' % weights_path)
@@ -155,23 +158,30 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
         logger.info('destination: %s; gid %i; received synaptic weights for %i synapses' %
                         (destination, gid, len(syn_weight_dict)))
 
-    (graph, a) = read_graph_selection(file_name=connections_path, selection=[gid],
-                                      namespaces=['Synapses', 'Connections'])
+    (graph, edge_attr_info) = read_graph_selection(file_name=connections_path,
+                                                   selection=[gid],
+                                                   namespaces=['Synapses'])
+    syn_id_attr_index = None
+    for source, edge_iter in viewitems(graph[destination]):
+        this_edge_attr_info = edge_attr_info[destination][source]
+        if 'Synapses' in this_edge_attr_info and \
+           'syn_id' in this_edge_attr_info['Synapses']:
+            syn_id_attr_index = this_edge_attr_info['Synapses']['syn_id']
+        for (destination_gid, edges) in edge_iter:
+            assert destination_gid == gid
+            source_gids, edge_attrs = edges
 
-    print(graph)
-    for source, (this_destination_gid, (source_gid_array, conn_attr_dict)) in graph[destination]:
-        assert destination_gid == gid
-        syn_ids = conn_attr_dict['Synapses']['syn_id']
-        this_source_syn_dict = source_syn_dict[source]
-        count = 0
-        for i in range(len(source_gid_array)):
-            this_source_gid = source_gid_array[i]
-            this_syn_id = syn_ids[i]
-            this_syn_wgt = syn_weight_dict.get(this_syn_id, 0.0)
-            this_source_syn_dict[this_source_gid].append((this_syn_id, this_syn_wgt))
-            count += 1
-        logger.info('destination: %s; gid %i; %d synaptic weights from source population %s' %
-                        (destination, destination_gid, count, source))
+            syn_ids = edge_attrs['Synapses'][syn_id_attr_index]
+            this_source_syn_dict = source_syn_dict[source]
+            count = 0
+            for i in range(len(source_gids)):
+                this_source_gid = source_gids[i]
+                this_syn_id = syn_ids[i]
+                this_syn_wgt = syn_weight_dict.get(this_syn_id, 0.0)
+                this_source_syn_dict[this_source_gid].append((this_syn_id, this_syn_wgt))
+                count += 1
+            logger.info('destination: %s; gid %i; %d synaptic weights from source population %s' %
+                        (destination, gid, count, source))
                     
     src_input_features = defaultdict(dict)
     for source in sources:
@@ -196,14 +206,14 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
                                            dst_input_features,
                                            src_input_features,
                                            source_syn_dict,
+                                           spatial_mesh=(x,y),
                                            plasticity_kernel=plasticity_kernel,
                                            interactive=interactive)
 
     assert this_syn_weights is not None
-    structured_weights_dict[destination_gid] = syn_weights
-    logger.info('destination: %s; gid %i; generated structured weights for %i inputs in %.2f '
-                    's' % (destination, destination_gid, len(this_syn_weights['syn_id']),
-                            time.time() - local_time))
+    structured_weights_dict[destination_gid] = this_syn_weights
+    logger.info('destination: %s; gid %i; generated structured weights for %i inputs'
+                   % (destination, destination_gid, len(this_syn_weights['syn_id'])))
     gc.collect()
     if not dry_run:
             
