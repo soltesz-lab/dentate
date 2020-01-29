@@ -2369,7 +2369,7 @@ def interactive_callback_plasticity_fit(**kwargs):
     plt.show()
 
 
-def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, logger, max_iter=10, lb = -np.inf, ub = 3., interactive=False):
+def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, logger, max_iter=10, lb = -3.0, ub = 3., local_random=None, interactive=False):
     
     source_gids = sorted(plasticity_inputs.keys())
     initial_weights = []
@@ -2382,6 +2382,9 @@ def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, lo
     initial_ratemap = phi(np.dot(A, w))
     b = plasticity_kernel.reshape((-1,)).astype(np.float64)
 
+    if local_random is None:
+        local_random = np.random.RandomState()
+    
     #res = opt.lsq_linear(A, b, bounds=(lb, ub), lsmr_tol='auto')
     def residual(x, w, A, b, phi):
         res = np.subtract(phi(np.dot(A, np.add(w, x))), b)
@@ -2389,8 +2392,8 @@ def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, lo
 
     for i in range(max_iter):
         try:
-            x0 = np.random.rand(len(w),)
-            optres = opt.least_squares(residual, x0, args = (w, A, b, phi), bounds=(lb,ub), 
+            dx0 = local_random.rand(len(w),)
+            optres = opt.least_squares(residual, dx0, args = (w, A, b, phi), bounds=(lb,ub), 
                                        method='dogbox', xtol=1e-2, ftol=1e-2, gtol=1e-4,
                                        verbose=2 if interactive else 0)
             break
@@ -2436,7 +2439,7 @@ def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, lo
 
     
 def generate_structured_weights(gid, population, synapse_name, sources, dst_input_features, src_input_features, src_syn_dict,
-                                spatial_mesh, plasticity_kernel=None, field_width_scale=1.0, interactive=False, max_iter=10):
+                                spatial_mesh, plasticity_kernel=None, field_width_scale=1.0, local_random=None, interactive=False, max_iter=10):
     """
     """
 
@@ -2459,6 +2462,9 @@ def generate_structured_weights(gid, population, synapse_name, sources, dst_inpu
     if (this_input_features is not None) and this_num_fields > 0:
         structured = True
 
+    if local_random is None:
+        local_random = np.random.RandomState()
+        local_random.seed(int(gid))
 
     result = None
     if structured:
@@ -2495,7 +2501,7 @@ def generate_structured_weights(gid, population, synapse_name, sources, dst_inpu
                         (gid, str([x for x in this_peak_locs]), str(this_field_width)))
         this_syn_weights = plasticity_fit(exp_phi, this_plasticity_kernel, this_plasticity_inputs,
                                               plasticity_src_syn_dict, logger, max_iter=max_iter,
-                                              interactive=interactive)
+                                              local_random=local_random, interactive=interactive)
         
         this_syn_ids = sorted(this_syn_weights.keys())
             

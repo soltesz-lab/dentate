@@ -208,6 +208,7 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
                                            source_syn_dict,
                                            spatial_mesh=(x,y),
                                            plasticity_kernel=plasticity_kernel,
+                                           local_random=local_random,
                                            interactive=interactive)
 
     assert this_syn_weights is not None
@@ -219,7 +220,7 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
             
         logger.info('Destination: %s; appending structured weights...' % (destination))
         append_cell_attributes(output_weights_path, destination, structured_weights_dict,
-                                namespace=this_structured_weights_namespace)
+                                namespace=structured_weights_namespace)
         logger.info('Destination: %s; appended structured weights for %i cells' % (destination, count))
         structured_weights_dict.clear()
         gc.collect()
