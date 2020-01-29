@@ -1667,7 +1667,9 @@ def plot_lfp_spectrogram(config, input_path, time_range = None, window_size=4096
 
 
 ## Plot intracellular state trace 
-def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], time_range = None, time_variable='t', state_variable='v', max_units = 1, unit_no = None, labels = None,  **kwargs): 
+def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], time_range = None,
+                              time_variable='t', state_variable='v', max_units = 1, unit_no = None,
+                              labels = None,  reduce = False, **kwargs): 
     ''' 
     Line plot of intracellular state variable (default: v). Returns the figure handle.
 
@@ -1728,11 +1730,18 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
             
             n = cell_state_mat[0].shape[0]
             m = cell_state_mat[1].shape[0]
-            for i in range(m):
-                line, = ax.plot(cell_state_mat[0],
-                                np.asarray(cell_state_mat[1][i,:]).reshape((n,)),
-                                label='%s (%s um)' % (cell_state_mat[2][i], cell_state_mat[3][i]))
+            if reduce:
+                cell_state = np.asarray(cell_state_mat[1][0,:]).reshape((n,))
+                for i in range(1,m):
+                    cell_state += np.asarray(cell_state_mat[1][i,:]).reshape((n,))
+                line, = ax.plot(cell_state_mat[0], cell_state)
                 stplots.append(line)
+            else:
+                for i in range(m):
+                    line, = ax.plot(cell_state_mat[0],
+                                    np.asarray(cell_state_mat[1][i,:]).reshape((n,)),
+                                    label='%s (%s um)' % (cell_state_mat[2][i], cell_state_mat[3][i]))
+                    stplots.append(line)
             ax.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
             ax.set_ylabel(state_variable, fontsize=fig_options.fontSize)
             #ax.legend()
