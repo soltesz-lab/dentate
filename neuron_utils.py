@@ -1,4 +1,4 @@
-import os
+import os, os.path
 try:
     from mpi4py import MPI  # Must come before importing NEURON
 except Exception:
@@ -151,6 +151,10 @@ def configure_hoc_env(env):
     """
     h.load_file("stdrun.hoc")
     h.load_file("loadbal.hoc")
+    for template_dir in env.template_paths:
+        path = "%s/rn.hoc" % template_dir
+        if os.path.exists(path):
+            h.load_file(path)
     h('objref pc, nc, nil')
     h('strdef dataset_path')
     if hasattr(env, 'dataset_path'):

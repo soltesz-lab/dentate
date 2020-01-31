@@ -2268,6 +2268,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     return cell
 
 
+
 def register_cell(env, pop_name, gid, cell):
     """
     Registers a cell in a network environment.
