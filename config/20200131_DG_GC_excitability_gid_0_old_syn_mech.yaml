@@ -79,53 +79,53 @@ apical:
   synapses:
     AMPA:
       g_unit:
-        - filters:
-            syn_types:
-              - excitatory
-          origin: soma
-          slope: 3.293672e-06
-          tau: 186.8088
-          value: 0.0001464409
-        - custom:
-            func: custom_filter_if_terminal
-          filters:
-            syn_types:
-              - excitatory
-          origin: parent
-          origin_filters:
-            syn_types:
-              - excitatory
-        - filters:
-            layers:
-              - OML
-            syn_types:
-              - excitatory
-          origin: apical
-          origin_filters:
-            layers:
-              - MML
-            syn_types:
-              - excitatory
+      - filters:
+          syn_types:
+          - excitatory
+        origin: soma
+        slope: 3.293672e-06
+        tau: 186.8088
+        value: 0.0001464409
+      - custom:
+          func: custom_filter_if_terminal
+        filters:
+          syn_types:
+          - excitatory
+        origin: parent
+        origin_filters:
+          syn_types:
+          - excitatory
+      - filters:
+          layers:
+          - OML
+          syn_types:
+          - excitatory
+        origin: apical
+        origin_filters:
+          layers:
+          - MML
+          syn_types:
+          - excitatory
     NMDA:
       Kd:
-        - filters:
-            syn_types:
-              - excitatory
+        filters:
+          syn_types:
+          - excitatory
         value: 4.331929
       g_unit:
-        - filters:
-            syn_types:
-              - excitatory
+        filters:
+          syn_types:
+          - excitatory
         value: 0.004316527
       gamma:
-        - filters:
-            syn_types:
-              - excitatory
+        filters:
+          syn_types:
+          - excitatory
         value: 0.08130658
       vshift:
-        - filters:
-            syn_types:
-              - excitatory
+        filters:
+          syn_types:
+          - excitatory
         value: 9.592656
 axon:
   DGC_KM:
