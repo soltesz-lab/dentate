@@ -2187,6 +2187,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     if tree_dict is None:
         tree_attr_iter, _ = read_tree_selection(env.data_file_path, pop_name, [gid], comm=env.comm, topology=True)
         _, tree_dict = next(tree_attr_iter)
+    pprint.pprint(tree_dict)
     hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict)
     cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env, mech_file_path=mech_file_path)
     syn_attrs = env.synapse_attributes
