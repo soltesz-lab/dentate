@@ -83,9 +83,9 @@ apical:
           syn_types:
           - excitatory
         origin: soma
-        slope: 3.293672e-06
-        tau: 186.8088
-        value: 0.0001464409
+        slope: 3.435182e-06
+        tau: 318.4192
+        value: 0.0001863348
       - custom:
           func: custom_filter_if_terminal
         filters:
@@ -109,24 +109,24 @@ apical:
     NMDA:
       Kd:
         filters:
-            syn_types:
-              - excitatory
-        value: 4.331929
+          syn_types:
+          - excitatory
+        value: 6.034749
       g_unit:
         filters:
-            syn_types:
-              - excitatory
-        value: 0.004316527
+          syn_types:
+          - excitatory
+        value: 0.003046559
       gamma:
         filters:
-            syn_types:
-              - excitatory
-        value: 0.08130658
+          syn_types:
+          - excitatory
+        value: 0.08192873
       vshift:
         filters:
-            syn_types:
-              - excitatory
-        value: 9.592656
+          syn_types:
+          - excitatory
+        value: 6.962977
 axon:
   DGC_KM:
     gbar:
@@ -217,25 +217,3 @@ soma:
       value: -74.4486260929934
     g:
       value: 2.3628251674095195e-08
-spine_head:
-  cable:
-    Ra:
-      origin: soma
-    cm:
-      origin: soma
-  pas:
-    e:
-      origin: soma
-    g:
-      origin: soma
-spine_neck:
-  cable:
-    Ra:
-      origin: soma
-    cm:
-      origin: soma
-  pas:
-    e:
-      origin: soma
-    g:
-      origin: soma
