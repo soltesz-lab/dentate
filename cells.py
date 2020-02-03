@@ -1061,7 +1061,7 @@ def connect2target(cell, sec, loc=1., param='_ref_v', delay=None, weight=None, t
     return this_netcon
 
 
-def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0., onset_delay=0.):
+def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0., onset_delay=0., loc=0.5):
     """
     Initializes the spike detector in the given cell according to the
     given arguments or a spike detector configuration of the mechanism
@@ -1073,34 +1073,38 @@ def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0.,
     :param threshold: float
     :param delay: float
     :param onset_delay: float
+    :param loc: float
     """
     if 'spike detector' in cell.mech_dict:
         config = cell.mech_dict['spike detector']
         node = getattr(cell, config['section'])[0]
+        loc = config['loc']
         distance = config['distance']
         threshold = config['threshold']
         delay = config['delay']
         onset_delay = config['onset delay']
 
     if node is None:
-        if cell.ais:
+        if cell.axon:
+            for node in cell.axon:
+                sec_seg_locs = [seg.x for seg in node.sec]
+                for loc in sec_seg_locs:
+                    if get_distance_to_node(cell, cell.tree.root, node, loc=loc) >= distance:
+                        break
+                else:
+                    continue
+                break
+            else:
+                node = cell.axon[-1]
+                loc = 1.
+        elif cell.ais:
             node = cell.ais[0]
         elif cell.soma:
             node = cell.soma[0]
         else:
             raise RuntimeError('init_spike_detector: cell has neither soma nor axon compartment')
 
-    if node in cell.axon:
-        sec_seg_locs = [seg.x for seg in node.sec]
-        if get_distance_to_node(cell, cell.tree.root, node, loc=sec_seg_locs[-1]) < distance:
-            cell.spike_detector = connect2target(cell, node.sec, loc=1., delay=delay, threshold=threshold)
-        else:
-            for loc in sec_seg_locs:
-                if get_distance_to_node(cell, cell.tree.root, node, loc=loc) >= distance:
-                    cell.spike_detector = connect2target(cell, node.sec, loc=loc, delay=delay, threshold=threshold)
-                    break
-    else:
-        cell.spike_detector = connect2target(cell, node.sec, loc=0.5, delay=delay, threshold=threshold)
+    cell.spike_detector = connect2target(cell, node.sec, loc=loc, delay=delay, threshold=threshold)
 
     cell.onset_delay = onset_delay
             
