@@ -2001,7 +2001,7 @@ def report_topology(cell, env, node=None):
         report_topology(cell, env, child)
 
 
-def make_neurotree_graph(neurotree_dict):
+def make_section_graph(neurotree_dict):
     """
     Creates a graph of sections that follows the topological organization of the given neuron.
     :param neurotree_dict:
@@ -2089,6 +2089,105 @@ def make_morph_graph(biophys_cell, node_filters={}):
         morph_graph.add_edge(i, j)
 
     return morph_graph
+
+
+def normalize_tree_topology(neurotree_dict, swc_type_defs):
+    """
+    Given a neurotree dictionary, perform topology normalization,
+    where 1) all dendritic sections have as a parent either another
+    dendritic sections, or the soma section; and 2) dendritic sections
+    connected to the first point of another dendritic section are
+    instead connected to the last point of the grandparent section.
+
+    Note: This procedure assumes that all points that belong to a section
+    have the same swc type.
+
+    :param neurotree_dict:
+    :param swc_type_defs:
+    :return: neurotree dict
+
+    """
+    
+    pt_xs = copy.deepcopy(neurotree_dict['x'])
+    pt_ys = copy.deepcopy(neurotree_dict['y'])
+    pt_zs = copy.deepcopy(neurotree_dict['z'])
+    pt_radius = copy.deepcopy(neurotree_dict['radius'])
+    pt_layers = copy.deepcopy(neurotree_dict['layer'])
+    pt_parents = copy.deepcopy(neurotree_dict['parent'])
+    pt_swc_types = copy.deepcopy(neurotree_dict['swc_type'])
+    pt_sections = copy.deepcopy(neurotree_dict['sections'])
+    sec_src = copy.deepcopy(neurotree_dict['src'])
+    sec_dst = copy.deepcopy(neurotree_dict['dst'])
+
+    section_swc_types = []
+    section_pt_dict = {}
+    assert(sections[0] == len(x))
+    i = 1
+    section_idx = 0
+    while i < len(pt_sections):
+        num_points = pt_sections[i]
+        i += 1
+        section_dict[section_idx] = []
+        this_section_swc_type = pt_swc_types[i]
+        section_swc_type.append(this_section_swc_type)
+        for p in range(num_points):
+            section_pt_dict[section_idx].append(pt_sections[i])
+            assert(this_section_swc_type == pt_swc_types[i])
+            i += 1
+        section_idx += 1
+
+    soma_pts = np.where(pt_swc_types == swc_type_defs['soma'])
+    soma_section_idx = pt_sections[soma_pts[0]]
+    
+    sec_parents_dict = {}
+    for src, dst in zip(sec_src, sec_dst):
+        sec_parents_dict[dst] = src
+
+    sec_edges = []
+    for section_idx in sorted(section_pt_dict.keys()):
+        section_pts = section_pt_dict[section_idx]
+        section_swc_type = section_swc_types[section_idx]
+        section_parent = sec_parents_dict.get(section_idx, None)
+        ## Detect dendritic sections without parent and connect them to soma
+        if section_parent is None:
+            if (section_swc_type == swc_type_defs['apical']) or (section_swc_type == swc_type_defs['basal']):
+                pt_parents[section_pts[0]] = soma_pts[-1]
+                sec_edges.append((soma_section_idx, section_idx))
+                sec_parents_dict[section_idx] = soma_section_idx
+        
+    for src, dst in zip(sec_src, sec_dst):
+        dst_pts = section_pt_dict[dst]
+        src_pts = section_pt_dict[src]
+        dst_pts_parents = [pt_parents[i] for i in dst_pts]
+        ## detect sections that are connected to first point of their parent
+        if dst_pts_parents[0] == src_pts[0]:
+            ## obtain parent of src section
+            src_parent = sec_parents_dict.get(src, None)
+            if src_parent is not None:
+                src_parent_pts = section_pt_dict[src_parent]
+                pt_parents[dst_pts[0]] = src_parent_pts[1]
+                sec_edges.append((src_parent, dst))
+            else:
+                src_edges.append((src, dst))
+        else:
+            src_edges.append((src, dst))
+            
+    sec_src = np.asarray([i for (i,j) in sec_edges], dtype=np.uint16)
+    sec_dst = np.asarray([j for (i,j) in sec_edges], dtype=np.uint16)
+    
+    new_tree_dict = { 'x': pt_xs,
+                      'y': pt_ys,
+                      'z': pt_zs,
+                      'radius': pt_radius,
+                      'layer': pt_layers,
+                      'parent': pt_parents,
+                      'swc_type': pt_swc_type,
+                      'sections': pt_sections,
+                      'src': src,
+                      'dst': dst }
+    
+    return new_tree_dict
+
 
 
 def make_neurotree_cell(template_class, gid=0, dataset_path="", neurotree_dict={}):

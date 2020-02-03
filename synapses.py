@@ -4,7 +4,7 @@ from collections import defaultdict
 import numpy as np
 import scipy.optimize as opt
 from dentate.cells import get_distance_to_node, get_donor, get_mech_rules_dict, get_param_val_by_distance, \
-    import_mech_dict_from_file, make_neurotree_graph, custom_filter_if_terminal, \
+    import_mech_dict_from_file, make_section_graph, custom_filter_if_terminal, \
     custom_filter_modify_slope_if_terminal, custom_filter_by_branch_order
 from dentate.neuron_utils import h, default_ordered_sec_types, mknetcon, mknetcon_vecstim
 from dentate.utils import DExpr, NamedTupleWithDocstring, get_module_logger, generator_ifempty, map, range, str, \
@@ -1806,7 +1806,7 @@ def make_synapse_graph(syn_dict, neurotree_dict):
     """
     import networkx as nx
 
-    sec_graph = make_neurotree_graph(neurotree_dict)
+    sec_graph = make_section_graph(neurotree_dict)
 
     syn_ids = syn_dict['syn_ids']
     syn_locs = syn_dict['syn_locs']
@@ -2102,7 +2102,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
     swc_types = []
     syn_index = 0
 
-    sec_graph = make_neurotree_graph(neurotree_dict)
+    sec_graph = make_section_graph(neurotree_dict)
 
     debug_flag = False
     secnodes_dict = neurotree_dict['section_topology']['nodes']
