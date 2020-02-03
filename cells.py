@@ -2118,27 +2118,27 @@ def normalize_tree_topology(neurotree_dict, swc_type_defs):
     pt_sections = copy.deepcopy(neurotree_dict['sections'])
     sec_src = copy.deepcopy(neurotree_dict['src'])
     sec_dst = copy.deepcopy(neurotree_dict['dst'])
-
+    soma_pts = np.where(pt_swc_types == swc_type_defs['soma'])[0]
     section_swc_types = []
     section_pt_dict = {}
-    assert(sections[0] == len(x))
+
     i = 1
     section_idx = 0
+    soma_section_idx = None
     while i < len(pt_sections):
         num_points = pt_sections[i]
         i += 1
-        section_dict[section_idx] = []
-        this_section_swc_type = pt_swc_types[i]
-        section_swc_type.append(this_section_swc_type)
-        for p in range(num_points):
-            section_pt_dict[section_idx].append(pt_sections[i])
-            assert(this_section_swc_type == pt_swc_types[i])
+        section_pt_dict[section_idx] = []
+        this_section_swc_type = pt_swc_types[pt_sections[i]]
+        section_swc_types.append(this_section_swc_type)
+        if (pt_sections[i] == soma_pts[0]) and (pt_sections[i+1] == soma_pts[1]):
+            soma_section_idx = section_idx
+        for ip in range(num_points):
+            p = pt_sections[i]
+            section_pt_dict[section_idx].append(p)
             i += 1
         section_idx += 1
 
-    soma_pts = np.where(pt_swc_types == swc_type_defs['soma'])
-    soma_section_idx = pt_sections[soma_pts[0]]
-    
     sec_parents_dict = {}
     for src, dst in zip(sec_src, sec_dst):
         sec_parents_dict[dst] = src
@@ -2151,10 +2151,11 @@ def normalize_tree_topology(neurotree_dict, swc_type_defs):
         ## Detect dendritic sections without parent and connect them to soma
         if section_parent is None:
             if (section_swc_type == swc_type_defs['apical']) or (section_swc_type == swc_type_defs['basal']):
-                pt_parents[section_pts[0]] = soma_pts[-1]
+                section_pts.insert(0, soma_pts[-1])
+                pt_parents[section_pts[1]] = soma_pts[-1]
                 sec_edges.append((soma_section_idx, section_idx))
                 sec_parents_dict[section_idx] = soma_section_idx
-        
+
     for src, dst in zip(sec_src, sec_dst):
         dst_pts = section_pt_dict[dst]
         src_pts = section_pt_dict[src]
@@ -2168,9 +2169,9 @@ def normalize_tree_topology(neurotree_dict, swc_type_defs):
                 pt_parents[dst_pts[0]] = src_parent_pts[1]
                 sec_edges.append((src_parent, dst))
             else:
-                src_edges.append((src, dst))
+                sec_edges.append((src, dst))
         else:
-            src_edges.append((src, dst))
+            sec_edges.append((src, dst))
             
     sec_src = np.asarray([i for (i,j) in sec_edges], dtype=np.uint16)
     sec_dst = np.asarray([j for (i,j) in sec_edges], dtype=np.uint16)
@@ -2181,11 +2182,11 @@ def normalize_tree_topology(neurotree_dict, swc_type_defs):
                       'radius': pt_radius,
                       'layer': pt_layers,
                       'parent': pt_parents,
-                      'swc_type': pt_swc_type,
+                      'swc_type': pt_swc_types,
                       'sections': pt_sections,
-                      'src': src,
-                      'dst': dst }
-    
+                      'src': sec_src,
+                      'dst': sec_dst }
+
     return new_tree_dict
 
 
@@ -2286,7 +2287,6 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     if tree_dict is None:
         tree_attr_iter, _ = read_tree_selection(env.data_file_path, pop_name, [gid], comm=env.comm, topology=True)
         _, tree_dict = next(tree_attr_iter)
-    pprint.pprint(tree_dict)
     hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict)
     cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env, mech_file_path=mech_file_path)
     syn_attrs = env.synapse_attributes

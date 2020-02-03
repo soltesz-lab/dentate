@@ -5,7 +5,7 @@ import h5py
 import numpy as np
 import dentate
 from dentate.utils import Struct, range, str, viewitems, basestring, Iterable, compose_iter, get_module_logger
-from neuroh5.io import write_cell_attributes, append_cell_attributes, write_graph, read_cell_attribute_selection, read_graph_selection
+from neuroh5.io import write_cell_attributes, append_cell_attributes, append_cell_trees, write_graph, read_cell_attribute_selection, read_tree_selection, read_graph_selection
 from neuron import h
 
 
@@ -366,13 +366,12 @@ def write_cell_selection(env, write_selection_file_path, write_kwds={}):
             if rank == 0:
                 logger.info("*** Reading trees for population %s" % pop_name)
 
-            cell_attributes_iter = read_cell_attribute_selection(data_file_path, pop_name, selection=gid_range, \
-                                                                 namespace='Trees', comm=env.comm)
-             
+            cell_tree_iter, _ = read_tree_selection(data_file_path, pop_name, selection=gid_range, \
+                                                 topology=False, comm=env.comm)
             if rank == 0:
                 logger.info("*** Done reading trees for population %s" % pop_name)
 
-            for i, (gid, tree) in enumerate(cell_attributes_iter):
+            for i, (gid, tree) in enumerate(cell_tree_iter):
                 trees_output_dict[gid] = tree
                 num_cells += 1
 
@@ -393,7 +392,8 @@ def write_cell_selection(env, write_selection_file_path, write_kwds={}):
             
         if rank == 0:
             logger.info("*** Writing cell selection for population %s to file %s" % (pop_name, write_selection_file_path))
-        write_cell_attributes(write_selection_file_path, pop_name, trees_output_dict, namespace='Trees', **write_kwds)
+        print(trees_output_dict)
+        append_cell_trees(write_selection_file_path, pop_name, trees_output_dict, create_index=True, **write_kwds)
         write_cell_attributes(write_selection_file_path, pop_name, coords_output_dict, namespace='Coordinates', **write_kwds)
 
 

@@ -22,13 +22,13 @@ sys.excepthook = mpi_excepthook
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), default='config')
 @click.option("--population", required=True, type=str)
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--template-path", type=str)
 @click.option("--output-path", required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
-@click.option("--types-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--verbose", '-v', is_flag=True)
-def main(config, config_prefix, population, forest_path, output_path, types_path, io_size, chunk_size, value_chunk_size, verbose):
+def main(config, config_prefix, population, forest_path, template_path, output_path, io_size, chunk_size, value_chunk_size, verbose):
     """
 
     :param population: str
@@ -51,11 +51,11 @@ def main(config, config_prefix, population, forest_path, output_path, types_path
     if rank == 0:
         logger.info('%i ranks have been allocated' % comm.size)
 
-    env = Env(comm=comm, config_file=config, config_prefix=config_prefix)
+    env = Env(comm=comm, config_file=config, config_prefix=config_prefix, template_paths=template_path)
 
     if rank==0:
         if not os.path.isfile(output_path):
-            input_file  = h5py.File(types_path,'r')
+            input_file  = h5py.File(forest_path,'r')
             output_file = h5py.File(output_path,'w')
             input_file.copy('/H5Types',output_file)
             input_file.close()
@@ -72,9 +72,11 @@ def main(config, config_prefix, population, forest_path, output_path, types_path
     new_trees_dict = {}
     for gid, tree_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, comm=comm, topology=False):
 
-        new_tree_dict = cells.normalize_tree_topology(tree_dict, env.SWC_Types)
-        
-        new_trees_dict[gid] = new_tree_dict
+        if gid is not None:
+            new_tree_dict = cells.normalize_tree_topology(tree_dict, env.SWC_Types)
+            
+            new_trees_dict[gid] = new_tree_dict
+
     append_cell_trees(output_path, population, new_trees_dict, io_size=io_size, comm=comm)
 
     comm.barrier()
