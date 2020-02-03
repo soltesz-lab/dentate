@@ -984,7 +984,7 @@ def plot_coords_in_volume(populations, coords_path, coords_namespace, config, sc
 ## Plot biophys cell tree 
 def plot_biophys_cell_tree (env, biophys_cell, node_filters={'swc_types': ['apical', 'basal']},
                             plot_synapses=False, synapse_filters=None, syn_source_threshold=0.0,
-                            colormap='coolwarm', line_width=3., **kwargs): 
+                            line_width=3., **kwargs): 
     ''' 
     Plot cell morphology and optionally synapse locations.
 
@@ -998,8 +998,9 @@ def plot_biophys_cell_tree (env, biophys_cell, node_filters={'swc_types': ['apic
 
     
     morph_graph = make_morph_graph(biophys_cell, node_filters=node_filters)
-    
-    mlab.figure(bgcolor=(0,0,0))
+
+    colormap = kwargs.get("colormap", 'coolwarm')
+    mlab.figure(bgcolor=kwargs.get("bgcolor", (0,0,0)))
     
     xcoords = np.asarray([ x for (i, x) in morph_graph.nodes.data('x') ], dtype=np.float32)
     ycoords = np.asarray([ y for (i, y) in morph_graph.nodes.data('y') ], dtype=np.float32)

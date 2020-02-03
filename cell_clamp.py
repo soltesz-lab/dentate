@@ -1,27 +1,121 @@
-import os, os.path, itertools, random, sys
+import os, os.path, itertools, random, sys, uuid, pprint
 import numpy as np
 import click
 from mpi4py import MPI  # Must come before importing NEURON
-from neuroh5.io import read_cell_attribute_selection, read_tree_selection
+from neuroh5.io import append_cell_attributes
 from neuron import h
-from dentate import cells, synapses, utils, neuron_utils
+from dentate import cells, synapses, utils, neuron_utils, io_utils
 from dentate.env import Env
 from dentate.synapses import config_syn
+from dentate.utils import get_module_logger
+from dentate.neuron_utils import h, configure_hoc_env
+
+# This logger will inherit its settings from the root logger, created in dentate.env
+logger = get_module_logger(__name__)
+
+def load_biophys_cell(env, pop_name, gid, mech_file_path=None, correct_for_spines=False, tree_dict=None,
+                      load_synapses=True, synapses_dict=None, load_connections=True, connections=None):
+    """
+    Instantiates the mechanisms of a single BiophysCell instance.
+
+    :param env: env.Env
+    :param pop_name: str
+    :param gid: int
+    :param mech_file_path: str; path to cell mechanism config file
+    :param correct_for_spines: bool
+
+    Environment can be instantiated as:
+    env = Env(config_file, template_paths, dataset_prefix, config_prefix)
+    :param template_paths: str; colon-separated list of paths to directories containing hoc cell templates
+    :param dataset_prefix: str; path to directory containing required neuroh5 data files
+    :param config_prefix: str; path to directory containing network and cell mechanism config files
+    
+    """
+
+    cell = cells.get_biophys_cell(env, pop_name, gid, tree_dict=tree_dict,
+                                  load_synapses=load_synapses,
+                                  synapses_dict=synapses_dict,
+                                  load_weights=True, 
+                                  load_edges=load_connections,
+                                  connections=connections,
+                                  mech_file_path=mech_file_path)
+
+    # init_spike_detector(cell)
+    if mech_file_path is not None:
+        cells.init_biophysics(cell, reset_cable=True, 
+                              correct_cm=correct_for_spines,
+                              correct_g_pas=correct_for_spines, env=env)
+    synapses.init_syn_mech_attrs(cell, env)
+    
+    return cell
 
 
-def measure_passive (template_class, tree, v_init, dt=0.025, prelength=1000.0, mainlength=2000.0, stimdur=500.0):
 
-    cell = cells.make_neurotree_cell (template_class, neurotree_dict=tree)
-    h.dt = dt
+def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=True, write_cell=False):
+    """
+    Instantiates a BiophysCell instance and all its synapses.
+
+    :param env: an instance of env.Env
+    :param pop_name: population name
+    :param gid: gid
+    """
+
+    rank = int(env.pc.id())
+
+    ## Determine if a mechanism configuration file exists for this cell type
+    if 'mech_file_path' in env.celltypes[pop_name]:
+        mech_file_path = env.celltypes[pop_name]['mech_file_path']
+    else:
+        mech_file_path = None
+
+    ## Determine if correct_for_spines flag has been specified for this cell type
+    synapse_config = env.celltypes[pop_name]['synapses']
+    if 'correct_for_spines' in synapse_config:
+        correct_for_spines_flag = synapse_config['correct_for_spines']
+    else:
+        correct_for_spines_flag = False
+
+    ## Determine presynaptic populations that connect to this cell type
+    presyn_names = env.projection_dict[pop_name]
+
+    ## Load cell gid and its synaptic attributes and connection data
+    cell = load_biophys_cell(env, pop_name, gid, mech_file_path=mech_file_path, \
+                             correct_for_spines=correct_for_spines_flag, \
+                             load_connections=load_connections)
+    if register_cell:
+        cells.register_cell(env, pop_name, gid, cell)
+    
+    cells.report_topology(cell, env)
+
+    env.cell_selection[pop_name] = [gid]
+    if write_cell:
+        write_selection_file_path =  "%s/%s_%d.h5" % (env.results_path, env.modelName, gid)
+        if rank == 0:
+            io_utils.mkout(env, write_selection_file_path)
+        env.comm.barrier()
+        io_utils.write_cell_selection(env, write_selection_file_path)
+        if load_connections:
+            io_utils.write_connection_selection(env, write_selection_file_path)
+    
+    return cell
+
+def measure_passive (gid, pop_name, v_init, env, prelength=1000.0, mainlength=2000.0, stimdur=500.0):
+
+    biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False)
+    hoc_cell = biophys_cell.hoc_cell
+
+    h.dt = env.dt
 
     tstop = prelength+mainlength
     
-    soma = list(cell.soma)[0]
+    soma = list(hoc_cell.soma)[0]
     stim1 = h.IClamp(soma(0.5))
     stim1.delay = prelength
     stim1.dur   = stimdur
     stim1.amp   = -0.1
 
+    h('objref tlog, Vlog')
+    
     h.tlog = h.Vector()
     h.tlog.record (h._ref_t)
 
@@ -30,7 +124,7 @@ def measure_passive (template_class, tree, v_init, dt=0.025, prelength=1000.0, m
     
     h.tstop = tstop
 
-    Rin = h.rn(cell)
+    Rin = h.rn(hoc_cell)
     
     neuron_utils.simulate(v_init, prelength, mainlength)
 
@@ -45,25 +139,32 @@ def measure_passive (template_class, tree, v_init, dt=0.025, prelength=1000.0, m
     vtau0  = vrest - amp23
     tau0   = h.tlog.x[int(h.Vlog.indwhere ("<=", vtau0))] - prelength
 
-    results = {'Rin': Rin,
-               'vmin': vmin,
-               'vmax': vmax,
-               'vtau0': vtau0,
-               'tau0': tau0
+    results = {'Rin': np.asarray([Rin], dtype=np.float32),
+               'vmin': np.asarray([vmin], dtype=np.float32),
+               'vmax': np.asarray([vmax], dtype=np.float32),
+               'vtau0': np.asarray([vtau0], dtype=np.float32),
+               'tau0': np.asarray([tau0], dtype=np.float32)
                }
 
+    env.synapse_attributes.del_syn_id_attr_dict(gid)
+    if gid in env.biophys_cells[pop_name]:
+        del env.biophys_cells[pop_name][gid]
+        
     return results
 
 
-def ap_test (template_class, tree, v_init):
+def measure_ap (gid, pop_name, v_init, env):
 
-    cell = cells.make_neurotree_cell (template_class, neurotree_dict=tree)
-    h.dt = 0.025
+
+    biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False)
+    hoc_cell = biophys_cell.hoc_cell
+
+    h.dt = env.dt
 
     prelength = 100.0
     stimdur = 10.0
     
-    soma = list(cell.soma)[0]
+    soma = list(hoc_cell.soma)[0]
     initial_amp = 0.05
 
     h.tlog = h.Vector()
@@ -72,30 +173,34 @@ def ap_test (template_class, tree, v_init):
     h.Vlog = h.Vector()
     h.Vlog.record (soma(0.5)._ref_v)
 
-    thr = cells.find_spike_threshold_minimum(cell,loc=0.5,sec=soma,duration=stimdur,initial_amp=initial_amp)
+    thr = cells.find_spike_threshold_minimum(hoc_cell,loc=0.5,sec=soma,duration=stimdur,initial_amp=initial_amp)
+
+    results = { 'spike threshold current': np.asarray([thr], dtype=np.float32),
+                'spike threshold trace t': np.asarray(h.tlog.to_python(), dtype=np.float32),
+                'spike threshold trace v': np.asarray(h.Vlog.to_python(), dtype=np.float32) }
+
+    env.synapse_attributes.del_syn_id_attr_dict(gid)
+    if gid in env.biophys_cells[pop_name]:
+        del env.biophys_cells[pop_name][gid]
+
+    return results
     
-    f=open("BasketCell_ap_results.dat",'w')
-    f.write ("## current amplitude: %g\n" % thr)
-    f.close()
+def measure_ap_rate (gid, pop_name, v_init, env, prelength=1000.0, mainlength=2000.0, stimdur=1000.0, minspikes=50, maxit=5):
 
-    f=open("BasketCell_voltage_trace.dat",'w')
-    for i in range(0, int(h.tlog.size())):
-        f.write('%g %g\n' % (h.tlog.x[i], h.Vlog.x[i]))
-    f.close()
+    biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False)
+    hoc_cell = biophys_cell.hoc_cell
 
-    
-def measure_ap (template_class, tree, v_init, dt=0.025, prelength=1000.0, mainlength=2000.0, stimdur=1000.0, minspikes=50, maxit=5):
-
-    cell = cells.make_neurotree_cell (template_class, neurotree_dict=tree)
-    h.dt = dt
+    h.dt = env.dt
 
     tstop = prelength+mainlength
     
-    soma = list(cell.soma)[0]
+    soma = list(hoc_cell.soma)[0]
     stim1 = h.IClamp(soma(0.5))
     stim1.delay = prelength
     stim1.dur   = stimdur
     stim1.amp   = 0.2
+
+    h('objref nil, tlog, Vlog, spikelog')
 
     h.tlog = h.Vector()
     h.tlog.record (h._ref_t)
@@ -104,12 +209,10 @@ def measure_ap (template_class, tree, v_init, dt=0.025, prelength=1000.0, mainle
     h.Vlog.record (soma(0.5)._ref_v)
 
     h.spikelog = h.Vector()
-    nc = h.NetCon(soma(0.5)._ref_v, h.nil)
-    nc.threshold = -40.0
+    nc = biophys_cell.spike_detector
     nc.record(h.spikelog)
     
     h.tstop = tstop
-
 
     it = 1
     ## Increase the injected current until at least maxspikes spikes occur
@@ -158,24 +261,30 @@ def measure_ap (template_class, tree, v_init, dt=0.025, prelength=1000.0, mainle
         raise RuntimeError("Unable to find ISI greater than first ISI")
 
 
-    results = {'spike_count': h.spikelog.size(),
-               'FR_mean': (1.0 / isimean),
-               'ISI_mean': isimean,
-               'ISI_var': isivar,
-               'ISI_stdev': isistdev,
-               'ISI_adaptation_1': isivect.x[0] / isimean,
-               'ISI_adaptation_2': isivect.x[0] / isivect.x[isilast]
-               'ISI_adaptation_3': isivect.x[0] / isivect.x[isi10th]
-               'ISI_adaptation_4': isivect.x[0] / isivect.x[isilastgt]
+    results = {'spike_count': np.asarray([h.spikelog.size()], dtype=np.uint32),
+               'FR_mean': np.asarray([1.0 / isimean], dtype=np.float32),
+               'ISI_mean': np.asarray([isimean], dtype=np.float32),
+               'ISI_var': np.asarray([isivar], dtype=np.float32),
+               'ISI_stdev': np.asarray([isistdev], dtype=np.float32),
+               'ISI_adaptation_1': np.asarray([isivect.x[0] / isimean], dtype=np.float32),
+               'ISI_adaptation_2': np.asarray([isivect.x[0] / isivect.x[isilast]], dtype=np.float32),
+               'ISI_adaptation_3': np.asarray([isivect.x[0] / isivect.x[isi10th]], dtype=np.float32),
+               'ISI_adaptation_4': np.asarray([isivect.x[0] / isivect.x[isilastgt]], dtype=np.float32)
                }
+
+    env.synapse_attributes.del_syn_id_attr_dict(gid)
+    if gid in env.biophys_cells[pop_name]:
+        del env.biophys_cells[pop_name][gid]
 
     return results
 
     
-def measure_fi (template_class, tree, v_init):
+def measure_fi (gid, pop_name, v_init, env):
 
-    cell = cells.make_neurotree_cell (template_class, neurotree_dict=tree)
-    soma = list(cell.soma)[0]
+    biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False)
+    hoc_cell = biophys_cell.hoc_cell
+
+    soma = list(hoc_cell.soma)[0]
     h.dt = 0.025
 
     prelength = 1000.0
@@ -191,6 +300,8 @@ def measure_fi (template_class, tree, v_init):
     stim1.dur   = stimdur
     stim1.amp   = 0.2
 
+    h('objref tlog, Vlog, spikelog')
+
     h.tlog = h.Vector()
     h.tlog.record (h._ref_t)
 
@@ -198,8 +309,7 @@ def measure_fi (template_class, tree, v_init):
     h.Vlog.record (soma(0.5)._ref_v)
 
     h.spikelog = h.Vector()
-    nc = h.NetCon(soma(0.5)._ref_v, h.nil)
-    nc.threshold = -40.0
+    nc = biophys_cell.spike_detector
     nc.record(h.spikelog)
     
     h.tstop = tstop
@@ -210,7 +320,7 @@ def measure_fi (template_class, tree, v_init):
 
         neuron_utils.simulate(v_init, prelength, mainlength)
         
-        print("fi_test: stim1.amp = %g spikelog.size = %d\n" % (stim1.amp, h.spikelog.size()))
+        logger.info("fi_test: stim1.amp = %g spikelog.size = %d\n" % (stim1.amp, h.spikelog.size()))
         stim1.amp = stim1.amp + 0.1
         stim_amps.append(stim1.amp)
         frs.append(h.spikelog.size())
@@ -218,12 +328,15 @@ def measure_fi (template_class, tree, v_init):
         h.tlog.clear()
         h.Vlog.clear()
 
-    f=open("BasketCell_fi_results.dat",'w')
 
-    for (fr,stim_amp) in zip(frs,stim_amps):
-        f.write("%g %g\n" % (stim_amp,fr))
+    results = {'FI_curve_amplitude': np.asarray(stim_amps, dtype=np.float32),
+               'FI_curve_frequency': np.asarray(frs, dtype=np.float32) }
 
-    f.close()
+    env.synapse_attributes.del_syn_id_attr_dict(gid)
+    if gid in env.biophys_cells[pop_name]:
+        del env.biophys_cells[pop_name][gid]
+
+    return results
 
 
 def measure_gap_junction_coupling (env, template_class, tree, v_init):
@@ -305,40 +418,55 @@ def measure_gap_junction_coupling (env, template_class, tree, v_init):
     
 
 @click.command()
-@click.option("--template-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True))
-@click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--synapses-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--config-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-def main(template_path,forest_path,synapses_path,config_path):
-    
+@click.option("--config-file", '-c', required=True, type=str, help='model configuration file name')
+@click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
+              default='config',
+              help='path to directory containing network and cell mechanism config files')
+@click.option("--population", '-p', required=True, type=str, default='GC', help='target population')
+@click.option("--gid", '-g', required=True, type=int, default=0, help='target cell gid')
+@click.option("--template-paths", type=str, required=True,
+              help='colon-separated list of paths to directories containing hoc cell templates')
+@click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
+              help='path to directory containing required neuroh5 data files')
+@click.option("--results-path", required=False, type=click.Path(exists=True, file_okay=False, dir_okay=True), \
+              help='path to directory where output files will be written')
+@click.option("--results-file-id", type=str, required=False, default=None, \
+              help='identifier that is used to name neuroh5 files that contain output spike and intracellular trace data')
+@click.option("--results-namespace-id", type=str, required=False, default=None, \
+              help='identifier that is used to name neuroh5 namespaces that contain output spike and intracellular trace data')
+@click.option("--v-init", type=float, default=-75.0, help='initialization membrane potential (mV)')
+def main(config_file, config_prefix, population, gid, template_paths, dataset_prefix, results_path, results_file_id, results_namespace_id, v_init):
+
+    if results_file_id is None:
+        results_file_id = uuid.uuid4()
+    if results_namespace_id is None:
+        results_namespace_id = 'Cell Clamp Results'
     comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
+    np.seterr(all='raise')
+    verbose = True
+    params = dict(locals())
+    env = Env(**params)
+    configure_hoc_env(env)
+    io_utils.mkout(env, env.results_file_path)
+    env.cell_selection = {}
 
-    env = Env(comm=comm, config_file=config_path, template_paths=template_path)
+    attr_dict = {}
+    attr_dict[gid] = {}
+    attr_dict[gid].update(measure_passive(gid, population, v_init, env))
+    attr_dict[gid].update(measure_ap(gid, population, v_init, env))
+    attr_dict[gid].update(measure_ap_rate(gid, population, v_init, env))
+    attr_dict[gid].update(measure_fi(gid, population, v_init, env))
 
-    h('objref nil, pc, tlog, Vlog, spikelog')
-    h.load_file("nrngui.hoc")
-    h.xopen ("./tests/rn.hoc")
-    h.xopen(template_path+'/BasketCell.hoc')
+    pprint.pprint(attr_dict)
+
+    if results_path is not None:
+        append_cell_attributes(env.results_file_path, population, attr_dict,
+                               namespace=env.results_namespace_id,
+                               comm=env.comm, io_size=env.io_size)
+        
+    #gap_junction_test(gid, population, v_init, env)
+    #synapse_test(gid, population, v_init, env)
     
-    pop_name = "BC"
-    gid = 1039000
-    (trees_dict,_) = read_tree_selection (forest_path, pop_name, [gid], comm=env.comm)
-    synapses_dict = read_cell_attribute_selection (synapses_path, pop_name, [gid], "Synapse Attributes", comm=env.comm)
 
-    (_, tree) = next(trees_dict)
-    (_, synapses) = next(synapses_dict)
-
-    v_init = -60
-    
-    template_class = getattr(h, "BasketCell")
-
-    ap_test(template_class, tree, v_init)
-    passive_test(template_class, tree, v_init)
-    ap_rate_test(template_class, tree, v_init)
-    fi_test(template_class, tree, v_init)
-    gap_junction_test(env, template_class, tree, v_init)
-    synapse_test(template_class, gid, tree, synapses, v_init, env)
-    
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda s: s.find("BasketCellTest.py") != -1,sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])

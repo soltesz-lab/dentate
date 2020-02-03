@@ -4,7 +4,7 @@ import click
 import numpy as np
 from mpi4py import MPI  # Must come before importing NEURON
 from neuron import h
-from dentate import cells, network_clamp, neuron_utils, synapses, utils
+from dentate import cells, neuron_utils, synapses, utils
 from dentate.env import Env
 from neuroh5.io import read_cell_attribute_selection, read_tree_selection
 
@@ -170,7 +170,7 @@ def synapse_test(template_class, mech_file_path, gid, tree, synapses, v_init, en
     postsyn_name = 'GC'
     presyn_names = ['MPP', 'LPP', 'MC', 'HC', 'BC', 'AAC', 'HCC']
 
-    cell = network_clamp.load_cell(env, postsyn_name, gid, mech_file_path=mech_file_path, \
+    cell = cells.load_biophys_cell(env, postsyn_name, gid, mech_file_path=mech_file_path, \
                                    tree_dict=tree, synapses_dict=synapses, \
                                    correct_for_spines=True, load_edges=False)
 

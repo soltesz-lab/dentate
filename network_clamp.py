@@ -6,13 +6,12 @@ from collections import defaultdict
 from mpi4py import MPI
 import numpy as np
 import click
-from dentate import io_utils, spikedata, synapses, stimulus
-
-from dentate.cells import h, get_biophys_cell, init_biophysics, init_spike_detector, make_input_cell, \
-    report_topology, register_cell, record_cell
+from dentate import io_utils, spikedata, synapses, stimulus, cell_clamp
+from dentate.cells import h, make_input_cell, register_cell, record_cell
 from dentate.env import Env
 from dentate.neuron_utils import h, configure_hoc_env, make_rec
 from dentate.utils import Closure, mse, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger
+from dentate.cell_clamp import init_biophys_cell
 from neuroh5.io import read_cell_attribute_selection
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -73,95 +72,6 @@ def generate_weights(env, weight_source_rules, this_syn_attrs):
     return weights_dict
 
 
-def load_cell(env, pop_name, gid, mech_file_path=None, correct_for_spines=False, tree_dict=None,
-              load_synapses=True, synapses_dict=None, load_connections=True, connections=None):
-    """
-    Instantiates the mechanisms of a single cell.
-
-    :param env: env.Env
-    :param pop_name: str
-    :param gid: int
-    :param mech_file_path: str; path to cell mechanism config file
-    :param correct_for_spines: bool
-
-    Environment can be instantiated as:
-    env = Env(config_file, template_paths, dataset_prefix, config_prefix)
-    :param template_paths: str; colon-separated list of paths to directories containing hoc cell templates
-    :param dataset_prefix: str; path to directory containing required neuroh5 data files
-    :param config_prefix: str; path to directory containing network and cell mechanism config files
-    
-    """
-    configure_hoc_env(env)
-
-    cell = get_biophys_cell(env, pop_name, gid, tree_dict=tree_dict,
-                            load_synapses=load_synapses,
-                            synapses_dict=synapses_dict,
-                            load_weights=True, 
-                            load_edges=load_connections,
-                            connections=connections,
-                            mech_file_path=mech_file_path)
-
-    # init_spike_detector(cell)
-    if mech_file_path is not None:
-        init_biophysics(cell, reset_cable=True, 
-                        correct_cm=correct_for_spines,
-                        correct_g_pas=correct_for_spines, env=env)
-    synapses.init_syn_mech_attrs(cell, env)
-
-    env.biophys_cells[pop_name][gid] = cell
-
-    
-    return cell
-
-
-
-def init_cell(env, pop_name, gid, load_connections=True, write_cell=False):
-    """
-    Instantiates a cell and all its synapses.
-
-    :param env: an instance of env.Env
-    :param pop_name: population name
-    :param gid: gid
-    """
-
-    rank = int(env.pc.id())
-
-    ## Determine if a mechanism configuration file exists for this cell type
-    if 'mech_file_path' in env.celltypes[pop_name]:
-        mech_file_path = env.celltypes[pop_name]['mech_file_path']
-    else:
-        mech_file_path = None
-
-    ## Determine if correct_for_spines flag has been specified for this cell type
-    synapse_config = env.celltypes[pop_name]['synapses']
-    if 'correct_for_spines' in synapse_config:
-        correct_for_spines_flag = synapse_config['correct_for_spines']
-    else:
-        correct_for_spines_flag = False
-
-    ## Determine presynaptic populations that connect to this cell type
-    presyn_names = env.projection_dict[pop_name]
-
-    ## Load cell gid and its synaptic attributes and connection data
-    cell = load_cell(env, pop_name, gid, mech_file_path=mech_file_path, \
-                     correct_for_spines=correct_for_spines_flag, \
-                     load_connections=load_connections)
-    register_cell(env, pop_name, gid, cell)
-    
-    report_topology(cell, env)
-
-    env.cell_selection[pop_name] = [gid]
-    if write_cell:
-        write_selection_file_path =  "%s/%s_%d.h5" % (env.results_path, env.modelName, gid)
-        if rank == 0:
-            io_utils.mkout(env, write_selection_file_path)
-        env.comm.barrier()
-        io_utils.write_cell_selection(env, write_selection_file_path)
-        if load_connections:
-            io_utils.write_connection_selection(env, write_selection_file_path)
-    
-    return cell
-
 
 def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), generate_weights_pops=set([]),
          spike_events_namespace='Spike Events', t_var='t', t_min=None, t_max=None, write_cell=False, plot_cell=False):
@@ -196,7 +106,7 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
     presyn_names = env.projection_dict[pop_name]
 
     ## Load cell gid and its synaptic attributes and connection data
-    cell = init_cell(env, pop_name, gid, write_cell=write_cell)
+    cell = init_biophys_cell(env, pop_name, gid, write_cell=write_cell)
 
     ## Load spike times of presynaptic cells
     spkdata = spikedata.read_spike_events(spike_events_path, \
