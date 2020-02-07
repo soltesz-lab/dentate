@@ -7,7 +7,6 @@
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #SBATCH --mail-type=BEGIN
-#SBATCH --res=iraikov_2184
 
 . $HOME/comet_env.sh
 
@@ -18,7 +17,8 @@ set -x
 export SLURM_NODEFILE=`generate_pbs_nodefile`
 
 #Run the job using mpirun_rsh
-mpirun_rsh -export-all -hostfile $SLURM_NODEFILE -np 1536 `which python3` ./scripts/generate_distance_connections.py \
+mpirun_rsh -export-all -hostfile $SLURM_NODEFILE -np 1536 \
+`which python3` ./scripts/generate_distance_connections.py \
        --config-prefix=./config \
        --config=Full_Scale_GC_Exc_Sat.yaml \
        --forest-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_syns_20190717_compressed.h5 \

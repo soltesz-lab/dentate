@@ -2,8 +2,8 @@
 #
 #SBATCH -J generate_distance_connections_IN
 #SBATCH -o ./results/generate_distance_connections_IN.%j.o
-#SBATCH --nodes=10
-#SBATCH --ntasks-per-node=12
+#SBATCH --nodes=20
+#SBATCH --ntasks-per-node=16
 #SBATCH -t 2:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END

@@ -38,7 +38,7 @@ ibrun -np 1280 python3.5 $HOME/model/dentate/scripts/generate_structured_weights
     --weights-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_syn_weights_LN_20190717_compressed.h5 \
     --connections-path=$SCRATCH/dentate/Full_Scale_Control/DG_GC_connections_20190717_compressed.h5 \
     --input-features-path="$SCRATCH/dentate/Full_Scale_Control/DG_input_features_20190909_compressed.h5" \
-    --arena-id=A \
+    --arena-id=A --field-width-scale=1.33 \
     --io-size=192 --cache-size=10  --value-chunk-size=100000 --chunk-size=20000 --write-size=10 -v
 
 

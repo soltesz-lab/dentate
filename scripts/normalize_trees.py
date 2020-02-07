@@ -2,12 +2,12 @@ import os, sys, gc, logging, random
 import click
 import numpy as np
 from mpi4py import MPI
-import h5py
 import dentate
 import dentate.utils as utils
 import dentate.cells as cells
 from dentate.env import Env
 from neuroh5.io import NeuroH5TreeGen, append_cell_attributes, append_cell_trees, bcast_cell_attributes, read_population_ranges
+import h5py
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -71,8 +71,8 @@ def main(config, config_prefix, population, forest_path, template_path, output_p
 
     new_trees_dict = {}
     for gid, tree_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, comm=comm, topology=False):
-
         if gid is not None:
+            logger.info("Rank %d received gid %d" % (rank, gid))
             new_tree_dict = cells.normalize_tree_topology(tree_dict, env.SWC_Types)
             
             new_trees_dict[gid] = new_tree_dict
