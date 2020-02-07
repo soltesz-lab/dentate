@@ -1,4 +1,4 @@
-import sys, os, time, gc, click, logging
+import sys, os, time, gc, click, logging, pprint
 from collections import defaultdict
 from functools import reduce
 import numpy as np
@@ -33,6 +33,7 @@ def get_rate_map(x0, y0, field_width, peak_rate, x, y):
 @click.option("--input-features-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--input-features-namespaces", type=str, multiple=True, default=['Place Selectivity', 'Grid Selectivity'])
 @click.option("--output-weights-path", required=False, type=click.Path(exists=False, file_okay=True, dir_okay=False))
+@click.option("--output-features-path", required=False, type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--weights-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--h5types-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--synapse-name", type=str, default='AMPA')
@@ -47,7 +48,8 @@ def get_rate_map(x0, y0, field_width, peak_rate, x, y):
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
 @click.option("--interactive", is_flag=True)
-def main(config, coordinates, gid, field_width, peak_rate, input_features_path, input_features_namespaces, output_weights_path, weights_path, h5types_path, synapse_name, initial_weights_namespace,
+def main(config, coordinates, gid, field_width, peak_rate, input_features_path, input_features_namespaces,
+         output_weights_path, output_features_path, weights_path, h5types_path, synapse_name, initial_weights_namespace,
          structured_weights_namespace, connections_path, destination, sources, arena_id, field_width_scale, max_iter, 
          verbose, dry_run, interactive):
     """
@@ -127,17 +129,21 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
 
     dst_input_features = defaultdict(dict)
     num_fields = len(coordinates)
-    this_field_width = np.asarray([field_width]*num_fields)
-    this_peak_rate = np.asarray([peak_rate]*num_fields)
-    this_x0 = np.asarray([x for x, y in coordinates])
-    this_y0 = np.asarray([y for x, y in coordinates])
-    this_rate_map = get_rate_map(this_x0, this_y0, this_field_width, this_peak_rate, x, y)
-    dst_input_features[destination][gid] = {'Num Fields': np.asarray([num_fields]),
-                                            'Field Width': this_field_width,
-                                            'Peak Rate': this_peak_rate,
-                                            'X Offset': this_x0,
-                                            'Y Offset': this_y0,
-                                            'Arena Rate Map': this_rate_map }
+    this_field_width = np.array([field_width]*num_fields, dtype=np.float32)
+    this_peak_rate = np.array([peak_rate]*num_fields, dtype=np.float32)
+    this_x0 = np.array([x for x, y in coordinates], dtype=np.float32)
+    this_y0 = np.array([y for x, y in coordinates], dtype=np.float32)
+    this_rate_map = np.asarray(get_rate_map(this_x0, this_y0, this_field_width, this_peak_rate, x, y),
+                               dtype=np.float32)
+    selectivity_type = env.selectivity_types['place']
+    dst_input_features[destination][gid] = {
+        'Selectivity Type': np.array([selectivity_type], dtype=np.uint8),
+        'Num Fields': np.array([num_fields], dtype=np.uint8),
+        'Field Width': this_field_width,
+        'Peak Rate': this_peak_rate,
+        'X Offset': this_x0,
+        'Y Offset': this_y0,
+        'Arena Rate Map': this_rate_map.ravel() }
 
     selection=[gid]
     structured_weights_dict = {}
@@ -219,10 +225,19 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
     if not dry_run:
             
         logger.info('Destination: %s; appending structured weights...' % (destination))
+        this_structured_weights_namespace = '%s %s' % (structured_weights_namespace, arena_id)
         append_cell_attributes(output_weights_path, destination, structured_weights_dict,
-                                namespace=structured_weights_namespace)
-        logger.info('Destination: %s; appended structured weights for %i cells' % (destination, count))
+                               namespace=this_structured_weights_namespace)
+        logger.info('Destination: %s; appended structured weights' % (destination))
         structured_weights_dict.clear()
+        if output_features_path is not None:
+            output_features_namespace = 'Place Selectivity %s' % arena_id
+            cell_attr_dict = dst_input_features[destination]
+            logger.info('Destination: %s; appending features...' % (destination))
+            append_cell_attributes(output_features_path, destination,
+                                   cell_attr_dict, namespace=output_features_namespace)
+            
+            
         gc.collect()
             
     del(syn_weight_dict)

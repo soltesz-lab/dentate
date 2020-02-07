@@ -227,8 +227,10 @@ def run(env):
     env.t_vec.resize(0)
     env.id_vec.resize(0)
 
-    h.cvode_active(0)
+    st_comptime = env.pc.step_time()
 
+    h.cvode_active(0)
+    
     h.t = 0.0
     h.dt = env.dt
     h.tstop = env.tstop
@@ -246,9 +248,7 @@ def run(env):
         logger.info("*** Simulation completed")
     env.pc.barrier()
 
-    comptime = env.pc.step_time()
-    cwtime = comptime + env.pc.step_wait()
-    maxcw = env.pc.allreduce(cwtime, 2)
+    comptime = env.pc.step_time() - st_comptime
     avgcomp = env.pc.allreduce(comptime, 1) / nhosts
     maxcomp = env.pc.allreduce(comptime, 2)
 
@@ -257,6 +257,8 @@ def run(env):
 
     env.pc.runworker()
     env.pc.done()
+
+    return spikedata.get_env_spike_dict(env, include_artificial=None)
 
 
 def run_with(env, param_dict):
@@ -303,6 +305,8 @@ def run_with(env, param_dict):
     env.t_vec.resize(0)
     env.id_vec.resize(0)
 
+    st_comptime = env.pc.step_time()
+
     h.cvode_active(0)
 
     h.t = 0.0
@@ -318,6 +322,7 @@ def run_with(env, param_dict):
         
         logger.info("*** Parameters: %s" % pprint.pformat(param_dict))
 
+
     env.pc.barrier()
     env.pc.psolve(h.tstop)
 
@@ -325,9 +330,7 @@ def run_with(env, param_dict):
         logger.info("*** Simulation completed")
     env.pc.barrier()
 
-    comptime = env.pc.step_time()
-    cwtime = comptime + env.pc.step_wait()
-    maxcw = env.pc.allreduce(cwtime, 2)
+    comptime = env.pc.step_time() - st_comptime
     avgcomp = env.pc.allreduce(comptime, 1) / nhosts
     maxcomp = env.pc.allreduce(comptime, 2)
 

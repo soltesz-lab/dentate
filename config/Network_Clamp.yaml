@@ -85,26 +85,32 @@ Scaling Optimization:
       !!python/tuple [MPP, LPP, MC]:
         apical:
           AMPA:
-            weight: [2.0, 9.0]
+            weight: [0.1, 3.0]
       BC:
         apical:
           GABA_A:
-            weight: [0.01, 1.0]
+            weight: [0.001, 1.0]
         soma:
           GABA_A:
-            weight: [0.001, 0.03]
+            weight: [0.0005, 0.05]
       AAC:
         ais:
           GABA_A:
-            weight: [0.01, 1.0]
-      !!python/tuple [HC, HCC]:
+            weight: [0.001, 1.0]
+      HC:
         apical:
           GABA_A:
-            weight: [0.01, 1.0]
+            weight: [0.001, 1.0]
+      HCC:
+        apical:
+          GABA_A:
+            weight: [0.001, 1.0]
       !!python/tuple [NGFC, MOPP]:
         apical:
           GABA_A:
             weight: [0.01, 1.0]
+          GABA_B:
+            weight: [0.001, 0.05]
 Synaptic Optimization:
   GC:
     Parameter ranges:

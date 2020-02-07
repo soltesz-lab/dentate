@@ -581,7 +581,7 @@ class BiophysCell(object):
     2) Specification of complex distributions of compartment attributes like gradients of ion channel density or
     synaptic properties.
     """
-    def __init__(self, gid, pop_name, hoc_cell=None, mech_file_path=None, env=None):
+    def __init__(self, gid, pop_name, hoc_cell=None, mech_file_path=None, mech_dict=None, env=None):
         """
 
         :param gid: int
@@ -600,8 +600,8 @@ class BiophysCell(object):
                     raise AttributeError('Warning! unexpected SWC Type definitions found in Env')
         self.nodes = {key: [] for key in default_ordered_sec_types}
         self.mech_file_path = mech_file_path
-        self.init_mech_dict = dict()
-        self.mech_dict = dict()
+        self.init_mech_dict = dict(mech_dict)
+        self.mech_dict = dict(mech_dict)
         self.random = np.random.RandomState()
         self.random.seed(self.gid)
         self.spike_detector = None
@@ -609,7 +609,7 @@ class BiophysCell(object):
         self.hoc_cell = hoc_cell
         if hoc_cell is not None:
             import_morphology_from_hoc(self, hoc_cell)
-        if self.mech_file_path is not None:
+        if (mech_dict is None) and (mech_file_path is not None):
             import_mech_dict_from_file(self, self.mech_file_path)
         init_spike_detector(self)
 
@@ -2268,8 +2268,9 @@ def make_input_cell(env, gid, pop_id, input_source_dict):
 
 
 def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, load_synapses=True,
-                     load_edges=True, connections=None, load_weights=False, weights_scales=None,
-                     set_edge_delays=True, mech_file_path=None):
+                     load_edges=True, connection_graph=None,
+                     load_weights=False, weight_dict=None, weights_scales=None,
+                     set_edge_delays=True, mech_file_path=None, mech_dict=None):
     """
     :param env: :class:'Env'
     :param pop_name: str
@@ -2288,7 +2289,8 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
         tree_attr_iter, _ = read_tree_selection(env.data_file_path, pop_name, [gid], comm=env.comm, topology=True)
         _, tree_dict = next(tree_attr_iter)
     hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict)
-    cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env, mech_file_path=mech_file_path)
+    cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env,
+                       mech_file_path=mech_file_path, mech_dict=mech_dict)
     syn_attrs = env.synapse_attributes
     synapse_config = env.celltypes[pop_name]['synapses']
 
@@ -2316,42 +2318,49 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
                                                           comm=env.comm)
             syn_attrs.init_syn_id_attrs_from_iter(synapses_iter)
 
-            if has_weights:
-                cell_weights_iters = [read_cell_attribute_selection(env.data_file_path, pop_name, [gid],
-                                                                    weights_namespace, comm=env.comm)
-                                        for weights_namespace in weights_namespaces]
-            else:
-                cell_weights_iters = []
         else:
             logger.error('get_biophys_cell: synapse attributes not found for %s: gid: %i' % (pop_name, gid))
             raise Exception
 
-        if has_weights:
-            overwrite_weights = 'error'
-            for weights_namespace, cell_weights_iter in zip_longest(weights_namespaces, cell_weights_iters):
-                weights_scale = weights_scales.get(weights_namespace, 1.0)
-                for gid, cell_weights_dict in cell_weights_iter:
-                    weights_syn_ids = cell_weights_dict['syn_id']
-                    for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
-                        weights_values = cell_weights_dict[syn_name]
-                        syn_attrs.add_mech_attrs_from_iter(
-                            gid, syn_name,
-                            zip_longest(weights_syn_ids, map(lambda x: {'weight': weights_scale*x}, weights_values)),
-                            overwrite=overwrite_weights)
+        cell_ns_weights_iter = []
+        if load_weights:
+            if weight_dict is not None:
+                cell_ns_weights_iter = viewitems(weight_dict)
+            elif (weight_dict is None) and has_weights:
+                cell_weights_iters = [read_cell_attribute_selection(env.data_file_path, pop_name, [gid],
+                                                                    weights_namespace, comm=env.comm)
+                                          for weights_namespace in weights_namespaces]
+                cell_ns_weights_iter = zip_longest(weights_namespaces, cell_weights_iters)
+
+        overwrite_weights = 'error'
+        for weights_namespace, cell_weights_iter in cell_ns_weights_iter:
+            first_gid = None
+            weights_scale = weights_scales.get(weights_namespace, 1.0)
+            for gid, cell_weights_dict in cell_weights_iter:
+                if first_gid is None:
+                    first_gid = gid
+                weights_syn_ids = cell_weights_dict['syn_id']
+                for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
+                    weights_values = cell_weights_dict[syn_name]
+                    syn_attrs.add_mech_attrs_from_iter(
+                        gid, syn_name,
+                        zip_longest(weights_syn_ids, map(lambda x: {'weight': weights_scale*x}, weights_values)),
+                        overwrite=overwrite_weights)
+                    if first_gid == gid:
                         logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights' %
-                                        (gid, len(cell_weights_dict[syn_name]), syn_name))
-                overwrite_weights='skip'
+                                    (gid, len(cell_weights_dict[syn_name]), syn_name))
+            overwrite_weights='skip'
 
 
     if load_edges:
-        if os.path.isfile(env.connectivity_file_path):
+        if connection_graph is not None:
+            (graph, a) = connection_graph
+        elif os.path.isfile(env.connectivity_file_path):
             (graph, a) = read_graph_selection(file_name=env.connectivity_file_path, selection=[gid],
                                               namespaces=['Synapses', 'Connections'], comm=env.comm)
         else:
             logger.error('get_biophys_cell: connection file %s not found' % env.connectivity_file_path)
             raise Exception
-    elif connections:
-        (graph, a) = connections
     else:
         (graph, a) = None, None
 

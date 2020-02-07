@@ -5,7 +5,7 @@ from mpi4py import MPI
 import yaml
 from dentate.neuron_utils import h, find_template
 from dentate.synapses import SynapseAttributes, get_syn_filter_dict
-from dentate.utils import IncludeLoader, DExpr, config_logging, get_root_logger, str, viewitems, zip, viewitems
+from dentate.utils import IncludeLoader, DExpr, config_logging, get_root_logger, str, viewitems, zip, read_from_yaml
 from neuroh5.io import read_cell_attribute_info, read_population_names, read_population_ranges, read_projection_names
 
 SynapseConfig = namedtuple('SynapseConfig',
@@ -133,7 +133,8 @@ class Env(object):
             self.template_paths = template_paths.split(':')
         else:
             self.template_paths = []
-
+        self.template_dict = {}
+            
         # The location of required hoc libraries
         self.hoc_lib_path = hoc_lib_path
 
@@ -744,7 +745,9 @@ class Env(object):
                 celltypes[k]['num'] = population_ranges[k][1]
                 if 'mechanism file' in celltypes[k]:
                     celltypes[k]['mech_file_path'] = '%s/%s' % (self.config_prefix, celltypes[k]['mechanism file'])
-
+                    mech_dict = read_from_yaml(celltypes[k]['mech_file_path'])
+                    celltypes[k]['mech_dict'] = mech_dict
+                    
         population_names = read_population_names(self.data_file_path, self.comm)
         if rank == 0:
             self.logger.info('population_names = %s' % str(population_names))
@@ -758,6 +761,8 @@ class Env(object):
 
         :param pop_name: str
         """
+        if pop_name in self.template_dict:
+            return self.template_dict[pop_name]
         rank = self.comm.Get_rank()
         if not (pop_name in self.celltypes):
             raise KeyError('Env.load_cell_templates: unrecognized cell population: %s' % pop_name)
@@ -770,4 +775,5 @@ class Env(object):
             find_template(self, template_name, template_file=template_file, path=self.template_paths)
         assert (hasattr(h, template_name))
         template_class = getattr(h, template_name)
+        self.template_dict[pop_name] = template_class
         return template_class
