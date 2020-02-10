@@ -229,7 +229,7 @@ def run(env):
 
     st_comptime = env.pc.step_time()
 
-    h.cvode_active(0)
+    h.cvode_active(1)
     
     h.t = 0.0
     h.dt = env.dt
@@ -307,7 +307,7 @@ def run_with(env, param_dict):
 
     st_comptime = env.pc.step_time()
 
-    h.cvode_active(0)
+    h.cvode_active(1)
 
     h.t = 0.0
     h.tstop = env.tstop
@@ -394,7 +394,11 @@ def modify_scaled_syn_param(env, gid, syn_id, old_val, new_val):
         original_val = old_val
         syn_attr_dict[env.param_name] = original_val
         logger.warning('modify_scaled_syn_param: gid %d syn %s is missing parameter %s; using value %s' % (gid, str(syn), env.param_name, str(old_val)))
-    return original_val * new_val
+    logger.debug('modify_scaled_syn_param: syn %s mech %s param %s original_val %s new_val %s' % (syn_name, mech_name, env.param_name, str(original_val), str(new_val)))
+    if original_val is None:
+        return new_val
+    else:
+        return original_val * new_val
 
 def optimize_params(env, pop_name, param_type):
                         
@@ -512,7 +516,8 @@ def optimize_rate(env, pop_name, gid, opt_iter=10, param_type='synaptic'):
 
     logger.info('Optimized parameters: %s' % pprint.pformat(from_param_vector(opt_params)))
     logger.info('Optimized objective function: %s' % pprint.pformat(outputs))
-
+    
+    
     return opt_params, outputs
 
 
@@ -565,6 +570,7 @@ def optimize_rate_dist(env, tstop, pop_name, gid,
 
     logger.info('Optimized parameters: %s' % pprint.pformat(from_param_vector(opt_params)))
     logger.info('Optimized objective function: %s' % pprint.pformat(outputs))
+    logger.info('Optimized result: %s' % pprint.pformat(f_firing_rate_vector(*opt_params)))
 
     return opt_params, outputs
 

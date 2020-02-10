@@ -1510,10 +1510,10 @@ def apply_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, 
     if baseline is not None:
         if 'custom' in rules:
             apply_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor,
-                                        update_targets, verbose)
+                                        update_targets, update_operator, verbose)
         else:
             set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor,
-                               update_targets, verbose)
+                               update_targets, update_operator, verbose)
 
 
 def inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filters=None):
@@ -1559,7 +1559,7 @@ def inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filter
 
 
 def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor=None,
-                       update_targets=False, verbose=False):
+                       update_targets=False, update_operator=None, verbose=False):
     """Provided a synaptic mechanism, a parameter, a node, a list of
     syn_ids, and a dict of rules. Sets placeholder values for each
     provided syn_id in the syn_mech_attr_dict of a SynapseAttributes
@@ -1586,7 +1586,7 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline,
     if not ('min_loc' in rules or 'max_loc' in rules or 'slope' in rules):
         for syn_id in syn_ids:
             syn_attrs.modify_mech_attrs(cell.pop_name, cell.gid, syn_id, syn_name, 
-                                        {param_name: baseline})
+                                        {param_name: baseline}, update_operator=update_operator)
     elif donor is None:
         raise RuntimeError('set_syn_mech_param: cannot set value of synaptic mechanism: %s parameter: %s in '
                            'sec_type: %s without a provided donor node' % (syn_name, param_name, node.type))
@@ -1613,14 +1613,14 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline,
                 
             if value is not None:
                 syn_attrs.modify_mech_attrs(cell.pop_name, cell.gid, syn_id, syn_name, 
-                                            {param_name: value})
+                                            {param_name: value}, update_operator=update_operator)
 
     if update_targets:
         config_biophys_cell_syns(env, cell.gid, cell.pop_name, syn_ids=syn_ids, insert=False, verbose=verbose)
 
 
 def apply_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor,
-                                update_targets=False, verbose=False):
+                                update_targets=False, update_operator=None, verbose=False):
     """If the provided node meets custom criteria, rules are modified and
     passed back to parse_mech_rules with the 'custom' item
     removed. Avoids having to determine baseline and donor over again.
@@ -1655,7 +1655,7 @@ def apply_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, 
     new_rules = func(cell, node, baseline, new_rules, donor, **custom)
     if new_rules:
         apply_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, new_rules, donor=donor,
-                             update_targets=update_targets, verbose=verbose)
+                             update_targets=update_targets, update_operator=update_operator, verbose=verbose)
 
 
 def init_syn_mech_attrs(cell, env=None, reset_mech_dict=False, update_targets=False):

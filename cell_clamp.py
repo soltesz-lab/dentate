@@ -90,7 +90,7 @@ def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=T
                              tree_dict=cell_dict.get('morph', None),
                              synapses_dict=cell_dict.get('synapse', None),
                              connection_graph=cell_dict.get('connectivity', None),
-                             weight_graph=cell_dict.get('weight', None))
+                             weight_dict=cell_dict.get('weight', None))
                              
     if register_cell:
         cells.register_cell(env, pop_name, gid, cell)
