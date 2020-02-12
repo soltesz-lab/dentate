@@ -600,8 +600,8 @@ class BiophysCell(object):
                     raise AttributeError('Warning! unexpected SWC Type definitions found in Env')
         self.nodes = {key: [] for key in default_ordered_sec_types}
         self.mech_file_path = mech_file_path
-        self.init_mech_dict = dict(mech_dict)
-        self.mech_dict = dict(mech_dict)
+        self.init_mech_dict = dict(mech_dict) if mech_dict is not None else None
+        self.mech_dict = dict(mech_dict) if mech_dict is not None else None
         self.random = np.random.RandomState()
         self.random.seed(self.gid)
         self.spike_detector = None
