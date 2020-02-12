@@ -43,6 +43,7 @@ def get_rate_map(x0, y0, field_width, peak_rate, x, y):
 @click.option("--destination", '-d', type=str)
 @click.option("--sources", '-s', type=str, multiple=True)
 @click.option("--arena-id", '-a', type=str, default='A')
+@click.option("--baseline-weight", type=float, default=0.0)
 @click.option("--field-width-scale", type=float, default=1.2)
 @click.option("--max-iter", type=int, default=10)
 @click.option("--verbose", "-v", is_flag=True)
@@ -50,8 +51,8 @@ def get_rate_map(x0, y0, field_width, peak_rate, x, y):
 @click.option("--interactive", is_flag=True)
 def main(config, coordinates, gid, field_width, peak_rate, input_features_path, input_features_namespaces,
          output_weights_path, output_features_path, weights_path, h5types_path, synapse_name, initial_weights_namespace,
-         structured_weights_namespace, connections_path, destination, sources, arena_id, field_width_scale, max_iter, 
-         verbose, dry_run, interactive):
+         structured_weights_namespace, connections_path, destination, sources, arena_id, baseline_weight,
+         field_width_scale, max_iter, verbose, dry_run, interactive):
     """
 
     :param config: str (path to .yaml file)
@@ -183,7 +184,7 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
             for i in range(len(source_gids)):
                 this_source_gid = source_gids[i]
                 this_syn_id = syn_ids[i]
-                this_syn_wgt = syn_weight_dict.get(this_syn_id, 0.0)
+                this_syn_wgt = syn_weight_dict.get(this_syn_id, baseline_weight)
                 this_source_syn_dict[this_source_gid].append((this_syn_id, this_syn_wgt))
                 count += 1
             logger.info('destination: %s; gid %i; %d synaptic weights from source population %s' %
