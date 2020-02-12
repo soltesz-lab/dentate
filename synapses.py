@@ -2415,7 +2415,7 @@ def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, lo
                 syn_weights[syn_id] = max(delta_weight + initial_weight, math.sqrt(initial_weight)) + baseline_weight
 
     if interactive:
-        modified_weights = np.maximum(np.add(w, delta_weights), np.sqrt(w))
+        modified_weights = np.maximum(np.add(w, delta_weights), np.sqrt(w)) + baseline_weight
         modified_ratemap = phi(np.dot(A, modified_weights))
         logger.info('Initial rate map: min: %f max: %f' % (np.min(initial_ratemap), np.max(initial_ratemap)))
         logger.info('Target: min: %f max: %f' % (np.min(b), np.max(b)))
