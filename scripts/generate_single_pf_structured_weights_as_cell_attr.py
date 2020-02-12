@@ -184,7 +184,7 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
             for i in range(len(source_gids)):
                 this_source_gid = source_gids[i]
                 this_syn_id = syn_ids[i]
-                this_syn_wgt = syn_weight_dict.get(this_syn_id, baseline_weight)
+                this_syn_wgt = syn_weight_dict.get(this_syn_id, 0.0)
                 this_source_syn_dict[this_source_gid].append((this_syn_id, this_syn_wgt))
                 count += 1
             logger.info('destination: %s; gid %i; %d synaptic weights from source population %s' %
@@ -215,6 +215,8 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
                                            source_syn_dict,
                                            spatial_mesh=(x,y),
                                            plasticity_kernel=plasticity_kernel,
+                                           field_width_scale=field_width_scale,
+                                           baseline_weight=baseline_weight,
                                            local_random=local_random,
                                            interactive=interactive)
 

@@ -2369,7 +2369,7 @@ def interactive_callback_plasticity_fit(**kwargs):
     plt.show()
 
 
-def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, logger, max_iter=10, lb = -3.0, ub = 3., local_random=None, interactive=False):
+def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, logger, max_iter=10, lb = -3.0, ub = 3., baseline_weight=0.0, local_random=None, interactive=False):
     
     source_gids = sorted(plasticity_inputs.keys())
     initial_weights = []
@@ -2412,7 +2412,7 @@ def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, lo
         syn_count = len(source_syn_map[source_gid])
         if syn_count > 0:
             for syn_id, initial_weight in source_syn_map[source_gid]:
-                syn_weights[syn_id] = max(delta_weight + initial_weight, math.sqrt(initial_weight))
+                syn_weights[syn_id] = max(delta_weight + initial_weight, math.sqrt(initial_weight)) + baseline_weight
 
     if interactive:
         modified_weights = np.maximum(np.add(w, delta_weights), np.sqrt(w))
@@ -2439,7 +2439,7 @@ def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, lo
 
     
 def generate_structured_weights(gid, population, synapse_name, sources, dst_input_features, src_input_features, src_syn_dict,
-                                spatial_mesh, plasticity_kernel=None, field_width_scale=1.0, local_random=None, interactive=False, max_iter=10):
+                                spatial_mesh, plasticity_kernel=None, baseline_weight=0.0, field_width_scale=1.0, local_random=None, interactive=False, max_iter=10):
     """
     """
 
@@ -2500,13 +2500,13 @@ def generate_structured_weights(gid, population, synapse_name, sources, dst_inpu
         logger.info('computing plasticity fit for gid %d: peak locs: %s field widths: %s' %
                         (gid, str([x for x in this_peak_locs]), str(this_field_width)))
         this_syn_weights = plasticity_fit(exp_phi, this_plasticity_kernel, this_plasticity_inputs,
-                                              plasticity_src_syn_dict, logger, max_iter=max_iter,
-                                              local_random=local_random, interactive=interactive)
+                                              plasticity_src_syn_dict, logger, baseline_weight=baseline_weight,
+                                              max_iter=max_iter, local_random=local_random, interactive=interactive)
         
         this_syn_ids = sorted(this_syn_weights.keys())
             
         result = {'syn_id': np.array(this_syn_ids).astype('uint32', copy=False),
-                  synapse_name: np.array([this_syn_weights[syn_id]
+                  synapse_name: np.array([this_syn_weights[syn_id] + baseline_weight
                                               for syn_id in this_syn_ids]).astype('float32', copy=False) }
 
     return result
