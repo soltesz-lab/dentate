@@ -15,7 +15,7 @@ from dentate.env import Env
 from dentate.neuron_utils import h, configure_hoc_env
 from dentate.synapses import config_biophys_cell_syns, init_syn_mech_attrs, modify_syn_param
 from dentate.utils import viewitems, range, str, Context, list_find, basestring
-from dentate.io_utils import set_h5py_attr
+from dentate.io_utils import set_h5py_attr, get_h5py_group
 
 context = Context()
 
@@ -351,23 +351,7 @@ class QuickSim(object):
         else:
             io_type = 'w'
         with h5py.File(file_path, io_type) as f:
-            target = f
-            if model_label is not None:
-                model_label = str(model_label)
-                if model_label in target:
-                    target = target[model_label]
-                else:
-                    target = target.create_group(model_label)
-            if 'sim_output' not in target:
-                target = target.create_group('sim_output')
-            else:
-                target = target['sim_output']
-            if category is not None:
-                category = str(category)
-                if category in target:
-                    target = target[category]
-                else:
-                    target = target.create_group(category)
+            target = get_h5py_group(f, [model_label, 'sim_output', category])
             target.attrs['enumerated'] = True
             simiter = len(target)
             if str(simiter) not in target:

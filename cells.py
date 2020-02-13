@@ -1433,7 +1433,7 @@ def correct_node_for_spines_cm(node, env, gid, verbose=True):
             logger.info('cm_correction_factor for gid: %i; %s seg %i: %.3f' % (gid, node.name, i, cm_correction_factor))
 
 
-def correct_cell_for_spines_g_pas(cell, env, verbose):
+def correct_cell_for_spines_g_pas(cell, env, verbose=False):
     """
     If not explicitly modeling spine compartments for excitatory synapses, this method scales g_pas in all
     dendritic sections proportional to the number of excitatory synapses contained in each section.
@@ -1447,7 +1447,7 @@ def correct_cell_for_spines_g_pas(cell, env, verbose):
             correct_node_for_spines_g_pas(node, env, cell.gid, soma_g_pas, verbose=verbose)
 
 
-def correct_cell_for_spines_cm(cell, env, verbose=True):
+def correct_cell_for_spines_cm(cell, env, verbose=False):
     """
 
     :param cell: :class:'BiophysCell'
