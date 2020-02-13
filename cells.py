@@ -1466,7 +1466,7 @@ def correct_cell_for_spines_cm(cell, env, verbose=True):
     init_biophysics(cell, env, reset_cable=False, verbose=verbose)
 
 
-def update_biophysics_by_sec_type(cell, sec_type, reset_cable=False):
+def update_biophysics_by_sec_type(cell, sec_type, reset_cable=False, verbose=False):
     """
     This method loops through all sections of the specified type, and consults the mechanism dictionary to update
     mechanism properties. If the reset_cable flag is True, cable parameters are re-initialized first, then the
@@ -1474,13 +1474,14 @@ def update_biophysics_by_sec_type(cell, sec_type, reset_cable=False):
     :param cell: :class:'BiophysCell'
     :param sec_type: str
     :param reset_cable: bool
+    :param verbose: bool
     """
     if sec_type in cell.nodes:
         if reset_cable:
             # cable properties must be set first, as they can change nseg, which will affect insertion of membrane
             # mechanism gradients
             for node in cell.nodes[sec_type]:
-                reset_cable_by_node(cell, node)
+                reset_cable_by_node(cell, node, verbose=verbose)
         if sec_type in cell.mech_dict:
             for node in cell.nodes[sec_type]:
                 for mech_name in (mech_name for mech_name in cell.mech_dict[sec_type]
@@ -1527,7 +1528,7 @@ def get_mech_rules_dict(cell, **rules):
 
 def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, origin=None, slope=None, tau=None,
                       xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None, custom=None,
-                      append=False):
+                      append=False, verbose=False):
     """
     Modifies or inserts new membrane mechanisms into hoc sections of type sec_type. First updates the mechanism
     dictionary, then sets the corresponding hoc parameters. This method is meant to be called manually during
@@ -1550,6 +1551,7 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
     :param outside: float
     :param custom: dict
     :param append: bool
+    :param verbose: bool
     """
     if sec_type not in cell.nodes:
         raise ValueError('modify_mech_param: sec_type: %s not in cell' % sec_type)
@@ -1592,12 +1594,12 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
         # all membrane mechanisms in sections of type sec_type must be reinitialized after changing cable properties
         if mech_name == 'cable':
             if param_name in ['Ra', 'cm', 'spatial_res']:
-                update_biophysics_by_sec_type(cell, sec_type, reset_cable=True)
+                update_biophysics_by_sec_type(cell, sec_type, reset_cable=True, verbose=verbose)
             else:
                 raise AttributeError('modify_mech_param: unknown cable property: %s' % param_name)
         else:
             for node in cell.nodes[sec_type]:
-                update_mechanism_by_node(cell, node, mech_name, mech_content)
+                update_mechanism_by_node(cell, node, mech_name, mech_content, verbose=verbose)
 
     except Exception as e:
         cell.mech_dict = copy.deepcopy(backup_mech_dict)
@@ -1607,6 +1609,7 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
                   (mech_name, param_name, node.name))
         else:
             print('modify_mech_param: problem modifying mechanism: %s in node: %s' % (mech_name, node.name))
+        sys.stdout.flush()
         raise e
 
 
@@ -1988,18 +1991,16 @@ def report_topology(cell, env, node=None):
     if node is None:
         node = cell.tree.root
     syn_attrs = env.synapse_attributes
-    num_exc_syns = len(syn_attrs.filter_synapses(cell.gid, \
-                                                 syn_sections=[node.index], \
+    num_exc_syns = len(syn_attrs.filter_synapses(cell.gid, syn_sections=[node.index],
                                                  syn_types=[env.Synapse_Types['excitatory']]))
-    num_inh_syns = len(syn_attrs.filter_synapses(cell.gid, \
-                                                 syn_sections=[node.index], \
+    num_inh_syns = len(syn_attrs.filter_synapses(cell.gid, syn_sections=[node.index],
                                                  syn_types=[env.Synapse_Types['inhibitory']]))
 
     diams_str = ', '.join('%.2f' % node.sec.diam3d(i) for i in range(node.sec.n3d()))
     report = 'node: %s, L: %.1f, diams: [%s], children: %i, exc_syns: %i, inh_syns: %i' % \
              (node.name, node.sec.L, diams_str, len(node.children), num_exc_syns, num_inh_syns)
     if node.parent is not None:
-        report += ', parent: %s' % node.parent.name
+        report += ', parent: %s; connection_loc: %.1f' % (node.parent.name, node.connection_loc)
     logger.info(report)
     for child in node.children:
         report_topology(cell, env, child)
