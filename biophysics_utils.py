@@ -337,11 +337,13 @@ class QuickSim(object):
         else:
             return axes
 
-    def export_to_file(self, file_path, append=True):
+    def export_to_file(self, file_path, model_label=None, category=None, append=True):
         """
         Exports simulated data and metadata to an HDF5 file. Arrays are saved as datasets and metadata is saved as
         attributes. Repeated simulations are stored in enumerated groups.
         :param file_path: str (path)
+        :param model_label: int or str
+        :param category: str
         :param append: bool
         """
         if append:
@@ -349,10 +351,24 @@ class QuickSim(object):
         else:
             io_type = 'w'
         with h5py.File(file_path, io_type) as f:
-            if 'sim_output' not in f:
-                f.create_group('sim_output')
-                f['sim_output'].attrs['enumerated'] = True
-            target = f['sim_output']
+            target = f
+            if model_label is not None:
+                model_label = str(model_label)
+                if model_label in target:
+                    target = target[model_label]
+                else:
+                    target = target.create_group(model_label)
+            if 'sim_output' not in target:
+                target = target.create_group('sim_output')
+            else:
+                target = target['sim_output']
+            if category is not None:
+                category = str(category)
+                if category in target:
+                    target = target[category]
+                else:
+                    target = target.create_group(category)
+            target.attrs['enumerated'] = True
             simiter = len(target)
             if str(simiter) not in target:
                 target.create_group(str(simiter))
