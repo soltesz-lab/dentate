@@ -82,10 +82,14 @@ Weight Generator:
 Scaling Optimization:
   GC:
     Parameter ranges:
-      !!python/tuple [MPP, LPP, MC]:
+      !!python/tuple [MPP, LPP]:
         apical:
           AMPA:
-            weight: [0.1, 3.0]
+            weight: [0.01, 3.0]
+      MC:
+        apical:
+          AMPA:
+            weight: [0.01, 1.0]
       BC:
         apical:
           GABA_A:
@@ -97,11 +101,7 @@ Scaling Optimization:
         ais:
           GABA_A:
             weight: [0.001, 1.0]
-      HC:
-        apical:
-          GABA_A:
-            weight: [0.001, 1.0]
-      HCC:
+      !!python/tuple [HC, HCC]:
         apical:
           GABA_A:
             weight: [0.001, 1.0]

@@ -2269,7 +2269,7 @@ def make_input_cell(env, gid, pop_id, input_source_dict):
 
 def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, load_synapses=True,
                      load_edges=True, connection_graph=None,
-                     load_weights=False, weight_dict=None, weights_scales=None,
+                     load_weights=False, weight_dict=None, weights_scales=None, weights_offset=None,
                      set_edge_delays=True, mech_file_path=None, mech_dict=None):
     """
     :param env: :class:'Env'
@@ -2308,7 +2308,9 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
         has_weights = False
 
     if weights_scales is None:
-        weights_scales = synapse_config.get('weights scales', {})
+        weights_scales = synapse_config.get('weights scale', {})
+    if weights_offset is None:
+        weights_offsets = synapse_config.get('weights offset', {})
         
     if load_synapses:
         if synapses_dict is not None:
@@ -2336,6 +2338,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
         for weights_namespace, cell_weights_iter in cell_ns_weights_iter:
             first_gid = None
             weights_scale = weights_scales.get(weights_namespace, 1.0)
+            weights_offset = weights_offsets.get(weights_namespace, 0.0)
             for gid, cell_weights_dict in cell_weights_iter:
                 if first_gid is None:
                     first_gid = gid
@@ -2344,7 +2347,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
                     weights_values = cell_weights_dict[syn_name]
                     syn_attrs.add_mech_attrs_from_iter(
                         gid, syn_name,
-                        zip_longest(weights_syn_ids, map(lambda x: {'weight': weights_scale*x}, weights_values)),
+                        zip_longest(weights_syn_ids, map(lambda x: {'weight': weights_scale*x + weights_offset}, weights_values)),
                         overwrite=overwrite_weights)
                     if first_gid == gid:
                         logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights' %

@@ -2434,7 +2434,8 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
     stplots = []
     for (pop_name, pop_states) in viewitems(states):
         for (gid, cell_states) in viewitems(pop_states):
-            st_x, st_y = cell_states
+            st_x = cell_states[0]
+            st_y = cell_states[1]
             pch = interpolate.pchip(st_x, st_y)
             res_npts = int((st_x.max() - st_x.min())) * 10
             st_x_res = np.linspace(st_x.min(), st_x.max(), res_npts, endpoint=True)

@@ -18,7 +18,7 @@ sys.excepthook = mpi_excepthook
 
 
 @click.command()
-@click.option("--arena-id", required=True, type=str,
+@click.option("--arena-id", required=False, type=str,
               help='name of arena used for spatial stimulus')
 @click.option("--config", '-c', required=True, type=str)
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),

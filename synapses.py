@@ -546,6 +546,8 @@ class SynapseAttributes(object):
                 assert(new_val is not None)
                 old_val = attr_dict.get(k, mech_param)
                 attr_dict[k] = update_operator(gid, syn_id, old_val, new_val)
+                print('modify_mech_attrs: pop %s gid %d syn %s attr_dict[%s] = %f' % (pop_name, gid, syn_name, k, attr_dict[k]))
+                
             else:
                 raise RuntimeError('modify_mech_attrs: unknown type of parameter %s' % k)
         syn.attr_dict[syn_index] = attr_dict
@@ -2412,7 +2414,7 @@ def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, lo
         syn_count = len(source_syn_map[source_gid])
         if syn_count > 0:
             for syn_id, initial_weight in source_syn_map[source_gid]:
-                syn_weights[syn_id] = max(delta_weight + initial_weight, math.sqrt(initial_weight)) + baseline_weight
+                syn_weights[syn_id] = max(delta_weight + initial_weight, max(math.sqrt(initial_weight),  baseline_weight))
 
     if interactive:
         modified_weights = np.maximum(np.add(w, delta_weights), np.sqrt(w)) + baseline_weight
@@ -2437,6 +2439,9 @@ def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, lo
 
     return syn_weights
 
+
+def linear_phi(a):
+    return a
     
 def generate_structured_weights(gid, population, synapse_name, sources, dst_input_features, src_input_features, src_syn_dict,
                                 spatial_mesh, plasticity_kernel=None, baseline_weight=0.0, field_width_scale=1.0, local_random=None, interactive=False, max_iter=10):
@@ -2499,8 +2504,8 @@ def generate_structured_weights(gid, population, synapse_name, sources, dst_inpu
         this_peak_locs = zip(np.nditer(this_x_offset), np.nditer(this_y_offset))
         logger.info('computing plasticity fit for gid %d: peak locs: %s field widths: %s' %
                         (gid, str([x for x in this_peak_locs]), str(this_field_width)))
-        this_syn_weights = plasticity_fit(exp_phi, this_plasticity_kernel, this_plasticity_inputs,
-                                              plasticity_src_syn_dict, logger, baseline_weight=baseline_weight,
+        this_syn_weights = plasticity_fit(linear_phi, this_plasticity_kernel, this_plasticity_inputs, 
+                                              plasticity_src_syn_dict, logger, baseline_weight=baseline_weight, 
                                               max_iter=max_iter, local_random=local_random, interactive=interactive)
         
         this_syn_ids = sorted(this_syn_weights.keys())
