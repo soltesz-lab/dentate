@@ -15,8 +15,8 @@ module load hdf5
 
 set -x
 export prefix=/oasis/scratch/comet/iraikov/temp_project/dentate/Full_Scale_Control/
-export input=$prefix/DGC_forest_normalized_20200203.h5
-export output=$prefix/DGC_forest_normalized_20200203_compressed.h5
+export input=$prefix/DGC_forest_normalized_20200213.h5
+export output=$prefix/DGC_forest_normalized_20200213_compressed.h5
 
 
 ##h5copy -v -i $input -o $copy -s /Populations -d /Populations

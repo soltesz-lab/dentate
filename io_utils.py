@@ -202,6 +202,7 @@ def spikeout(env, output_path, t_start=None, clear_data=False):
     if env.comm.Get_rank() == 0:
         logger.info("*** Output spike results to file %s" % output_path)
 
+
 def recsout(env, output_path, t_start=None, clear_data=False):
     """
     Writes intracellular state traces to specified NeuroH5 output file.
@@ -265,7 +266,6 @@ def recsout(env, output_path, t_start=None, clear_data=False):
     env.comm.barrier()
     if env.comm.Get_rank() == 0:
         logger.info("*** Output intracellular state results to file %s" % output_path)
-
 
 
 def lfpout(env, output_path):
@@ -333,6 +333,24 @@ def set_h5py_attr(attrs, key, val):
         if isinstance(val[0], basestring):
             val = np.array(val, dtype='S')
     attrs[key] = val
+
+
+def get_h5py_group(file, hierarchy):
+    """
+
+    :param file: :class: in ['h5py.File', 'h5py.Group']
+    :param hierarchy: list of str
+    :return: :class:'h5py.Group'
+    """
+    target = file
+    for key in hierarchy:
+        if key is not None:
+            key = str(key)
+            if key not in target:
+                target = target.create_group(key)
+            else:
+                target = target[key]
+    return target
 
 
 def write_cell_selection(env, write_selection_file_path, populations=None, write_kwds={}):

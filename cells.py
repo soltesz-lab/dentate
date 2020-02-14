@@ -1061,7 +1061,7 @@ def connect2target(cell, sec, loc=1., param='_ref_v', delay=None, weight=None, t
     return this_netcon
 
 
-def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0., onset_delay=0.):
+def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0., onset_delay=0., loc=0.5):
     """
     Initializes the spike detector in the given cell according to the
     given arguments or a spike detector configuration of the mechanism
@@ -1073,34 +1073,38 @@ def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0.,
     :param threshold: float
     :param delay: float
     :param onset_delay: float
+    :param loc: float
     """
     if 'spike detector' in cell.mech_dict:
         config = cell.mech_dict['spike detector']
         node = getattr(cell, config['section'])[0]
+        loc = config['loc']
         distance = config['distance']
         threshold = config['threshold']
         delay = config['delay']
         onset_delay = config['onset delay']
 
     if node is None:
-        if cell.ais:
+        if cell.axon:
+            for node in cell.axon:
+                sec_seg_locs = [seg.x for seg in node.sec]
+                for loc in sec_seg_locs:
+                    if get_distance_to_node(cell, cell.tree.root, node, loc=loc) >= distance:
+                        break
+                else:
+                    continue
+                break
+            else:
+                node = cell.axon[-1]
+                loc = 1.
+        elif cell.ais:
             node = cell.ais[0]
         elif cell.soma:
             node = cell.soma[0]
         else:
             raise RuntimeError('init_spike_detector: cell has neither soma nor axon compartment')
 
-    if node in cell.axon:
-        sec_seg_locs = [seg.x for seg in node.sec]
-        if get_distance_to_node(cell, cell.tree.root, node, loc=sec_seg_locs[-1]) < distance:
-            cell.spike_detector = connect2target(cell, node.sec, loc=1., delay=delay, threshold=threshold)
-        else:
-            for loc in sec_seg_locs:
-                if get_distance_to_node(cell, cell.tree.root, node, loc=loc) >= distance:
-                    cell.spike_detector = connect2target(cell, node.sec, loc=loc, delay=delay, threshold=threshold)
-                    break
-    else:
-        cell.spike_detector = connect2target(cell, node.sec, loc=0.5, delay=delay, threshold=threshold)
+    cell.spike_detector = connect2target(cell, node.sec, loc=loc, delay=delay, threshold=threshold)
 
     cell.onset_delay = onset_delay
             
@@ -1429,7 +1433,7 @@ def correct_node_for_spines_cm(node, env, gid, verbose=True):
             logger.info('cm_correction_factor for gid: %i; %s seg %i: %.3f' % (gid, node.name, i, cm_correction_factor))
 
 
-def correct_cell_for_spines_g_pas(cell, env, verbose):
+def correct_cell_for_spines_g_pas(cell, env, verbose=False):
     """
     If not explicitly modeling spine compartments for excitatory synapses, this method scales g_pas in all
     dendritic sections proportional to the number of excitatory synapses contained in each section.
@@ -1443,7 +1447,7 @@ def correct_cell_for_spines_g_pas(cell, env, verbose):
             correct_node_for_spines_g_pas(node, env, cell.gid, soma_g_pas, verbose=verbose)
 
 
-def correct_cell_for_spines_cm(cell, env, verbose=True):
+def correct_cell_for_spines_cm(cell, env, verbose=False):
     """
 
     :param cell: :class:'BiophysCell'
@@ -1462,7 +1466,7 @@ def correct_cell_for_spines_cm(cell, env, verbose=True):
     init_biophysics(cell, env, reset_cable=False, verbose=verbose)
 
 
-def update_biophysics_by_sec_type(cell, sec_type, reset_cable=False):
+def update_biophysics_by_sec_type(cell, sec_type, reset_cable=False, verbose=False):
     """
     This method loops through all sections of the specified type, and consults the mechanism dictionary to update
     mechanism properties. If the reset_cable flag is True, cable parameters are re-initialized first, then the
@@ -1470,13 +1474,14 @@ def update_biophysics_by_sec_type(cell, sec_type, reset_cable=False):
     :param cell: :class:'BiophysCell'
     :param sec_type: str
     :param reset_cable: bool
+    :param verbose: bool
     """
     if sec_type in cell.nodes:
         if reset_cable:
             # cable properties must be set first, as they can change nseg, which will affect insertion of membrane
             # mechanism gradients
             for node in cell.nodes[sec_type]:
-                reset_cable_by_node(cell, node)
+                reset_cable_by_node(cell, node, verbose=verbose)
         if sec_type in cell.mech_dict:
             for node in cell.nodes[sec_type]:
                 for mech_name in (mech_name for mech_name in cell.mech_dict[sec_type]
@@ -1523,7 +1528,7 @@ def get_mech_rules_dict(cell, **rules):
 
 def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, origin=None, slope=None, tau=None,
                       xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None, custom=None,
-                      append=False):
+                      append=False, verbose=False):
     """
     Modifies or inserts new membrane mechanisms into hoc sections of type sec_type. First updates the mechanism
     dictionary, then sets the corresponding hoc parameters. This method is meant to be called manually during
@@ -1546,6 +1551,7 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
     :param outside: float
     :param custom: dict
     :param append: bool
+    :param verbose: bool
     """
     if sec_type not in cell.nodes:
         raise ValueError('modify_mech_param: sec_type: %s not in cell' % sec_type)
@@ -1588,12 +1594,12 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
         # all membrane mechanisms in sections of type sec_type must be reinitialized after changing cable properties
         if mech_name == 'cable':
             if param_name in ['Ra', 'cm', 'spatial_res']:
-                update_biophysics_by_sec_type(cell, sec_type, reset_cable=True)
+                update_biophysics_by_sec_type(cell, sec_type, reset_cable=True, verbose=verbose)
             else:
                 raise AttributeError('modify_mech_param: unknown cable property: %s' % param_name)
         else:
             for node in cell.nodes[sec_type]:
-                update_mechanism_by_node(cell, node, mech_name, mech_content)
+                update_mechanism_by_node(cell, node, mech_name, mech_content, verbose=verbose)
 
     except Exception as e:
         cell.mech_dict = copy.deepcopy(backup_mech_dict)
@@ -1603,6 +1609,7 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
                   (mech_name, param_name, node.name))
         else:
             print('modify_mech_param: problem modifying mechanism: %s in node: %s' % (mech_name, node.name))
+        sys.stdout.flush()
         raise e
 
 
@@ -1984,18 +1991,16 @@ def report_topology(cell, env, node=None):
     if node is None:
         node = cell.tree.root
     syn_attrs = env.synapse_attributes
-    num_exc_syns = len(syn_attrs.filter_synapses(cell.gid, \
-                                                 syn_sections=[node.index], \
+    num_exc_syns = len(syn_attrs.filter_synapses(cell.gid, syn_sections=[node.index],
                                                  syn_types=[env.Synapse_Types['excitatory']]))
-    num_inh_syns = len(syn_attrs.filter_synapses(cell.gid, \
-                                                 syn_sections=[node.index], \
+    num_inh_syns = len(syn_attrs.filter_synapses(cell.gid, syn_sections=[node.index],
                                                  syn_types=[env.Synapse_Types['inhibitory']]))
 
     diams_str = ', '.join('%.2f' % node.sec.diam3d(i) for i in range(node.sec.n3d()))
     report = 'node: %s, L: %.1f, diams: [%s], children: %i, exc_syns: %i, inh_syns: %i' % \
              (node.name, node.sec.L, diams_str, len(node.children), num_exc_syns, num_inh_syns)
     if node.parent is not None:
-        report += ', parent: %s' % node.parent.name
+        report += ', parent: %s; connection_loc: %.1f' % (node.parent.name, node.connection_loc)
     logger.info(report)
     for child in node.children:
         report_topology(cell, env, child)
@@ -2107,6 +2112,7 @@ def normalize_tree_topology(neurotree_dict, swc_type_defs):
     :return: neurotree dict
 
     """
+    import networkx as nx
     
     pt_xs = copy.deepcopy(neurotree_dict['x'])
     pt_ys = copy.deepcopy(neurotree_dict['y'])
@@ -2155,19 +2161,25 @@ def normalize_tree_topology(neurotree_dict, swc_type_defs):
                 sec_edges.append((soma_section_idx, section_idx))
                 sec_parents_dict[section_idx] = soma_section_idx
 
-    for src, dst in zip(sec_src, sec_dst):
+
+    sec_graph = nx.DiGraph()
+    for i, j in zip(sec_src, sec_dst):
+        sec_graph.add_edge(i, j)
+
+    for src, dst in nx.dfs_edges(sec_graph, source=0):
         dst_pts = section_pt_dict[dst]
         src_pts = section_pt_dict[src]
         dst_pts_parents = [pt_parents[i] for i in dst_pts]
-
+        
         ## detect sections that are connected to first point of their parent
         if dst_pts_parents[0] == src_pts[0]:
             ## obtain parent of src section
             src_parent = sec_parents_dict.get(src, None)
             if src_parent is not None:
                 src_parent_pts = section_pt_dict[src_parent]
-                pt_parents[dst_pts[0]] = src_parent_pts[1]
+                pt_parents[dst_pts[0]] = src_parent_pts[-1]
                 sec_edges.append((src_parent, dst))
+                sec_parents_dict[dst] = src_parent
             else:
                 sec_edges.append((src, dst))
         else:

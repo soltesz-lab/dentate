@@ -120,7 +120,7 @@ syn_weight_files = {
              "Structured Log-Normal Weights A": ("Structured Weights A", DG_GC_syn_weights_SLN_file),
              "Log-Normal Weights": DG_GC_syn_weights_LN_file },
 
-     'MC': { "Structured Log-Normal Weights A": ("Structured Weights A", DG_IN_syn_weights_SLN_file),
+     'MC': { #"Structured Log-Normal Weights A": ("Structured Weights A", DG_IN_syn_weights_SLN_file),
              "Log-Normal Weights": DG_IN_syn_weights_LN_file }
 
 

@@ -15,7 +15,7 @@ from dentate.env import Env
 from dentate.neuron_utils import h, configure_hoc_env
 from dentate.synapses import config_biophys_cell_syns, init_syn_mech_attrs, modify_syn_param
 from dentate.utils import viewitems, range, str, Context, list_find, basestring
-from dentate.io_utils import set_h5py_attr
+from dentate.io_utils import set_h5py_attr, get_h5py_group
 
 context = Context()
 
@@ -337,11 +337,13 @@ class QuickSim(object):
         else:
             return axes
 
-    def export_to_file(self, file_path, append=True):
+    def export_to_file(self, file_path, model_label=None, category=None, append=True):
         """
         Exports simulated data and metadata to an HDF5 file. Arrays are saved as datasets and metadata is saved as
         attributes. Repeated simulations are stored in enumerated groups.
         :param file_path: str (path)
+        :param model_label: int or str
+        :param category: str
         :param append: bool
         """
         if append:
@@ -349,10 +351,8 @@ class QuickSim(object):
         else:
             io_type = 'w'
         with h5py.File(file_path, io_type) as f:
-            if 'sim_output' not in f:
-                f.create_group('sim_output')
-                f['sim_output'].attrs['enumerated'] = True
-            target = f['sim_output']
+            target = get_h5py_group(f, [model_label, 'sim_output', category])
+            target.attrs['enumerated'] = True
             simiter = len(target)
             if str(simiter) not in target:
                 target.create_group(str(simiter))
