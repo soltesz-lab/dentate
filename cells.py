@@ -2107,6 +2107,7 @@ def normalize_tree_topology(neurotree_dict, swc_type_defs):
     :return: neurotree dict
 
     """
+    import networkx as nx
     
     pt_xs = copy.deepcopy(neurotree_dict['x'])
     pt_ys = copy.deepcopy(neurotree_dict['y'])
@@ -2155,19 +2156,25 @@ def normalize_tree_topology(neurotree_dict, swc_type_defs):
                 sec_edges.append((soma_section_idx, section_idx))
                 sec_parents_dict[section_idx] = soma_section_idx
 
-    for src, dst in zip(sec_src, sec_dst):
+
+    sec_graph = nx.DiGraph()
+    for i, j in zip(sec_src, sec_dst):
+        sec_graph.add_edge(i, j)
+
+    for src, dst in nx.dfs_edges(sec_graph, source=0):
         dst_pts = section_pt_dict[dst]
         src_pts = section_pt_dict[src]
         dst_pts_parents = [pt_parents[i] for i in dst_pts]
-
+        
         ## detect sections that are connected to first point of their parent
         if dst_pts_parents[0] == src_pts[0]:
             ## obtain parent of src section
             src_parent = sec_parents_dict.get(src, None)
             if src_parent is not None:
                 src_parent_pts = section_pt_dict[src_parent]
-                pt_parents[dst_pts[0]] = src_parent_pts[1]
+                pt_parents[dst_pts[0]] = src_parent_pts[-1]
                 sec_edges.append((src_parent, dst))
+                sec_parents_dict[dst] = src_parent
             else:
                 sec_edges.append((src, dst))
         else:
