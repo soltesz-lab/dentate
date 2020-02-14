@@ -62,7 +62,9 @@ def main(config_file, config_prefix, input_path, population, template_paths, dat
         io_size = comm.size
 
     if results_file_id is None:
-        results_file_id = uuid.uuid4()
+        if rank == 0:
+            result_file_id = uuid.uuid4()
+        results_file_id = env.comm.bcast(results_file_id, root=0)
     if results_namespace_id is None:
         results_namespace_id = 'Cell Clamp Results'
     comm = MPI.COMM_WORLD
@@ -73,9 +75,13 @@ def main(config_file, config_prefix, input_path, population, template_paths, dat
     configure_hoc_env(env)
     if rank == 0:
         io_utils.mkout(env, env.results_file_path)
-    comm.barrier()
+    env.comm.barrier()
     env.cell_selection = {}
     template_class = env.load_cell_template(population)
+
+    if input_path is not None:
+        env.data_file_path = input_path
+        env.load_celltypes()
     
     synapse_config = env.celltypes[population]['synapses']
 
@@ -91,7 +97,6 @@ def main(config_file, config_prefix, input_path, population, template_paths, dat
                 weights_namespaces.append('Weights')
     else:
         has_weights = False
-
     
     start_time = time.time()
     count = 0
@@ -104,7 +109,7 @@ def main(config_file, config_prefix, input_path, population, template_paths, dat
         cell_path = input_path
         connectivity_path = input_path
         
-    for gid, morph_dict in NeuroH5TreeGen(cell_path, population, io_size=io_size, comm=comm, topology=True):
+    for gid, morph_dict in NeuroH5TreeGen(cell_path, population, io_size=io_size, comm=env.comm, topology=True):
         local_time = time.time()
         if gid is not None:
             color = 0
@@ -140,9 +145,10 @@ def main(config_file, config_prefix, input_path, population, template_paths, dat
         else:
             color = 1
             comm0 = comm.Split(color, 0)
-
+            logger.info('Rank %i gid is None' % (rank))
         comm0.Free()
 
+        count += 1
         if (results_path is not None) and (count % write_size == 0):
             append_cell_attributes(env.results_file_path, population, attr_dict,
                                    namespace=env.results_namespace_id,
@@ -150,9 +156,16 @@ def main(config_file, config_prefix, input_path, population, template_paths, dat
                                    chunk_size=chunk_size,
                                    value_chunk_size=value_chunk_size)
             attr_dict = {}
-        count += 1
+    
         
-    global_count = comm.gather(gid_count, root=0)
+    env.comm.barrier()
+    if results_path is not None:
+        append_cell_attributes(env.results_file_path, population, attr_dict,
+                               namespace=env.results_namespace_id,
+                               comm=env.comm, io_size=env.io_size,
+                               chunk_size=chunk_size,
+                               value_chunk_size=value_chunk_size)
+    global_count = env.comm.gather(gid_count, root=0)
     if rank == 0:
         logger.info('target: %s, %i ranks took %i s to compute synapse locations for %i cells' % (population, comm.size,time.time() - start_time, np.sum(global_count)))
 

@@ -2326,7 +2326,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
         
     if load_synapses:
         if synapses_dict is not None:
-            syn_attrs.init_syn_id_attrs(gid, synapses_dict)
+            syn_attrs.init_syn_id_attrs(gid, **synapses_dict)
         elif (pop_name in env.cell_attribute_info) and ('Synapse Attributes' in env.cell_attribute_info[pop_name]):
             synapses_iter = read_cell_attribute_selection(env.data_file_path, pop_name, [gid], 'Synapse Attributes',
                                                           comm=env.comm)

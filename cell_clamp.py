@@ -108,9 +108,10 @@ def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=T
     
     return cell
 
-def measure_passive (gid, pop_name, v_init, env, prelength=1000.0, mainlength=2000.0, stimdur=500.0):
+def measure_passive (gid, pop_name, v_init, env, prelength=1000.0, mainlength=2000.0, stimdur=500.0, cell_dict={}):
 
-    biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False)
+
+    biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False, cell_dict=cell_dict)
     hoc_cell = biophys_cell.hoc_cell
 
     h.dt = env.dt
