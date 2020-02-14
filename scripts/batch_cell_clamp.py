@@ -28,6 +28,8 @@ logger = get_module_logger(__name__)
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='config',
               help='path to directory containing network and cell mechanism config files')
+@click.option("--input-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False), \
+              help='optional path to data file if different than data files specified in config')
 @click.option("--population", '-p', required=True, type=str, default='GC', help='target population')
 @click.option("--template-path", type=str, required=True,
               help='colon-separated list of paths to directories containing hoc cell templates')
@@ -45,7 +47,7 @@ logger = get_module_logger(__name__)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--write-size", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config_file, config_prefix, population, template_path, results_path, result_file_id, results_namespace_id, v_init, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose):
+def main(config_file, config_prefix, input_path, population, template_path, results_path, result_file_id, results_namespace_id, v_init, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose):
 
     utils.config_logging(verbose)
     logger = utils.get_script_logger(os.path.basename(__file__))
@@ -97,25 +99,32 @@ def main(config_file, config_prefix, population, template_path, results_path, re
     count = 0
     gid_count = 0
     attr_dict = {}
-    for gid, morph_dict in NeuroH5TreeGen(env.data_file_path, population, io_size=io_size, comm=comm, topology=True):
+    if input_path is None:
+        cell_path = env.data_file_path
+        connectivity_path = env.connectivity_file_path
+    else:
+        cell_path = input_path
+        connectivity_path = input_path
+        
+    for gid, morph_dict in NeuroH5TreeGen(cell_path, population, io_size=io_size, comm=comm, topology=True):
         local_time = time.time()
         if gid is not None:
             logger.info('Rank %i gid: %i' % (rank, gid))
             cell_dict = { 'morph': morph_dict }
-            synapses_iter = read_cell_attribute_selection(env.data_file_path, population, [gid], 'Synapse Attributes',
+            synapses_iter = read_cell_attribute_selection(cell_path, population, [gid], 
+                                                          'Synapse Attributes',
                                                           comm=env.comm)
             _, synapse_dict = next(synapses_iter)
             cell_dict['synapse'] = synapse_dict
-            'connectivity': connection_dict, 
             
             if has_weights:
-                cell_weights_iters = [read_cell_attribute_selection(env.data_file_path, population, [gid],
+                cell_weights_iters = [read_cell_attribute_selection(cell_path, population, [gid],
                                                                     weights_namespace, comm=env.comm)
                                           for weights_namespace in weights_namespaces]
                 weight_dict = dict(zip_longest(weights_namespaces, cell_weights_iters))
                 cell_dict['weight'] = weight_dict
                 
-            (graph, a) = read_graph_selection(file_name=env.connectivity_file_path, selection=[gid],
+            (graph, a) = read_graph_selection(file_name=connectivity_path, selection=[gid],
                                               namespaces=['Synapses', 'Connections'], comm=env.comm)
             cell_dict['connectivity'] = (graph, a)
             
