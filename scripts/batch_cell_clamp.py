@@ -4,11 +4,11 @@ import click
 from collections import defaultdict
 import numpy as np
 import dentate
-from dentate import cells, neuron_utils, synapses, utils, cell_clamp
+from dentate import cells, neuron_utils, synapses, utils, cell_clamp, io_utils
 from dentate.env import Env
 from dentate.neuron_utils import configure_hoc_env
 from dentate.utils import *
-from neuroh5.io import NeuroH5TreeGen, append_cell_attributes, read_population_ranges
+from neuroh5.io import NeuroH5TreeGen, append_cell_attributes, read_population_ranges, read_cell_attribute_selection, read_graph_selection
 import h5py
 
 sys_excepthook = sys.excepthook
@@ -16,7 +16,7 @@ def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
-sys.excepthook = mpi_excepthook
+#sys.excepthook = mpi_excepthook
 
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -31,7 +31,7 @@ logger = get_module_logger(__name__)
 @click.option("--input-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False), \
               help='optional path to data file if different than data files specified in config')
 @click.option("--population", '-p', required=True, type=str, default='GC', help='target population')
-@click.option("--template-path", type=str, required=True,
+@click.option("--template-paths", type=str, required=True,
               help='colon-separated list of paths to directories containing hoc cell templates')
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               help='path to directory containing required neuroh5 data files')
@@ -47,7 +47,7 @@ logger = get_module_logger(__name__)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--write-size", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config_file, config_prefix, input_path, population, template_path, results_path, result_file_id, results_namespace_id, v_init, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose):
+def main(config_file, config_prefix, input_path, population, template_paths, dataset_prefix, results_path, results_file_id, results_namespace_id, v_init, io_size, chunk_size, value_chunk_size, write_size, verbose):
 
     utils.config_logging(verbose)
     logger = utils.get_script_logger(os.path.basename(__file__))
@@ -71,18 +71,16 @@ def main(config_file, config_prefix, input_path, population, template_path, resu
     params = dict(locals())
     env = Env(**params)
     configure_hoc_env(env)
-    io_utils.mkout(env, env.results_file_path)
+    if rank == 0:
+        io_utils.mkout(env, env.results_file_path)
+    comm.barrier()
     env.cell_selection = {}
     template_class = env.load_cell_template(population)
     
-    if rank==0:
-        io_utils.mkout(env, env.results_file_path)
-    comm.barrier()
-
     synapse_config = env.celltypes[population]['synapses']
 
     weights_namespaces = []
-    if load_weights and ('weights' in synapse_config):
+    if 'weights' in synapse_config:
         has_weights = synapse_config['weights']
         if has_weights:
             if 'weights namespace' in synapse_config:
@@ -141,8 +139,7 @@ def main(config_file, config_prefix, input_path, population, template_path, resu
                                    namespace=env.results_namespace_id,
                                    comm=env.comm, io_size=env.io_size,
                                    chunk_size=chunk_size,
-                                   value_chunk_size=value_chunk_size,
-                                   cache_size=cache_size)
+                                   value_chunk_size=value_chunk_size)
             attr_dict = {}
         count += 1
         

@@ -269,15 +269,19 @@ class Env(object):
 
         if self.dataset_prefix is not None:
             self.dataset_path = os.path.join(self.dataset_prefix, self.datasetName)
-            self.data_file_path = os.path.join(self.dataset_path, self.model_config['Cell Data'])
+            if 'Cell Data' in self.model_config:
+                self.data_file_path = os.path.join(self.dataset_path, self.model_config['Cell Data'])
+                self.forest_file_path = os.path.join(self.dataset_path, self.model_config['Cell Data'])
+                self.load_celltypes()
+            else:
+                self.data_file_path = None
+                self.forest_file_path = None
             if rank == 0:
                 self.logger.info('env.data_file_path = %s' % self.data_file_path)
-            self.load_celltypes()
             if 'Connection Data' in self.model_config:		
                 self.connectivity_file_path = os.path.join(self.dataset_path, self.model_config['Connection Data'])
             else:
                 self.connectivity_file_path = None
-            self.forest_file_path = os.path.join(self.dataset_path, self.model_config['Cell Data'])
             if 'Gap Junction Data' in self.model_config:
                 self.gapjunctions_file_path = os.path.join(self.dataset_path, self.model_config['Gap Junction Data'])
             else:

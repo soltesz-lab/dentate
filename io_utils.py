@@ -61,7 +61,7 @@ def h5_concat_dataset(dset, data):
 def make_h5types(env, output_path, gap_junctions=False):
     populations = []
     for pop_name, pop_idx in viewitems(env.Populations):
-        layer_counts = env.geometry['Cell Layer Counts'][pop_name]
+        layer_counts = env.geometry['Cell Distribution'][pop_name]
         pop_count = 0
         for layer_name, layer_count in viewitems(layer_counts):
             pop_count += layer_count
@@ -134,14 +134,18 @@ def mkout(env, results_filename):
     :param results_filename:
     :return:
     """
-    dataset_path = os.path.join(env.dataset_prefix, env.datasetName)
-    data_file_path = os.path.join(dataset_path, env.model_config['Cell Data'])
-    data_file = h5py.File(data_file_path, 'r')
-    results_file = h5py.File(results_filename)
-    if 'H5Types' not in results_file:
-        data_file.copy('/H5Types', results_file)
-    data_file.close()
-    results_file.close()
+    if 'Cell Data' in env.model_config:
+        dataset_path = os.path.join(env.dataset_prefix, env.datasetName)
+        data_file_path = os.path.join(dataset_path, env.model_config['Cell Data'])
+        data_file = h5py.File(data_file_path, 'r')
+        results_file = h5py.File(results_filename)
+        if 'H5Types' not in results_file:
+            data_file.copy('/H5Types', results_file)
+            data_file.close()
+            results_file.close()
+    else:
+        make_h5types(env, results_filename)
+
 
 
 def spikeout(env, output_path, t_start=None, clear_data=False):
