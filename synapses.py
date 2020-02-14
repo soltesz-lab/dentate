@@ -546,7 +546,6 @@ class SynapseAttributes(object):
                 assert(new_val is not None)
                 old_val = attr_dict.get(k, mech_param)
                 attr_dict[k] = update_operator(gid, syn_id, old_val, new_val)
-                print('modify_mech_attrs: pop %s gid %d syn %s attr_dict[%s] = %f' % (pop_name, gid, syn_name, k, attr_dict[k]))
                 
             else:
                 raise RuntimeError('modify_mech_attrs: unknown type of parameter %s' % k)
