@@ -107,32 +107,41 @@ def main(config_file, config_prefix, input_path, population, template_paths, dat
     for gid, morph_dict in NeuroH5TreeGen(cell_path, population, io_size=io_size, comm=comm, topology=True):
         local_time = time.time()
         if gid is not None:
+            color = 0
+            comm0 = comm.Split(color, 0)
+
             logger.info('Rank %i gid: %i' % (rank, gid))
             cell_dict = { 'morph': morph_dict }
             synapses_iter = read_cell_attribute_selection(cell_path, population, [gid], 
                                                           'Synapse Attributes',
-                                                          comm=env.comm)
+                                                          comm=comm0)
             _, synapse_dict = next(synapses_iter)
             cell_dict['synapse'] = synapse_dict
             
             if has_weights:
                 cell_weights_iters = [read_cell_attribute_selection(cell_path, population, [gid],
-                                                                    weights_namespace, comm=env.comm)
+                                                                    weights_namespace, comm=comm0)
                                           for weights_namespace in weights_namespaces]
                 weight_dict = dict(zip_longest(weights_namespaces, cell_weights_iters))
                 cell_dict['weight'] = weight_dict
                 
             (graph, a) = read_graph_selection(file_name=connectivity_path, selection=[gid],
-                                              namespaces=['Synapses', 'Connections'], comm=env.comm)
+                                              namespaces=['Synapses', 'Connections'], comm=comm0)
             cell_dict['connectivity'] = (graph, a)
             
             gid_count += 1
 
             attr_dict[gid] = {}
-            attr_dict[gid].update(measure_passive(gid, population, v_init, env, cell_dict=cell_dict))
-            attr_dict[gid].update(measure_ap(gid, population, v_init, env, cell_dict=cell_dict))
-            attr_dict[gid].update(measure_ap_rate(gid, population, v_init, env, cell_dict=cell_dict))
-            attr_dict[gid].update(measure_fi(gid, population, v_init, env, cell_dict=cell_dict))
+            attr_dict[gid].update(cell_clamp.measure_passive(gid, population, v_init, env, cell_dict=cell_dict))
+            attr_dict[gid].update(cell_clamp.measure_ap(gid, population, v_init, env, cell_dict=cell_dict))
+            attr_dict[gid].update(cell_clamp.measure_ap_rate(gid, population, v_init, env, cell_dict=cell_dict))
+            attr_dict[gid].update(cell_clamp.measure_fi(gid, population, v_init, env, cell_dict=cell_dict))
+
+        else:
+            color = 1
+            comm0 = comm.Split(color, 0)
+
+        comm0.Free()
 
         if (results_path is not None) and (count % write_size == 0):
             append_cell_attributes(env.results_file_path, population, attr_dict,
