@@ -14,15 +14,12 @@
 
 set -x
 
-export SLURM_NODEFILE=`generate_pbs_nodefile`
-echo python is `which python3`
-
 results_path=$SCRATCH/dentate/results/DG_sample_$SLURM_JOB_ID
 export results_path
 
 mkdir -p $results_path
 
-`which python3` ./scripts/sample_extent.py \
+ibrun -v python3 ./scripts/sample_extent.py \
     --config=Full_Scale_GC_Exc_Sat_DD_SLN.yaml \
     --config-prefix=./config \
     --dataset-prefix="$SCRATCH/dentate" \
@@ -32,5 +29,6 @@ mkdir -p $results_path
     --output-path=${results_path} \
     --bin-sample-count=1 \
     --write-selection \
+    -i GC \
     --verbose
 

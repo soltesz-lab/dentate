@@ -335,7 +335,7 @@ def set_h5py_attr(attrs, key, val):
     attrs[key] = val
 
 
-def write_cell_selection(env, write_selection_file_path, write_kwds={}):
+def write_cell_selection(env, write_selection_file_path, populations=None, write_kwds={}):
     """
     Writes out the data necessary to instantiate the selected cells.
 
@@ -353,7 +353,10 @@ def write_cell_selection(env, write_selection_file_path, write_kwds={}):
     dataset_path = env.dataset_path
     data_file_path = env.data_file_path
 
-    pop_names = sorted(env.cell_selection.keys())
+    if populations is None:
+        pop_names = sorted(env.cell_selection.keys())
+    else:
+        pop_names = populations
     
     for pop_name in pop_names:
 
@@ -392,13 +395,12 @@ def write_cell_selection(env, write_selection_file_path, write_kwds={}):
             
         if rank == 0:
             logger.info("*** Writing cell selection for population %s to file %s" % (pop_name, write_selection_file_path))
-        print(trees_output_dict)
         append_cell_trees(write_selection_file_path, pop_name, trees_output_dict, create_index=True, **write_kwds)
         write_cell_attributes(write_selection_file_path, pop_name, coords_output_dict, namespace='Coordinates', **write_kwds)
 
 
 
-def write_connection_selection(env, write_selection_file_path, write_kwds={}):
+def write_connection_selection(env, write_selection_file_path, populations=None, write_kwds={}):
     """
     Loads NeuroH5 connectivity file, and writes the corresponding
     synapse and network connection mechanisms for the selected postsynaptic cells.
@@ -418,7 +420,10 @@ def write_connection_selection(env, write_selection_file_path, write_kwds={}):
     nhosts = int(env.pc.nhost())
     syn_attrs = env.synapse_attributes
 
-    selection_pop_names = sorted(env.cell_selection.keys())
+    if populations is None:
+        pop_names = sorted(env.cell_selection.keys())
+    else:
+        pop_names = populations
 
     input_sources = {pop_name: set([]) for pop_name in env.celltypes}
 
@@ -427,7 +432,7 @@ def write_connection_selection(env, write_selection_file_path, write_kwds={}):
         if rank == 0:
             logger.info('*** Writing connection selection of population %s' % (postsyn_name))
 
-        if postsyn_name not in selection_pop_names:
+        if postsyn_name not in pop_names:
             continue
 
         gid_range = [gid for gid in env.cell_selection[postsyn_name] if gid % nhosts == rank]
@@ -526,7 +531,7 @@ def write_connection_selection(env, write_selection_file_path, write_kwds={}):
     return input_sources
 
                     
-def write_input_cell_selection(env, input_sources, write_selection_file_path, write_kwds={}):
+def write_input_cell_selection(env, input_sources, write_selection_file_path, populations=None, write_kwds={}):
     """
     Writes out predefined spike trains when only a subset of the network is instantiated.
 
@@ -545,9 +550,15 @@ def write_input_cell_selection(env, input_sources, write_selection_file_path, wr
     dataset_path = env.dataset_path
     input_file_path = env.data_file_path
 
-    pop_names = sorted(env.celltypes.keys())
+    if populations is None:
+        pop_names = sorted(env.celltypes.keys())
+    else:
+        pop_names = populations
 
     for pop_name, gid_range in sorted(viewitems(input_sources)):
+
+        if pop_name not in pop_names:
+            continue
 
         spikes_output_dict = {}
 

@@ -1,4 +1,4 @@
-import sys, os, gc, pprint, time, click
+import sys, os, gc, pprint, time, click, pprint
 from collections import defaultdict
 from mpi4py import MPI
 import numpy as np
@@ -28,6 +28,7 @@ sys.excepthook = mpi_excepthook
                 help='path to directory containing required neuroh5 data files')
 @click.option("--distance-bin-extent", type=float, default=1000., help='Longitudinal extent of sample bin in micrometers')
 @click.option("--distances-namespace", '-n', type=str, default='Arc Distances')
+@click.option("--populations", '-i', required=True, multiple=True, type=str)
 @click.option("--spike-input-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False),
                   help='path to file for input spikes when cell selection is specified')
 @click.option("--spike-input-namespace", required=False, type=str,
@@ -40,7 +41,7 @@ sys.excepthook = mpi_excepthook
               help='name of trajectory used for spatial stimulus')
 @click.option("--write-selection", is_flag=True)
 @click.option("--verbose", "-v", is_flag=True)
-def main(arena_id, bin_sample_count, config, config_prefix, dataset_prefix, distances_namespace, distance_bin_extent, spike_input_path, spike_input_namespace, spike_input_attr, output_path, io_size, trajectory_id, write_selection, verbose):
+def main(arena_id, bin_sample_count, config, config_prefix, dataset_prefix, distances_namespace, distance_bin_extent, populations, spike_input_path, spike_input_namespace, spike_input_attr, output_path, io_size, trajectory_id, write_selection, verbose):
 
     utils.config_logging(verbose)
     logger = utils.get_script_logger(os.path.basename(__file__))
@@ -72,9 +73,12 @@ def main(arena_id, bin_sample_count, config, config_prefix, dataset_prefix, dist
 
     local_random = np.random.RandomState()
     local_random.seed(1000)
+
+    if len(populations) == 0:
+        populations = sorted(pop_ranges.keys())
     
     if rank == 0:
-        for population in pop_ranges:
+        for population in populations:
             distances = read_cell_attributes(env.data_file_path, population, namespace=distances_namespace, comm=comm0)
             soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
             del distances
@@ -113,9 +117,10 @@ def main(arena_id, bin_sample_count, config, config_prefix, dataset_prefix, dist
                 bin_gids = gid_array[np.where(distance_bin_array == bin_index)[0]]
                 if len(bin_gids) > 0:
                     selected_bin_gids = local_random.choice(bin_gids, replace=False, size=bin_sample_count)
-                    selection_set.update(list(selected_bin_gids))
+                    for gid in selected_bin_gids:
+                        selection_set.add(int(gid))
             selection_dict[population] = selection_set
-    
+
         yaml_output_dict = {}
         for k, v in utils.viewitems(selection_dict):
             yaml_output_dict[k] = list(v)
@@ -138,11 +143,15 @@ def main(arena_id, bin_sample_count, config, config_prefix, dataset_prefix, dist
         env.comm.barrier()
         selection_dict = env.comm.bcast(dict(selection_dict), root=0)
         env.cell_selection = selection_dict
-        io_utils.write_cell_selection(env, write_selection_file_path)
-        input_selection = io_utils.write_connection_selection(env, write_selection_file_path)
-        if env.spike_input_ns is not None:
-            io_utils.write_input_cell_selection(env, input_selection, write_selection_file_path)
+        io_utils.write_cell_selection(env, write_selection_file_path, populations=populations)
+        input_selection = io_utils.write_connection_selection(env, write_selection_file_path,
+                                                              populations=populations)
 
+        if env.spike_input_ns is not None:
+            io_utils.write_input_cell_selection(env, input_selection, write_selection_file_path,
+                                                populations=populations)
+    env.comm.barrier()
+    MPI.Finalize()
 
 
 if __name__ == '__main__':
