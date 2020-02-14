@@ -64,7 +64,7 @@ def main(config_file, config_prefix, input_path, population, template_paths, dat
     if results_file_id is None:
         if rank == 0:
             result_file_id = uuid.uuid4()
-        results_file_id = env.comm.bcast(results_file_id, root=0)
+        results_file_id = comm.bcast(results_file_id, root=0)
     if results_namespace_id is None:
         results_namespace_id = 'Cell Clamp Results'
     comm = MPI.COMM_WORLD
