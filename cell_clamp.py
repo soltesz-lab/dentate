@@ -13,8 +13,10 @@ from dentate.neuron_utils import h, configure_hoc_env
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
 
-def load_biophys_cell(env, pop_name, gid, mech_file_path=None, correct_for_spines=False, tree_dict=None,
-                      load_synapses=True, synapses_dict=None, load_connections=True, connections=None):
+def load_biophys_cell(env, pop_name, gid, mech_file_path=None, mech_dict=None, correct_for_spines=False,
+                      tree_dict=None, load_synapses=True, synapses_dict=None,
+                      load_connections=True, connection_graph=None,
+                      load_weights=True, weight_dict=None):
     """
     Instantiates the mechanisms of a single BiophysCell instance.
 
@@ -35,23 +37,25 @@ def load_biophys_cell(env, pop_name, gid, mech_file_path=None, correct_for_spine
     cell = cells.get_biophys_cell(env, pop_name, gid, tree_dict=tree_dict,
                                   load_synapses=load_synapses,
                                   synapses_dict=synapses_dict,
-                                  load_weights=True, 
+                                  load_weights=load_weights,
+                                  weight_dict=weight_dict,
                                   load_edges=load_connections,
-                                  connections=connections,
-                                  mech_file_path=mech_file_path)
+                                  connection_graph=connection_graph,
+                                  mech_file_path=mech_file_path,
+                                  mech_dict=mech_dict)
 
     # init_spike_detector(cell)
-    if mech_file_path is not None:
-        cells.init_biophysics(cell, reset_cable=True, 
-                              correct_cm=correct_for_spines,
-                              correct_g_pas=correct_for_spines, env=env)
+    cells.init_biophysics(cell, reset_cable=True, 
+                          correct_cm=correct_for_spines,
+                          correct_g_pas=correct_for_spines, env=env)
     synapses.init_syn_mech_attrs(cell, env)
     
     return cell
 
 
 
-def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=True, write_cell=False):
+def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=True, write_cell=False,
+                      cell_dict={}):
     """
     Instantiates a BiophysCell instance and all its synapses.
 
@@ -64,9 +68,9 @@ def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=T
 
     ## Determine if a mechanism configuration file exists for this cell type
     if 'mech_file_path' in env.celltypes[pop_name]:
-        mech_file_path = env.celltypes[pop_name]['mech_file_path']
+        mech_dict = env.celltypes[pop_name]['mech_dict']
     else:
-        mech_file_path = None
+        mech_dict = None
 
     ## Determine if correct_for_spines flag has been specified for this cell type
     synapse_config = env.celltypes[pop_name]['synapses']
@@ -79,9 +83,14 @@ def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=T
     presyn_names = env.projection_dict[pop_name]
 
     ## Load cell gid and its synaptic attributes and connection data
-    cell = load_biophys_cell(env, pop_name, gid, mech_file_path=mech_file_path, \
+    cell = load_biophys_cell(env, pop_name, gid, mech_dict=mech_dict, \
                              correct_for_spines=correct_for_spines_flag, \
-                             load_connections=load_connections)
+                             load_connections=load_connections,
+                             tree_dict=cell_dict.get('morph', None),
+                             synapses_dict=cell_dict.get('synapse', None),
+                             connection_graph=cell_dict.get('connectivity', None),
+                             weight_dict=cell_dict.get('weight', None))
+                             
     if register_cell:
         cells.register_cell(env, pop_name, gid, cell)
     
@@ -153,10 +162,10 @@ def measure_passive (gid, pop_name, v_init, env, prelength=1000.0, mainlength=20
     return results
 
 
-def measure_ap (gid, pop_name, v_init, env):
+def measure_ap (gid, pop_name, v_init, env, cell_dict={}):
 
 
-    biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False)
+    biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False, cell_dict=cell_dict)
     hoc_cell = biophys_cell.hoc_cell
 
     h.dt = env.dt
@@ -185,9 +194,9 @@ def measure_ap (gid, pop_name, v_init, env):
 
     return results
     
-def measure_ap_rate (gid, pop_name, v_init, env, prelength=1000.0, mainlength=2000.0, stimdur=1000.0, minspikes=50, maxit=5):
+def measure_ap_rate (gid, pop_name, v_init, env, prelength=1000.0, mainlength=2000.0, stimdur=1000.0, minspikes=50, maxit=5, cell_dict={}):
 
-    biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False)
+    biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False, cell_dict=cell_dict)
     hoc_cell = biophys_cell.hoc_cell
 
     h.dt = env.dt
@@ -279,9 +288,9 @@ def measure_ap_rate (gid, pop_name, v_init, env, prelength=1000.0, mainlength=20
     return results
 
     
-def measure_fi (gid, pop_name, v_init, env):
+def measure_fi (gid, pop_name, v_init, env, cell_dict={}):
 
-    biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False)
+    biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False, cell_dict=cell_dict)
     hoc_cell = biophys_cell.hoc_cell
 
     soma = list(hoc_cell.soma)[0]
@@ -339,7 +348,7 @@ def measure_fi (gid, pop_name, v_init, env):
     return results
 
 
-def measure_gap_junction_coupling (env, template_class, tree, v_init):
+def measure_gap_junction_coupling (env, template_class, tree, v_init, cell_dict={}):
     
     h('objref gjlist, cells, Vlog1, Vlog2')
 
@@ -408,11 +417,6 @@ def measure_gap_junction_coupling (env, template_class, tree, v_init):
 
     h.tstop = tstop
     pc.psolve(h.tstop)
-
-    f=open("BasketCellGJ.dat",'w')
-    for (t,v1,v2) in zip(h.tlog,h.Vlog1,h.Vlog2):
-        f.write("%f %f %f\n" % (t,v1,v2))
-    f.close()
     
 
     

@@ -183,6 +183,8 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
     synapses.config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True, verbose=True)
     record_cell(env, pop_name, gid)
 
+    biophys_cell = env.biophys_cells[pop_name][gid]
+
     if plot_cell:
         import dentate.plot
         from dentate.plot import plot_synaptic_attribute_distribution
@@ -199,7 +201,6 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
                                                  output_dir=env.results_path)
         
         
-    
     cell = env.pc.gid2cell(gid)
     for sec in list(cell.all):
         h.psection(sec=sec)
@@ -227,8 +228,10 @@ def run(env):
     env.t_vec.resize(0)
     env.id_vec.resize(0)
 
-    h.cvode_active(0)
+    st_comptime = env.pc.step_time()
 
+    h.cvode_active(1)
+    
     h.t = 0.0
     h.dt = env.dt
     h.tstop = env.tstop
@@ -246,9 +249,7 @@ def run(env):
         logger.info("*** Simulation completed")
     env.pc.barrier()
 
-    comptime = env.pc.step_time()
-    cwtime = comptime + env.pc.step_wait()
-    maxcw = env.pc.allreduce(cwtime, 2)
+    comptime = env.pc.step_time() - st_comptime
     avgcomp = env.pc.allreduce(comptime, 1) / nhosts
     maxcomp = env.pc.allreduce(comptime, 2)
 
@@ -257,6 +258,8 @@ def run(env):
 
     env.pc.runworker()
     env.pc.done()
+
+    return spikedata.get_env_spike_dict(env, include_artificial=None)
 
 
 def run_with(env, param_dict):
@@ -303,7 +306,9 @@ def run_with(env, param_dict):
     env.t_vec.resize(0)
     env.id_vec.resize(0)
 
-    h.cvode_active(0)
+    st_comptime = env.pc.step_time()
+
+    h.cvode_active(1)
 
     h.t = 0.0
     h.tstop = env.tstop
@@ -318,6 +323,7 @@ def run_with(env, param_dict):
         
         logger.info("*** Parameters: %s" % pprint.pformat(param_dict))
 
+
     env.pc.barrier()
     env.pc.psolve(h.tstop)
 
@@ -325,9 +331,7 @@ def run_with(env, param_dict):
         logger.info("*** Simulation completed")
     env.pc.barrier()
 
-    comptime = env.pc.step_time()
-    cwtime = comptime + env.pc.step_wait()
-    maxcw = env.pc.allreduce(cwtime, 2)
+    comptime = env.pc.step_time() - st_comptime
     avgcomp = env.pc.allreduce(comptime, 1) / nhosts
     maxcomp = env.pc.allreduce(comptime, 2)
 
@@ -379,6 +383,29 @@ def make_firing_rate_vector_target(env, pop_name, gid, target_rate_vector, time_
     return f
 
 
+def make_firing_rate_vector_target_distgfs(pop_name, gid, target_rate_vector, time_bins, from_param_dict, env):
+    def gid_firing_rate_vector(spkdict, gid):
+        if gid in spkdict[pop_name]:
+            spkdict1 = {gid: spkdict[pop_name][gid]}
+        else:
+            spkdict1 = {gid: np.asarray([], dtype=np.float32)}
+        rate_dict = spikedata.spike_rates(spkdict1)
+        spike_density_dict = spikedata.spike_density_estimate (pop_name, spkdict1, time_bins)
+        if gid in spkdict[pop_name]:
+            rate = spike_density_dict[gid]['rate']
+            logger.info('firing rate objective: spike times of gid %i: %s' % (gid, str(spkdict[pop_name][gid])))
+            logger.info('firing rate objective: firing rate of gid %i: %s' % (gid, str(rate)))
+            logger.info('firing rate objective: min/max rates of gid %i are %.2f / %.2f Hz' % (gid, np.min(rate), np.max(rate)))
+        return spike_density_dict[gid]['rate']
+    logger.info("firing rate objective: target time bins: %s" % str(time_bins))
+    logger.info("firing rate objective: target vector: %s" % str(target_rate_vector))
+    logger.info("firing rate objective: target rate vector min/max is %.2f Hz (%.2f ms) / %.2f Hz (%.2f ms)" % (np.min(target_rate_vector), time_bins[np.argmin(target_rate_vector)], np.max(target_rate_vector), time_bins[np.argmax(target_rate_vector)]))
+    f = lambda **v: (mse(gid_firing_rate_vector(run_with(env, {pop_name: {gid: from_param_dict(v)}}), gid),
+                         target_rate_vector))
+
+    return f
+
+
 def modify_scaled_syn_param(env, gid, syn_id, old_val, new_val):
     syn_name = env.syn_name
     syn_index = env.syn_index
@@ -391,7 +418,11 @@ def modify_scaled_syn_param(env, gid, syn_id, old_val, new_val):
         original_val = old_val
         syn_attr_dict[env.param_name] = original_val
         logger.warning('modify_scaled_syn_param: gid %d syn %s is missing parameter %s; using value %s' % (gid, str(syn), env.param_name, str(old_val)))
-    return original_val * new_val
+    logger.debug('modify_scaled_syn_param: syn %s mech %s param %s original_val %s new_val %s' % (syn_name, mech_name, env.param_name, str(original_val), str(new_val)))
+    if original_val is None:
+        return new_val
+    else:
+        return original_val * new_val
 
 def optimize_params(env, pop_name, param_type):
                         
@@ -509,7 +540,8 @@ def optimize_rate(env, pop_name, gid, opt_iter=10, param_type='synaptic'):
 
     logger.info('Optimized parameters: %s' % pprint.pformat(from_param_vector(opt_params)))
     logger.info('Optimized objective function: %s' % pprint.pformat(outputs))
-
+    
+    
     return opt_params, outputs
 
 
@@ -562,6 +594,61 @@ def optimize_rate_dist(env, tstop, pop_name, gid,
 
     logger.info('Optimized parameters: %s' % pprint.pformat(from_param_vector(opt_params)))
     logger.info('Optimized objective function: %s' % pprint.pformat(outputs))
+    logger.info('Optimized result: %s' % pprint.pformat(f_firing_rate_vector(*opt_params)))
+
+    return opt_params, outputs
+
+
+def optimize_rate_dist_distgfs(env, tstop, pop_name, gid, 
+                               target_rate_map_path, target_rate_map_namespace,
+                               target_rate_map_arena, target_rate_map_trajectory,
+                               opt_iter=10, param_type='synaptic'):
+    import distgfs
+
+    time_step = env.stimulus_config['Temporal Resolution']
+    equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
+
+    input_namespace = '%s %s %s' % (target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory)
+    it = read_cell_attribute_selection(target_rate_map_path, pop_name, namespace=input_namespace,
+                                        selection=[gid], mask=set(['Trajectory Rate Map']))
+    trj_rate_map = dict(it)[gid]['Trajectory Rate Map']
+
+    trj_x, trj_y, trj_d, trj_t = stimulus.read_trajectory(target_rate_map_path, target_rate_map_arena, target_rate_map_trajectory)
+
+    time_range = (0., min(np.max(trj_t), tstop))
+    
+    interp_trj_t = np.arange(time_range[0], time_range[1], time_step)
+    interp_trj_rate_map = np.interp(interp_trj_t, trj_t, trj_rate_map)
+    
+    param_bounds, param_names, param_initial_dict, param_range_tuples = optimize_params(env, pop_name, param_type)
+    
+    def from_param_dict(params_dict):
+        result = []
+        for param_pattern, (update_operator, pop_name, source, sec_type, syn_name, param_name, param_range) in zip(param_names, param_range_tuples):
+            result.append((update_operator, pop_name, source, sec_type, syn_name, param_name, params_dict[param_pattern]))
+        return result
+    
+    hyperprm_space = { param_pattern: [param_range[0], param_range[1]]
+                       for param_pattern, (update_operator, pop_name, source, sec_type, syn_name, _, param_range) in
+                           zip(param_names, param_range_tuples) }
+
+
+    # Create an optimizer parameter set
+    distgfs_params = {'opt_id': 'network_clamp.rate_dist',
+                      'obj_fun_init_name': 'make_firing_rate_vector_target',
+                      'obj_fun_init_module': 'dentate.network_clamp',
+                      'obj_fun_init_args': (pop_name, gid, interp_trj_rate_map, interp_trj_t, from_param_dict),
+                      'reduce_fun_name': 'opt_reduce',
+                      'reduce_fun_module': 'dentate.network_clamp',
+                      'problem_parameters': {},
+                      'space': hyperprm_space,
+                      'n_iter': opt_iter}
+
+    opt_params, outputs = distgfs.run(distgfs_params, spawn_workers=True, verbose=True)
+    
+    logger.info('Optimized parameters: %s' % pprint.pformat(from_param_vector(opt_params)))
+    logger.info('Optimized objective function: %s' % pprint.pformat(outputs))
+    logger.info('Optimized result: %s' % pprint.pformat(f_firing_rate_vector(*opt_params)))
 
     return opt_params, outputs
 
@@ -744,6 +831,9 @@ def optimize(config_file, population, gid, generate_inputs, generate_weights, t_
 
     results_file_id = uuid.uuid4()
     comm = MPI.COMM_WORLD
+    size = comm.Get_size()
+    rank = comm.Get_rank()
+
     np.seterr(all='raise')
     verbose = True
     cache_queries = True
@@ -760,10 +850,16 @@ def optimize(config_file, population, gid, generate_inputs, generate_weights, t_
     if target == 'rate':
         optimize_rate(env, population, gid, opt_iter=opt_iter, param_type=param_type)
     elif target == 'ratedist' or target == 'rate_dist':
-        optimize_rate_dist(env, tstop, population, gid, 
-                           target_rate_map_path, target_rate_map_namespace,
-                           target_rate_map_arena, target_rate_map_trajectory,
-                           opt_iter=opt_iter, param_type=param_type)
+        if size > 1:
+            optimize_rate_dist_distgfs(env, tstop, population, gid, 
+                                       target_rate_map_path, target_rate_map_namespace,
+                                       target_rate_map_arena, target_rate_map_trajectory,
+                                       opt_iter=opt_iter, param_type=param_type)
+        else:
+            optimize_rate_dist(env, tstop, population, gid, 
+                               target_rate_map_path, target_rate_map_namespace,
+                               target_rate_map_arena, target_rate_map_trajectory,
+                               opt_iter=opt_iter, param_type=param_type)
     else:
         raise RuntimeError('network_clamp.optimize: unknown optimization target %s' % \
                            target)

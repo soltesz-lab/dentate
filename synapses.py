@@ -546,6 +546,7 @@ class SynapseAttributes(object):
                 assert(new_val is not None)
                 old_val = attr_dict.get(k, mech_param)
                 attr_dict[k] = update_operator(gid, syn_id, old_val, new_val)
+                
             else:
                 raise RuntimeError('modify_mech_attrs: unknown type of parameter %s' % k)
         syn.attr_dict[syn_index] = attr_dict
@@ -1510,10 +1511,10 @@ def apply_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, 
     if baseline is not None:
         if 'custom' in rules:
             apply_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor,
-                                        update_targets, verbose)
+                                        update_targets, update_operator, verbose)
         else:
             set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor,
-                               update_targets, verbose)
+                               update_targets, update_operator, verbose)
 
 
 def inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filters=None):
@@ -1559,7 +1560,7 @@ def inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filter
 
 
 def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor=None,
-                       update_targets=False, verbose=False):
+                       update_targets=False, update_operator=None, verbose=False):
     """Provided a synaptic mechanism, a parameter, a node, a list of
     syn_ids, and a dict of rules. Sets placeholder values for each
     provided syn_id in the syn_mech_attr_dict of a SynapseAttributes
@@ -1586,7 +1587,7 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline,
     if not ('min_loc' in rules or 'max_loc' in rules or 'slope' in rules):
         for syn_id in syn_ids:
             syn_attrs.modify_mech_attrs(cell.pop_name, cell.gid, syn_id, syn_name, 
-                                        {param_name: baseline})
+                                        {param_name: baseline}, update_operator=update_operator)
     elif donor is None:
         raise RuntimeError('set_syn_mech_param: cannot set value of synaptic mechanism: %s parameter: %s in '
                            'sec_type: %s without a provided donor node' % (syn_name, param_name, node.type))
@@ -1613,14 +1614,14 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline,
                 
             if value is not None:
                 syn_attrs.modify_mech_attrs(cell.pop_name, cell.gid, syn_id, syn_name, 
-                                            {param_name: value})
+                                            {param_name: value}, update_operator=update_operator)
 
     if update_targets:
         config_biophys_cell_syns(env, cell.gid, cell.pop_name, syn_ids=syn_ids, insert=False, verbose=verbose)
 
 
 def apply_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor,
-                                update_targets=False, verbose=False):
+                                update_targets=False, update_operator=None, verbose=False):
     """If the provided node meets custom criteria, rules are modified and
     passed back to parse_mech_rules with the 'custom' item
     removed. Avoids having to determine baseline and donor over again.
@@ -1655,7 +1656,7 @@ def apply_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, 
     new_rules = func(cell, node, baseline, new_rules, donor, **custom)
     if new_rules:
         apply_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, new_rules, donor=donor,
-                             update_targets=update_targets, verbose=verbose)
+                             update_targets=update_targets, update_operator=update_operator, verbose=verbose)
 
 
 def init_syn_mech_attrs(cell, env=None, reset_mech_dict=False, update_targets=False):
@@ -2369,7 +2370,7 @@ def interactive_callback_plasticity_fit(**kwargs):
     plt.show()
 
 
-def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, logger, max_iter=10, lb = -3.0, ub = 3., local_random=None, interactive=False):
+def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, logger, max_iter=10, lb = -3.0, ub = 3., baseline_weight=0.0, local_random=None, interactive=False):
     
     source_gids = sorted(plasticity_inputs.keys())
     initial_weights = []
@@ -2412,10 +2413,10 @@ def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, lo
         syn_count = len(source_syn_map[source_gid])
         if syn_count > 0:
             for syn_id, initial_weight in source_syn_map[source_gid]:
-                syn_weights[syn_id] = max(delta_weight + initial_weight, math.sqrt(initial_weight))
+                syn_weights[syn_id] = max(delta_weight + initial_weight, max(math.sqrt(initial_weight),  baseline_weight))
 
     if interactive:
-        modified_weights = np.maximum(np.add(w, delta_weights), np.sqrt(w))
+        modified_weights = np.maximum(np.add(w, delta_weights), np.sqrt(w)) + baseline_weight
         modified_ratemap = phi(np.dot(A, modified_weights))
         logger.info('Initial rate map: min: %f max: %f' % (np.min(initial_ratemap), np.max(initial_ratemap)))
         logger.info('Target: min: %f max: %f' % (np.min(b), np.max(b)))
@@ -2437,9 +2438,12 @@ def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, lo
 
     return syn_weights
 
+
+def linear_phi(a):
+    return a
     
 def generate_structured_weights(gid, population, synapse_name, sources, dst_input_features, src_input_features, src_syn_dict,
-                                spatial_mesh, plasticity_kernel=None, field_width_scale=1.0, local_random=None, interactive=False, max_iter=10):
+                                spatial_mesh, plasticity_kernel=None, baseline_weight=0.0, field_width_scale=1.0, local_random=None, interactive=False, max_iter=10):
     """
     """
 
@@ -2499,14 +2503,14 @@ def generate_structured_weights(gid, population, synapse_name, sources, dst_inpu
         this_peak_locs = zip(np.nditer(this_x_offset), np.nditer(this_y_offset))
         logger.info('computing plasticity fit for gid %d: peak locs: %s field widths: %s' %
                         (gid, str([x for x in this_peak_locs]), str(this_field_width)))
-        this_syn_weights = plasticity_fit(exp_phi, this_plasticity_kernel, this_plasticity_inputs,
-                                              plasticity_src_syn_dict, logger, max_iter=max_iter,
-                                              local_random=local_random, interactive=interactive)
+        this_syn_weights = plasticity_fit(linear_phi, this_plasticity_kernel, this_plasticity_inputs, 
+                                              plasticity_src_syn_dict, logger, baseline_weight=baseline_weight, 
+                                              max_iter=max_iter, local_random=local_random, interactive=interactive)
         
         this_syn_ids = sorted(this_syn_weights.keys())
             
         result = {'syn_id': np.array(this_syn_ids).astype('uint32', copy=False),
-                  synapse_name: np.array([this_syn_weights[syn_id]
+                  synapse_name: np.array([this_syn_weights[syn_id] + baseline_weight
                                               for syn_id in this_syn_ids]).astype('float32', copy=False) }
 
     return result

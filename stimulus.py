@@ -282,7 +282,7 @@ class PlaceInputCellConfig(object):
     def init_from_attr_dict(self, selectivity_attr_dict):
         self.selectivity_type = selectivity_attr_dict['Selectivity Type'][0]
         self.peak_rate = selectivity_attr_dict['Peak Rate'][0]
-        self.module_id = selectivity_attr_dict['Module ID'][0]
+        self.module_id = selectivity_attr_dict.get('Module ID', [0])[0]
         self.num_fields = selectivity_attr_dict['Num Fields'][0]
         self.field_width = selectivity_attr_dict['Field Width']
         self.x0 = selectivity_attr_dict['X Offset']

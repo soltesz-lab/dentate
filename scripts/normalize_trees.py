@@ -27,8 +27,9 @@ sys.excepthook = mpi_excepthook
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
+@click.option("--dry-run",  is_flag=True)
 @click.option("--verbose", '-v', is_flag=True)
-def main(config, config_prefix, population, forest_path, template_path, output_path, io_size, chunk_size, value_chunk_size, verbose):
+def main(config, config_prefix, population, forest_path, template_path, output_path, io_size, chunk_size, value_chunk_size, dry_run, verbose):
     """
 
     :param population: str
@@ -77,10 +78,11 @@ def main(config, config_prefix, population, forest_path, template_path, output_p
             
             new_trees_dict[gid] = new_tree_dict
 
-    append_cell_trees(output_path, population, new_trees_dict, io_size=io_size, comm=comm)
+    if not dry_run:
+        append_cell_trees(output_path, population, new_trees_dict, io_size=io_size, comm=comm)
 
     comm.barrier()
-    if rank == 0:
+    if (not dry_run) and (rank == 0):
         logger.info('Appended normalized trees to %s' % output_path)
 
 

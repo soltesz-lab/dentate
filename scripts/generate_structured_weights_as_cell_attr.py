@@ -92,6 +92,7 @@ def input_features_dict_alltoall(comm, features_attrs, query, clear=False):
 @click.option("--destination", '-d', type=str)
 @click.option("--sources", '-s', type=str, multiple=True)
 @click.option("--arena-id", '-a', type=str, default='A')
+@click.option("--baseline-weight", type=float, default=0.0)
 @click.option("--field-width-scale", type=float, default=1.2)
 @click.option("--max-iter", type=int, default=10)
 @click.option("--io-size", type=int, default=-1)
@@ -104,7 +105,7 @@ def input_features_dict_alltoall(comm, features_attrs, query, clear=False):
 @click.option("--dry-run", is_flag=True)
 @click.option("--interactive", is_flag=True)
 def main(config, input_features_path, input_features_namespaces, output_weights_path, weights_path, h5types_path, synapse_name, initial_weights_namespace,
-         structured_weights_namespace, connections_path, destination, sources, arena_id, field_width_scale, max_iter, 
+         structured_weights_namespace, connections_path, destination, sources, arena_id, baseline_weight, field_width_scale, max_iter, 
          io_size, chunk_size, value_chunk_size, cache_size, write_size, scatter_io, verbose, dry_run, interactive):
     """
 
@@ -339,6 +340,7 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
                                                    spatial_mesh=(x,y),
                                                    plasticity_kernel=plasticity_kernel,
                                                    field_width_scale=field_width_scale,
+                                                   baseline_weight=baseline_weight,
                                                    interactive=interactive)
 
             if this_syn_weights is not None:

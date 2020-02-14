@@ -1007,7 +1007,7 @@ def plot_biophys_cell_tree (env, biophys_cell, node_filters={'swc_types': ['apic
     zcoords = np.asarray([ z for (i, z) in morph_graph.nodes.data('z') ], dtype=np.float32)
     #layers = np.asarray([ layer for (i, layer) in morph_graph.nodes.data('layer') ], dtype=np.int32)
 
-    edges = nx.minimum_spanning_tree(morph_graph).edges(data=True)
+    #edges = nx.minimum_spanning_tree(morph_graph).edges(data=True)
     edges = morph_graph.edges(data=True)
     start_idx, end_idx, _ = np.array(list(edges)).T
     start_idx = start_idx.astype(np.int)
@@ -2434,7 +2434,8 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
     stplots = []
     for (pop_name, pop_states) in viewitems(states):
         for (gid, cell_states) in viewitems(pop_states):
-            st_x, st_y = cell_states
+            st_x = cell_states[0]
+            st_y = cell_states[1]
             pch = interpolate.pchip(st_x, st_y)
             res_npts = int((st_x.max() - st_x.min())) * 10
             st_x_res = np.linspace(st_x.min(), st_x.max(), res_npts, endpoint=True)
