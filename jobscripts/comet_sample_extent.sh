@@ -1,9 +1,9 @@
 #!/bin/bash
 #
 #SBATCH -J dentate_sample_extent
-#SBATCH -o ./results/dentate_cut_slice.%j.o
+#SBATCH -o ./results/dentate_sample_extent.%j.o
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=12
+#SBATCH --ntasks-per-node=1
 #SBATCH -p shared
 #SBATCH -t 4:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
@@ -22,7 +22,6 @@ export results_path
 
 mkdir -p $results_path
 
-mpirun_rsh -export-all -hostfile $SLURM_NODEFILE -np 1536 \
 `which python3` ./scripts/sample_extent.py \
     --config=Full_Scale_GC_Exc_Sat_DD_SLN.yaml \
     --config-prefix=./config \
