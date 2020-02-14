@@ -1007,7 +1007,7 @@ def plot_biophys_cell_tree (env, biophys_cell, node_filters={'swc_types': ['apic
     zcoords = np.asarray([ z for (i, z) in morph_graph.nodes.data('z') ], dtype=np.float32)
     #layers = np.asarray([ layer for (i, layer) in morph_graph.nodes.data('layer') ], dtype=np.int32)
 
-    edges = nx.minimum_spanning_tree(morph_graph).edges(data=True)
+    #edges = nx.minimum_spanning_tree(morph_graph).edges(data=True)
     edges = morph_graph.edges(data=True)
     start_idx, end_idx, _ = np.array(list(edges)).T
     start_idx = start_idx.astype(np.int)
