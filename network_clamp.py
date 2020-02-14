@@ -17,8 +17,6 @@ from neuroh5.io import read_cell_attribute_selection
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
 
-def opt_reduce(lst):
-    return lst[0]
 
 def generate_weights(env, weight_source_rules, this_syn_attrs):
     """
@@ -185,6 +183,8 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
     synapses.config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True, verbose=True)
     record_cell(env, pop_name, gid)
 
+    biophys_cell = env.biophys_cells[pop_name][gid]
+
     if plot_cell:
         import dentate.plot
         from dentate.plot import plot_synaptic_attribute_distribution
@@ -201,7 +201,6 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
                                                  output_dir=env.results_path)
         
         
-    
     cell = env.pc.gid2cell(gid)
     for sec in list(cell.all):
         h.psection(sec=sec)
@@ -501,11 +500,10 @@ def optimize_params(env, pop_name, param_type):
                 "network_clamp.optimize_params: unknown parameter type %s" % param_type)
 
     return param_bounds, param_names, param_initial_dict, param_range_tuples
-
-optimize_rate_objfun = None
+    
     
 def optimize_rate(env, pop_name, gid, opt_iter=10, param_type='synaptic'):
-    import distgfs
+    import dlib
 
     if (pop_name in env.netclamp_config.optimize_parameters):
         opt_params = env.netclamp_config.optimize_parameters[pop_name]
@@ -531,20 +529,14 @@ def optimize_rate(env, pop_name, gid, opt_iter=10, param_type='synaptic'):
             result.append(param_value)
         return result
 
-    hyperprm_space = { param_name: [param_range[0], param_range[1]]
-                       for update_operator, pop_name, source, sec_type, syn_name, param_name, param_range in param_range_tuples }
-
-    optimize_rate_objfun = make_firing_rate_target(env, pop_name, gid, opt_target, time_bins, from_param_vector)
-
-    # Create an optimizer parameter set
-    distgfs_params = {'opt_id': 'network_clamp.rate',
-                      'obj_fun_name': 'optimize_rate_objfun',
-                      'obj_fun_module': 'dentate.network_clamp',
-                      'problem_parameters': {},
-                      'space': space,
-                      'n_iter': opt_iter}
-
-    opt_params, outputs = distgfs.run(distgfs_params, spawn_workers=True, verbose=True)
+    min_values = [(source, sec_type, syn_name, param_name, param_range[0]) for
+                  update_operator, pop_name, source, sec_type, syn_name, param_name, param_range in param_range_tuples]
+    max_values = [(source, sec_type, syn_name, param_name, param_range[1]) for
+                  update_operator, pop_name, source, sec_type, syn_name, param_name, param_range in param_range_tuples]
+    
+    f_firing_rate = make_firing_rate_target(env, pop_name, gid, opt_target, time_bins, from_param_vector)
+    opt_params, outputs = dlib.find_min_global(f_firing_rate, to_param_vector(min_values), to_param_vector(max_values),
+                                               opt_iter)
 
     logger.info('Optimized parameters: %s' % pprint.pformat(from_param_vector(opt_params)))
     logger.info('Optimized objective function: %s' % pprint.pformat(outputs))
@@ -552,8 +544,6 @@ def optimize_rate(env, pop_name, gid, opt_iter=10, param_type='synaptic'):
     
     return opt_params, outputs
 
-
-optimize_rate_dist_objfun = None
 
 def optimize_rate_dist(env, tstop, pop_name, gid, 
                        target_rate_map_path, target_rate_map_namespace,
@@ -590,25 +580,18 @@ def optimize_rate_dist(env, tstop, pop_name, gid,
         for (update_operator, destination, source, sec_type, syn_name, param_name, param_value) in params:
             result.append(param_value)
         return result
+
+    min_values = [(update_operator, pop_name, source, sec_type, syn_name, param_name, param_range[0]) for
+                  update_operator, pop_name, source, sec_type, syn_name, param_name, param_range in
+                      param_range_tuples]
+    max_values = [(update_operator, pop_name, source, sec_type, syn_name, param_name, param_range[1]) for
+                  update_operator, pop_name, source, sec_type, syn_name, param_name, param_range in
+                      param_range_tuples]
     
-    hyperprm_space = { param_name: [param_range[0], param_range[1]]
-                       for update_operator, pop_name, source, sec_type, syn_name, param_name, param_range in param_range_tuples }
+    f_firing_rate_vector = make_firing_rate_vector_target(env, pop_name, gid, interp_trj_rate_map, interp_trj_t, from_param_vector)
+    opt_params, outputs = dlib.find_min_global(f_firing_rate_vector, to_param_vector(min_values), to_param_vector(max_values),
+                                               opt_iter)
 
-    optimize_rate_objfun = make_firing_rate_target(env, pop_name, gid, opt_target, time_bins, from_param_vector)
-    optimize_rate_dist_objfun = make_firing_rate_vector_target(env, pop_name, gid, interp_trj_rate_map, interp_trj_t, from_param_vector)
-
-    # Create an optimizer parameter set
-    distgfs_params = {'opt_id': 'network_clamp.rate_dist',
-                      'obj_fun_name': 'optimize_rate_dist_objfun',
-                      'obj_fun_module': 'dentate.network_clamp',
-                      'reduce_fun_name': 'opt_reduce',
-                      'reduce_fun_module': 'dentate.network_clamp',
-                      'problem_parameters': {},
-                      'space': space,
-                      'n_iter': opt_iter}
-
-    opt_params, outputs = distgfs.run(distgfs_params, spawn_workers=True, verbose=True)
-    
     logger.info('Optimized parameters: %s' % pprint.pformat(from_param_vector(opt_params)))
     logger.info('Optimized objective function: %s' % pprint.pformat(outputs))
     logger.info('Optimized result: %s' % pprint.pformat(f_firing_rate_vector(*opt_params)))
