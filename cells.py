@@ -2151,8 +2151,7 @@ def normalize_tree_topology(neurotree_dict, swc_type_defs):
         ## Detect dendritic sections without parent and connect them to soma
         if section_parent is None:
             if (section_swc_type == swc_type_defs['apical']) or (section_swc_type == swc_type_defs['basal']):
-                section_pts.insert(0, soma_pts[-1])
-                pt_parents[section_pts[1]] = soma_pts[-1]
+                pt_parents[section_pts[0]] = soma_pts[-1]
                 sec_edges.append((soma_section_idx, section_idx))
                 sec_parents_dict[section_idx] = soma_section_idx
 
@@ -2160,6 +2159,7 @@ def normalize_tree_topology(neurotree_dict, swc_type_defs):
         dst_pts = section_pt_dict[dst]
         src_pts = section_pt_dict[src]
         dst_pts_parents = [pt_parents[i] for i in dst_pts]
+
         ## detect sections that are connected to first point of their parent
         if dst_pts_parents[0] == src_pts[0]:
             ## obtain parent of src section
