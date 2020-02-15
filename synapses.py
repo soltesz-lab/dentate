@@ -2503,7 +2503,7 @@ def generate_structured_weights(gid, population, synapse_name, sources, dst_inpu
         this_peak_locs = zip(np.nditer(this_x_offset), np.nditer(this_y_offset))
         logger.info('computing plasticity fit for gid %d: peak locs: %s field widths: %s' %
                         (gid, str([x for x in this_peak_locs]), str(this_field_width)))
-        this_syn_weights = plasticity_fit(linear_phi, this_plasticity_kernel, this_plasticity_inputs, 
+        this_syn_weights = plasticity_fit(exp_phi, this_plasticity_kernel, this_plasticity_inputs, 
                                               plasticity_src_syn_dict, logger, baseline_weight=baseline_weight, 
                                               max_iter=max_iter, local_random=local_random, interactive=interactive)
         
