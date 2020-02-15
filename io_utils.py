@@ -339,11 +339,12 @@ def set_h5py_attr(attrs, key, val):
     attrs[key] = val
 
 
-def get_h5py_group(file, hierarchy):
+def get_h5py_group(file, hierarchy, create=False):
     """
 
     :param file: :class: in ['h5py.File', 'h5py.Group']
     :param hierarchy: list of str
+    :param create: bool
     :return: :class:'h5py.Group'
     """
     target = file
@@ -351,7 +352,11 @@ def get_h5py_group(file, hierarchy):
         if key is not None:
             key = str(key)
             if key not in target:
-                target = target.create_group(key)
+                if create:
+                    target = target.create_group(key)
+                else:
+                    raise KeyError('get_h5py_group: target: %s does not contain key: %s; valid keys: %s' %
+                                   (target, key, list(target.keys())))
             else:
                 target = target[key]
     return target

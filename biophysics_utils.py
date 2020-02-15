@@ -351,7 +351,7 @@ class QuickSim(object):
         else:
             io_type = 'w'
         with h5py.File(file_path, io_type) as f:
-            target = get_h5py_group(f, [model_label, 'sim_output', category])
+            target = get_h5py_group(f, [model_label, 'sim_output', category], create=True)
             target.attrs['enumerated'] = True
             simiter = len(target)
             if str(simiter) not in target:
