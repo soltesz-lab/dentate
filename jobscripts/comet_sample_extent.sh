@@ -27,7 +27,7 @@ ibrun -v python3 ./scripts/sample_extent.py \
     --spike-input-path="$SCRATCH/dentate/Full_Scale_Control/DG_input_spike_trains_20190912_compressed.h5" \
     --spike-input-namespace='Input Spikes A Diag' \
     --output-path=${results_path} \
-    --bin-sample-count=1 \
+    --bin-sample-count=2 \
     --write-selection \
     -i GC \
     --verbose
