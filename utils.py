@@ -125,7 +125,7 @@ class RunningStats(object):
         return self.m1
 
     def variance(self):
-        return self.m1 / (self.n - 1.0)
+        return self.m2 / (self.n - 1.0)
 
     def standard_deviation(self):
         return math.sqrt(self.variance())
@@ -1062,7 +1062,7 @@ def sigmoid_phi(x, a = 0.05, peak_rate = 1.):
     res = peak_rate / (1. + np.exp(-a * x))
     return res
 
-def exp_phi(x, a = 0.025):
+def exp_phi(x, a = 0.033):
     res = 1. / np.exp(-a * x)
     return res
 
