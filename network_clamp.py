@@ -18,6 +18,9 @@ from neuroh5.io import read_cell_attribute_selection
 logger = get_module_logger(__name__)
 
 
+def distgfs_reduce_fun(xs):
+    return xs[0]
+
 def generate_weights(env, weight_source_rules, this_syn_attrs):
     """
     Generates synaptic weights according to the rules specified in the
@@ -597,6 +600,8 @@ def optimize_rate_dist_distgfs(env, tstop, pop_name, gid,
                       'obj_fun_init_name': 'init_distgfs_objfun',
                       'obj_fun_init_module': 'dentate.network_clamp',
                       'obj_fun_init_args': init_params,
+                      'reduce_fun_name': 'distgfs_reduce_fun',
+                      'reduce_fun_module': 'dentate.network_clamp',
                       'problem_parameters': {},
                       'space': hyperprm_space,
                       'n_iter': opt_iter}
