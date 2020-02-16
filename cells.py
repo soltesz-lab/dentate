@@ -1,4 +1,4 @@
-import collections, os, sys, traceback, copy, datetime, math, pprint
+import collections, os, sys, traceback, copy, datetime, math, itertools, pprint
 import numpy as np
 from dentate.neuron_utils import h, d_lambda, default_hoc_sec_lists, default_ordered_sec_types, freq, make_rec
 from dentate.utils import get_module_logger, map, range, zip, zip_longest, viewitems, read_from_yaml, write_to_yaml
@@ -2165,8 +2165,17 @@ def normalize_tree_topology(neurotree_dict, swc_type_defs):
     sec_graph = nx.DiGraph()
     for i, j in zip(sec_src, sec_dst):
         sec_graph.add_edge(i, j)
+    for i, j in sec_edges:
+        sec_graph.add_edge(i, j)
 
-    for src, dst in nx.dfs_edges(sec_graph, source=0):
+    sec_graph_roots = [n for n,d in sec_graph.in_degree() if d==0]
+    if len(sec_graph_roots) != 1:
+        raise RuntimeError("normalize_tree_topology: section graph must be a rooted tree")
+        
+    edges_in_order = nx.dfs_edges(sec_graph, source=sec_graph_roots[0])
+    
+    for src, dst in edges_in_order:
+        
         dst_pts = section_pt_dict[dst]
         src_pts = section_pt_dict[src]
         dst_pts_parents = [pt_parents[i] for i in dst_pts]
