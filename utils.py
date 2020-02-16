@@ -125,7 +125,7 @@ class RunningStats(object):
         return self.m1
 
     def variance(self):
-        return self.m1 / (self.n - 1.0)
+        return self.m2 / (self.n - 1.0)
 
     def standard_deviation(self):
         return math.sqrt(self.variance())
