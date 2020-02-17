@@ -605,7 +605,10 @@ def optimize_rate_dist_distgfs(env, tstop, pop_name, gid,
                       'reduce_fun_module': 'dentate.network_clamp',
                       'problem_parameters': {},
                       'space': hyperprm_space,
-                      'n_iter': opt_iter}
+                      'n_iter': opt_iter,
+                      'file_path': '%s/distgfs.network_clamp.%s.h5' % (env.results_path, str(env.results_file_id)),
+                      'save': True
+                    }
 
     opt_params, outputs = distgfs.run(distgfs_params, spawn_workers=True, verbose=True)
     
@@ -617,11 +620,10 @@ def optimize_rate_dist_distgfs(env, tstop, pop_name, gid,
 
 
 def init_distgfs_objfun(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter,
-             template_paths, dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, spike_events_t,
+             template_paths, dataset_prefix, config_prefix, results_file_id, results_path, spike_events_path, spike_events_namespace, spike_events_t,
              param_type, recording_profile, target_rate_map_path, target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory,
              **kwargs):
 
-    results_file_id = None
     params = dict(locals())
     env = Env(**params)
     env.results_file_path = None
