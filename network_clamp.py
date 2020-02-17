@@ -88,7 +88,8 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
     :param spike_events_path:
 
     """
-    io_utils.mkout(env, env.results_file_path)
+    if env.results_file_path is not None:
+        io_utils.mkout(env, env.results_file_path)
 
     env.cell_selection = {}
     
@@ -620,10 +621,11 @@ def init_distgfs_objfun(config_file, population, gid, generate_inputs, generate_
              param_type, recording_profile, target_rate_map_path, target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory,
              **kwargs):
 
+    results_file_id = None
     params = dict(locals())
     env = Env(**params)
+    env.results_file_path = None
     configure_hoc_env(env)
-
     init(env, population, gid, spike_events_path, 
          generate_inputs_pops=set(generate_inputs), 
          generate_weights_pops=set(generate_weights), 
