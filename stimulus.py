@@ -854,7 +854,11 @@ def generate_concentric_trajectory(arena, velocity=30., spatial_resolution=1., s
     return t, interp_x, interp_y, d
 
 
-def generate_input_selectivity_features(env, population, arena, selectivity_config, selectivity_type_names, selectivity_type_namespaces, coords_path, output_path, distances_namespace='Arc Distances', comm=None, io_size=-1, cache_size=10, write_every=1, chunk_size=1000, value_chunk_size=1000, dry_run=False, debug=False):
+def generate_input_selectivity_features(env, population, arena, selectivity_config, selectivity_type_names,
+                                        selectivity_type_namespaces, coords_path, output_path,
+                                        distances_namespace='Arc Distances', comm=None, io_size=-1, cache_size=10,
+                                        write_every=1, chunk_size=1000, value_chunk_size=1000, dry_run=False,
+                                        debug=False):
     """
     Generates input selectivity features for the given population and
     writes to the given output path, in the selectivity type-specific

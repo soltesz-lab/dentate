@@ -107,7 +107,7 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
             raise RuntimeError('Initial weights namespace %s was not found in file %s' % (initial_weights_namespace, weights_path))
     
         logger.info('Rank %i; destination: %s; read synaptic weights for %i cells' %
-                    (rank, destination, len(initial_weights_dict)))
+                    (env.comm.rank, destination, len(initial_weights_dict)))
 
 
     features_attr_names = ['Num Fields', 'Field Width', 'Peak Rate', 'X Offset', 'Y Offset', 'Arena Rate Map']
