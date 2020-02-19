@@ -2370,7 +2370,8 @@ def interactive_callback_plasticity_fit(**kwargs):
     plt.show()
 
 
-def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, logger, max_iter=10, lb = -3.0, ub = 3., baseline_weight=0.0, local_random=None, interactive=False):
+def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, logger, max_iter=10, lb = -3.0, ub = 3.,
+                   baseline_weight=0.0, local_random=None, interactive=False):
     
     source_gids = sorted(plasticity_inputs.keys())
     initial_weights = []
@@ -2441,12 +2442,29 @@ def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, lo
 
 def linear_phi(a):
     return a
-    
-def generate_structured_weights(gid, population, synapse_name, sources, dst_input_features, src_input_features, src_syn_dict,
-                                spatial_mesh, plasticity_kernel=None, baseline_weight=0.0, field_width_scale=1.0, local_random=None, interactive=False, max_iter=10):
-    """
+
+
+def generate_structured_weights(gid, population, synapse_name, sources, dst_input_features, src_input_features,
+                                src_syn_dict, spatial_mesh, plasticity_kernel=None, baseline_weight=0.0,
+                                field_width_scale=1.0, local_random=None, interactive=False, max_iter=10):
     """
 
+    :param gid:
+    :param population:
+    :param synapse_name:
+    :param sources:
+    :param dst_input_features:
+    :param src_input_features:
+    :param src_syn_dict:
+    :param spatial_mesh:
+    :param plasticity_kernel:
+    :param baseline_weight:
+    :param field_width_scale:
+    :param local_random:
+    :param interactive:
+    :param max_iter:
+    :return:
+    """
     if gid in dst_input_features[population]:
         this_input_features = dst_input_features[population][gid]
         this_num_fields = this_input_features['Num Fields'][0]
