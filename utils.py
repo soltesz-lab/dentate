@@ -61,6 +61,7 @@ class Closure(object):
     def __call__(self, *args):
         return self.func(self.env, *args)
 
+
 class Context(object):
     """
     A container replacement for global variables to be shared and modified by any function in a module.
