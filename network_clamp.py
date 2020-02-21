@@ -18,6 +18,22 @@ from neuroh5.io import read_cell_attribute_selection
 logger = get_module_logger(__name__)
 
 
+def mpi_excepthook(type, value, traceback):
+    """
+
+    :param type:
+    :param value:
+    :param traceback:
+    :return:
+    """
+    sys_excepthook(type, value, traceback)
+    sys.stderr.flush()
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort(1)
+
+sys_excepthook = sys.excepthook
+sys.excepthook = mpi_excepthook
+
 def distgfs_reduce_fun(xs):
     return xs[0]
 
@@ -586,7 +602,8 @@ def optimize_rate_dist(env, tstop, pop_name, gid,
 def optimize_rate_dist_distgfs(env, tstop, pop_name, gid, 
                                target_rate_map_path, target_rate_map_namespace,
                                target_rate_map_arena, target_rate_map_trajectory,
-                               opt_iter=10, param_type='synaptic', init_params={}):
+                               opt_iter=10, param_type='synaptic', init_params={},
+                               results_file=None):
     import distgfs
 
     param_bounds, param_names, param_initial_dict, param_range_tuples = optimize_params(env, pop_name, param_type)
@@ -597,6 +614,13 @@ def optimize_rate_dist_distgfs(env, tstop, pop_name, gid,
 
     pprint.pprint(init_params)
     # Create an optimizer parameter set
+    if results_file is None:
+        if env.results_path is not None:
+            file_path = '%s/distgfs.network_clamp.%s.h5' % (env.results_path, str(env.results_file_id))
+        else:
+            file_path = 'distgfs.network_clamp.%s.h5' % (str(env.results_file_id))
+    else:
+        file_path = '%s/%s' % (env.results_path, results_file)
     distgfs_params = {'opt_id': 'network_clamp.rate_dist',
                       'obj_fun_init_name': 'init_distgfs_objfun',
                       'obj_fun_init_module': 'dentate.network_clamp',
@@ -605,11 +629,13 @@ def optimize_rate_dist_distgfs(env, tstop, pop_name, gid,
                       'reduce_fun_module': 'dentate.network_clamp',
                       'problem_parameters': {},
                       'space': hyperprm_space,
+                      'file_path': file_path,
+                      'save': True,
                       'n_iter': opt_iter}
 
     opt_params, outputs = distgfs.run(distgfs_params, spawn_workers=True, verbose=True)
     
-    logger.info('Optimized parameters: %s' % pprint.pformat(from_param_vector(opt_params)))
+    logger.info('Optimized parameters: %s' % pprint.pformat(opt_params))
     logger.info('Optimized objective function: %s' % pprint.pformat(outputs))
     logger.info('Optimized result: %s' % pprint.pformat(f_firing_rate_vector(*opt_params)))
 
@@ -642,7 +668,7 @@ def init_distgfs_objfun(config_file, population, gid, generate_inputs, generate_
 
     trj_x, trj_y, trj_d, trj_t = stimulus.read_trajectory(target_rate_map_path, target_rate_map_arena, target_rate_map_trajectory)
 
-    time_range = (np.min(trj_t), min(np.max(trj_t), tstop))
+    time_range = (0., min(np.max(trj_t), tstop))
     
     time_bins = np.arange(time_range[0], time_range[1], time_step)
     target_rate_vector = np.interp(time_bins, trj_t, trj_rate_map)
@@ -828,6 +854,7 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
 @click.option("--param-type", type=str, 
               help='parameter type for rate optimization (synaptic or scaling)')
 @click.option('--recording-profile', type=str, help='recording profile to use')
+@click.option("--results-file", required=False, type=str, help='optimization results file')
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), \
               help='path to directory where output files will be written')
 @click.option("--spike-events-path", '-s', required=True, type=click.Path(),
@@ -849,7 +876,7 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
 
 def optimize(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter,
              template_paths, dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, spike_events_t,
-             param_type, recording_profile, results_path, target_rate_map_path, target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory, target):
+             param_type, recording_profile, results_file, results_path, target_rate_map_path, target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory, target):
     """
     Optimize the firing rate of the specified cell in a network clamp configuration.
     """
@@ -887,7 +914,7 @@ def optimize(config_file, population, gid, generate_inputs, generate_weights, t_
                                        target_rate_map_path, target_rate_map_namespace,
                                        target_rate_map_arena, target_rate_map_trajectory,
                                        opt_iter=opt_iter, param_type=param_type,
-                                       init_params=init_params)
+                                       init_params=init_params, results_file=results_file)
         else:
             optimize_rate_dist(env, tstop, population, gid, 
                                target_rate_map_path, target_rate_map_namespace,
