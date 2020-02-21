@@ -21,10 +21,12 @@ from dentate.cells import default_ordered_sec_types, get_distance_to_node, make_
 from dentate.env import Env
 from dentate.synapses import get_syn_filter_dict, get_syn_mech_param
 from dentate.utils import get_module_logger, Struct, add_bins, update_bins, finalize_bins
-from dentate.utils import power_spectrogram, butter_bandpass_filter, kde_scipy, make_geometric_graph, viewitems, zip_longest, basestring
+from dentate.utils import power_spectrogram, butter_bandpass_filter, kde_scipy, make_geometric_graph, viewitems, \
+    zip_longest, basestring
 from dentate.neuron_utils import interplocs
 from dentate.io_utils import get_h5py_attr, set_h5py_attr
-from neuroh5.io import NeuroH5ProjectionGen, bcast_cell_attributes, read_cell_attributes, read_population_names, read_population_ranges, read_projection_names, read_tree_selection
+from neuroh5.io import NeuroH5ProjectionGen, bcast_cell_attributes, read_cell_attributes, read_population_names, \
+    read_population_ranges, read_projection_names, read_tree_selection
 
 try:
     import dentate.spikedata as spikedata

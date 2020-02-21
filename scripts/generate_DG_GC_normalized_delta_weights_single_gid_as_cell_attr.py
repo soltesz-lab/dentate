@@ -47,7 +47,8 @@ def get_activation_map_residual_mse(weights, input_matrix, target_map):
 
 def generate_normalized_delta_weights(target_map, initial_weight_dict, input_rate_map_dict, syn_count_dict,
                                       max_delta_weight=4., max_iter=100, target_amplitude=3., arena_x=None,
-                                      arena_y=None, reference_weight_dict=None, optimize_method='L-BFGS-B',
+                                      arena_y=None, reference_weight_dict=None, reference_weights_are_delta=False,
+                                      reference_weights_namespace='', optimize_method='L-BFGS-B',
                                       verbose=False, plot=False):
     """
 
@@ -62,6 +63,8 @@ def generate_normalized_delta_weights(target_map, initial_weight_dict, input_rat
     :param arena_x: 2D array
     :param arena_y: 2D array
     :param reference_weight_dict: dict: {int: float}
+    :param reference_weights_are_delta: bool
+    :param reference_weights_namespace: str
     :param optimize_method: str
     :param verbose: bool
     :param plot: bool
@@ -76,12 +79,18 @@ def generate_normalized_delta_weights(target_map, initial_weight_dict, input_rat
     source_gid_array = np.empty(len(input_rate_map_dict))
     syn_count_array = np.empty(len(input_rate_map_dict))
     initial_weight_array = np.empty(len(input_rate_map_dict))
+    if reference_weight_dict is None:
+        reference_weight_array = None
+    else:
+        reference_weight_array = np.empty(len(input_rate_map_dict))
     for i, source_gid in enumerate(input_rate_map_dict):
         source_gid_array[i] = source_gid
         this_syn_count = syn_count_dict[source_gid]
         input_matrix[i, :] = input_rate_map_dict[source_gid].ravel() * this_syn_count
         syn_count_array[i] = this_syn_count
         initial_weight_array[i] = initial_weight_dict[source_gid]
+        if reference_weight_array is not None:
+            reference_weight_array[i] = reference_weight_dict[source_gid]
 
     mean_initial_weight = np.mean(initial_weight_array)
     max_weight = mean_initial_weight + max_delta_weight
@@ -90,6 +99,7 @@ def generate_normalized_delta_weights(target_map, initial_weight_dict, input_rat
     if scaling_factor <= 0.:
         raise RuntimeError('generate_structured_delta_weights: initial weights must produce positive activation')
     initial_background_map /= scaling_factor
+    initial_background_map -= 1.
 
     scaled_input_matrix = np.divide(input_matrix, scaling_factor)
     [U, s, Vh] = np.linalg.svd(scaled_input_matrix)
@@ -99,10 +109,10 @@ def generate_normalized_delta_weights(target_map, initial_weight_dict, input_rat
     D[np.where(np.eye(*D.shape))] = s / (s ** 2. + beta ** 2.)
     input_matrix_inv = V.dot(D.conj().T).dot(U.conj().T)
     SVD_weights = flat_scaled_target_map.dot(input_matrix_inv)
-    flat_SVD_map = SVD_weights.dot(scaled_input_matrix)
+    flat_SVD_map = SVD_weights.dot(scaled_input_matrix) - 1.
 
-    num_bins = 10
-    edges = np.linspace(mean_initial_weight, max_weight, num_bins + 1)
+    num_bins = 20
+    edges = np.linspace(-1., max_weight + 1., num_bins + 1)
     bounds = (mean_initial_weight, max_weight)
     initial_LS_weights = np.maximum(np.minimum(SVD_weights, bounds[1]), bounds[0])
 
@@ -113,61 +123,87 @@ def generate_normalized_delta_weights(target_map, initial_weight_dict, input_rat
     elif optimize_method == 'dogbox':
         result = least_squares(get_activation_map_residual_mse, initial_LS_weights,
                                args=(scaled_input_matrix, flat_scaled_target_map), bounds=bounds, method='dogbox',
-                               verbose=2 if verbose else 0, max_nfev=max_iter, ftol=5e-4)
+                               verbose=2 if verbose else 0, max_nfev=max_iter, ftol=5e-5)
     else:
         raise RuntimeError('generate_structured_delta_weights: optimization method: %s not implemented' %
                            optimize_method)
 
     LS_weights = np.array(result.x)
-    flat_LS_map = LS_weights.dot(scaled_input_matrix)
+    flat_LS_map = LS_weights.dot(scaled_input_matrix) - 1.
 
     if plot:
         if arena_x is None or arena_y is None:
             raise RuntimeError('generate_structured_delta_weights: missing required arena coordinates for plotting')
         import matplotlib.pyplot as plt
+        import matplotlib as mpl
         from dentate.plot import clean_axes
-        fig, axes = plt.subplots(2, 4, figsize=(16, 9))
+        default_font_size = mpl.rcParams['font.size']
+
+        min_vals = [np.min(flat_scaled_target_map - 1.), np.min(flat_SVD_map), np.min(flat_LS_map),
+                    np.min(initial_background_map)]
+        max_vals1 = [np.max(flat_scaled_target_map - 1.), np.max(flat_SVD_map)]
+        max_vals2 = [np.max(flat_LS_map), np.max(initial_background_map)]
+        if reference_weight_array is not None:
+            fig, axes = plt.subplots(3, 3, figsize=(12, 12))
+            if reference_weights_are_delta:
+                reference_weights = reference_weight_array / np.max(reference_weight_array) * max_delta_weight + \
+                                    mean_initial_weight
+            else:
+                reference_weights = reference_weight_array
+            flat_reference_map = reference_weights.dot(scaled_input_matrix) - 1.
+            min_vals.append(np.min(flat_reference_map))
+            max_vals2.append(np.max(flat_reference_map))
+        else:
+            fig, axes = plt.subplots(3, 2, figsize=(9, 12))
+        vmin = min(min_vals)
+        vmax1 = max(max_vals1)
+        vmax2 = max(max_vals2)
 
         axes[0][0].plot(range(len(flat_scaled_target_map)), initial_background_map, label='Initial')
-        axes[0][0].plot(range(len(flat_scaled_target_map)), flat_scaled_target_map, label='Target')
+        if reference_weight_array is not None:
+            axes[0][0].plot(range(len(flat_scaled_target_map)), flat_reference_map, label='Reference')
+        axes[0][0].plot(range(len(flat_scaled_target_map)), flat_scaled_target_map - 1., label='Target')
         axes[0][0].plot(range(len(flat_scaled_target_map)), flat_SVD_map, label='SVD')
         axes[0][0].plot(range(len(flat_scaled_target_map)), flat_LS_map, label=optimize_method)
         axes[0][0].set_ylabel('Normalized activity')
         axes[0][0].set_xlabel('Spatial bins')
-        axes[0][0].legend(loc='best', frameon=False, framealpha=0.5)
+        axes[0][0].legend(loc='best', frameon=False, framealpha=0.5, fontsize=default_font_size)
 
         hist, _ = np.histogram(initial_weight_array, bins=edges)
-        axes[1][0].semilogy(edges[:-1], hist, label='Initial weights')
-        axes[1][0].set_xlim(0., max_weight)
-        axes[1][0].set_ylabel('Count (log-scale)')
-        axes[1][0].set_xlabel('Synaptic weight')
+        axes[0][1].semilogy(edges[:-1], hist, label='Initial weights')
+        axes[0][1].set_xlim(-mean_initial_weight, max_delta_weight + 2. * mean_initial_weight)
+        axes[0][1].set_ylabel('Log probability')
+        axes[0][1].set_xlabel('Synaptic weight')
+        if reference_weight_array is not None:
+            hist, _ = np.histogram(reference_weights, bins=edges)
+            axes[0][1].semilogy(edges[:-1], hist, label='Reference')
         hist, edges2 = np.histogram(SVD_weights, bins=2 * num_bins)
-        axes[1][0].semilogy(edges2[:-1], hist, label='SVD')
+        axes[0][1].semilogy(edges2[:-1], hist, label='SVD')
         hist, _ = np.histogram(initial_LS_weights, bins=edges)
-        axes[1][0].semilogy(edges[:-1], hist, label='Truncated SVD')
+        axes[0][1].semilogy(edges[:-1], hist, label='Truncated SVD')
         hist, _ = np.histogram(LS_weights, bins=edges)
-        axes[1][0].semilogy(edges[:-1], hist, label=optimize_method)
-        axes[1][0].legend(loc='best', frameon=False, framealpha=0.5)
+        axes[0][1].semilogy(edges[:-1], hist, label=optimize_method)
+        axes[0][1].legend(loc='best', frameon=False, framealpha=0.5, fontsize=default_font_size)
 
-        vmin = min(np.min(flat_scaled_target_map), np.min(flat_SVD_map), np.min(flat_LS_map),
-                   np.min(initial_background_map))
-        vmax1 = max(np.max(flat_scaled_target_map), np.max(flat_SVD_map))
-        vmax2 = max(np.max(flat_LS_map), np.max(initial_background_map))
-
-        axes[0][1].pcolormesh(arena_x, arena_y, flat_scaled_target_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax1)
-        axes[0][1].set_title('Target')
-        axes[0][2].pcolormesh(arena_x, arena_y, flat_SVD_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax1)
-        axes[0][2].set_title('SVD')
-        axes[1][1].pcolormesh(arena_x, arena_y, initial_background_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
-        axes[1][1].set_title('Initial')
-        axes[1][2].pcolormesh(arena_x, arena_y, flat_LS_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
-        axes[1][2].set_title(optimize_method)
-        axes[0][1].set_ylabel('Arena location (y)')
-        axes[1][1].set_ylabel('Arena location (y)')
-        axes[0][1].set_xlabel('Arena location (x)')
-        axes[0][2].set_xlabel('Arena location (x)')
+        axes[1][0].pcolormesh(arena_x, arena_y, flat_scaled_target_map.reshape(arena_x.shape) - 1., vmin=vmin,
+                              vmax=vmax1)
+        axes[1][0].set_title('Target', fontsize=default_font_size)
+        axes[1][1].pcolormesh(arena_x, arena_y, flat_SVD_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax1)
+        axes[1][1].set_title('SVD', fontsize=default_font_size)
+        axes[2][0].pcolormesh(arena_x, arena_y, initial_background_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
+        axes[2][0].set_title('Initial', fontsize=default_font_size)
+        axes[2][1].pcolormesh(arena_x, arena_y, flat_LS_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
+        axes[2][1].set_title(optimize_method, fontsize=default_font_size)
+        if reference_weight_array is not None:
+            axes[2][2].pcolormesh(arena_x, arena_y, flat_reference_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
+            axes[2][2].set_title('Reference', fontsize=default_font_size)
+            axes[2][2].set_xlabel('Arena location (x)')
+        axes[1][0].set_ylabel('Arena location (y)')
+        axes[2][0].set_ylabel('Arena location (y)')
+        axes[1][0].set_xlabel('Arena location (x)')
         axes[1][1].set_xlabel('Arena location (x)')
-        axes[1][2].set_xlabel('Arena location (x)')
+        axes[2][0].set_xlabel('Arena location (x)')
+        axes[2][1].set_xlabel('Arena location (x)')
         clean_axes(axes)
         fig.tight_layout()
         fig.show()
@@ -197,6 +233,7 @@ def generate_normalized_delta_weights(target_map, initial_weight_dict, input_rat
 @click.option("--initial-weights-namespace", type=str, default='Weights')
 @click.option("--reference-weights-namespace", type=str, default='Weights')
 @click.option("--output-weights-namespace", type=str, default='Normalized Structured Delta Weights')
+@click.option("--reference-weights-are-delta", type=bool, default=False)
 @click.option("--connections-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--optimize-method", type=str, default='L-BFGS-B')
 @click.option("--destination", '-d', type=str)
@@ -212,8 +249,8 @@ def generate_normalized_delta_weights(target_map, initial_weight_dict, input_rat
 def main(config, coordinates, gid, field_width, peak_rate, input_features_path, input_features_namespaces,
          output_features_namespace, output_weights_path, output_features_path, initial_weights_path,
          reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, reference_weights_namespace,
-         output_weights_namespace, connections_path, optimize_method, destination, sources, arena_id, max_delta_weight,
-         field_width_scale, max_iter, verbose, dry_run, interactive, plot):
+         output_weights_namespace, reference_weights_are_delta, connections_path, optimize_method, destination, sources,
+         arena_id, max_delta_weight, field_width_scale, max_iter, verbose, dry_run, interactive, plot):
     """
     :param config: str (path to .yaml file)
     :param coordinates: tuple of float
@@ -231,6 +268,7 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
     :param synapse_name: str
     :param initial_weights_namespace: str
     :param output_weights_namespace: str
+    :param reference_weights_are_delta: bool
     :param connections_path: str (path to .h5 file)
     :param destination: str (population name)
     :param sources: list of str (population name)
@@ -311,7 +349,7 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
 
     reference_weights_by_syn_id_dict = None
     if reference_weights_path is not None:
-        reference_weights_by_syn_id_dict
+        reference_weights_by_syn_id_dict = dict()
         reference_weights_iter = \
             read_cell_attribute_selection(reference_weights_path, destination, namespace=reference_weights_namespace,
                                           selection=selection)
@@ -394,6 +432,8 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
                                           syn_count_dict=syn_count_by_source_gid_dict,
                                           max_delta_weight=max_delta_weight, arena_x=arena_x, arena_y=arena_y,
                                           reference_weight_dict=reference_weights_by_source_gid_dict,
+                                          reference_weights_are_delta=reference_weights_are_delta,
+                                          reference_weights_namespace=reference_weights_namespace,
                                           optimize_method=optimize_method, verbose=verbose, plot=plot)
 
     output_syn_ids = np.empty(len(initial_weights_by_syn_id_dict), dtype='uint32')
