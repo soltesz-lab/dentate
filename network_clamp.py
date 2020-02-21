@@ -234,7 +234,7 @@ def run(env):
 
     st_comptime = env.pc.step_time()
 
-    h.cvode_active(1)
+    h.cvode_active(0)
     
     h.t = 0.0
     h.dt = env.dt
@@ -483,6 +483,47 @@ def optimize_params(env, pop_name, param_type):
 
     return param_bounds, param_names, param_initial_dict, param_range_tuples
     
+def optimize_state(env, pop_name, gid, state_variable, mechanism, opt_iter=10, param_type='synaptic'):
+    import dlib
+
+    if (pop_name in env.netclamp_config.optimize_parameters):
+        opt_params = env.netclamp_config.optimize_parameters[pop_name]
+        param_ranges = opt_params['Parameter ranges']
+        opt_target = opt_params['Targets']['firing rate']
+    else:
+        raise RuntimeError(
+            "network_clamp.optimize_rate: population %s does not have optimization configuration" % pop_name)
+
+
+    param_bounds, param_names, param_initial_dict, param_range_tuples = optimize_params(env, pop_name, param_type)
+
+    def from_param_vector(params):
+        result = []
+        assert (len(params) == len(param_range_tuples))
+        for i, (update_operator, pop_name, source, sec_type, syn_name, param_name, param_range) in enumerate(param_range_tuples):
+            result.append((pop_name, source, sec_type, syn_name, param_name, params[i]))
+        return result
+
+    def to_param_vector(params):
+        result = []
+        for (update_operator, destination, source, sec_type, syn_name, param_name, param_value) in params:
+            result.append(param_value)
+        return result
+
+    min_values = [(source, sec_type, syn_name, param_name, param_range[0]) for
+                  update_operator, pop_name, source, sec_type, syn_name, param_name, param_range in param_range_tuples]
+    max_values = [(source, sec_type, syn_name, param_name, param_range[1]) for
+                  update_operator, pop_name, source, sec_type, syn_name, param_name, param_range in param_range_tuples]
+    
+    f_state = make_state_target(env, pop_name, gid, opt_target, time_bins, from_param_vector)
+    opt_params, outputs = dlib.find_min_global(f_state, to_param_vector(min_values), to_param_vector(max_values),
+                                               opt_iter)
+
+    logger.info('Optimized parameters: %s' % pprint.pformat(from_param_vector(opt_params)))
+    logger.info('Optimized objective function: %s' % pprint.pformat(outputs))
+    
+    
+    return opt_params, outputs
     
 def optimize_rate(env, pop_name, gid, opt_iter=10, param_type='synaptic'):
     import dlib
