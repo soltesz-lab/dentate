@@ -73,7 +73,7 @@ def generate_normalized_delta_weights(target_map, initial_weight_dict, input_rat
     scaled_target_map = target_map - np.min(target_map)
     scaled_target_map /= np.max(scaled_target_map)
     scaled_target_map *= target_amplitude
-    scaled_target_map += 1.
+
     flat_scaled_target_map = scaled_target_map.ravel()
     input_matrix = np.empty((len(input_rate_map_dict), len(flat_scaled_target_map)))
     source_gid_array = np.empty(len(input_rate_map_dict))
@@ -108,28 +108,31 @@ def generate_normalized_delta_weights(target_map, initial_weight_dict, input_rat
     beta = np.mean(s)  # Previously, beta was provided by user, but should depend on scale if data is not normalized
     D[np.where(np.eye(*D.shape))] = s / (s ** 2. + beta ** 2.)
     input_matrix_inv = V.dot(D.conj().T).dot(U.conj().T)
-    SVD_weights = flat_scaled_target_map.dot(input_matrix_inv)
-    flat_SVD_map = SVD_weights.dot(scaled_input_matrix) - 1.
+    SVD_delta_weights = flat_scaled_target_map.dot(input_matrix_inv)
+    flat_SVD_map = SVD_delta_weights.dot(scaled_input_matrix)
 
     num_bins = 20
     edges = np.linspace(-1., max_weight + 1., num_bins + 1)
-    bounds = (mean_initial_weight, max_weight)
-    initial_LS_weights = np.maximum(np.minimum(SVD_weights, bounds[1]), bounds[0])
+    # bounds = (mean_initial_weight, max_weight)
+    bounds = (0., max_delta_weight)
+    initial_LS_delta_weights = np.maximum(np.minimum(SVD_delta_weights, bounds[1]), bounds[0])
 
     if optimize_method == 'L-BFGS-B':
-        result = minimize(get_activation_map_residual_mse, initial_LS_weights,
+        result = minimize(get_activation_map_residual_mse, initial_LS_delta_weights,
                           args=(scaled_input_matrix, flat_scaled_target_map), method='L-BFGS-B',
-                          bounds=[bounds] * len(initial_LS_weights), options={'disp': verbose, 'maxiter': max_iter})
+                          bounds=[bounds] * len(initial_LS_delta_weights), options={'disp': verbose, 'maxiter': max_iter})
     elif optimize_method == 'dogbox':
-        result = least_squares(get_activation_map_residual_mse, initial_LS_weights,
+        result = least_squares(get_activation_map_residual_mse, initial_LS_delta_weights,
                                args=(scaled_input_matrix, flat_scaled_target_map), bounds=bounds, method='dogbox',
                                verbose=2 if verbose else 0, max_nfev=max_iter, ftol=5e-5)
     else:
         raise RuntimeError('generate_structured_delta_weights: optimization method: %s not implemented' %
                            optimize_method)
 
-    LS_weights = np.array(result.x)
-    flat_LS_map = LS_weights.dot(scaled_input_matrix) - 1.
+    LS_delta_weights = np.array(result.x)
+    normalized_delta_weights_array = LS_delta_weights / np.max(LS_delta_weights)
+    scaled_LS_weights = normalized_delta_weights_array * max_delta_weight + mean_initial_weight
+    flat_LS_map = scaled_LS_weights.dot(scaled_input_matrix) - 1.
 
     if plot:
         if arena_x is None or arena_y is None:
@@ -139,12 +142,12 @@ def generate_normalized_delta_weights(target_map, initial_weight_dict, input_rat
         from dentate.plot import clean_axes
         default_font_size = mpl.rcParams['font.size']
 
-        min_vals = [np.min(flat_scaled_target_map - 1.), np.min(flat_SVD_map), np.min(flat_LS_map),
+        min_vals = [np.min(flat_scaled_target_map), np.min(flat_SVD_map), np.min(flat_LS_map),
                     np.min(initial_background_map)]
-        max_vals1 = [np.max(flat_scaled_target_map - 1.), np.max(flat_SVD_map)]
+        max_vals1 = [np.max(flat_scaled_target_map), np.max(flat_SVD_map)]
         max_vals2 = [np.max(flat_LS_map), np.max(initial_background_map)]
         if reference_weight_array is not None:
-            fig, axes = plt.subplots(3, 3, figsize=(12, 12))
+            fig, axes = plt.subplots(3, 3, figsize=(10.5, 9))
             if reference_weights_are_delta:
                 reference_weights = reference_weight_array / np.max(reference_weight_array) * max_delta_weight + \
                                     mean_initial_weight
@@ -154,7 +157,7 @@ def generate_normalized_delta_weights(target_map, initial_weight_dict, input_rat
             min_vals.append(np.min(flat_reference_map))
             max_vals2.append(np.max(flat_reference_map))
         else:
-            fig, axes = plt.subplots(3, 2, figsize=(9, 12))
+            fig, axes = plt.subplots(3, 2, figsize=(7, 9))
         vmin = min(min_vals)
         vmax1 = max(max_vals1)
         vmax2 = max(max_vals2)
@@ -162,31 +165,30 @@ def generate_normalized_delta_weights(target_map, initial_weight_dict, input_rat
         axes[0][0].plot(range(len(flat_scaled_target_map)), initial_background_map, label='Initial')
         if reference_weight_array is not None:
             axes[0][0].plot(range(len(flat_scaled_target_map)), flat_reference_map, label='Reference')
-        axes[0][0].plot(range(len(flat_scaled_target_map)), flat_scaled_target_map - 1., label='Target')
+        axes[0][0].plot(range(len(flat_scaled_target_map)), flat_scaled_target_map, label='Target')
         axes[0][0].plot(range(len(flat_scaled_target_map)), flat_SVD_map, label='SVD')
         axes[0][0].plot(range(len(flat_scaled_target_map)), flat_LS_map, label=optimize_method)
         axes[0][0].set_ylabel('Normalized activity')
         axes[0][0].set_xlabel('Spatial bins')
         axes[0][0].legend(loc='best', frameon=False, framealpha=0.5, fontsize=default_font_size)
 
-        hist, _ = np.histogram(initial_weight_array, bins=edges)
+        hist, _ = np.histogram(initial_weight_array, bins=edges, density=True)
         axes[0][1].semilogy(edges[:-1], hist, label='Initial weights')
         axes[0][1].set_xlim(-mean_initial_weight, max_delta_weight + 2. * mean_initial_weight)
         axes[0][1].set_ylabel('Log probability')
         axes[0][1].set_xlabel('Synaptic weight')
         if reference_weight_array is not None:
-            hist, _ = np.histogram(reference_weights, bins=edges)
+            hist, _ = np.histogram(reference_weights, bins=edges, density=True)
             axes[0][1].semilogy(edges[:-1], hist, label='Reference')
-        hist, edges2 = np.histogram(SVD_weights, bins=2 * num_bins)
+        hist, edges2 = np.histogram(np.add(SVD_delta_weights, mean_initial_weight), bins=2 * num_bins, density=True)
         axes[0][1].semilogy(edges2[:-1], hist, label='SVD')
-        hist, _ = np.histogram(initial_LS_weights, bins=edges)
+        hist, _ = np.histogram(np.add(initial_LS_delta_weights, mean_initial_weight), bins=edges, density=True)
         axes[0][1].semilogy(edges[:-1], hist, label='Truncated SVD')
-        hist, _ = np.histogram(LS_weights, bins=edges)
+        hist, _ = np.histogram(scaled_LS_weights, bins=edges, density=True)
         axes[0][1].semilogy(edges[:-1], hist, label=optimize_method)
         axes[0][1].legend(loc='best', frameon=False, framealpha=0.5, fontsize=default_font_size)
 
-        axes[1][0].pcolormesh(arena_x, arena_y, flat_scaled_target_map.reshape(arena_x.shape) - 1., vmin=vmin,
-                              vmax=vmax1)
+        axes[1][0].pcolormesh(arena_x, arena_y, flat_scaled_target_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax1)
         axes[1][0].set_title('Target', fontsize=default_font_size)
         axes[1][1].pcolormesh(arena_x, arena_y, flat_SVD_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax1)
         axes[1][1].set_title('SVD', fontsize=default_font_size)
@@ -206,13 +208,12 @@ def generate_normalized_delta_weights(target_map, initial_weight_dict, input_rat
         axes[2][1].set_xlabel('Arena location (x)')
         clean_axes(axes)
         fig.tight_layout()
+        fig.subplots_adjust(hspace=0.5)
         fig.show()
 
-    delta_weights_array = LS_weights - mean_initial_weight
-    delta_weights_array /= np.max(delta_weights_array)
-    delta_weights_dict = dict(zip(source_gid_array, delta_weights_array))
+    normalized_delta_weights_dict = dict(zip(source_gid_array, normalized_delta_weights_array))
 
-    return delta_weights_dict
+    return normalized_delta_weights_dict
 
 
 @click.command()
@@ -425,7 +426,7 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
             logger.info('Read %s feature data for %i cells in population %s' %
                         (input_features_namespace, count, source))
 
-    delta_weights_by_src_gid_dict = \
+    normalized_delta_weights_by_src_gid_dict = \
         generate_normalized_delta_weights(target_map=target_map,
                                           initial_weight_dict=initial_weights_by_source_gid_dict,
                                           input_rate_map_dict=input_rate_maps_by_source_gid_dict,
@@ -439,7 +440,7 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
     output_syn_ids = np.empty(len(initial_weights_by_syn_id_dict), dtype='uint32')
     output_weights = np.empty(len(initial_weights_by_syn_id_dict), dtype='float32')
     i = 0
-    for source_gid, this_weight in delta_weights_by_src_gid_dict.items():
+    for source_gid, this_weight in normalized_delta_weights_by_src_gid_dict.items():
         for syn_id in syn_ids_by_source_gid_dict[source_gid]:
             output_syn_ids[i] = syn_id
             output_weights[i] = this_weight

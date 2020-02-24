@@ -203,7 +203,8 @@ def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v
     elif (sec is not None) and (loc is not None):
         hocobj = sec(loc)
         origin = list(cell.soma)[0]
-        distance = h.distance(origin(0.5), sec(loc))
+        h.distance(sec=origin)
+        distance = h.distance(loc, sec=sec)
     else:
         raise RuntimeError('make_rec: either sec and loc or ps must be specified')
     section_index = None

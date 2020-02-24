@@ -9,6 +9,7 @@ from dentate import utils
 
 script_name = os.path.basename(__file__)
 
+
 @click.command()
 @click.option("--input-path", '-p', required=True, type=click.Path())
 @click.option("--spike-namespace", type=str, default='Spike Events')
@@ -22,7 +23,23 @@ script_name = os.path.basename(__file__)
 @click.option("--t-min", type=float)
 @click.option("--font-size", type=float, default=14)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(input_path, spike_namespace, state_namespace, populations, unit_no, spike_hist_bin, state_variable, t_variable, t_max, t_min, font_size, verbose):
+def main(input_path, spike_namespace, state_namespace, populations, unit_no, spike_hist_bin, state_variable,
+         t_variable, t_max, t_min, font_size, verbose):
+    """
+
+    :param input_path:
+    :param spike_namespace:
+    :param state_namespace:
+    :param populations:
+    :param unit_no:
+    :param spike_hist_bin:
+    :param state_variable:
+    :param t_variable:
+    :param t_max:
+    :param t_min:
+    :param font_size:
+    :param verbose:
+    """
 
     utils.config_logging(verbose)
     
@@ -37,10 +54,11 @@ def main(input_path, spike_namespace, state_namespace, populations, unit_no, spi
     if not populations:
         populations = ['eachPop']
         
-    plot.plot_network_clamp (input_path, spike_namespace, state_namespace, unit_no=unit_no, include=populations,
-                             time_range=time_range, time_variable=t_variable, intracellular_variable=state_variable,
-                             spike_hist='subplot', spike_hist_bin=spike_hist_bin, fontSize=font_size, saveFig=True)
+    plot.plot_network_clamp(input_path, spike_namespace, state_namespace, unit_no=unit_no, include=populations,
+                            time_range=time_range, time_variable=t_variable, intracellular_variable=state_variable,
+                            spike_hist='subplot', spike_hist_bin=spike_hist_bin, fontSize=font_size, saveFig=True)
     
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == script_name, sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == script_name, sys.argv)+1):],
+         standalone_mode=False)

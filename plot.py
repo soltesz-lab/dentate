@@ -2276,7 +2276,9 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
     return fig
 
 
-def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, unit_no, include='eachPop', time_range = None, time_variable='t', intracellular_variable='v', labels = 'legend', pop_rates = True, spike_hist = None, spike_hist_bin = 5, marker = ',', **kwargs): 
+def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, unit_no, include='eachPop',
+                       time_range=None, time_variable='t', intracellular_variable='v', labels='legend',
+                       pop_rates=True, spike_hist=None, spike_hist_bin=5, marker=',', **kwargs):
     ''' 
     Raster plot of target cell intracellular trace + spike raster of presynaptic inputs. Returns the figure handle.
 
@@ -2320,7 +2322,7 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
 
     spkdata = spikedata.read_spike_events (input_path, include, spike_namespace, \
                                            spike_train_attr_name=time_variable, time_range=time_range)
-    indata  = read_state (input_path, [popName], intracellular_namespace, time_variable=time_variable, \
+    indata  = read_state(input_path, [popName], intracellular_namespace, time_variable=time_variable, \
                           state_variable=intracellular_variable, time_range=time_range, unit_no = [unit_no])
 
     spkpoplst        = spkdata['spkpoplst']
@@ -2330,14 +2332,20 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
     pop_active_cells = spkdata['pop_active_cells']
     tmin             = spkdata['tmin']
     tmax             = spkdata['tmax']
-    
-    time_range = [tmin, tmax]
 
+    if time_range is None:
+        time_range = [tmin, tmax]
+
+    if time_range[0] == time_range[1] or time_range[0] == float('inf') or time_range[1] == float('inf'):
+        raise RuntimeError('plot_network_clamp: invalid time_range: %s' % time_range)
 
     histo_dict = {}
     # Calculate spike histogram if requested
     if spike_hist:
-        all_spkts = np.concatenate(spktlst, axis=0)
+        if spktlst:
+            all_spkts = np.concatenate(spktlst, axis=0)
+        else:
+            all_spkts = np.array([])
         sphist_y, bin_edges = np.histogram(all_spkts, bins = np.arange(time_range[0], time_range[1], spike_hist_bin))
         sphist_x = bin_edges[:-1]+(spike_hist_bin / 2)
 
@@ -2375,14 +2383,15 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
     for i, pop_name in enumerate(include):
         pop_spkinds, pop_spkts = pop_spk_dict.get(pop_name, ([], []))
 
-        sctplots.append(axes[i].scatter(pop_spkts, pop_spkinds, s=10, linewidths=fig_options.lw, marker=marker, c=pop_colors.get(pop_name, dflt_colors[0]), alpha=0.5, label=pop_name))
+        # sctplots.append(axes[i].scatter(pop_spkts, pop_spkinds, s=10, linewidths=fig_options.lw, marker=marker, c=pop_colors.get(pop_name, dflt_colors[0]), alpha=0.5, label=pop_name))
+        sctplots.append(axes[i].scatter(pop_spkts, pop_spkinds, marker='.',
+                                        c=pop_colors.get(pop_name, dflt_colors[0]), alpha=0.5, label=pop_name))
 
         N = pop_num_cells[pop_name]
         S = pop_start_inds[pop_name]
         axes[i].set_ylim(S, S+N-1)
-        
-    axes[0].set_xlim(time_range)
 
+    axes[0].set_xlim(time_range)
     axes[0].set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
     axes[0].set_ylabel('Cell Index', fontsize=fig_options.fontSize)
 
@@ -2408,24 +2417,27 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
     else:
         lgd_labels = [pop_name + ' (%i active)' % (len(pop_active_cells[pop_name]))  for pop_name in spkpoplst if pop_name in avg_rates]
 
-    # Plot spike histogram
-    pch = interpolate.pchip(sphist_x, sphist_y)
-    res_npts = int((sphist_x.max() - sphist_x.min()))
-    sphist_x_res = np.linspace(sphist_x.min(), sphist_x.max(), res_npts, endpoint=True)
-    sphist_y_res = pch(sphist_x_res)
+    try:
+        # Plot spike histogram
+        pch = interpolate.pchip(sphist_x, sphist_y)
+        res_npts = int((sphist_x.max() - sphist_x.min()))
+        sphist_x_res = np.linspace(sphist_x.min(), sphist_x.max(), res_npts, endpoint=True)
+        sphist_y_res = pch(sphist_x_res)
 
-    if spike_hist == 'overlay':
-        ax2 = axes[-2].twinx()
-        ax2.plot (sphist_x_res, sphist_y_res, linewidth=0.5)
-        ax2.set_ylabel('Spike count', fontsize=fig_options.fontSize) # add yaxis label in opposite side
-        ax2.set_xlim(time_range)
-    elif spike_hist == 'subplot':
-        ax2=axes[-2]
-        ax2.plot (sphist_x_res, sphist_y_res, linewidth=1.0)
-        ax2.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
-        ax2.set_ylabel('Spike count', fontsize=fig_options.fontSize)
-        ax2.set_xlim(time_range)
-            
+        if spike_hist == 'overlay':
+            ax2 = axes[-2].twinx()
+            ax2.plot (sphist_x_res, sphist_y_res, linewidth=0.5)
+            ax2.set_ylabel('Spike count', fontsize=fig_options.fontSize) # add yaxis label in opposite side
+            ax2.set_xlim(time_range)
+        elif spike_hist == 'subplot':
+            ax2=axes[-2]
+            ax2.plot (sphist_x_res, sphist_y_res, linewidth=1.0)
+            ax2.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
+            ax2.set_ylabel('Spike count', fontsize=fig_options.fontSize)
+            ax2.set_xlim(time_range)
+    except Exception:
+        pass
+
     # Plot intracellular state
     ax3 = axes[-1]
     ax3.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
@@ -2438,11 +2450,15 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
         for (gid, cell_states) in viewitems(pop_states):
             st_x = cell_states[0]
             st_y = cell_states[1]
+            """
             pch = interpolate.pchip(st_x, st_y)
             res_npts = int((st_x.max() - st_x.min())) * 10
             st_x_res = np.linspace(st_x.min(), st_x.max(), res_npts, endpoint=True)
             st_y_res = pch(st_x_res)
             stplots.append(ax3.plot(st_x_res, st_y_res, linewidth=fig_options.lw, marker=marker, alpha=0.5, label=pop_name))
+            """
+            stplots.append(
+                ax3.plot(st_x, st_y, label=pop_name))
 
     if labels == 'legend':
        # Shrink axes by 15%
@@ -2476,7 +2492,7 @@ def plot_network_clamp (input_path, spike_namespace, intracellular_namespace, un
     return fig
 
 
-def plot_spike_rates (input_path, namespace_id, config_path=None, include = ['eachPop'], time_range = None, time_variable='t', meansub=False, max_units = None, labels = 'legend', bin_size = 100., threshold=None, graph_type='raster2d', progress=False, **kwargs):
+def plot_spike_rates(input_path, namespace_id, config_path=None, include = ['eachPop'], time_range = None, time_variable='t', meansub=False, max_units = None, labels = 'legend', bin_size = 100., threshold=None, graph_type='raster2d', progress=False, **kwargs):
     ''' 
     Plot of network firing rates. Returns the figure handle.
 
@@ -4214,11 +4230,12 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
         axes.set_title(attr_type, fontsize=mpl.rcParams['font.size'])
     clean_axes(axarr)
     fig.tight_layout()
+    fig.subplots_adjust(top=0.85)
     if param_label is not None:
-        fig.suptitle(param_label, fontsize=mpl.rcParams['font.size'])
+        fig.suptitle(param_label, fontsize=mpl.rcParams['font.size'], y=0.95)
     else:
         syn_mech_name = syn_attrs.syn_mech_names[syn_name]
-        fig.suptitle('%s; %s; %s' % (syn_name, syn_mech_name, param_name), fontsize=mpl.rcParams['font.size'])
+        fig.suptitle('%s; %s; %s' % (syn_name, syn_mech_name, param_name), fontsize=mpl.rcParams['font.size'], y=0.95)
     if not svg_title is None:
         if param_label is not None:
             svg_title = svg_title + ' - ' + param_label + '.svg'
@@ -4363,7 +4380,7 @@ def plot_syn_attr_from_file(syn_name, param_name, filename, descriptions=None, p
                                 min_dist = min(min_dist, min(distances))
             if not found:
                 raise RuntimeError('Specified synaptic mechanism: %s parameter: %s not found in the provided file: '
-                                   '%s' % (syn_name, param_name, file))
+                                   '%s' % (syn_name, param_name, file_path))
             min_dist = min(0., min_dist)
             xmin = min_dist - 0.01 * (max_dist - min_dist)
             xmax = max_dist + 0.01 * (max_dist - min_dist)
@@ -4372,7 +4389,7 @@ def plot_syn_attr_from_file(syn_name, param_name, filename, descriptions=None, p
                     axes = axarr
                 else:
                     axes = axarr[i]
-                if axes.get_legend() is not None:
+                if axes.get_legend() is None:
                     axes.legend(loc='best', scatterpoints=1, frameon=False, framealpha=0.5,
                                 fontsize=mpl.rcParams['font.size'])
                 axes.set_xlabel('Distance to soma (um)')

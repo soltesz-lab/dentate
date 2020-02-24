@@ -424,6 +424,7 @@ def modify_scaled_syn_param(env, gid, syn_id, old_val, new_val):
     else:
         return original_val * new_val
 
+
 def optimize_params(env, pop_name, param_type):
                         
     param_bounds = {}
