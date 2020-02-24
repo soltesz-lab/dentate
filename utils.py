@@ -1063,7 +1063,25 @@ def sigmoid_phi(x, a = 0.05, peak_rate = 1.):
     res = peak_rate / (1. + np.exp(-a * x))
     return res
 
+
 def exp_phi(x, a = 0.025):
     res = 1. / np.exp(-a * x)
     return res
 
+
+def get_low_pass_filtered_trace(trace, t, down_dt=0.5):
+    import scipy.signal as signal
+    down_t = np.arange(np.min(t), np.max(t), down_dt)
+    # 2000 ms Hamming window, ~3 Hz low-pass filter
+    window_len = int(2000./down_dt)
+    pad_len = int(window_len / 2.)
+    ramp_filter = signal.firwin(window_len, 2., nyq=1000. / 2. / down_dt)
+    down_sampled = np.interp(down_t, t, trace)
+    padded_trace = np.zeros(len(down_sampled) + window_len)
+    padded_trace[pad_len:-pad_len] = down_sampled
+    padded_trace[:pad_len] = down_sampled[::-1][-pad_len:]
+    padded_trace[-pad_len:] = down_sampled[::-1][:pad_len]
+    down_filtered = signal.filtfilt(ramp_filter, [1.], padded_trace, padlen=pad_len)
+    down_filtered = down_filtered[pad_len:-pad_len]
+    filtered = np.interp(t, down_t, down_filtered)
+    return filtered

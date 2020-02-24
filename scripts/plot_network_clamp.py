@@ -1,13 +1,14 @@
-
 import os
 import sys
-
 import click
 import dentate
 from dentate import plot
 from dentate import utils
+from dentate.utils import Context
 
 script_name = os.path.basename(__file__)
+
+context = Context()
 
 
 @click.command()
@@ -22,9 +23,10 @@ script_name = os.path.basename(__file__)
 @click.option("--t-max", type=float)
 @click.option("--t-min", type=float)
 @click.option("--font-size", type=float, default=14)
-@click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
+@click.option("--verbose", "-v", is_flag=True)
+@click.option("--interactive", is_flag=True)
 def main(input_path, spike_namespace, state_namespace, populations, unit_no, spike_hist_bin, state_variable,
-         t_variable, t_max, t_min, font_size, verbose):
+         t_variable, t_max, t_min, font_size, verbose, interactive):
     """
 
     :param input_path:
@@ -38,9 +40,9 @@ def main(input_path, spike_namespace, state_namespace, populations, unit_no, spi
     :param t_max:
     :param t_min:
     :param font_size:
-    :param verbose:
+    :param verbose: bool
+    :param interactive: bool
     """
-
     utils.config_logging(verbose)
     
     if t_max is None:
@@ -57,7 +59,10 @@ def main(input_path, spike_namespace, state_namespace, populations, unit_no, spi
     plot.plot_network_clamp(input_path, spike_namespace, state_namespace, unit_no=unit_no, include=populations,
                             time_range=time_range, time_variable=t_variable, intracellular_variable=state_variable,
                             spike_hist='subplot', spike_hist_bin=spike_hist_bin, fontSize=font_size, saveFig=True)
-    
+
+    if interactive:
+        context.update(locals())
+
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == script_name, sys.argv)+1):],

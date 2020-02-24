@@ -1,12 +1,12 @@
 Network Clamp:  !include Network_Clamp.yaml
-Model Name: Single_GC_Exc_Sat_DD_NDW_0
+Model Name: Single_GC_Exc_Sat_DD_SW_0
 Dataset Name: Small_Scale
 Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-Cell Data: GC_tree_syns_connections_norm_delta_weights_20200223.h5
-Connection Data: GC_tree_syns_connections_norm_delta_weights_20200223.h5
+Cell Data: GC_tree_syns_connections_20200215.h5
+Connection Data: GC_tree_syns_connections_20200215.h5
 #Gap Junction Data: DG_gapjunctions_20191112.h5
 Connection Generator: !include Single_GC_Connections_GC_Exc_Sat.yaml
 Recording: !include Recording.yaml
@@ -22,11 +22,11 @@ Cell Types:
       correct_for_spines: True
       weights: True
 #      weights namespaces: ['Structured Weights A', 'Log-Normal Weights']
-      weights namespaces: ['Normalized Structured Delta Weights A']
+      weights namespaces: ['Structured Weights A']
       weights scale:
-        Normalized Structured Delta Weights A: 9.
+        Structured Weights A: 3.5 # 1.4769
       weights offset:
-        Normalized Structured Delta Weights A: 1.
+        Structured Weights A: 0.1
       density: !include GC_synapse_density.yaml
   MC:
     template: MossyCell
