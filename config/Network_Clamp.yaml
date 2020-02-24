@@ -111,6 +111,9 @@ Scaling Optimization:
             weight: [0.01, 1.0]
           GABA_B:
             weight: [0.001, 0.05]
+    Targets:
+      state:
+        v: -65.0
 Synaptic Optimization:
   GC:
     Parameter ranges:
@@ -149,6 +152,8 @@ Synaptic Optimization:
     Targets:
       firing rate: 0.75
       fraction active: 0.01
+      state:
+        v: -65.0
   MC:
     Parameter ranges:
       GC:

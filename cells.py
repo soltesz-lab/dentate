@@ -2435,17 +2435,20 @@ def register_cell(env, pop_name, gid, cell):
 
 
 
-def record_cell(env, pop_name, gid):
+def record_cell(env, pop_name, gid, recording_profile=None):
     """
     Creates a recording object for the given cell, according to configuration in env.recording_profile.
     """
-    if env.recording_profile is not None:
+    recs = []
+    if recording_profile is None:
+        recording_profile = env.recording_profile
+    if recording_profile is not None:
         syn_attrs = env.synapse_attributes
         cell = env.biophys_cells[pop_name].get(gid, None)
         if cell is not None:
-            label = env.recording_profile['label']
-            dt = env.recording_profile.get('dt', 0.1)
-            for recvar, recdict  in viewitems(env.recording_profile.get('section quantity', {})):
+            label = recording_profile['label']
+            dt = recording_profile.get('dt', 0.1)
+            for recvar, recdict  in viewitems(recording_profile.get('section quantity', {})):
                 nodes = filter_nodes(cell, layers=recdict.get('layers', None),
                                      swc_types=recdict.get('swc types', None))
                 node_type_count = collections.defaultdict(int)
@@ -2461,9 +2464,10 @@ def record_cell(env, pop_name, gid):
                             rec_id = '%s.%i' % (node.type, node.index)
                         rec = make_rec(rec_id, pop_name, gid, cell.hoc_cell, sec=sec, dt=dt, loc=0.5,
                                         param=recvar, description=node.name)
+                        recs.append(rec)
                         env.recs_dict[pop_name][rec_id].append(rec)
                         visited.add(str(sec))
-            for recvar, recdict  in viewitems(env.recording_profile.get('synaptic quantity', {})):
+            for recvar, recdict  in viewitems(recording_profile.get('synaptic quantity', {})):
                 syn_filters = recdict.get('syn_filters', {})
                 syn_sections = recdict.get('sections', None)
                 synapses = syn_attrs.filter_synapses(gid, syn_sections=syn_sections, **syn_filters)
@@ -2480,8 +2484,9 @@ def record_cell(env, pop_name, gid):
                                             label=label, description='%s' % label)
                             ns = '%s%d.%s' % (syn_swc_type_name, syn_section, syn_name)
                             env.recs_dict[pop_name][ns].append(rec)
+                            recs.append(rec)
                 
-                                                      
+    return recs
     
 def find_spike_threshold_minimum(cell, loc=0.5, sec=None, duration=10.0, delay=100.0, initial_amp=0.001):
     """

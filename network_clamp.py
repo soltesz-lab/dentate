@@ -360,9 +360,38 @@ def run_with(env, param_dict):
 
     env.pc.runworker()
     env.pc.done()
-
+    
     return spikedata.get_env_spike_dict(env, include_artificial=None)
 
+
+def make_state_target(env, pop_name, gid, state_variable, target_val, from_param_vector):
+    def gid_state_value(spkdict, gid, t_offset, t_rec, state_recs):
+        time_vec = np.asarray(t_rec.to_python(), dtype=np.float32) - t_offset
+        t_inds = np.where(time_vec > 0.)[0]
+        state_values = []
+        for rec in state_recs:
+            vec = np.asarray(rec['vec'].to_python(), dtype=np.float32)
+            data = vec[t_inds]
+            state_values.append(np.mean(data))
+        m = np.mean(np.asarray(state_values))
+        logger.info('state value objective: mean value of %s of gid %i is %.2f' % (state_variable, gid, m))
+        return m
+
+    equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
+
+    recording_profile = { 'label': 'network_clamp.state.%s' % state_variable,
+                          'dt': 0.1,
+                          'section quantity': {
+                              state_variable: { 'swc types': ['soma'] }
+                            }
+                        }
+    env.recording_profile = recording_profile
+    state_recs = record_cell(env, pop_name, gid, recording_profile=recording_profile)
+
+    f = lambda *v: (abs(gid_state_value(run_with(env, {pop_name: {gid: from_param_vector(v)}}), gid,
+                            equilibration_duration, env.t_rec, state_recs) - target_val))
+
+    return f
 
 def make_firing_rate_target(env, pop_name, gid, target_rate, from_param_vector):
     def gid_firing_rate(spkdict, gid):
@@ -498,18 +527,18 @@ def optimize_params(env, pop_name, param_type):
                 "network_clamp.optimize_params: unknown parameter type %s" % param_type)
 
     return param_bounds, param_names, param_initial_dict, param_range_tuples
-    
-def optimize_state(env, pop_name, gid, state_variable, mechanism, opt_iter=10, param_type='synaptic'):
+
+
+def optimize_state(env, pop_name, gid, state_variable, opt_iter=10, param_type='synaptic'):
     import dlib
 
-    if (pop_name in env.netclamp_config.optimize_parameters):
-        opt_params = env.netclamp_config.optimize_parameters[pop_name]
+    if (pop_name in env.netclamp_config.optimize_parameters[param_type]):
+        opt_params = env.netclamp_config.optimize_parameters[param_type][pop_name]
         param_ranges = opt_params['Parameter ranges']
-        opt_target = opt_params['Targets']['firing rate']
+        opt_target = opt_params['Targets']['state'][state_variable]
     else:
         raise RuntimeError(
-            "network_clamp.optimize_rate: population %s does not have optimization configuration" % pop_name)
-
+            "network_clamp.optimize_state: population %s does not have optimization configuration" % pop_name)
 
     param_bounds, param_names, param_initial_dict, param_range_tuples = optimize_params(env, pop_name, param_type)
 
@@ -517,7 +546,7 @@ def optimize_state(env, pop_name, gid, state_variable, mechanism, opt_iter=10, p
         result = []
         assert (len(params) == len(param_range_tuples))
         for i, (update_operator, pop_name, source, sec_type, syn_name, param_name, param_range) in enumerate(param_range_tuples):
-            result.append((pop_name, source, sec_type, syn_name, param_name, params[i]))
+            result.append((update_operator, pop_name, source, sec_type, syn_name, param_name, params[i]))
         return result
 
     def to_param_vector(params):
@@ -526,12 +555,12 @@ def optimize_state(env, pop_name, gid, state_variable, mechanism, opt_iter=10, p
             result.append(param_value)
         return result
 
-    min_values = [(source, sec_type, syn_name, param_name, param_range[0]) for
+    min_values = [(update_operator, pop_name, source, sec_type, syn_name, param_name, param_range[0]) for
                   update_operator, pop_name, source, sec_type, syn_name, param_name, param_range in param_range_tuples]
-    max_values = [(source, sec_type, syn_name, param_name, param_range[1]) for
+    max_values = [(update_operator, pop_name, source, sec_type, syn_name, param_name, param_range[1]) for
                   update_operator, pop_name, source, sec_type, syn_name, param_name, param_range in param_range_tuples]
     
-    f_state = make_state_target(env, pop_name, gid, opt_target, time_bins, from_param_vector)
+    f_state = make_state_target(env, pop_name, gid, state_variable, opt_target, from_param_vector)
     opt_params, outputs = dlib.find_min_global(f_state, to_param_vector(min_values), to_param_vector(max_values),
                                                opt_iter)
 
@@ -544,8 +573,8 @@ def optimize_state(env, pop_name, gid, state_variable, mechanism, opt_iter=10, p
 def optimize_rate(env, pop_name, gid, opt_iter=10, param_type='synaptic'):
     import dlib
 
-    if (pop_name in env.netclamp_config.optimize_parameters):
-        opt_params = env.netclamp_config.optimize_parameters[pop_name]
+    if (pop_name in env.netclamp_config.optimize_parameters[param_type]):
+        opt_params = env.netclamp_config.optimize_parameters[param_type][pop_name]
         param_ranges = opt_params['Parameter ranges']
         opt_target = opt_params['Targets']['firing rate']
     else:
@@ -559,7 +588,7 @@ def optimize_rate(env, pop_name, gid, opt_iter=10, param_type='synaptic'):
         result = []
         assert (len(params) == len(param_range_tuples))
         for i, (update_operator, pop_name, source, sec_type, syn_name, param_name, param_range) in enumerate(param_range_tuples):
-            result.append((pop_name, source, sec_type, syn_name, param_name, params[i]))
+            result.append((update_operator, pop_name, source, sec_type, syn_name, param_name, params[i]))
         return result
 
     def to_param_vector(params):
@@ -568,9 +597,9 @@ def optimize_rate(env, pop_name, gid, opt_iter=10, param_type='synaptic'):
             result.append(param_value)
         return result
 
-    min_values = [(source, sec_type, syn_name, param_name, param_range[0]) for
+    min_values = [(update_operator, pop_name, source, sec_type, syn_name, param_name, param_range[0]) for
                   update_operator, pop_name, source, sec_type, syn_name, param_name, param_range in param_range_tuples]
-    max_values = [(source, sec_type, syn_name, param_name, param_range[1]) for
+    max_values = [(update_operator, pop_name, source, sec_type, syn_name, param_name, param_range[1]) for
                   update_operator, pop_name, source, sec_type, syn_name, param_name, param_range in param_range_tuples]
     
     f_firing_rate = make_firing_rate_target(env, pop_name, gid, opt_target, time_bins, from_param_vector)
@@ -911,12 +940,14 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
               help='name of arena used for rate optimization')
 @click.option("--target-rate-map-trajectory", type=str, required=False, 
               help='name of trajectory used for rate optimization')
-@click.argument('target')# help='rate, rate_dist'
+@click.option("--target-state-variable", type=str, required=False, 
+              help='name of state variable used for state optimization')
+@click.argument('target')# help='rate, rate_dist, state'
 
 
 def optimize(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter,
              template_paths, dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, spike_events_t,
-             param_type, recording_profile, results_file, results_path, target_rate_map_path, target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory, target):
+             param_type, recording_profile, results_file, results_path, target_rate_map_path, target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory, target_state_variable, target):
     """
     Optimize the firing rate of the specified cell in a network clamp configuration.
     """
@@ -960,6 +991,8 @@ def optimize(config_file, population, gid, generate_inputs, generate_weights, t_
                                target_rate_map_path, target_rate_map_namespace,
                                target_rate_map_arena, target_rate_map_trajectory,
                                opt_iter=opt_iter, param_type=param_type)
+    elif target == 'state':
+        optimize_state(env, population, gid, target_state_variable, opt_iter=opt_iter, param_type=param_type)
     else:
         raise RuntimeError('network_clamp.optimize: unknown optimization target %s' % \
                            target)
