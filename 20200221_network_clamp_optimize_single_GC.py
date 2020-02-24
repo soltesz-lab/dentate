@@ -10,32 +10,17 @@ from dentate import io_utils, spikedata, synapses, stimulus, cell_clamp
 from dentate.cells import h, make_input_cell, register_cell, record_cell
 from dentate.env import Env
 from dentate.neuron_utils import h, configure_hoc_env, make_rec
-from dentate.utils import Closure, mse, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger
+from dentate.utils import Closure, mse, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger, \
+    Context
 from dentate.cell_clamp import init_biophys_cell
 from neuroh5.io import read_cell_attribute_selection
+
+
+context = Context()
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
 
-
-def mpi_excepthook(type, value, traceback):
-    """
-
-    :param type:
-    :param value:
-    :param traceback:
-    :return:
-    """
-    sys_excepthook(type, value, traceback)
-    sys.stderr.flush()
-    if MPI.COMM_WORLD.size > 1:
-        MPI.COMM_WORLD.Abort(1)
-
-sys_excepthook = sys.excepthook
-sys.excepthook = mpi_excepthook
-
-def distgfs_reduce_fun(xs):
-    return xs[0]
 
 def generate_weights(env, weight_source_rules, this_syn_attrs):
     """
@@ -91,7 +76,6 @@ def generate_weights(env, weight_source_rules, this_syn_attrs):
     return weights_dict
 
 
-
 def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), generate_weights_pops=set([]),
          spike_events_namespace='Spike Events', t_var='t', t_min=None, t_max=None, write_cell=False, plot_cell=False):
     """
@@ -104,8 +88,7 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
     :param spike_events_path:
 
     """
-    if env.results_file_path is not None:
-        io_utils.mkout(env, env.results_file_path)
+    io_utils.mkout(env, env.results_file_path)
 
     env.cell_selection = {}
     
@@ -230,7 +213,7 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
     h.stdinit()
 
 
-def run(env):
+def run(env, cvode=False):
     """
     Runs network clamp simulation. Assumes that procedure `init` has been
     called with the network configuration provided by the `env`
@@ -250,7 +233,7 @@ def run(env):
 
     st_comptime = env.pc.step_time()
 
-    h.cvode_active(0)
+    h.cvode_active(1 if cvode else 0)
     
     h.t = 0.0
     h.dt = env.dt
@@ -282,7 +265,7 @@ def run(env):
     return spikedata.get_env_spike_dict(env, include_artificial=None)
 
 
-def run_with(env, param_dict):
+def run_with(env, param_dict, cvode=False):
     """
     Runs network clamp simulation with the specified parameters for
     the given gid(s).  Assumes that procedure `init` has been called with
@@ -328,7 +311,7 @@ def run_with(env, param_dict):
 
     st_comptime = env.pc.step_time()
 
-    h.cvode_active(0)
+    h.cvode_active(1 if cvode else 0)
 
     h.t = 0.0
     h.tstop = env.tstop
@@ -360,38 +343,9 @@ def run_with(env, param_dict):
 
     env.pc.runworker()
     env.pc.done()
-    
+
     return spikedata.get_env_spike_dict(env, include_artificial=None)
 
-
-def make_state_target(env, pop_name, gid, state_variable, target_val, from_param_vector):
-    def gid_state_value(spkdict, gid, t_offset, t_rec, state_recs):
-        time_vec = np.asarray(t_rec.to_python(), dtype=np.float32) - t_offset
-        t_inds = np.where(time_vec > 0.)[0]
-        state_values = []
-        for rec in state_recs:
-            vec = np.asarray(rec['vec'].to_python(), dtype=np.float32)
-            data = vec[t_inds]
-            state_values.append(np.mean(data))
-        m = np.mean(np.asarray(state_values))
-        logger.info('state value objective: mean value of %s of gid %i is %.2f' % (state_variable, gid, m))
-        return m
-
-    equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
-
-    recording_profile = { 'label': 'network_clamp.state.%s' % state_variable,
-                          'dt': 0.1,
-                          'section quantity': {
-                              state_variable: { 'swc types': ['soma'] }
-                            }
-                        }
-    env.recording_profile = recording_profile
-    state_recs = record_cell(env, pop_name, gid, recording_profile=recording_profile)
-
-    f = lambda *v: (abs(gid_state_value(run_with(env, {pop_name: {gid: from_param_vector(v)}}), gid,
-                            equilibration_duration, env.t_rec, state_recs) - target_val))
-
-    return f
 
 def make_firing_rate_target(env, pop_name, gid, target_rate, from_param_vector):
     def gid_firing_rate(spkdict, gid):
@@ -431,6 +385,28 @@ def make_firing_rate_vector_target(env, pop_name, gid, target_rate_vector, time_
 
     return f
 
+
+def make_firing_rate_vector_target_distgfs(pop_name, gid, target_rate_vector, time_bins, from_param_dict, env):
+    def gid_firing_rate_vector(spkdict, gid):
+        if gid in spkdict[pop_name]:
+            spkdict1 = {gid: spkdict[pop_name][gid]}
+        else:
+            spkdict1 = {gid: np.asarray([], dtype=np.float32)}
+        rate_dict = spikedata.spike_rates(spkdict1)
+        spike_density_dict = spikedata.spike_density_estimate (pop_name, spkdict1, time_bins)
+        if gid in spkdict[pop_name]:
+            rate = spike_density_dict[gid]['rate']
+            logger.info('firing rate objective: spike times of gid %i: %s' % (gid, str(spkdict[pop_name][gid])))
+            logger.info('firing rate objective: firing rate of gid %i: %s' % (gid, str(rate)))
+            logger.info('firing rate objective: min/max rates of gid %i are %.2f / %.2f Hz' % (gid, np.min(rate), np.max(rate)))
+        return spike_density_dict[gid]['rate']
+    logger.info("firing rate objective: target time bins: %s" % str(time_bins))
+    logger.info("firing rate objective: target vector: %s" % str(target_rate_vector))
+    logger.info("firing rate objective: target rate vector min/max is %.2f Hz (%.2f ms) / %.2f Hz (%.2f ms)" % (np.min(target_rate_vector), time_bins[np.argmin(target_rate_vector)], np.max(target_rate_vector), time_bins[np.argmax(target_rate_vector)]))
+    f = lambda **v: (mse(gid_firing_rate_vector(run_with(env, {pop_name: {gid: from_param_dict(v)}}), gid),
+                         target_rate_vector))
+
+    return f
 
 
 def modify_scaled_syn_param(env, gid, syn_id, old_val, new_val):
@@ -528,54 +504,13 @@ def optimize_params(env, pop_name, param_type):
                 "network_clamp.optimize_params: unknown parameter type %s" % param_type)
 
     return param_bounds, param_names, param_initial_dict, param_range_tuples
-
-
-def optimize_state(env, pop_name, gid, state_variable, opt_iter=10, param_type='synaptic'):
-    import dlib
-
-    if (pop_name in env.netclamp_config.optimize_parameters[param_type]):
-        opt_params = env.netclamp_config.optimize_parameters[param_type][pop_name]
-        param_ranges = opt_params['Parameter ranges']
-        opt_target = opt_params['Targets']['state'][state_variable]
-    else:
-        raise RuntimeError(
-            "network_clamp.optimize_state: population %s does not have optimization configuration" % pop_name)
-
-    param_bounds, param_names, param_initial_dict, param_range_tuples = optimize_params(env, pop_name, param_type)
-
-    def from_param_vector(params):
-        result = []
-        assert (len(params) == len(param_range_tuples))
-        for i, (update_operator, pop_name, source, sec_type, syn_name, param_name, param_range) in enumerate(param_range_tuples):
-            result.append((update_operator, pop_name, source, sec_type, syn_name, param_name, params[i]))
-        return result
-
-    def to_param_vector(params):
-        result = []
-        for (update_operator, destination, source, sec_type, syn_name, param_name, param_value) in params:
-            result.append(param_value)
-        return result
-
-    min_values = [(update_operator, pop_name, source, sec_type, syn_name, param_name, param_range[0]) for
-                  update_operator, pop_name, source, sec_type, syn_name, param_name, param_range in param_range_tuples]
-    max_values = [(update_operator, pop_name, source, sec_type, syn_name, param_name, param_range[1]) for
-                  update_operator, pop_name, source, sec_type, syn_name, param_name, param_range in param_range_tuples]
     
-    f_state = make_state_target(env, pop_name, gid, state_variable, opt_target, from_param_vector)
-    opt_params, outputs = dlib.find_min_global(f_state, to_param_vector(min_values), to_param_vector(max_values),
-                                               opt_iter)
-
-    logger.info('Optimized parameters: %s' % pprint.pformat(from_param_vector(opt_params)))
-    logger.info('Optimized objective function: %s' % pprint.pformat(outputs))
-    
-    
-    return opt_params, outputs
     
 def optimize_rate(env, pop_name, gid, opt_iter=10, param_type='synaptic'):
     import dlib
 
-    if (pop_name in env.netclamp_config.optimize_parameters[param_type]):
-        opt_params = env.netclamp_config.optimize_parameters[param_type][pop_name]
+    if (pop_name in env.netclamp_config.optimize_parameters):
+        opt_params = env.netclamp_config.optimize_parameters[pop_name]
         param_ranges = opt_params['Parameter ranges']
         opt_target = opt_params['Targets']['firing rate']
     else:
@@ -589,7 +524,7 @@ def optimize_rate(env, pop_name, gid, opt_iter=10, param_type='synaptic'):
         result = []
         assert (len(params) == len(param_range_tuples))
         for i, (update_operator, pop_name, source, sec_type, syn_name, param_name, param_range) in enumerate(param_range_tuples):
-            result.append((update_operator, pop_name, source, sec_type, syn_name, param_name, params[i]))
+            result.append((pop_name, source, sec_type, syn_name, param_name, params[i]))
         return result
 
     def to_param_vector(params):
@@ -598,9 +533,9 @@ def optimize_rate(env, pop_name, gid, opt_iter=10, param_type='synaptic'):
             result.append(param_value)
         return result
 
-    min_values = [(update_operator, pop_name, source, sec_type, syn_name, param_name, param_range[0]) for
+    min_values = [(source, sec_type, syn_name, param_name, param_range[0]) for
                   update_operator, pop_name, source, sec_type, syn_name, param_name, param_range in param_range_tuples]
-    max_values = [(update_operator, pop_name, source, sec_type, syn_name, param_name, param_range[1]) for
+    max_values = [(source, sec_type, syn_name, param_name, param_range[1]) for
                   update_operator, pop_name, source, sec_type, syn_name, param_name, param_range in param_range_tuples]
     
     f_firing_rate = make_firing_rate_target(env, pop_name, gid, opt_target, time_bins, from_param_vector)
@@ -634,9 +569,7 @@ def optimize_rate_dist(env, tstop, pop_name, gid,
     
     interp_trj_t = np.arange(time_range[0], time_range[1], time_step)
     interp_trj_rate_map = np.interp(interp_trj_t, trj_t, trj_rate_map)
-
-    logger.info("max interp_trj_t = %s" % pprint.pformat(interp_trj_t[np.argwhere(interp_trj_rate_map==np.max(interp_trj_rate_map))]))
-    logger.info("max interp_trj_rate_map = %s" % pprint.pformat(np.max(interp_trj_rate_map)))
+    
     param_bounds, param_names, param_initial_dict, param_range_tuples = optimize_params(env, pop_name, param_type)
     
     def from_param_vector(params):
@@ -673,66 +606,14 @@ def optimize_rate_dist(env, tstop, pop_name, gid,
 def optimize_rate_dist_distgfs(env, tstop, pop_name, gid, 
                                target_rate_map_path, target_rate_map_namespace,
                                target_rate_map_arena, target_rate_map_trajectory,
-                               opt_iter=10, param_type='synaptic', init_params={},
-                               results_file=None):
+                               opt_iter=10, param_type='synaptic'):
     import distgfs
-
-    param_bounds, param_names, param_initial_dict, param_range_tuples = optimize_params(env, pop_name, param_type)
-    
-    hyperprm_space = { param_pattern: [param_range[0], param_range[1]]
-                       for param_pattern, (update_operator, pop_name, source, sec_type, syn_name, _, param_range) in
-                           zip(param_names, param_range_tuples) }
-
-    pprint.pprint(init_params)
-    # Create an optimizer parameter set
-    if results_file is None:
-        if env.results_path is not None:
-            file_path = '%s/distgfs.network_clamp.%s.h5' % (env.results_path, str(env.results_file_id))
-        else:
-            file_path = 'distgfs.network_clamp.%s.h5' % (str(env.results_file_id))
-    else:
-        file_path = '%s/%s' % (env.results_path, results_file)
-    distgfs_params = {'opt_id': 'network_clamp.rate_dist',
-                      'obj_fun_init_name': 'init_distgfs_objfun',
-                      'obj_fun_init_module': 'dentate.network_clamp',
-                      'obj_fun_init_args': init_params,
-                      'reduce_fun_name': 'distgfs_reduce_fun',
-                      'reduce_fun_module': 'dentate.network_clamp',
-                      'problem_parameters': {},
-                      'space': hyperprm_space,
-                      'file_path': file_path,
-                      'save': True,
-                      'n_iter': opt_iter}
-
-    opt_params, outputs = distgfs.run(distgfs_params, spawn_workers=True, verbose=True)
-    
-    logger.info('Optimized parameters: %s' % pprint.pformat(opt_params))
-    logger.info('Optimized objective function: %s' % pprint.pformat(outputs))
-    logger.info('Optimized result: %s' % pprint.pformat(f_firing_rate_vector(*opt_params)))
-
-    return opt_params, outputs
-
-
-def init_distgfs_objfun(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter,
-             template_paths, dataset_prefix, config_prefix, results_file_id, results_path, spike_events_path, spike_events_namespace, spike_events_t,
-             param_type, recording_profile, target_rate_map_path, target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory,
-             **kwargs):
-
-    params = dict(locals())
-    env = Env(**params)
-    env.results_file_path = None
-    configure_hoc_env(env)
-    init(env, population, gid, spike_events_path, 
-         generate_inputs_pops=set(generate_inputs), 
-         generate_weights_pops=set(generate_weights), 
-         spike_events_namespace=spike_events_namespace, 
-         t_var=spike_events_t, t_min=t_min, t_max=t_max)
 
     time_step = env.stimulus_config['Temporal Resolution']
     equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
 
     input_namespace = '%s %s %s' % (target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory)
-    it = read_cell_attribute_selection(target_rate_map_path, population, namespace=input_namespace,
+    it = read_cell_attribute_selection(target_rate_map_path, pop_name, namespace=input_namespace,
                                         selection=[gid], mask=set(['Trajectory Rate Map']))
     trj_rate_map = dict(it)[gid]['Trajectory Rate Map']
 
@@ -740,39 +621,41 @@ def init_distgfs_objfun(config_file, population, gid, generate_inputs, generate_
 
     time_range = (0., min(np.max(trj_t), tstop))
     
-    time_bins = np.arange(time_range[0], time_range[1], time_step)
-    target_rate_vector = np.interp(time_bins, trj_t, trj_rate_map)
-
+    interp_trj_t = np.arange(time_range[0], time_range[1], time_step)
+    interp_trj_rate_map = np.interp(interp_trj_t, trj_t, trj_rate_map)
     
-    param_bounds, param_names, param_initial_dict, param_range_tuples = optimize_params(env, population, param_type)
+    param_bounds, param_names, param_initial_dict, param_range_tuples = optimize_params(env, pop_name, param_type)
     
     def from_param_dict(params_dict):
         result = []
-        for param_pattern, (update_operator, population, source, sec_type, syn_name, param_name, param_range) in zip(param_names, param_range_tuples):
-            result.append((update_operator, population, source, sec_type, syn_name, param_name, params_dict[param_pattern]))
+        for param_pattern, (update_operator, pop_name, source, sec_type, syn_name, param_name, param_range) in zip(param_names, param_range_tuples):
+            result.append((update_operator, pop_name, source, sec_type, syn_name, param_name, params_dict[param_pattern]))
         return result
-
-    def gid_firing_rate_vector(spkdict, gid):
-        if gid in spkdict[population]:
-            spkdict1 = {gid: spkdict[population][gid]}
-        else:
-            spkdict1 = {gid: np.asarray([], dtype=np.float32)}
-        rate_dict = spikedata.spike_rates(spkdict1)
-        spike_density_dict = spikedata.spike_density_estimate (population, spkdict1, time_bins)
-        if gid in spkdict[population]:
-            rate = spike_density_dict[gid]['rate']
-            logger.info('firing rate objective: spike times of gid %i: %s' % (gid, str(spkdict[population][gid])))
-            logger.info('firing rate objective: firing rate of gid %i: %s' % (gid, str(rate)))
-            logger.info('firing rate objective: min/max rates of gid %i are %.2f / %.2f Hz' % (gid, np.min(rate), np.max(rate)))
-        return spike_density_dict[gid]['rate']
-    logger.info("firing rate objective: target time bins: %s" % str(time_bins))
-    logger.info("firing rate objective: target vector: %s" % str(target_rate_vector))
-    logger.info("firing rate objective: target rate vector min/max is %.2f Hz (%.2f ms) / %.2f Hz (%.2f ms)" % (np.min(target_rate_vector), time_bins[np.argmin(target_rate_vector)], np.max(target_rate_vector), time_bins[np.argmax(target_rate_vector)]))
-    f = lambda **v: (mse(gid_firing_rate_vector(run_with(env, {population: {gid: from_param_dict(v)}}), gid),
-                         target_rate_vector))
-
-    return f
     
+    hyperprm_space = { param_pattern: [param_range[0], param_range[1]]
+                       for param_pattern, (update_operator, pop_name, source, sec_type, syn_name, _, param_range) in
+                           zip(param_names, param_range_tuples) }
+
+
+    # Create an optimizer parameter set
+    distgfs_params = {'opt_id': 'network_clamp.rate_dist',
+                      'obj_fun_init_name': 'make_firing_rate_vector_target',
+                      'obj_fun_init_module': 'dentate.network_clamp',
+                      'obj_fun_init_args': (pop_name, gid, interp_trj_rate_map, interp_trj_t, from_param_dict),
+                      'reduce_fun_name': 'opt_reduce',
+                      'reduce_fun_module': 'dentate.network_clamp',
+                      'problem_parameters': {},
+                      'space': hyperprm_space,
+                      'n_iter': opt_iter}
+
+    opt_params, outputs = distgfs.run(distgfs_params, spawn_workers=True, verbose=True)
+    
+    logger.info('Optimized parameters: %s' % pprint.pformat(from_param_vector(opt_params)))
+    logger.info('Optimized objective function: %s' % pprint.pformat(outputs))
+    logger.info('Optimized result: %s' % pprint.pformat(f_firing_rate_vector(*opt_params)))
+
+    return opt_params, outputs
+
 
 def write_output(env):
     rank = env.comm.rank
@@ -812,13 +695,32 @@ def cli():
 @click.option('--write-cell', is_flag=True, help='write out selected cell tree morphology and connections')
 @click.option('--profile-memory', is_flag=True, help='calculate and print heap usage after the simulation is complete')
 @click.option('--recording-profile', type=str, default='Network clamp default', help='recording profile to use')
-
-def show(config_file, population, gid, template_paths, dataset_prefix, config_prefix, results_path,
-         spike_events_path, spike_events_namespace, spike_events_t, plot_cell, write_cell, profile_memory, recording_profile):
+@click.option('--description', type=str, default=None)
+@click.option('--export', type=str, default=None)
+@click.option('--interactive', is_flag=True)
+def show(config_file, population, gid, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path,
+         spike_events_namespace, spike_events_t, plot_cell, write_cell, profile_memory, recording_profile,
+         description, export, interactive):
     """
     Show configuration for the specified cell.
+    :param config_file:
+    :param population:
+    :param gid:
+    :param template_paths:
+    :param dataset_prefix:
+    :param config_prefix:
+    :param results_path:
+    :param spike_events_path:
+    :param spike_events_namespace:
+    :param spike_events_t:
+    :param plot_cell:
+    :param write_cell:
+    :param profile_memory:
+    :param recording_profile:
+    :param description: str
+    :param export: bool
+    :param interactive:
     """
-
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
 
@@ -827,12 +729,28 @@ def show(config_file, population, gid, template_paths, dataset_prefix, config_pr
     env = Env(**params)
     configure_hoc_env(env)
 
-    init(env, population, gid, spike_events_path, \
-         spike_events_namespace=spike_events_namespace, \
-         t_var=spike_events_t, plot_cell=plot_cell, write_cell=write_cell)
+    init(env, population, gid, spike_events_path, spike_events_namespace=spike_events_namespace, t_var=spike_events_t,
+         write_cell=write_cell)
+
+    if interactive and plot_cell:
+        from dentate.plot import plot_synaptic_attribute_distribution
+        syn_attrs = env.synapse_attributes
+        biophys_cell = env.biophys_cells[population][gid]
+        syn_name = 'AMPA'
+        syn_mech_name = syn_attrs.syn_mech_names[syn_name]
+        for param_name, ylabel, scale_factor, yunits in \
+                zip(['weight', 'g_unit'], ['Weight', 'Conductance'], [1., 1000.], ['', 'nS']):
+            param_label = '%s; %s; %s' % (syn_name, syn_mech_name, param_name)
+            plot_synaptic_attribute_distribution(biophys_cell, env, syn_name, param_name, filters=None,
+                                                 from_mech_attrs=False, from_target_attrs=True, param_label=param_label,
+                                                 ylabel=ylabel, scale_factor=scale_factor, yunits=yunits, show=True,
+                                                 description=description, export=export, output_dir=env.results_path)
 
     if env.profile_memory:
         profile_memory(logger)
+
+    if interactive:
+        context.update(locals())
 
 
 @click.command()
@@ -869,16 +787,37 @@ def show(config_file, population, gid, template_paths, dataset_prefix, config_pr
 @click.option('--write-cell', is_flag=True, help='write out selected cell tree morphology and connections')
 @click.option('--profile-memory', is_flag=True, help='calculate and print heap usage after the simulation is complete')
 @click.option('--recording-profile', type=str, default='Network clamp default', help='recording profile to use')
-
-def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t_max, t_min,
-       template_paths, dataset_prefix,
-       config_prefix, spike_events_path, spike_events_namespace, spike_events_t,
-       results_path, results_file_id, results_namespace_id, plot_cell, write_cell, profile_memory, recording_profile):
-
+@click.option('--interactive', is_flag=True)
+def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t_max, t_min, template_paths,
+       dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, spike_events_t, results_path,
+       results_file_id, results_namespace_id, plot_cell, write_cell, profile_memory, recording_profile,
+       interactive):
     """
     Runs network clamp simulation for the specified cell.
+    :param config_file:
+    :param population:
+    :param gid:
+    :param generate_inputs:
+    :param generate_weights:
+    :param tstop:
+    :param t_max:
+    :param t_min:
+    :param template_paths:
+    :param dataset_prefix:
+    :param config_prefix:
+    :param spike_events_path:
+    :param spike_events_namespace:
+    :param spike_events_t:
+    :param results_path:
+    :param results_file_id:
+    :param results_namespace_id:
+    :param plot_cell:
+    :param write_cell:
+    :param profile_memory:
+    :param recording_profile:
+    :param interactive:
+    :return:
     """
-
     if results_file_id is None:
         results_file_id = uuid.uuid4()
     comm = MPI.COMM_WORLD
@@ -888,18 +827,18 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
     env = Env(**params)
     configure_hoc_env(env)
 
-    init(env, population, gid, spike_events_path, \
-         generate_inputs_pops=set(generate_inputs), \
-         generate_weights_pops=set(generate_weights), \
-         spike_events_namespace=spike_events_namespace, \
-         t_var=spike_events_t, t_min=t_min, t_max=t_max,
-         plot_cell=plot_cell, write_cell=write_cell)
+    init(env, population, gid, spike_events_path, generate_inputs_pops=set(generate_inputs),
+         generate_weights_pops=set(generate_weights), spike_events_namespace=spike_events_namespace,
+         t_var=spike_events_t, t_min=t_min, t_max=t_max, plot_cell=plot_cell, write_cell=write_cell)
 
     run(env)
     write_output(env)
 
     if env.profile_memory:
         profile_memory(logger)
+
+    if interactive:
+        context.update(locals())
 
 
 @click.command()
@@ -924,7 +863,6 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
 @click.option("--param-type", type=str, 
               help='parameter type for rate optimization (synaptic or scaling)')
 @click.option('--recording-profile', type=str, help='recording profile to use')
-@click.option("--results-file", required=False, type=str, help='optimization results file')
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), \
               help='path to directory where output files will be written')
 @click.option("--spike-events-path", '-s', required=True, type=click.Path(),
@@ -941,28 +879,18 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
               help='name of arena used for rate optimization')
 @click.option("--target-rate-map-trajectory", type=str, required=False, 
               help='name of trajectory used for rate optimization')
-@click.option("--target-state-variable", type=str, required=False, 
-              help='name of state variable used for state optimization')
-@click.argument('target')# help='rate, rate_dist, state'
-
-
+@click.argument('target')# help='rate, rate_dist'
 def optimize(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter,
              template_paths, dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, spike_events_t,
-             param_type, recording_profile, results_file, results_path, target_rate_map_path, target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory, target_state_variable, target):
+             param_type, recording_profile, results_path, target_rate_map_path, target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory, target):
     """
     Optimize the firing rate of the specified cell in a network clamp configuration.
     """
-    init_params = dict(locals())
 
+    results_file_id = uuid.uuid4()
     comm = MPI.COMM_WORLD
     size = comm.Get_size()
     rank = comm.Get_rank()
-
-    results_file_id = None
-    if rank == 0:
-        results_file_id = uuid.uuid4()
-        
-    results_file_id = comm.bcast(results_file_id, root=0)
 
     np.seterr(all='raise')
     verbose = True
@@ -971,12 +899,11 @@ def optimize(config_file, population, gid, generate_inputs, generate_weights, t_
     env = Env(**params)
     configure_hoc_env(env)
 
-    if size == 1:
-        init(env, population, gid, spike_events_path, 
-            generate_inputs_pops=set(generate_inputs), 
-            generate_weights_pops=set(generate_weights), 
-            spike_events_namespace=spike_events_namespace, 
-            t_var=spike_events_t, t_min=t_min, t_max=t_max)
+    init(env, population, gid, spike_events_path, 
+         generate_inputs_pops=set(generate_inputs), 
+         generate_weights_pops=set(generate_weights), 
+         spike_events_namespace=spike_events_namespace, 
+         t_var=spike_events_t, t_min=t_min, t_max=t_max)
 
     if target == 'rate':
         optimize_rate(env, population, gid, opt_iter=opt_iter, param_type=param_type)
@@ -985,15 +912,12 @@ def optimize(config_file, population, gid, generate_inputs, generate_weights, t_
             optimize_rate_dist_distgfs(env, tstop, population, gid, 
                                        target_rate_map_path, target_rate_map_namespace,
                                        target_rate_map_arena, target_rate_map_trajectory,
-                                       opt_iter=opt_iter, param_type=param_type,
-                                       init_params=init_params, results_file=results_file)
+                                       opt_iter=opt_iter, param_type=param_type)
         else:
             optimize_rate_dist(env, tstop, population, gid, 
                                target_rate_map_path, target_rate_map_namespace,
                                target_rate_map_arena, target_rate_map_trajectory,
                                opt_iter=opt_iter, param_type=param_type)
-    elif target == 'state':
-        optimize_state(env, population, gid, target_state_variable, opt_iter=opt_iter, param_type=param_type)
     else:
         raise RuntimeError('network_clamp.optimize: unknown optimization target %s' % \
                            target)
