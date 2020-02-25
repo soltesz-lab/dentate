@@ -10,8 +10,10 @@ from scipy import sparse, signal
 import yaml
 
         
+is_interactive = bool(getattr(sys, 'ps1', sys.flags.interactive))
 
-class DExpr(object):
+
+class ExprClosure(object):
     def __init__(self, parameter, expr, consts=None):
         self.sympy = importlib.import_module('sympy')
         self.sympy_parser = importlib.import_module('sympy.parsing.sympy_parser')

@@ -10,13 +10,14 @@ from dentate import io_utils, spikedata, synapses, stimulus, cell_clamp
 from dentate.cells import h, make_input_cell, register_cell, record_cell
 from dentate.env import Env
 from dentate.neuron_utils import h, configure_hoc_env, make_rec
-from dentate.utils import Closure, mse, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger
+from dentate.utils import is_interactive, Context, Closure, mse, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger
 from dentate.cell_clamp import init_biophys_cell
 from neuroh5.io import read_cell_attribute_selection
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
 
+context = Context()
 
 def mpi_excepthook(type, value, traceback):
     """
@@ -229,8 +230,11 @@ def init(env, pop_name, gid, spike_events_path, generate_inputs_pops=set([]), ge
     env.pc.set_maxstep(10)
     h.stdinit()
 
+    if is_interactive:
+        context.update(locals())
 
-def run(env):
+
+def run(env, cvode=False):
     """
     Runs network clamp simulation. Assumes that procedure `init` has been
     called with the network configuration provided by the `env`
@@ -250,7 +254,7 @@ def run(env):
 
     st_comptime = env.pc.step_time()
 
-    h.cvode_active(0)
+    h.cvode_active(1 if cvode else 0)
     
     h.t = 0.0
     h.dt = env.dt
@@ -282,7 +286,7 @@ def run(env):
     return spikedata.get_env_spike_dict(env, include_artificial=None)
 
 
-def run_with(env, param_dict):
+def run_with(env, param_dict, cvode=False):
     """
     Runs network clamp simulation with the specified parameters for
     the given gid(s).  Assumes that procedure `init` has been called with
@@ -328,7 +332,7 @@ def run_with(env, param_dict):
 
     st_comptime = env.pc.step_time()
 
-    h.cvode_active(0)
+    h.cvode_active(1 if cvode else 0)
 
     h.t = 0.0
     h.tstop = env.tstop
@@ -888,10 +892,8 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
     env = Env(**params)
     configure_hoc_env(env)
 
-    init(env, population, gid, spike_events_path, \
-         generate_inputs_pops=set(generate_inputs), \
-         generate_weights_pops=set(generate_weights), \
-         spike_events_namespace=spike_events_namespace, \
+    init(env, population, gid, spike_events_path, generate_inputs_pops=set(generate_inputs),
+         generate_weights_pops=set(generate_weights), spike_events_namespace=spike_events_namespace,
          t_var=spike_events_t, t_min=t_min, t_max=t_max,
          plot_cell=plot_cell, write_cell=write_cell)
 

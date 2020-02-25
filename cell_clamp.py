@@ -7,11 +7,13 @@ from neuron import h
 from dentate import cells, synapses, utils, neuron_utils, io_utils
 from dentate.env import Env
 from dentate.synapses import config_syn
-from dentate.utils import get_module_logger
+from dentate.utils import Context, get_module_logger, is_interactive
 from dentate.neuron_utils import h, configure_hoc_env
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
+
+context = Context()
 
 def load_biophys_cell(env, pop_name, gid, mech_file_path=None, mech_dict=None, correct_for_spines=False,
                       tree_dict=None, load_synapses=True, synapses_dict=None,
@@ -97,6 +99,11 @@ def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=T
     cells.report_topology(cell, env)
 
     env.cell_selection[pop_name] = [gid]
+
+    if is_interactive:
+        context.update(locals())
+
+    
     if write_cell:
         write_selection_file_path =  "%s/%s_%d.h5" % (env.results_path, env.modelName, gid)
         if rank == 0:

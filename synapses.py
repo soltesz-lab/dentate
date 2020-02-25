@@ -7,7 +7,7 @@ from dentate.cells import get_distance_to_node, get_donor, get_mech_rules_dict, 
     import_mech_dict_from_file, make_section_graph, custom_filter_if_terminal, \
     custom_filter_modify_slope_if_terminal, custom_filter_by_branch_order
 from dentate.neuron_utils import h, default_ordered_sec_types, mknetcon, mknetcon_vecstim
-from dentate.utils import DExpr, NamedTupleWithDocstring, get_module_logger, generator_ifempty, map, range, str, \
+from dentate.utils import ExprClosure, NamedTupleWithDocstring, get_module_logger, generator_ifempty, map, range, str, \
      viewitems, viewkeys, zip, zip_longest, partitionn, rejection_sampling, gauss2d, exp_phi
 from neuroh5.io import write_cell_attributes
 
@@ -520,7 +520,7 @@ class SynapseAttributes(object):
         for k, v in viewitems(params):
             if k in rules[mech_name]['mech_params']:
                 mech_param = mech_params.get(k, None)
-                if isinstance(mech_param, DExpr):
+                if isinstance(mech_param, ExprClosure):
                     if mech_param.parameter == 'delay':
                         new_val = mech_param(syn.source.delay)
                     else:
@@ -533,7 +533,7 @@ class SynapseAttributes(object):
                 attr_dict[k] = update_operator(gid, syn_id, old_val, new_val)
             elif k in rules[mech_name]['netcon_params']:
                 mech_param = mech_params.get(k, None)
-                if isinstance(mech_param, DExpr):
+                if isinstance(mech_param, ExprClosure):
                     if mech_param.parameter == 'delay':
                         new_val = mech_param(syn.source.delay)
                         #print("modify %s.%s.%s: delay: %f new val: %f" % (pop_name, syn_name, k, syn.source.delay, new_val))
@@ -1056,7 +1056,7 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
             if syn is None:
                 failed = False
             else:
-                if isinstance(val, DExpr) and (nc is not None):
+                if isinstance(val, ExprClosure) and (nc is not None):
                     if val.parameter == 'delay':
                         setattr(syn, param, val(nc.delay))
                         mech_param = True
@@ -1075,7 +1075,7 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
                 i = mech_rules['netcon_params'][param]
                 if int(nc.wcnt()) >= i:
                     old = nc.weight[i]
-                    if isinstance(val, DExpr):
+                    if isinstance(val, ExprClosure):
                         if val.parameter == 'delay':
                             nc.weight[i] = val(nc.delay)
                             nc_param = True
@@ -2319,217 +2319,262 @@ def generate_sparse_weights(weights_name, fraction, seed, source_syn_dict):
     return weights_dict
 
 
-def interactive_callback_plasticity_fit(**kwargs):
+def plot_callback_normalized_delta_weights(**kwargs):
     import matplotlib.pyplot as plt
-    fig = plt.figure(constrained_layout=3)
-    gs = fig.add_gridspec(4, 3)
-    initial_weights = kwargs['initial_weights'] 
-    modified_weights = kwargs['modified_weights']
-    initial_ratemap = kwargs['initial_ratemap']
-    modified_ratemap = kwargs['modified_ratemap']
-    target_ratemap =  kwargs['target_ratemap']
-    plasticity_kernel =  kwargs['plasticity_kernel']
-    delta_weights =  kwargs['delta_weights']
-    syn_ids = np.asarray(sorted(initial_weights.keys()))
-    initial_weights_array = np.asarray([initial_weights[k] for k in syn_ids])
-    hist_bins = np.linspace(np.min(initial_weights_array), np.max(initial_weights_array))
-    initial_weights_hist, initial_weights_bin_edges = np.histogram(initial_weights_array, bins=hist_bins)
-    modified_weights_array = np.asarray([modified_weights[k] for k in syn_ids])
-    hist_bins = np.linspace(np.min(modified_weights_array), np.max(modified_weights_array))
-    modified_weights_hist, modified_weights_bin_edges = np.histogram(modified_weights_array, bins=hist_bins)
-    hist_bins = np.linspace(np.min(delta_weights), np.max(delta_weights))
-    delta_weights_hist, delta_weights_bin_edges = np.histogram(delta_weights, bins=hist_bins)
-    xlimits = (min(np.min(initial_weights_array), np.min(modified_weights_array)),
-               max(np.max(initial_weights_array), np.max(modified_weights_array)))
-    ax = fig.add_subplot(gs[0, :])
-    ax.plot(initial_weights_bin_edges[:-1], initial_weights_hist, marker='.')
-    ax.set(ylabel='number of synapses')
-    ax.set_xlim(xlimits)
-    ax.set_yscale('log')
-    ax = fig.add_subplot(gs[1, :])
-    ax.plot(modified_weights_bin_edges[:-1], modified_weights_hist, marker='.', color='r')
-    ax.set(xlabel='synaptic weight', ylabel='number of synapses')
-    ax.set_xlim(xlimits)
-    ax.set_yscale('log')
-    ax = fig.add_subplot(gs[2, :])
-    ax.plot(delta_weights_bin_edges[:-1], delta_weights_hist, marker='.')
-    ax.set_yscale('log')
-    ax.set(xlabel='synaptic weight delta', ylabel='number of synapses')
-    ax = fig.add_subplot(gs[3, 0])
-    ax.set_title('Initial rate map')
-    p = ax.imshow(initial_ratemap, origin='lower')
-    fig.colorbar(p, ax=ax)
-    ax = fig.add_subplot(gs[3, 1])
-    ax.set_title('Modified rate map')
-    p = ax.imshow(modified_ratemap, origin='lower')
-    fig.colorbar(p, ax=ax)
-    ax = fig.add_subplot(gs[3, 2])
-    ax.set_title('Target')
-    p = ax.imshow(target_ratemap, origin='lower')
-    fig.colorbar(p, ax=ax)
-    plt.show()
+    import matplotlib as mpl
+    from dentate.plot import clean_axes
+    default_font_size = mpl.rcParams['font.size']
 
+    arena_x = kwargs['arena_x']
+    arena_y = kwargs['arena_y']
+    bounds = kwargs['bounds']
+    max_weight = kwargs['max_weight']
+    optimize_method = kwargs['optimize_method']
+    SVD_delta_weights = kwargs['SVD_delta_weights']
+    initial_LS_delta_weights = kwargs['initial_LS_delta_weights']
+    scaled_LS_weights = kwargs['scaled_LS_weights']
+    flat_scaled_target_map = kwargs['flat_scaled_target_map']
+    flat_SVD_map = kwargs['flat_SVD_map']
+    flat_LS_map = kwargs['flat_LS_map']
+    flat_initial_LS_map = kwargs['flat_initial_LS_map']
+    initial_background_map = kwargs['initial_background_map']
+    initial_weight_array = kwargs['initial_weight_array']
+    mean_initial_weight = np.mean(initial_weight_array)
+    reference_weight_array = kwargs.get('reference_weight_array', None)
+    reference_weights_are_delta = kwargs.get('reference_weights_are_delta', False)
 
-def plasticity_fit(phi, plasticity_kernel, plasticity_inputs, source_syn_map, logger, max_iter=10, lb = -3.0, ub = 3.,
-                   baseline_weight=0.0, local_random=None, interactive=False):
+    min_delta_weight, max_delta_weight = bounds
     
-    source_gids = sorted(plasticity_inputs.keys())
-    initial_weights = []
-    for i, source_gid in enumerate(source_gids):
-        _, initial_weight = source_syn_map[source_gid][0]
-        initial_weights.append(initial_weight)
-    w = np.asarray(initial_weights, dtype=np.float64)
-    baseline = np.mean(w)
-    A = np.column_stack([plasticity_inputs[gid].reshape((-1,)).astype(np.float64) for gid in source_gids])
-    initial_ratemap = phi(np.dot(A, w))
-    b = plasticity_kernel.reshape((-1,)).astype(np.float64)
+    num_bins = 20
+    edges = np.linspace(-1., max_weight + 1., num_bins + 1)
 
-    if local_random is None:
-        local_random = np.random.RandomState()
+    min_vals = [np.min(flat_scaled_target_map), np.min(flat_SVD_map), np.min(flat_LS_map),
+                    np.min(initial_background_map)]
+    max_vals1 = [np.max(flat_scaled_target_map), np.max(flat_SVD_map)]
+    max_vals2 = [np.max(flat_LS_map), np.max(initial_background_map)]
+    if reference_weight_array is not None:
+        if reference_weights_are_delta:
+            reference_weights = reference_weight_array / np.max(reference_weight_array) * max_delta_weight + \
+              mean_initial_weight
+        else:
+            reference_weights = reference_weight_array
+            flat_reference_map = reference_weights.dot(scaled_input_matrix) - 1.
+            min_vals.append(np.min(flat_reference_map))
+            max_vals2.append(np.max(flat_reference_map))
+
+    vmin = min(min_vals)
+    vmax1 = max(max_vals1)
+    vmax2 = max(max_vals2)
+
+    fig = plt.figure(figsize=(15,8), constrained_layout=True)
+    gs = fig.add_gridspec(2, 2)
+
+    row = 0
+    ax = fig.add_subplot(gs[row, 0])
+    ax.plot(range(len(flat_scaled_target_map)), initial_background_map, label='Initial')
+    if reference_weight_array is not None:
+        ax.plot(range(len(flat_scaled_target_map)), flat_reference_map, label='Reference')
+    ax.plot(range(len(flat_scaled_target_map)), flat_scaled_target_map, label='Target')
+    ax.plot(range(len(flat_scaled_target_map)), flat_SVD_map, label='SVD')
+    ax.plot(range(len(flat_scaled_target_map)), flat_LS_map, label=optimize_method)
+    ax.set_ylabel('Normalized activity')
+    ax.set_xlabel('Arena spatial bin')
+    ax.legend(bbox_to_anchor=(1.05, 0), loc='lower left', frameon=False, framealpha=0.5, fontsize=default_font_size)
     
-    #res = opt.lsq_linear(A, b, bounds=(lb, ub), lsmr_tol='auto')
-    def residual(x, w, A, b, phi):
-        res = np.subtract(phi(np.dot(A, np.add(w, x))), b)
-        return res
-
-    for i in range(max_iter):
-        try:
-            dx0 = local_random.rand(len(w),)
-            optres = opt.least_squares(residual, dx0, args = (w, A, b, phi), bounds=(lb,ub), 
-                                       method='dogbox', xtol=1e-2, ftol=1e-2, gtol=1e-4,
-                                       verbose=2 if interactive else 0)
-            break
-        except ValueError:
-            continue
-    if i >= max_iter:
-        raise RuntimeError('plasticity_fit: maximum number of iterations exceeded')
-
-    
-    delta_weights = optres.x
-    logger.info('Least squares fit status: %d (%s)' % (optres.status, optres.message))
-    logger.info('Delta weights: min: %f max: %f' % (np.min(delta_weights), np.max(delta_weights)))
-        
-    syn_weights = {}
-    for source_gid, delta_weight in zip(source_gids, delta_weights):
-        syn_count = len(source_syn_map[source_gid])
-        if syn_count > 0:
-            for syn_id, initial_weight in source_syn_map[source_gid]:
-                syn_weights[syn_id] = max(delta_weight + initial_weight, max(math.sqrt(initial_weight),  baseline_weight))
-
-    if interactive:
-        modified_weights = np.maximum(np.add(w, delta_weights), np.sqrt(w)) + baseline_weight
-        modified_ratemap = phi(np.dot(A, modified_weights))
-        logger.info('Initial rate map: min: %f max: %f' % (np.min(initial_ratemap), np.max(initial_ratemap)))
-        logger.info('Target: min: %f max: %f' % (np.min(b), np.max(b)))
-        logger.info('Initial weights: min: %f max: %f mean: %f' % (np.min(w), np.max(w), np.mean(w)))
-        logger.info('Modified weights: min: %f max: %f mean: %f' % (np.min(modified_weights), np.max(modified_weights), np.mean(modified_weights)))
-        logger.info('Modified rate map: min: %f max: %f' % (np.min(modified_ratemap), np.max(modified_ratemap)))
-        initial_weights_dict = {}
-        for i, source_gid in enumerate(source_gids):
-            syn_id, initial_weight = source_syn_map[source_gid][0]
-            initial_weights_dict[syn_id] = initial_weight
-        interactive_callback_plasticity_fit(initial_weights=initial_weights_dict,
-                                            modified_weights=syn_weights,
-                                            delta_weights=delta_weights,
-                                            initial_ratemap=initial_ratemap.reshape(plasticity_kernel.shape),
-                                            modified_ratemap=modified_ratemap.reshape(plasticity_kernel.shape),
-                                            plasticity_kernel=plasticity_kernel,
-                                            target_ratemap=b.reshape(plasticity_kernel.shape))
-        
-
-    return syn_weights
-
-
-def linear_phi(a):
-    return a
-
-
-def generate_structured_weights(gid, population, synapse_name, sources, dst_input_features, src_input_features,
-                                src_syn_dict, spatial_mesh, plasticity_kernel=None, baseline_weight=0.0,
-                                field_width_scale=1.0, local_random=None, interactive=False, max_iter=10):
-    """
-
-    :param gid:
-    :param population:
-    :param synapse_name:
-    :param sources:
-    :param dst_input_features:
-    :param src_input_features:
-    :param src_syn_dict:
-    :param spatial_mesh:
-    :param plasticity_kernel:
-    :param baseline_weight:
-    :param field_width_scale:
-    :param local_random:
-    :param interactive:
-    :param max_iter:
-    :return:
-    """
-    if gid in dst_input_features[population]:
-        this_input_features = dst_input_features[population][gid]
-        this_num_fields = this_input_features['Num Fields'][0]
-        this_field_width = this_input_features['Field Width']
-        this_x_offset = this_input_features['X Offset']
-        this_y_offset = this_input_features['Y Offset']
-        this_peak_rate = this_input_features['Peak Rate']
+    if reference_weight_array is None:
+        ax = fig.add_subplot(gs[row, 1])
+        p = ax.pcolormesh(arena_x, arena_y, flat_LS_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
+        ax.set_xlabel('Arena location (x)')
+        ax.set_ylabel('Arena location (y)')
+        ax.set_title(optimize_method, fontsize=default_font_size)
+        fig.colorbar(p, ax=ax)
     else:
-        this_input_features = None
-        this_num_fields = None
-        this_field_width = None
-        this_x_offset = None
-        this_y_offset = None
-        this_peak_rate = None
-
-    structured = False
-    if (this_input_features is not None) and this_num_fields > 0:
-        structured = True
-
-    if local_random is None:
-        local_random = np.random.RandomState()
-        local_random.seed(int(gid))
-
-    result = None
-    if structured:
-
-        if plasticity_kernel is None:
-            plasticity_kernel = lambda x, y, x_loc, y_loc, sx, sy: gauss2d(x-x_loc, y-y_loc, sx=sx, sy=sy)
-            plasticity_kernel = np.vectorize(plasticity_kernel, excluded=[2,3,4,5])
-
-        x, y = spatial_mesh
-        this_peak_locs = zip(np.nditer(this_x_offset), np.nditer(this_y_offset))
-        this_sigmas    = [(width * field_width_scale) / 3. / np.sqrt(2.) for width in np.nditer(this_field_width)] # cm
-        this_plasticity_kernel = reduce(np.add, [plasticity_kernel(x, y, peak_loc[0], peak_loc[1], sigma, sigma)
-                                        for peak_loc, sigma in zip(this_peak_locs, this_sigmas)]) * this_peak_rate
-
-        this_plasticity_inputs = {}
-        src_gid_syn_dict = {}
-        for source in sources:
-            for src_gid in src_input_features[source]:
-                src_gid_syn_idwgts = src_syn_dict[source][src_gid]
-                src_gid_syn_dict[src_gid] = src_gid_syn_idwgts
-                src_gid_input_features = src_input_features[source][src_gid]
-                src_peak_rate = src_gid_input_features['Peak Rate']
-                src_rate_map = src_gid_input_features['Arena Rate Map']
-                norm_rate_map = src_rate_map / src_peak_rate
-                this_plasticity_inputs[src_gid] = norm_rate_map
-
-        plasticity_src_syn_dict = {}
-        for source in sources:
-            for src_gid in src_syn_dict[source]:
-                plasticity_src_syn_dict[src_gid] = src_syn_dict[source][src_gid]
-                        
-        this_peak_locs = zip(np.nditer(this_x_offset), np.nditer(this_y_offset))
-        logger.info('computing plasticity fit for gid %d: peak locs: %s field widths: %s' %
-                        (gid, str([x for x in this_peak_locs]), str(this_field_width)))
-        this_syn_weights = plasticity_fit(exp_phi, this_plasticity_kernel, this_plasticity_inputs, 
-                                              plasticity_src_syn_dict, logger, baseline_weight=baseline_weight, 
-                                              max_iter=max_iter, local_random=local_random, interactive=interactive)
+        inner_grid = gs[row, 1].subgridspec(2, 1)
         
-        this_syn_ids = sorted(this_syn_weights.keys())
-            
-        result = {'syn_id': np.array(this_syn_ids).astype('uint32', copy=False),
-                  synapse_name: np.array([this_syn_weights[syn_id] + baseline_weight
-                                              for syn_id in this_syn_ids]).astype('float32', copy=False) }
+        ax = fig.add_subplot(inner_grid[0])
+        p = ax.pcolormesh(arena_x, arena_y, flat_LS_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
+        ax.set_title(optimize_method, fontsize=default_font_size)
+        ax.set_xlabel('Arena location (x)')
+        fig.colorbar(p, ax=ax)
+        
+        ax = fig.add_subplot(inner_grid[1])
+        ax.pcolormesh(arena_x, arena_y, flat_reference_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
+        ax.set_title('Reference', fontsize=default_font_size)
+        ax.set_xlabel('Arena location (x)')
+    row += 1
+    
+    inner_grid = gs[row, 0].subgridspec(2, 2)
+    hist, _ = np.histogram(initial_weight_array, bins=edges, density=True)
+    ax = fig.add_subplot(inner_grid[0])
+    ax.semilogy(edges[:-1], hist, label='Initial weights')
+    ax.set_title('Initial weights')
+    #ax.set_xlim(-mean_initial_weight, max_delta_weight + 2. * mean_initial_weight)
+    ax.set_ylabel('Log probability')
+    hist, edges2 = np.histogram(np.add(SVD_delta_weights, mean_initial_weight), bins=2 * num_bins, density=True)
+    ax = fig.add_subplot(inner_grid[1])
+    ax.semilogy(edges2[:-1], hist, label='SVD')
+    ax.set_title('SVD')
+    hist, _ = np.histogram(np.add(initial_LS_delta_weights, mean_initial_weight), bins=edges, density=True)
+    ax = fig.add_subplot(inner_grid[2])
+    ax.semilogy(edges[:-1], hist, label='Truncated SVD')
+    ax.set_xlabel('Synaptic weight')
+    ax.set_title('Truncated SVD')
+    hist, _ = np.histogram(scaled_LS_weights, bins=edges, density=True)
+    ax = fig.add_subplot(inner_grid[3])
+    ax.semilogy(edges[:-1], hist, label=optimize_method)
+    ax.set_title(optimize_method)
+    if reference_weight_array is not None:
+        hist, _ = np.histogram(reference_weights, bins=edges, density=True)
+        ax.semilogy(edges[:-1], hist, label='Reference')
 
-    return result
-                
+    inner_grid = gs[row, 1].subgridspec(2, 2)
+    ax = fig.add_subplot(inner_grid[0])
+    p = ax.pcolormesh(arena_x, arena_y, flat_scaled_target_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax1)
+    ax.set_title('Target', fontsize=default_font_size)
+    ax.set_ylabel('Y position [cm]')
+    fig.colorbar(p, ax=ax)
+
+    ax = fig.add_subplot(inner_grid[1])
+    p = ax.pcolormesh(arena_x, arena_y, initial_background_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
+    ax.set_title('Initial', fontsize=default_font_size)
+    fig.colorbar(p, ax=ax)
+
+    ax = fig.add_subplot(inner_grid[2])
+    p = ax.pcolormesh(arena_x, arena_y, flat_SVD_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax1)
+    ax.set_title('SVD', fontsize=default_font_size)
+    ax.set_xlabel('X position [cm]')
+    fig.colorbar(p, ax=ax)
+
+    ax = fig.add_subplot(inner_grid[3])
+    p = ax.pcolormesh(arena_x, arena_y, flat_initial_LS_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax1)
+    ax.set_title('Truncated SVD', fontsize=default_font_size)
+    fig.colorbar(p, ax=ax)
+    row += 1
+
+    
+    fig.show()
+
+
+def get_activation_map_residual_mse(weights, input_matrix, target_map):
+    """
+
+    :param weights: array of float
+    :param input_matrix: 2d array of float
+    :param target_map: array of float
+    :return: float
+    """
+    activation_map = weights.dot(input_matrix)
+    mse = np.mean(np.square(np.subtract(target_map, activation_map)))
+
+    return mse
+    
+def generate_normalized_delta_weights(target_map, initial_weight_dict, input_rate_map_dict, syn_count_dict,
+                                      max_delta_weight=10., max_iter=100, target_amplitude=3., arena_x=None,
+                                      arena_y=None, reference_weight_dict=None, reference_weights_are_delta=False,
+                                      reference_weights_namespace='', optimize_method='L-BFGS-B',
+                                      verbose=False, plot=False):
+    """
+
+    :param target_map: array
+    :param initial_weight_dict: dict: {int: float}
+    :param input_rate_map_dict: dict: {int: array}
+    :param syn_count_dict: dict: {int: int}
+    :param max_weight: float
+    :param max_iter: int
+    :param SVD_beta: float
+    :param target_amplitude: float
+    :param arena_x: 2D array
+    :param arena_y: 2D array
+    :param reference_weight_dict: dict: {int: float}
+    :param reference_weights_are_delta: bool
+    :param reference_weights_namespace: str
+    :param optimize_method: str
+    :param verbose: bool
+    :param plot: bool
+    :return: dict: {int: float}
+    """
+    scaled_target_map = target_map - np.min(target_map)
+    scaled_target_map /= np.max(scaled_target_map)
+    scaled_target_map *= target_amplitude
+
+    flat_scaled_target_map = scaled_target_map.ravel()
+    input_matrix = np.empty((len(input_rate_map_dict), len(flat_scaled_target_map)))
+    source_gid_array = np.empty(len(input_rate_map_dict))
+    syn_count_array = np.empty(len(input_rate_map_dict))
+    initial_weight_array = np.empty(len(input_rate_map_dict))
+    if reference_weight_dict is None:
+        reference_weight_array = None
+    else:
+        reference_weight_array = np.empty(len(input_rate_map_dict))
+    for i, source_gid in enumerate(input_rate_map_dict):
+        source_gid_array[i] = source_gid
+        this_syn_count = syn_count_dict[source_gid]
+        input_matrix[i, :] = input_rate_map_dict[source_gid].ravel() * this_syn_count
+        syn_count_array[i] = this_syn_count
+        initial_weight_array[i] = initial_weight_dict[source_gid]
+        if reference_weight_array is not None:
+            reference_weight_array[i] = reference_weight_dict[source_gid]
+
+    mean_initial_weight = np.mean(initial_weight_array)
+    max_weight = mean_initial_weight + max_delta_weight
+    initial_background_map = initial_weight_array.dot(input_matrix)
+    scaling_factor = np.mean(initial_background_map)
+    if scaling_factor <= 0.:
+        raise RuntimeError('generate_structured_delta_weights: initial weights must produce positive activation')
+    initial_background_map /= scaling_factor
+    initial_background_map -= 1.
+
+    scaled_input_matrix = np.divide(input_matrix, scaling_factor)
+    [U, s, Vh] = np.linalg.svd(scaled_input_matrix)
+    V = Vh.T
+    D = np.zeros_like(input_matrix)
+    beta = np.mean(s)  # Previously, beta was provided by user, but should depend on scale if data is not normalized
+    D[np.where(np.eye(*D.shape))] = s / (s ** 2. + beta ** 2.)
+    input_matrix_inv = V.dot(D.conj().T).dot(U.conj().T)
+    SVD_delta_weights = flat_scaled_target_map.dot(input_matrix_inv)
+    flat_SVD_map = SVD_delta_weights.dot(scaled_input_matrix)
+
+    # bounds = (mean_initial_weight, max_weight)
+    bounds = (0., max_delta_weight)
+    initial_LS_delta_weights = np.maximum(np.minimum(SVD_delta_weights, bounds[1]), bounds[0])
+
+    if optimize_method == 'L-BFGS-B':
+        result = opt.minimize(get_activation_map_residual_mse, initial_LS_delta_weights,
+                            args=(scaled_input_matrix, flat_scaled_target_map), method='L-BFGS-B',
+                            bounds=[bounds] * len(initial_LS_delta_weights),
+                            options={'disp': verbose, 'maxiter': max_iter})
+    elif optimize_method == 'dogbox':
+        result = opt.least_squares(get_activation_map_residual_mse, initial_LS_delta_weights,
+                                args=(scaled_input_matrix, flat_scaled_target_map), bounds=bounds, method='dogbox',
+                                verbose=2 if verbose else 0, max_nfev=max_iter, ftol=5e-5)
+    else:
+        raise RuntimeError('generate_structured_delta_weights: optimization method: %s not implemented' %
+                           optimize_method)
+
+    LS_delta_weights = np.array(result.x)
+    normalized_delta_weights_array = LS_delta_weights / np.max(LS_delta_weights)
+    scaled_LS_weights = normalized_delta_weights_array * max_delta_weight + mean_initial_weight
+    flat_LS_map = scaled_LS_weights.dot(scaled_input_matrix) - 1.
+    normalized_delta_weights_dict = dict(zip(source_gid_array, normalized_delta_weights_array))
+
+    if plot:
+        flat_initial_LS_map = initial_LS_delta_weights.dot(scaled_input_matrix)
+        plot_callback_normalized_delta_weights(optimize_method = optimize_method,
+                                               arena_x = arena_x,
+                                               arena_y = arena_y,
+                                               bounds = bounds,
+                                               max_weight = max_weight,
+                                               SVD_delta_weights = SVD_delta_weights,
+                                               initial_LS_delta_weights = initial_LS_delta_weights,
+                                               scaled_LS_weights = scaled_LS_weights,
+                                               initial_weight_array = initial_weight_array,
+                                               flat_scaled_target_map = flat_scaled_target_map,
+                                               flat_SVD_map = flat_SVD_map,
+                                               flat_initial_LS_map = flat_initial_LS_map,
+                                               flat_LS_map = flat_LS_map,
+                                               initial_background_map = initial_background_map,
+                                               reference_weight_array = reference_weight_array,
+                                               reference_weights_are_delta = reference_weights_are_delta)
+
+
+    return normalized_delta_weights_dict
