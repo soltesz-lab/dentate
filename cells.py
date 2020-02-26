@@ -2355,7 +2355,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
                                           for weights_namespace in weights_namespaces]
                 cell_ns_weights_iter = zip_longest(weights_namespaces, cell_weights_iters)
 
-        overwrite_weights = 'error'
+        multiple_weights = 'error'
         for weights_namespace, cell_weights_iter in cell_ns_weights_iter:
             first_gid = None
             weights_scale = weights_scales.get(weights_namespace, 1.0)
@@ -2369,11 +2369,11 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
                     syn_attrs.add_mech_attrs_from_iter(
                         gid, syn_name,
                         zip_longest(weights_syn_ids, map(lambda x: {'weight': weights_scale*x + weights_offset}, weights_values)),
-                        overwrite=overwrite_weights)
+                        multiple=multiple_weights)
                     if first_gid == gid:
                         logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights' %
                                     (gid, len(cell_weights_dict[syn_name]), syn_name))
-            overwrite_weights='skip'
+            multiple_weights='skip'
 
 
     if load_edges:

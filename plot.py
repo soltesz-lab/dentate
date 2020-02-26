@@ -1739,12 +1739,14 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
                     cell_state += np.asarray(cell_state_mat[1][i,:]).reshape((n,))
                 line, = ax.plot(cell_state_mat[0], cell_state)
                 stplots.append(line)
+                logger.info('plot_state: mean value is %.02f' % np.mean(cell_state))
             else:
                 for i in range(m):
-                    line, = ax.plot(cell_state_mat[0],
-                                    np.asarray(cell_state_mat[1][i,:]).reshape((n,)),
+                    cell_state = np.asarray(cell_state_mat[1][i,:]).reshape((n,))
+                    line, = ax.plot(cell_state_mat[0], cell_state,
                                     label='%s (%s um)' % (cell_state_mat[2][i], cell_state_mat[3][i]))
                     stplots.append(line)
+                    logger.info('plot_state: mean value is of state %d is %.02f' % (i, np.mean(cell_state)))
             ax.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
             ax.set_ylabel(state_variable, fontsize=fig_options.fontSize)
             #ax.legend()

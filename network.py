@@ -114,6 +114,8 @@ def connect_cells(env):
         else:
             has_weights = False
 
+        weights_scales = synapse_config.get('weights scale', {})
+        weights_offsets = synapse_config.get('weights offset', {})
 
         if rank == 0:
             logger.info('*** Reading synaptic attributes of population %s' % (postsyn_name))
@@ -154,10 +156,12 @@ def connect_cells(env):
                                                                 comm=env.comm, node_rank_map=env.node_ranks,
                                                                 io_size=env.io_size, return_type='tuple')
                 
-            overwrite_weights = 'error'
+            multiple_weights = 'error'
             for weights_namespace in weights_namespaces:
                 syn_weights_iter, weight_attr_info = weight_attr_dict[weights_namespace]
                 first_gid = None
+                weights_scale = weights_scales.get(weights_namespace, 1.0)
+                weights_offset = weights_offsets.get(weights_namespace, 0.0)
                 syn_id_index = weight_attr_info.get('syn_id', None)
                 syn_name_inds = [(syn_name, attr_index) for syn_name, attr_index in sorted(viewitems(weight_attr_info)) if syn_name != 'syn_id']
                 for gid, cell_weights_tuple in syn_weights_iter:
@@ -174,11 +178,12 @@ def connect_cells(env):
                             weights_values = cell_weights_tuple[syn_name_index]
                             syn_attrs.add_mech_attrs_from_iter(gid, syn_name,
                                                                zip_longest(weights_syn_ids,
-                                                                           [{'weight': x} for x in weights_values]), overwrite=overwrite_weights)
+                                                                           [{'weight': weights_scale*x + weights_offset} for x in weights_values]),
+                                                               multiple=multiple_weights)
                             if rank == 0 and gid == first_gid:
                                 logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
                                             (postsyn_name, gid, len(weights_values), syn_name, weights_namespace))
-                overwrite_weights='skip'
+                multiple_weights='skip'
                 del weight_attr_dict[weights_namespace]
 
 
@@ -349,6 +354,9 @@ def connect_cell_selection(env):
         else:
             has_weights = False
 
+        weights_scales = synapse_config.get('weights scale', {})
+        weights_offsets = synapse_config.get('weights offset', {})
+
         if 'mech file_path' in env.celltypes[postsyn_name]:
             mech_file_path = env.celltypes[postsyn_name]['mech_file_path']
         else:
@@ -369,7 +377,7 @@ def connect_cell_selection(env):
                 logger.info('*** Reading synaptic weights of population %s from namespaces %s' % (postsyn_name, str(weights_namespaces)))
             weight_attr_mask = list(syn_attrs.syn_mech_names)
             weight_attr_mask.append('syn_id')
-            overwrite_weights='error'
+            multiple_weights='error'
             for weights_namespace in weights_namespaces:
                 syn_weights_iter, weight_attr_info = read_cell_attribute_selection(forest_file_path, postsyn_name,
                                                                                    selection=gid_range, 
@@ -384,6 +392,8 @@ def connect_cell_selection(env):
                 for gid, cell_weights_tuple in syn_weights_iter:
                     if first_gid is None:
                         first_gid = gid
+                    weights_scale = weights_scales.get(weights_namespace, 1.0)
+                    weights_offset = weights_offsets.get(weights_namespace, 0.0)
                     weights_syn_ids = cell_weights_tuple[syn_id_index]
                     for syn_name, syn_name_index in syn_name_inds:
                         if syn_name not in syn_attrs.syn_mech_names:
@@ -394,12 +404,13 @@ def connect_cell_selection(env):
                         else:
                             weights_values = cell_weights_tuple[syn_name_index]
                             syn_attrs.add_mech_attrs_from_iter(gid, syn_name, \
-                                                                   zip_longest(weights_syn_ids, \
-                                                                                   [{'weight': x} for x in weights_values]), overwrite=overwrite_weights)
+                                                               zip_longest(weights_syn_ids, \
+                                                                           [{'weight': weights_scale*x + weights_offset} for x in weights_values]),
+                                                               multiple=multiple_weights)
                             if rank == 0 and gid == first_gid:
                                 logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
                                             (postsyn_name, gid, len(weights_values), syn_name, weights_namespace))
-                overwrite_weights='skip'
+                multiple_weights='skip'
                 del syn_weights_iter
 
                 

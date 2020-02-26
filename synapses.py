@@ -459,7 +459,7 @@ class SynapseAttributes(object):
             else:
                 return None
 
-    def add_mech_attrs(self, gid, syn_id, syn_name, params):
+    def add_mech_attrs(self, gid, syn_id, syn_name, params, append=False):
         """
         Specifies mechanism attribute dictionary for the given cell id/synapse id/mechanism name. Assumes mechanism
         attributes have not been set yet for this synapse mechanism.
@@ -468,20 +468,10 @@ class SynapseAttributes(object):
         :param syn_id: synapse id
         :param syn_name: synapse mechanism name
         :param params: dict
+        :param append: whether to append attribute values with the same attribute name
         """
-        syn_index = self.syn_name_index_dict[syn_name]
-        syn_id_dict = self.syn_id_attr_dict[gid]
-        syn = syn_id_dict[syn_id]
-        attr_dict = syn.attr_dict[syn_index]
-        for k, v in viewitems(params):
-            if k in attr_dict:
-                raise RuntimeError('add_mech_attrs: gid %i synapse id %i mechanism %s already has parameter %s' %
-                                   (gid, syn_id, syn_name, str(k)))
-            if v is None:
-                raise RuntimeError('add_mech_attrs: gid %i synapse id %i mechanism %s parameter %s has no value' %
-                                   (gid, syn_id, syn_name, str(k)))
-            attr_dict[k] = v
-
+        self.add_mech_attrs_from_iter(gid, syn_name, iter({syn_id: params}), multiple='error', append=append)
+        
     def modify_mech_attrs(self, pop_name, gid, syn_id, syn_name, params,
                           update_operator=lambda gid, syn_id, old, new: new):
         """
@@ -551,14 +541,19 @@ class SynapseAttributes(object):
                 raise RuntimeError('modify_mech_attrs: unknown type of parameter %s' % k)
         syn.attr_dict[syn_index] = attr_dict
 
-    def add_mech_attrs_from_iter(self, gid, syn_name, params_iter, overwrite='error'):
+    def add_mech_attrs_from_iter(self, gid, syn_name, params_iter, multiple='error', append=False):
         """
         Adds mechanism attributes for the given cell id/synapse id/synapse mechanism.
 
         :param gid: cell id
         :param syn_id: synapse id
         :param syn_name: synapse mechanism name
-        :param params: dict
+        :param params_iter: iterator
+        :param multiple: behavior when an attribute value is provided for a synapse that already has attributes:
+               - 'error' (default): raise an error
+               - 'skip': do not update attribute value
+               - 'overwrite': overwrite value
+        :param append: whether to append attribute values with the same attribute name
         """
         syn_index = self.syn_name_index_dict[syn_name]
         syn_id_dict = self.syn_id_attr_dict[gid]
@@ -568,22 +563,24 @@ class SynapseAttributes(object):
                 raise RuntimeError('add_mech_attrs_from_iter: '
                                    'gid %i synapse id %i has not been created yet' % (gid, syn_id))
             if syn_index in syn.attr_dict:
-                if overwrite == 'error':
+                if multiple == 'error':
                     raise RuntimeError('add_mech_attrs_from_iter: '
                                        'gid %i Synapse id %i mechanism %s already has parameters' % (gid, syn_id, syn_name))
-                elif overwrite == 'skip':
+                elif multiple == 'skip':
                     continue
-                elif overwrite == 'overwrite':
+                elif multiple == 'overwrite':
                     pass
                 else:
-                    raise RuntimeError('add_mech_attrs_from_iter: unknown overwrite value %s' % overwrite)
+                    raise RuntimeError('add_mech_attrs_from_iter: unknown multiple value %s' % multiple)
 
             attr_dict = syn.attr_dict[syn_index]
             for k, v in viewitems(params_dict):
                 if v is None:
-                    raise RuntimeError('add_mech_attrs_from_iter: gid %i synapse id %i mechanism %s parameter %s has no value' %
-                                       (gid, syn_id, syn_name, str(k)))
-                attr_dict[k] = v
+                    raise RuntimeError('add_mech_attrs_from_iter: gid %i synapse id %i mechanism %s parameter %s has no value' % (gid, syn_id, syn_name, str(k)))
+                if append:
+                    attr_dict[k] = attr_dict.get(k, [])+[v]
+                else:
+                    attr_dict[k] = v
 
     def filter_synapses(self, gid, syn_sections=None, syn_indexes=None, syn_types=None, layers=None, sources=None,
                         swc_types=None, cache=False):
@@ -1077,7 +1074,8 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
                     old = nc.weight[i]
                     if isinstance(val, ExprClosure):
                         if val.parameter == 'delay':
-                            nc.weight[i] = val(nc.delay)
+                            new = val(nc.delay)
+                            nc.weight[i] = new
                             nc_param = True
                             failed = False
                         else:
@@ -1086,8 +1084,8 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
                         if val is None:
                             raise AttributeError('config_syn: netcon attribute %s is None for synaptic mechanism: %s' %
                                                  (param, mech_name))
-                            
-                        nc.weight[i] = val
+                        new = val
+                        nc.weight[i] = new
                         nc_param = True
                         failed = False
         if failed:

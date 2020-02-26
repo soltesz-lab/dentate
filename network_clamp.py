@@ -368,75 +368,6 @@ def run_with(env, param_dict, cvode=False):
     return spikedata.get_env_spike_dict(env, include_artificial=None)
 
 
-def make_state_target(env, pop_name, gid, state_variable, target_val, from_param_vector):
-    def gid_state_value(spkdict, gid, t_offset, t_rec, state_recs):
-        time_vec = np.asarray(t_rec.to_python(), dtype=np.float32) - t_offset
-        t_inds = np.where(time_vec > 0.)[0]
-        state_values = []
-        for rec in state_recs:
-            vec = np.asarray(rec['vec'].to_python(), dtype=np.float32)
-            data = vec[t_inds]
-            state_values.append(np.mean(data))
-        m = np.mean(np.asarray(state_values))
-        logger.info('state value objective: mean value of %s of gid %i is %.2f' % (state_variable, gid, m))
-        return m
-
-    equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
-
-    recording_profile = { 'label': 'network_clamp.state.%s' % state_variable,
-                          'dt': 0.1,
-                          'section quantity': {
-                              state_variable: { 'swc types': ['soma'] }
-                            }
-                        }
-    env.recording_profile = recording_profile
-    state_recs = record_cell(env, pop_name, gid, recording_profile=recording_profile)
-
-    f = lambda *v: (abs(gid_state_value(run_with(env, {pop_name: {gid: from_param_vector(v)}}), gid,
-                            equilibration_duration, env.t_rec, state_recs) - target_val))
-
-    return f
-
-def make_firing_rate_target(env, pop_name, gid, target_rate, from_param_vector):
-    def gid_firing_rate(spkdict, gid):
-        if gid in spkdict[pop_name]:
-            spkdict1 = {gid: spkdict[pop_name][gid]}
-        else:
-            spkdict1 = {gid: np.asarray([], dtype=np.float32)}
-        rate_dict = spikedata.spike_rates(spkdict1)
-        if gid in spkdict[pop_name]:
-            logger.info('firing rate objective: spikes times of gid %i: %s' % (gid, pprint.pformat(spkdict[pop_name][gid])))
-        logger.info('firing rate objective: rate of gid %i is %.2f' % (gid, rate_dict[gid]))
-        return rate_dict[gid]['rate']
-
-    f = lambda *v: (abs(gid_firing_rate(run_with(env, {pop_name: {gid: from_param_vector(v)}}), gid) - target_rate))
-
-    return f
-
-
-def make_firing_rate_vector_target(env, pop_name, gid, target_rate_vector, time_bins, from_param_vector):
-    def gid_firing_rate_vector(spkdict, gid):
-        if gid in spkdict[pop_name]:
-            spkdict1 = {gid: spkdict[pop_name][gid]}
-        else:
-            spkdict1 = {gid: np.asarray([], dtype=np.float32)}
-        rate_dict = spikedata.spike_rates(spkdict1)
-        spike_density_dict = spikedata.spike_density_estimate (pop_name, spkdict1, time_bins)
-        if gid in spkdict[pop_name]:
-            rate = spike_density_dict[gid]['rate']
-            logger.info('firing rate objective: spike times of gid %i: %s' % (gid, str(spkdict[pop_name][gid])))
-            logger.info('firing rate objective: firing rate of gid %i: %s' % (gid, str(rate)))
-            logger.info('firing rate objective: min/max rates of gid %i are %.2f / %.2f Hz' % (gid, np.min(rate), np.max(rate)))
-        return spike_density_dict[gid]['rate']
-    logger.info("firing rate objective: target time bins: %s" % str(time_bins))
-    logger.info("firing rate objective: target vector: %s" % str(target_rate_vector))
-    logger.info("firing rate objective: target rate vector min/max is %.2f Hz (%.2f ms) / %.2f Hz (%.2f ms)" % (np.min(target_rate_vector), time_bins[np.argmin(target_rate_vector)], np.max(target_rate_vector), time_bins[np.argmax(target_rate_vector)]))
-    f = lambda *v: (mse(gid_firing_rate_vector(run_with(env, {pop_name: {gid: from_param_vector(v)}}), gid), target_rate_vector))
-
-    return f
-
-
-
 def modify_scaled_syn_param(env, gid, syn_id, old_val, new_val):
     syn_name = env.syn_name
     syn_index = env.syn_index
@@ -534,8 +465,57 @@ def optimize_params(env, pop_name, param_type):
     return param_bounds, param_names, param_initial_dict, param_range_tuples
 
 
-def optimize_state(env, pop_name, gid, state_variable, opt_iter=10, param_type='synaptic'):
-    import dlib
+def init_state_objfun(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, param_type, recording_profile, state_variable, target_value, **kwargs):
+
+    params = dict(locals())
+    env = Env(**params)
+    env.results_file_path = None
+    configure_hoc_env(env)
+    init(env, population, gid, spike_events_path, 
+         generate_inputs_pops=set(generate_inputs), 
+         generate_weights_pops=set(generate_weights), 
+         spike_events_namespace=spike_events_namespace, 
+         t_var=spike_events_t, t_min=t_min, t_max=t_max)
+
+    time_step = env.stimulus_config['Temporal Resolution']
+    equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
+    
+    param_bounds, param_names, param_initial_dict, param_range_tuples = optimize_params(env, population, param_type)
+    
+    def from_param_dict(params_dict):
+        result = []
+        for param_pattern, (update_operator, population, source, sec_type, syn_name, param_name, param_range) in zip(param_names, param_range_tuples):
+            result.append((update_operator, population, source, sec_type, syn_name, param_name, params_dict[param_pattern]))
+        return result
+
+    def gid_state_value(spkdict, gid, t_offset, t_rec, state_recs):
+        time_vec = np.asarray(t_rec.to_python(), dtype=np.float32) - t_offset
+        t_inds = np.where(time_vec > 0.)[0]
+        state_values = []
+        for rec in state_recs:
+            vec = np.asarray(rec['vec'].to_python(), dtype=np.float32)
+            data = vec[t_inds]
+            state_values.append(np.mean(data))
+        m = np.mean(np.asarray(state_values))
+        logger.info('state value objective: mean value of %s of gid %i is %.2f' % (state_variable, gid, m))
+        return m
+
+    recording_profile = { 'label': 'network_clamp.state.%s' % state_variable,
+                          'dt': 0.1,
+                          'section quantity': {
+                              state_variable: { 'swc types': ['soma'] }
+                            }
+                        }
+    env.recording_profile = recording_profile
+    state_recs = record_cell(env, population, gid, recording_profile=recording_profile)
+
+    f = lambda **v: (-abs(gid_state_value(run_with(env, {population: {gid: from_param_dict(v)}}), gid,
+                            equilibration_duration, env.t_rec, state_recs) - target_value))
+    return f
+
+
+def optimize_state(env, tstop, pop_name, gid, state_variable, opt_iter=10, solver_epsilon=1e-2, param_type='synaptic', init_params={}, results_file=None, verbose=False):
+    import distgfs
 
     if (pop_name in env.netclamp_config.optimize_parameters[param_type]):
         opt_params = env.netclamp_config.optimize_parameters[param_type][pop_name]
@@ -545,38 +525,91 @@ def optimize_state(env, pop_name, gid, state_variable, opt_iter=10, param_type='
         raise RuntimeError(
             "network_clamp.optimize_state: population %s does not have optimization configuration" % pop_name)
 
+    init_params['target_value'] = opt_target
+    init_params['state_variable'] = state_variable
     param_bounds, param_names, param_initial_dict, param_range_tuples = optimize_params(env, pop_name, param_type)
-
-    def from_param_vector(params):
-        result = []
-        assert (len(params) == len(param_range_tuples))
-        for i, (update_operator, pop_name, source, sec_type, syn_name, param_name, param_range) in enumerate(param_range_tuples):
-            result.append((update_operator, pop_name, source, sec_type, syn_name, param_name, params[i]))
-        return result
-
-    def to_param_vector(params):
-        result = []
-        for (update_operator, destination, source, sec_type, syn_name, param_name, param_value) in params:
-            result.append(param_value)
-        return result
-
-    min_values = [(update_operator, pop_name, source, sec_type, syn_name, param_name, param_range[0]) for
-                  update_operator, pop_name, source, sec_type, syn_name, param_name, param_range in param_range_tuples]
-    max_values = [(update_operator, pop_name, source, sec_type, syn_name, param_name, param_range[1]) for
-                  update_operator, pop_name, source, sec_type, syn_name, param_name, param_range in param_range_tuples]
     
-    f_state = make_state_target(env, pop_name, gid, state_variable, opt_target, from_param_vector)
-    opt_params, outputs = dlib.find_min_global(f_state, to_param_vector(min_values), to_param_vector(max_values),
-                                               opt_iter)
+    hyperprm_space = { param_pattern: [param_range[0], param_range[1]]
+                       for param_pattern, (update_operator, pop_name, source, sec_type, syn_name, _, param_range) in
+                           zip(param_names, param_range_tuples) }
 
-    logger.info('Optimized parameters: %s' % pprint.pformat(from_param_vector(opt_params)))
+    logger.info('network_clamp.optimize_state: init_params = %s' % pprint.pformat(init_params))
+    # Create an optimizer parameter set
+    if results_file is None:
+        if env.results_path is not None:
+            file_path = '%s/distgfs.network_clamp.%s.h5' % (env.results_path, str(env.results_file_id))
+        else:
+            file_path = 'distgfs.network_clamp.%s.h5' % (str(env.results_file_id))
+    else:
+        file_path = '%s/%s' % (env.results_path, results_file)
+        
+    distgfs_params = {'opt_id': 'network_clamp.state',
+                      'obj_fun_init_name': 'init_state_objfun',
+                      'obj_fun_init_module': 'dentate.network_clamp',
+                      'obj_fun_init_args': init_params,
+                      'reduce_fun_name': 'distgfs_reduce_fun',
+                      'reduce_fun_module': 'dentate.network_clamp',
+                      'problem_parameters': {},
+                      'space': hyperprm_space,
+                      'file_path': file_path,
+                      'save': True,
+                      'n_iter': opt_iter,
+                      'solver_epsilon': solver_epsilon }
+
+    opt_params, outputs = distgfs.run(distgfs_params, spawn_workers=True, verbose=verbose)
+    
+    logger.info('Optimized parameters: %s' % pprint.pformat(opt_params))
     logger.info('Optimized objective function: %s' % pprint.pformat(outputs))
-    
-    
+
     return opt_params, outputs
+
+
+
+def init_rate_objfun(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, param_type, recording_profile, target_rate, **kwargs):
+
+    params = dict(locals())
+    env = Env(**params)
+    env.results_file_path = None
+    configure_hoc_env(env)
+    init(env, population, gid, spike_events_path, 
+         generate_inputs_pops=set(generate_inputs), 
+         generate_weights_pops=set(generate_weights), 
+         spike_events_namespace=spike_events_namespace, 
+         t_var=spike_events_t, t_min=t_min, t_max=t_max)
+
+    time_step = env.stimulus_config['Temporal Resolution']
+    equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
+
+    param_bounds, param_names, param_initial_dict, param_range_tuples = optimize_params(env, population, param_type)
     
-def optimize_rate(env, pop_name, gid, opt_iter=10, param_type='synaptic'):
-    import dlib
+    def from_param_dict(params_dict):
+        result = []
+        for param_pattern, (update_operator, population, source, sec_type, syn_name, param_name, param_range) in zip(param_names, param_range_tuples):
+            result.append((update_operator, population, source, sec_type, syn_name, param_name, params_dict[param_pattern]))
+        return result
+
+    def gid_firing_rate(spkdict, gid):
+        if gid in spkdict[pop_name]:
+            spkdict1 = {gid: spkdict[pop_name][gid]}
+        else:
+            spkdict1 = {gid: np.asarray([], dtype=np.float32)}
+        rate_dict = spikedata.spike_rates(spkdict1)
+        if gid in spkdict[pop_name]:
+            logger.info('firing rate objective: spikes times of gid %i: %s' % (gid, pprint.pformat(spkdict[pop_name][gid])))
+        logger.info('firing rate objective: rate of gid %i is %.2f' % (gid, rate_dict[gid]))
+        return rate_dict[gid]['rate']
+
+    logger.info("firing rate objective: target rate: %.02f" % target_rate)
+
+    f = lambda **v: (-abs(gid_firing_rate(run_with(env, {population: {gid: from_param_dict(v)}}), gid) -
+                         target_rate))
+
+    return f
+
+
+def optimize_rate(env, tstop, pop_name, gid, opt_iter=10, solver_epsilon=1e-2, param_type='synaptic', init_params={},
+                       results_file=None, verbose=False):
+    import distgfs
 
     if (pop_name in env.netclamp_config.optimize_parameters[param_type]):
         opt_params = env.netclamp_config.optimize_parameters[param_type][pop_name]
@@ -586,99 +619,49 @@ def optimize_rate(env, pop_name, gid, opt_iter=10, param_type='synaptic'):
         raise RuntimeError(
             "network_clamp.optimize_rate: population %s does not have optimization configuration" % pop_name)
 
-
+    init_params['target_rate'] = opt_target
     param_bounds, param_names, param_initial_dict, param_range_tuples = optimize_params(env, pop_name, param_type)
-
-    def from_param_vector(params):
-        result = []
-        assert (len(params) == len(param_range_tuples))
-        for i, (update_operator, pop_name, source, sec_type, syn_name, param_name, param_range) in enumerate(param_range_tuples):
-            result.append((update_operator, pop_name, source, sec_type, syn_name, param_name, params[i]))
-        return result
-
-    def to_param_vector(params):
-        result = []
-        for (update_operator, destination, source, sec_type, syn_name, param_name, param_value) in params:
-            result.append(param_value)
-        return result
-
-    min_values = [(update_operator, pop_name, source, sec_type, syn_name, param_name, param_range[0]) for
-                  update_operator, pop_name, source, sec_type, syn_name, param_name, param_range in param_range_tuples]
-    max_values = [(update_operator, pop_name, source, sec_type, syn_name, param_name, param_range[1]) for
-                  update_operator, pop_name, source, sec_type, syn_name, param_name, param_range in param_range_tuples]
     
-    f_firing_rate = make_firing_rate_target(env, pop_name, gid, opt_target, time_bins, from_param_vector)
-    opt_params, outputs = dlib.find_min_global(f_firing_rate, to_param_vector(min_values), to_param_vector(max_values),
-                                               opt_iter)
+    hyperprm_space = { param_pattern: [param_range[0], param_range[1]]
+                       for param_pattern, (update_operator, pop_name, source, sec_type, syn_name, _, param_range) in
+                           zip(param_names, param_range_tuples) }
 
-    logger.info('Optimized parameters: %s' % pprint.pformat(from_param_vector(opt_params)))
+    logger.info('network_clamp.optimize_rate: init_params = %s' % pprint.pformat(init_params))
+    # Create an optimizer parameter set
+    if results_file is None:
+        if env.results_path is not None:
+            file_path = '%s/distgfs.network_clamp.%s.h5' % (env.results_path, str(env.results_file_id))
+        else:
+            file_path = 'distgfs.network_clamp.%s.h5' % (str(env.results_file_id))
+    else:
+        file_path = '%s/%s' % (env.results_path, results_file)
+        
+    distgfs_params = {'opt_id': 'network_clamp.rate',
+                      'obj_fun_init_name': 'init_rate_objfun',
+                      'obj_fun_init_module': 'dentate.network_clamp',
+                      'obj_fun_init_args': init_params,
+                      'reduce_fun_name': 'distgfs_reduce_fun',
+                      'reduce_fun_module': 'dentate.network_clamp',
+                      'problem_parameters': {},
+                      'space': hyperprm_space,
+                      'file_path': file_path,
+                      'save': True,
+                      'n_iter': opt_iter,
+                      'solver_epsilon': solver_epsilon }
+
+    opt_params, outputs = distgfs.run(distgfs_params, spawn_workers=True, verbose=verbose)
+    
+    logger.info('Optimized parameters: %s' % pprint.pformat(opt_params))
     logger.info('Optimized objective function: %s' % pprint.pformat(outputs))
-    
-    
+
     return opt_params, outputs
 
 
 def optimize_rate_dist(env, tstop, pop_name, gid, 
                        target_rate_map_path, target_rate_map_namespace,
                        target_rate_map_arena, target_rate_map_trajectory,
-                       opt_iter=10, param_type='synaptic'):
-    import dlib
-
-    time_step = env.stimulus_config['Temporal Resolution']
-    equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
-
-    input_namespace = '%s %s %s' % (target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory)
-    it = read_cell_attribute_selection(target_rate_map_path, pop_name, namespace=input_namespace,
-                                        selection=[gid], mask=set(['Trajectory Rate Map']))
-    trj_rate_map = dict(it)[gid]['Trajectory Rate Map']
-
-    trj_x, trj_y, trj_d, trj_t = stimulus.read_trajectory(target_rate_map_path, target_rate_map_arena, target_rate_map_trajectory)
-
-    time_range = (0., min(np.max(trj_t), tstop))
-    
-    interp_trj_t = np.arange(time_range[0], time_range[1], time_step)
-    interp_trj_rate_map = np.interp(interp_trj_t, trj_t, trj_rate_map)
-
-    logger.info("max interp_trj_t = %s" % pprint.pformat(interp_trj_t[np.argwhere(interp_trj_rate_map==np.max(interp_trj_rate_map))]))
-    logger.info("max interp_trj_rate_map = %s" % pprint.pformat(np.max(interp_trj_rate_map)))
-    param_bounds, param_names, param_initial_dict, param_range_tuples = optimize_params(env, pop_name, param_type)
-    
-    def from_param_vector(params):
-        result = []
-        assert (len(params) == len(param_range_tuples))
-        for i, (update_operator, pop_name, source, sec_type, syn_name, param_name, param_range) in enumerate(param_range_tuples):
-            result.append((update_operator, pop_name, source, sec_type, syn_name, param_name, params[i]))
-        return result
-
-    def to_param_vector(params):
-        result = []
-        for (update_operator, destination, source, sec_type, syn_name, param_name, param_value) in params:
-            result.append(param_value)
-        return result
-
-    min_values = [(update_operator, pop_name, source, sec_type, syn_name, param_name, param_range[0]) for
-                  update_operator, pop_name, source, sec_type, syn_name, param_name, param_range in
-                      param_range_tuples]
-    max_values = [(update_operator, pop_name, source, sec_type, syn_name, param_name, param_range[1]) for
-                  update_operator, pop_name, source, sec_type, syn_name, param_name, param_range in
-                      param_range_tuples]
-    
-    f_firing_rate_vector = make_firing_rate_vector_target(env, pop_name, gid, interp_trj_rate_map, interp_trj_t, from_param_vector)
-    opt_params, outputs = dlib.find_min_global(f_firing_rate_vector, to_param_vector(min_values), to_param_vector(max_values),
-                                               opt_iter)
-
-    logger.info('Optimized parameters: %s' % pprint.pformat(from_param_vector(opt_params)))
-    logger.info('Optimized objective function: %s' % pprint.pformat(outputs))
-    logger.info('Optimized result: %s' % pprint.pformat(f_firing_rate_vector(*opt_params)))
-
-    return opt_params, outputs
-
-
-def optimize_rate_dist_distgfs(env, tstop, pop_name, gid, 
-                               target_rate_map_path, target_rate_map_namespace,
-                               target_rate_map_arena, target_rate_map_trajectory,
-                               opt_iter=10, param_type='synaptic', init_params={},
-                               results_file=None):
+                       opt_iter=10, solver_epsilon=1e-2, param_type='synaptic', init_params={},
+                       results_file=None, verbose=False):
     import distgfs
 
     param_bounds, param_names, param_initial_dict, param_range_tuples = optimize_params(env, pop_name, param_type)
@@ -687,7 +670,7 @@ def optimize_rate_dist_distgfs(env, tstop, pop_name, gid,
                        for param_pattern, (update_operator, pop_name, source, sec_type, syn_name, _, param_range) in
                            zip(param_names, param_range_tuples) }
 
-    pprint.pprint(init_params)
+    logger.info('network_clamp.optimize_rate_dist: init_params = %s' % pprint.pformat(init_params))
     # Create an optimizer parameter set
     if results_file is None:
         if env.results_path is not None:
@@ -697,7 +680,7 @@ def optimize_rate_dist_distgfs(env, tstop, pop_name, gid,
     else:
         file_path = '%s/%s' % (env.results_path, results_file)
     distgfs_params = {'opt_id': 'network_clamp.rate_dist',
-                      'obj_fun_init_name': 'init_distgfs_objfun',
+                      'obj_fun_init_name': 'init_rate_dist_objfun',
                       'obj_fun_init_module': 'dentate.network_clamp',
                       'obj_fun_init_args': init_params,
                       'reduce_fun_name': 'distgfs_reduce_fun',
@@ -706,19 +689,19 @@ def optimize_rate_dist_distgfs(env, tstop, pop_name, gid,
                       'space': hyperprm_space,
                       'file_path': file_path,
                       'save': True,
-                      'n_iter': opt_iter}
+                      'n_iter': opt_iter,
+                      'solver_epsilon': solver_epsilon }
 
-    opt_params, outputs = distgfs.run(distgfs_params, spawn_workers=True, verbose=True)
+    opt_params, outputs = distgfs.run(distgfs_params, spawn_workers=True, verbose=verbose)
     
     logger.info('Optimized parameters: %s' % pprint.pformat(opt_params))
     logger.info('Optimized objective function: %s' % pprint.pformat(outputs))
-    logger.info('Optimized result: %s' % pprint.pformat(f_firing_rate_vector(*opt_params)))
 
     return opt_params, outputs
 
 
-def init_distgfs_objfun(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter,
-             template_paths, dataset_prefix, config_prefix, results_file_id, results_path, spike_events_path, spike_events_namespace, spike_events_t,
+def init_rate_dist_objfun(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter,
+             template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t,
              param_type, recording_profile, target_rate_map_path, target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory,
              **kwargs):
 
@@ -772,7 +755,7 @@ def init_distgfs_objfun(config_file, population, gid, generate_inputs, generate_
     logger.info("firing rate objective: target time bins: %s" % str(time_bins))
     logger.info("firing rate objective: target vector: %s" % str(target_rate_vector))
     logger.info("firing rate objective: target rate vector min/max is %.2f Hz (%.2f ms) / %.2f Hz (%.2f ms)" % (np.min(target_rate_vector), time_bins[np.argmin(target_rate_vector)], np.max(target_rate_vector), time_bins[np.argmax(target_rate_vector)]))
-    f = lambda **v: (mse(gid_firing_rate_vector(run_with(env, {population: {gid: from_param_dict(v)}}), gid),
+    f = lambda **v: (-mse(gid_firing_rate_vector(run_with(env, {population: {gid: from_param_dict(v)}}), gid),
                          target_rate_vector))
 
     return f
@@ -965,9 +948,11 @@ def optimize(config_file, population, gid, generate_inputs, generate_weights, t_
         results_file_id = uuid.uuid4()
         
     results_file_id = comm.bcast(results_file_id, root=0)
-
+    
     np.seterr(all='raise')
-    verbose = True
+    verbose = False
+    if rank == 0 or rank == 1:
+        verbose = True
     cache_queries = True
     params = dict(locals())
     env = Env(**params)
@@ -981,21 +966,23 @@ def optimize(config_file, population, gid, generate_inputs, generate_weights, t_
             t_var=spike_events_t, t_min=t_min, t_max=t_max)
 
     if target == 'rate':
-        optimize_rate(env, population, gid, opt_iter=opt_iter, param_type=param_type)
+        optimize_rate(env, tstop, population, gid, 
+                      opt_iter=opt_iter, param_type=param_type,
+                      init_params=init_params, results_file=results_file,
+                      verbose=verbose)
     elif target == 'ratedist' or target == 'rate_dist':
-        if size > 1:
-            optimize_rate_dist_distgfs(env, tstop, population, gid, 
-                                       target_rate_map_path, target_rate_map_namespace,
-                                       target_rate_map_arena, target_rate_map_trajectory,
-                                       opt_iter=opt_iter, param_type=param_type,
-                                       init_params=init_params, results_file=results_file)
-        else:
-            optimize_rate_dist(env, tstop, population, gid, 
-                               target_rate_map_path, target_rate_map_namespace,
-                               target_rate_map_arena, target_rate_map_trajectory,
-                               opt_iter=opt_iter, param_type=param_type)
+        optimize_rate_dist(env, tstop, population, gid, 
+                           target_rate_map_path, target_rate_map_namespace,
+                           target_rate_map_arena, target_rate_map_trajectory,
+                           opt_iter=opt_iter, param_type=param_type,
+                           init_params=init_params, results_file=results_file,
+                           verbose=verbose)
     elif target == 'state':
-        optimize_state(env, population, gid, target_state_variable, opt_iter=opt_iter, param_type=param_type)
+        optimize_state(env, tstop, population, gid,
+                       state_variable=target_state_variable, 
+                       opt_iter=opt_iter, param_type=param_type,
+                       init_params=init_params, results_file=results_file,
+                       verbose=verbose)
     else:
         raise RuntimeError('network_clamp.optimize: unknown optimization target %s' % \
                            target)

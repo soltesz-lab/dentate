@@ -3,7 +3,7 @@ import copy, datetime, gc, itertools, logging, math, numbers, os.path, importlib
 import pprint, string, sys, time
 from builtins import input, map, next, object, range, str, zip
 from past.builtins import basestring
-from collections import Iterable, defaultdict, namedtuple
+from collections import MutableMapping, Iterable, defaultdict, namedtuple
 import numpy as np
 import scipy
 from scipy import sparse, signal
@@ -14,6 +14,9 @@ is_interactive = bool(getattr(sys, 'ps1', sys.flags.interactive))
 
 
 class ExprClosure(object):
+    """
+    Representation of a sympy expression with a mutable local environment.
+    """
     def __init__(self, parameter, expr, consts=None):
         self.sympy = importlib.import_module('sympy')
         self.sympy_parser = importlib.import_module('sympy.parsing.sympy_parser')
@@ -41,7 +44,32 @@ class ExprClosure(object):
     def __call__(self, x):
         return self.feval(x)
 
+    def __repr__(self):
+        return f'ExprClosure(expr: {self.expr} parameter: {self.parameter} consts: {self.consts})'
+
+    
+class Closure(object):
+    """
+    Representation of a function with a local environment.
+    """
+    def __init__(self, func, **items):
+        self.env = Struct(**items)
+        self.func = func
+        
+    def __call__(self, *args):
+        return self.func(self.env, *args)
+
+    def __repr__(self):
+        return f'Closure(env: {self.env} func: {self.func})'
+
+    def __str__(self):
+        return f'<Closure>'
+
+    
 class Struct(object):
+    """
+    Mapping that works like both a dict and a mutable object. 
+    """
     def __init__(self, **items):
         self.__dict__.update(items)
 
@@ -54,14 +82,11 @@ class Struct(object):
     def __getitem__(self, key):
         return self.__dict__[key]
 
+    def __repr__(self):
+        return f'Struct({self.__dict__})'
 
-class Closure(object):
-    def __init__(self, func, **items):
-        self.env = Struct(**items)
-        self.func = func
-        
-    def __call__(self, *args):
-        return self.func(self.env, *args)
+    def __str__(self):
+        return f'<Struct>'
 
 
 class Context(object):
@@ -87,7 +112,13 @@ class Context(object):
     def __getitem__(self, key):
         return self.__dict__[key]
 
+    def __repr__(self):
+        return f'Context({self.__dict__})'
 
+    def __str__(self):
+        return f'<Context>'
+    
+    
 class RunningStats(object):
 
     def __init__(self):
