@@ -124,14 +124,14 @@ Synapses:
       mechanisms:
         GABA_A:
           dur_onset: 0.5
-          tau_offset: 7.0
+          tau_offset: 
             expr: a*x + b
             parameter: delay
             const:
               a: 1.55
               b: 7.0
           e: -75
-          g_unit: 0.001
+          g_unit: 
             expr: a * exp(b * x)
             parameter: delay
             const:
@@ -148,36 +148,36 @@ Synapses:
         apical:
           GABA_A:
             dur_onset: 0.5
-            tau_offset: 7.0
+            tau_offset: 
               expr: a * x + b
-             parameter: delay
+              parameter: delay
               const: 
                 a: 1.55
                 b: 7.0
             e: -75
-            g_unit: 0.001
+            g_unit: 
               expr: a * exp(b * x)
-#              parameter: delay
-#              const:
-#                a: 0.001
-#                b: -1.25
+              parameter: delay
+              const:
+                a: 0.001
+                b: -1.25
             weight: 1.0
         soma:
           GABA_A:
             dur_onset: 0.5
-            tau_offset: 7.0
-#              expr: a*x + b
-#              parameter: delay
-#              const:
-#                a: 1.55
-#                b: 7.0                         
+            tau_offset: 
+              expr: a*x + b
+              parameter: delay
+              const:
+                a: 1.55
+                b: 7.0                         
             e: -75
-            g_unit: 0.001
-#              expr: a * exp(b * x)
-#              parameter: delay
-#              const:
-#                a: 0.001
-#                b: -1.25
+            g_unit: 
+              expr: a * exp(b * x)
+              parameter: delay
+              const:
+                a: 0.001
+                b: -1.25
             weight: 1.0
     HCC:  
       type: inhibitory
