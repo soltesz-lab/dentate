@@ -467,8 +467,6 @@ class Env(object):
         opt_param_rules_dict = {}
         if 'Synaptic Optimization' in netclamp_config_dict:
             opt_param_rules_dict['synaptic'] = netclamp_config_dict['Synaptic Optimization']
-        if 'Scaling Optimization' in netclamp_config_dict:
-            opt_param_rules_dict['scaling'] = netclamp_config_dict['Scaling Optimization']
 
         template_params = {}
         for (template_name, params) in viewitems(template_param_rules_dict):
@@ -515,10 +513,8 @@ class Env(object):
             for k, v in viewitems(mech_params):
                 if isinstance(v, dict):
                     if 'expr' in v:
-                        if 'const' in v:
-                            mech_params1[k] = ExprClosure(v['parameter'], v['expr'], v['const'])
-                        else:
-                            mech_params1[k] = ExprClosure(v['parameter'], v['expr'])
+                        mech_params1[k] = ExprClosure([v['parameter']], v['expr'],
+                                                       v.get('const', None), ['x'])
                     else:
                         raise RuntimeError('parse_syn_mechparams: unknown parameter type %s' % str(v))
                 else:
@@ -736,7 +732,6 @@ class Env(object):
 
         if rank == 0:
             self.logger.info('env.data_file_path = %s' % str(self.data_file_path))
-        self.comm.Barrier()
 
         (population_ranges, _) = read_population_ranges(self.data_file_path, self.comm)
         if rank == 0:
@@ -751,6 +746,16 @@ class Env(object):
                     celltypes[k]['mech_file_path'] = '%s/%s' % (self.config_prefix, celltypes[k]['mechanism file'])
                     mech_dict = read_from_yaml(celltypes[k]['mech_file_path'])
                     celltypes[k]['mech_dict'] = mech_dict
+                if 'synapses' in celltypes[k]:
+                    synapses_dict = celltypes[k]['synapses']
+                    if 'weights' in synapses_dict:
+                        weights_dict = synapses_dict['weights']
+                        if 'expr' in weights_dict:
+                            expr = weights_dict['expr']
+                            parameter = weights_dict['parameter']
+                            const = weights_dict.get('const', {})
+                            clos = ExprClosure(parameter, expr, const)
+                            weights_dict['expr'] = clos
                     
         population_names = read_population_names(self.data_file_path, self.comm)
         if rank == 0:

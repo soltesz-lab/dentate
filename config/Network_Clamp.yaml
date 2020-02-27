@@ -79,208 +79,73 @@ Weight Generator:
         mu: 0.
         sigma: 1.0
         clip: [0.0, 3.0]
-Scaling Optimization:
-  GC:
-    Parameter ranges:
-      !!python/tuple [MPP, LPP]:
-        apical:
-          AMPA:
-            weight: [0.01, 3.0]
-      MC:
-        apical:
-          AMPA:
-            weight: [0.01, 1.0]
-      BC:
-        apical:
-          GABA_A:
-            weight: [0.001, 1.0]
-        soma:
-          GABA_A:
-            weight: [0.0005, 0.05]
-      AAC:
-        ais:
-          GABA_A:
-            weight: [0.001, 1.0]
-      !!python/tuple [HC, HCC]:
-        apical:
-          GABA_A:
-            weight: [0.001, 1.0]
-      !!python/tuple [NGFC, MOPP]:
-        apical:
-          GABA_A:
-            weight: [0.01, 1.0]
-          GABA_B:
-            weight: [0.001, 0.05]
-    Targets:
+Synaptic Optimization:
+  Parameter ranges:
+    Weight all grp:
+      GC:
+        !!python/tuple [MPP, LPP]:
+          apical:
+            AMPA:
+              weight:
+                a: [0.01, 4.0]
+        MC:
+          apical:
+            AMPA:
+              weight: [0.01, 4.0]
+        BC:
+          apical:
+            GABA_A:
+              weight: [0.001, 1.0]
+          soma:
+            GABA_A:
+              weight: [0.0005, 1.0]
+        AAC:
+          ais:
+            GABA_A:
+              weight: [0.001, 1.0]
+        !!python/tuple [HC, HCC]:
+          apical:
+            GABA_A:
+              weight: [0.001, 1.0]
+        !!python/tuple [NGFC, MOPP]:
+          apical:
+            GABA_A:
+              weight: [0.01, 1.0]
+            GABA_B:
+              weight: [0.001, 1.0]
+    Weight inhibitory grp:
+      GC:
+        BC:
+          apical:
+            GABA_A:
+              weight: [0.001, 1.0]
+          soma:
+            GABA_A:
+              weight: [0.0005, 1.0]
+        AAC:
+          ais:
+            GABA_A:
+              weight: [0.001, 1.0]
+        !!python/tuple [HC, HCC]:
+          apical:
+            GABA_A:
+              weight: [0.001, 1.0]
+        !!python/tuple [NGFC, MOPP]:
+          apical:
+            GABA_A:
+              weight: [0.01, 1.0]
+            GABA_B:
+              weight: [0.001, 1.0]
+  Targets:
+    GC:
       state:
         v: -65.0
-Synaptic Optimization:
-  GC:
-    Parameter ranges:
-      AAC:
-        ais:
-          GABA_A:
-            g_unit: 
-             b: [5.0, 9.0]
-      BC:
-        soma:
-          GABA_A:
-            g_unit: 
-             b: [5.0, 9.0]
-        apical:
-          GABA_A:
-            g_unit: 
-             b: [5.0, 9.0]
-      HC:
-        apical:
-          GABA_A:
-            g_unit: [0.0005, 0.004]
-      HCC:
-        apical:
-          GABA_A:
-            g_unit: [0.0005, 0.004]
-      MOPP:
-        apical:
-          GABA_A:
-            g_unit: [0.0005, 0.004]
-      NGFC:
-        apical:
-          GABA_A:
-            g_unit: [0.0005, 0.004]
-          GABA_B:
-            g_unit: [0.0005, 0.004]
-    Targets:
       firing rate: 0.75
       fraction active: 0.01
-      state:
-        v: -65.0
-  MC:
-    Parameter ranges:
-      GC:
-        apical:
-          AMPA:
-            g_unit: [0.001, 0.007]
-      MC:
-        apical:
-          AMPA:
-            g_unit: [0.001, 0.007]
-      CA3c:
-        apical:
-          AMPA:
-            g_unit: [0.001, 0.007]
-      HC:
-        apical:
-          GABA_A:
-            g_unit: [0.0005, 0.004]
-      HCC:
-        apical:
-          GABA_A:
-            g_unit: [0.0005, 0.004]
-      BC:
-        apical:
-          GABA_A:
-            g_unit: 
-              a: [0.0001, 0.005]
-        soma:
-          GABA_A:
-            g_unit: 
-              a: [0.0001, 0.005]
-      AAC:
-        soma:
-          GABA_A:
-            g_unit: 
-              a: [0.0001, 0.005]
-        ais:
-          GABA_A:
-            g_unit: 
-               a: [0.0001, 0.005]
-    Targets:
+    MC:
       firing rate: 1.5
       fraction active: 0.3
   BC:
-    Parameter ranges:
-      MC:
-        apical:
-          AMPA:
-            g_unit: [0.0001, 0.003]
-      BC:
-        basal:
-          GABA_A:
-            g_unit: [0.0001, 0.003]
-        soma:
-          GABA_A:
-            g_unit: [0.0001, 0.003]
-      HC:
-        apical:
-          GABA_A:
-            g_unit: [0.0001, 0.003]
-      HCC:
-        apical:
-          GABA_A:
-            g_unit: [0.0001, 0.003]
-      NGFC:
-        apical:
-          GABA_A:
-            g_unit: [0.0001, 0.003]
-      MOPP:
-        apical:
-          GABA_A:
-            g_unit: [0.0001, 0.003]
-      IS:
-        basal:
-          GABA_A:
-            g_unit: [0.0001, 0.003]
-        apical:
-          GABA_A:
-            g_unit: [0.0001, 0.003]
-    Targets:
       firing rate: 21.0
   HCC:
-    Parameter ranges:
-      GC:
-        apical:
-          AMPA:
-            g_unit: [0.0001, 0.003]
-        basal:
-          AMPA:
-            g_unit: [0.0001, 0.003]
-        soma:
-          AMPA:
-            g_unit: [0.0001, 0.003]
-      MC:
-        apical:
-          AMPA:
-            g_unit: [0.0001, 0.003]
-        basal:
-          AMPA:
-            g_unit: [0.0001, 0.003]
-        soma:
-          AMPA:
-            g_unit: [0.0001, 0.003]
-      HCC:
-        apical:
-          GABA_A:
-            g_unit: [0.0001, 0.002]
-        basal:
-          GABA_A:
-            g_unit: [0.0001, 0.004]
-      NGFC:
-        apical:
-          GABA_A:
-            g_unit: [0.0001, 0.002]
-      MOPP:
-        apical:
-          GABA_A:
-            g_unit: [0.0001, 0.002]
-      IS:
-        basal:
-          GABA_A:
-            g_unit: [0.0001, 0.002]
-        apical:
-          GABA_A:
-            g_unit: [0.0001, 0.002]
-        soma:
-          GABA_A:
-            g_unit: [0.0001, 0.002]
-    Targets:
       firing rate: 10.0

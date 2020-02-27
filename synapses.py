@@ -97,11 +97,10 @@ class SynapseAttributes(object):
                     mech_params: list of parameter names
                     netcon_params: dictionary { parameter name: index }
                 }
-
         """
         self.env = env
         self.syn_mech_names = syn_mech_names
-        
+        self.syn_config = { k: v['synapses'] for k, v in viewitems(env.celltypes) if 'synapses' in v }
         self.syn_param_rules = syn_param_rules
         self.syn_name_index_dict = {label: index for index, label in enumerate(syn_mech_names)}  # int : mech_name dict
         self.syn_id_attr_dict = defaultdict(lambda: defaultdict(lambda: None))
@@ -473,7 +472,7 @@ class SynapseAttributes(object):
         self.add_mech_attrs_from_iter(gid, syn_name, iter({syn_id: params}), multiple='error', append=append)
         
     def modify_mech_attrs(self, pop_name, gid, syn_id, syn_name, params,
-                          update_operator=lambda gid, syn_id, old, new: new):
+                          update_operator=None):
         """
         Modifies mechanism attributes for the given cell id/synapse id/mechanism name. 
 
@@ -511,11 +510,11 @@ class SynapseAttributes(object):
             if k in rules[mech_name]['mech_params']:
                 mech_param = mech_params.get(k, None)
                 if isinstance(mech_param, ExprClosure):
-                    if mech_param.parameter == 'delay':
+                    if mech_param.parameters[0] == 'delay':
                         new_val = mech_param(syn.source.delay)
                     else:
                         raise RuntimeError('modify_mech_attrs: unknown dependent expression parameter %s' %
-                                           mech_param.parameter)
+                                           mech_param.parameters)
                 else:
                     new_val = v
                 assert(new_val is not None)
@@ -524,12 +523,12 @@ class SynapseAttributes(object):
             elif k in rules[mech_name]['netcon_params']:
                 mech_param = mech_params.get(k, None)
                 if isinstance(mech_param, ExprClosure):
-                    if mech_param.parameter == 'delay':
+                    if mech_param.parameters[0] == 'delay':
                         new_val = mech_param(syn.source.delay)
                         #print("modify %s.%s.%s: delay: %f new val: %f" % (pop_name, syn_name, k, syn.source.delay, new_val))
                     else:
                         raise RuntimeError('modify_mech_attrs: unknown dependent expression parameter %s' %
-                                           mech_param.parameter)
+                                           mech_param.parameters)
                 else:
                     new_val = v
 
@@ -940,7 +939,11 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
     syn_id_attr_dict = syn_attrs.syn_id_attr_dict[gid]
 
     synapse_config = env.celltypes[postsyn_name]['synapses']
-
+    weights_dict = synapse_config.get('weights', {})
+    param_expr_dict = {}
+    if 'expr' in weights_dict:
+        param_expr_dict['weight'] = weights_dict['expr']
+    
     if unique is None:
         if 'unique' in synapse_config:
             unique = synapse_config['unique']
@@ -1003,14 +1006,20 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
                                            'netcon for mechanism %s' % (gid, syn_id, syn_name))
 
                     params = syn.attr_dict[syn_index]
+                    upd_params = {}
                     for param_name, param_val in viewitems(params):
                         if param_val is None:
                             raise RuntimeError('config_hoc_cell_syns: insert: cell gid %i synapse %i presyn source %s does not have a '
                                                'value set for parameter %s' % (gid, syn_id, presyn_name, param_name))
-                            
+                        if param_name in param_expr_dict and isinstance(param_val, list):
+                            new_param_val = param_expr_dict[param_name](*param_val)
+                        else:
+                            new_param_val = param_val
+                        upd_params[param_name] = new_param_val
+
                     (mech_set, nc_set) = config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
-                                                    mech_names=syn_attrs.syn_mech_names, syn=this_pps, nc=this_netcon,
-                                                    **params)
+                                                    mech_names=syn_attrs.syn_mech_names, syn=this_pps,
+                                                    nc=this_netcon, **upd_params)
                     if mech_set:
                         mech_count += 1
                     if nc_set:
@@ -1054,7 +1063,7 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
                 failed = False
             else:
                 if isinstance(val, ExprClosure) and (nc is not None):
-                    if val.parameter == 'delay':
+                    if val.parameters[0] == 'delay':
                         setattr(syn, param, val(nc.delay))
                         mech_param = True
                         failed = False
@@ -1073,7 +1082,7 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
                 if int(nc.wcnt()) >= i:
                     old = nc.weight[i]
                     if isinstance(val, ExprClosure):
-                        if val.parameter == 'delay':
+                        if val.parameters[0] == 'delay':
                             new = val(nc.delay)
                             nc.weight[i] = new
                             nc_param = True
@@ -1490,7 +1499,6 @@ def apply_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, 
     :param update_targets: bool
     :param verbose: bool
     """
-
     if 'origin' in rules and donor is None:
         donor = get_donor(cell, node, rules['origin'])
         if donor is None:

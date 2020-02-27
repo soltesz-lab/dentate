@@ -17,11 +17,12 @@ class ExprClosure(object):
     """
     Representation of a sympy expression with a mutable local environment.
     """
-    def __init__(self, parameter, expr, consts=None):
+    def __init__(self, parameters, expr, consts=None, formals=None):
         self.sympy = importlib.import_module('sympy')
         self.sympy_parser = importlib.import_module('sympy.parsing.sympy_parser')
         self.sympy_abc = importlib.import_module('sympy.abc')
-        self.parameter = parameter
+        self.parameters = parameters
+        self.formals = formals
         self.expr = self.sympy_parser.parse_expr(expr)
         self.consts = {} if consts is None else consts
         self.feval = None
@@ -39,13 +40,17 @@ class ExprClosure(object):
         for k, v in viewitems(self.consts):
             sym = self.sympy.Symbol(k)
             fexpr = fexpr.subs(sym, v)
-        self.feval = self.sympy.lambdify(self.sympy_abc.x, fexpr, "numpy")
+        if self.formals is None:
+            formals = [self.sympy.Symbol(p) for p in self.parameters]
+        else:
+            formals = [self.sympy.Symbol(p) for p in self.formals]
+        self.feval = self.sympy.lambdify(formals, fexpr, "numpy")
 
     def __call__(self, x):
         return self.feval(x)
 
     def __repr__(self):
-        return f'ExprClosure(expr: {self.expr} parameter: {self.parameter} consts: {self.consts})'
+        return f'ExprClosure(expr: {self.expr} parameter: {self.parameters} consts: {self.consts})'
 
     
 class Closure(object):

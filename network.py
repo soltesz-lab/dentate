@@ -103,19 +103,11 @@ def connect_cells(env):
 
         weights_namespaces = []
         if 'weights' in synapse_config:
-            has_weights = synapse_config['weights']
-            if has_weights:
-                if 'weights namespace' in synapse_config:
-                    weights_namespaces.append(synapse_config['weights namespace'])
-                elif 'weights namespaces' in synapse_config:
-                    weights_namespaces.extend(synapse_config['weights namespaces'])
-                else:
-                    weights_namespaces.append('Weights')
+            has_weights = True
+            weights_dict = synapse_config['weights']
+            weights_namespaces.extend(weights_dict['namespace'])
         else:
             has_weights = False
-
-        weights_scales = synapse_config.get('weights scale', {})
-        weights_offsets = synapse_config.get('weights offset', {})
 
         if rank == 0:
             logger.info('*** Reading synaptic attributes of population %s' % (postsyn_name))
@@ -178,8 +170,8 @@ def connect_cells(env):
                             weights_values = cell_weights_tuple[syn_name_index]
                             syn_attrs.add_mech_attrs_from_iter(gid, syn_name,
                                                                zip_longest(weights_syn_ids,
-                                                                           [{'weight': weights_scale*x + weights_offset} for x in weights_values]),
-                                                               multiple=multiple_weights)
+                                                                           [{'weight': x} for x in weights_values]),
+                                                               multiple=multiple_weights, append=True)
                             if rank == 0 and gid == first_gid:
                                 logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
                                             (postsyn_name, gid, len(weights_values), syn_name, weights_namespace))
@@ -342,17 +334,9 @@ def connect_cell_selection(env):
             has_weights = False
 
         weights_namespaces = []
-        if 'weights' in synapse_config:
-            has_weights = synapse_config['weights']
-            if has_weights:
-                if 'weights namespace' in synapse_config:
-                    weights_namespaces.append(synapse_config['weights namespace'])
-                elif 'weights namespaces' in synapse_config:
-                    weights_namespaces.extend(synapse_config['weights namespaces'])
-                else:
-                    weights_namespaces.append('Weights')
-        else:
-            has_weights = False
+        if has_weights:
+            weights_dict = synapse_config['weights']
+            weights_namespaces.extend(weights_dict['namespace'])
 
         weights_scales = synapse_config.get('weights scale', {})
         weights_offsets = synapse_config.get('weights offset', {})

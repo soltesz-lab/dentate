@@ -4101,7 +4101,7 @@ def plot_spike_histogram_corr (input_path, namespace_id, include = ['eachPop'], 
 
 def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filters=None, from_mech_attrs=True,
                                          from_target_attrs=False, export=None, overwrite=False, description=None,
-                                         scale_factor=1., param_label=None, ylabel='Peak conductance', yunits='uS',
+                                         param_label=None, ylabel='Peak conductance', yunits='uS',
                                          svg_title=None, show=True, sec_types=None, output_dir='data'):
     """
     Plots values of synapse attributes found in point processes and NetCons of a Hoc Cell. No simulation is required;
@@ -4155,6 +4155,13 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
     color_x = np.linspace(0., 1., num_colors)
     colors = [cm.Set1(x) for x in color_x]
     syn_attrs = env.synapse_attributes
+
+    synapse_config = env.celltypes[cell.pop_name]['synapses']
+    weights_dict = synapse_config.get('weights', {})
+    param_expr_dict = {}
+    if 'expr' in weights_dict:
+        param_expr_dict['weight'] = weights_dict['expr']
+    
     gid = cell.gid
     for sec_type in sec_types_list:
         if len(cell.nodes[sec_type]) > 0:
@@ -4167,9 +4174,13 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
                 for syn_id, syn in viewitems(syns):
                     # TODO: figure out what to do with spine synapses that are not inserted into a branch node
                     if from_mech_attrs:
-                        this_param_val = syn_attrs.get_mech_attrs(gid, syn_id, syn_name, throw_error=False)
-                        if this_param_val is not None and param_name in this_param_val:
-                            attr_vals['mech_attrs'][sec_type].append(this_param_val[param_name] * scale_factor)
+                        this_mech_attrs = syn_attrs.get_mech_attrs(gid, syn_id, syn_name, throw_error=False)
+                        if this_mech_attrs is not None and param_name in this_mech_attrs:
+                            if param_name in param_expr_dict:
+                                param_val = param_expr_dict[param_name](*this_mech_attrs[param_name])
+                            else:
+                                param_val = this_mech_attrs[param_name]
+                            attr_vals['mech_attrs'][sec_type].append(param_val)
                             syn_loc = syn.syn_loc
                             distances['mech_attrs'][sec_type].append(
                                 get_distance_to_node(cell, cell.tree.root, node, syn_loc))
@@ -4180,7 +4191,7 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
                             this_nc = syn_attrs.get_netcon(cell.gid, syn_id, syn_name)
                             attr_vals['target_attrs'][sec_type].append(
                                 get_syn_mech_param(syn_name, syn_attrs.syn_param_rules, param_name,
-                                                   mech_names=syn_attrs.syn_mech_names, nc=this_nc) * scale_factor)
+                                                   mech_names=syn_attrs.syn_mech_names, nc=this_nc))
                             syn_loc = syn.syn_loc
                             distances['target_attrs'][sec_type].append(
                                 get_distance_to_node(cell, cell.tree.root, node, syn_loc))
