@@ -1,6 +1,5 @@
 import sys, os, time, gc, click, logging
 from collections import defaultdict
-
 import numpy as np
 from mpi4py import MPI
 import neuroh5
@@ -12,11 +11,11 @@ from dentate import utils, stimulus, synapses
 from dentate.utils import *
 import h5py
 
-sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
+sys_excepthook = sys.excepthook
 sys.excepthook = mpi_excepthook
 
 def syn_weights_dict_alltoall(comm, syn_name, initial_weights_dict, query, clear=False):
@@ -87,13 +86,14 @@ def input_features_dict_alltoall(comm, features_attrs, query, clear=False):
 @click.option("--h5types-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--synapse-name", type=str, default='AMPA')
 @click.option("--initial-weights-namespace", type=str, default='Weights')
-@click.option("--structured-weights-namespace", type=str, default='Structured Weights')
+@click.option("--output-weights-namespace", type=str, default='Normalized Structured Delta Weights')
 @click.option("--connections-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--destination", '-d', type=str)
 @click.option("--sources", '-s', type=str, multiple=True)
 @click.option("--arena-id", '-a', type=str, default='A')
 @click.option("--baseline-weight", type=float, default=0.0)
 @click.option("--field-width-scale", type=float, default=1.2)
+@click.option("--optimize-method", type=str, default='L-BFGS-B')
 @click.option("--max-iter", type=int, default=10)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
@@ -103,10 +103,7 @@ def input_features_dict_alltoall(comm, features_attrs, query, clear=False):
 @click.option("--scatter-io", is_flag=True)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
-@click.option("--interactive", is_flag=True)
-def main(config, input_features_path, input_features_namespaces, output_weights_path, weights_path, h5types_path, synapse_name, initial_weights_namespace,
-         structured_weights_namespace, connections_path, destination, sources, arena_id, baseline_weight, field_width_scale, max_iter, 
-         io_size, chunk_size, value_chunk_size, cache_size, write_size, scatter_io, verbose, dry_run, interactive):
+def main(config, input_features_path, input_features_namespaces, output_weights_path, weights_path, h5types_path, synapse_name, initial_weights_namespace, structured_weights_namespace, connections_path, destination, sources, arena_id, baseline_weight, field_width_scale, optimize_method, max_iter,  io_size, chunk_size, value_chunk_size, cache_size, write_size, scatter_io, verbose, dry_run, interactive):
     """
 
     :param config: str (path to .yaml file)
@@ -341,7 +338,7 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
                                                    plasticity_kernel=plasticity_kernel,
                                                    field_width_scale=field_width_scale,
                                                    baseline_weight=baseline_weight,
-                                                   interactive=interactive)
+                                                   interactive=is_interactive)
 
             if this_syn_weights is not None:
                 structured_weights_dict[destination_gid] = this_syn_weights

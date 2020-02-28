@@ -1,18 +1,15 @@
-
 import click
 from mpi4py import MPI
 import h5py
 from neuroh5.io import NeuroH5CellAttrGen, read_population_ranges, bcast_cell_attributes
 from dentate.env import Env
-from dentate.plot import plot_2D_rate_map, default_fig_options, plot_2D_histogram
+from dentate.plot import plot_2D_rate_map, default_fig_options, plot_2D_histogram, close_figure
 from dentate.stimulus import get_2D_arena_spatial_mesh, get_input_cell_config
 from dentate.utils import *
 
 logger = get_script_logger(os.path.basename(__file__))
 
-context = Struct(**dict(locals()))
-
-sys_excepthook = sys.excepthook
+context = Context()
 
 
 def mpi_excepthook(type, value, traceback):
@@ -20,7 +17,7 @@ def mpi_excepthook(type, value, traceback):
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
 
-
+sys_excepthook = sys.excepthook
 sys.excepthook = mpi_excepthook
 
 
@@ -30,7 +27,7 @@ sys.excepthook = mpi_excepthook
               default='config')
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--distances-namespace", '-n', type=str, default='Arc Distances')
-@click.option("--bin_distance", type=float, default=100.)
+@click.option("--bin-distance", type=float, default=100.)
 @click.option("--selectivity-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--subset-seed", type=int, default=0)
 @click.option("--arena-id", type=str, default='A')
@@ -38,15 +35,16 @@ sys.excepthook = mpi_excepthook
 @click.option("--io-size", type=int, default=-1)
 @click.option("--cache-size", type=int, default=50)
 @click.option("--verbose", '-v', is_flag=True)
-@click.option("--interactive", is_flag=True)
 @click.option("--debug", is_flag=True)
 @click.option("--show-fig", is_flag=True)
 @click.option("--save-fig", required=False, type=str, default=None)
 @click.option("--save-fig-dir", type=click.Path(exists=True, file_okay=False, dir_okay=True), default=None)
 @click.option("--font-size", type=float, default=14)
+@click.option("--fig-size", type=(float, float), default=(15, 8))
+@click.option("--colormap", type=str)
 @click.option("--fig-format", required=False, type=str, default='svg')
 def main(config, config_prefix, coords_path, distances_namespace, bin_distance, selectivity_path, subset_seed, arena_id,
-         populations, io_size, cache_size, verbose, interactive, debug, show_fig, save_fig, save_fig_dir, font_size,
+         populations, io_size, cache_size, verbose, debug, show_fig, save_fig, save_fig_dir, font_size, fig_size, colormap,
          fig_format):
     """
 
@@ -62,7 +60,6 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
     :param io_size: int
     :param cache_size: int
     :param verbose: bool
-    :param interactive: bool
     :param debug: bool
     :param show_fig: bool
     :param save_fig: str (base file name)
@@ -86,7 +83,7 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
     fig_options.fontSize = font_size
     fig_options.figFormat = fig_format
     fig_options.showFig = show_fig
-    fig_options.figSize = (6.4, 4.8)
+    fig_options.figSize = fig_size
 
     if save_fig is not None:
         save_fig = '%s %s' % (save_fig, arena_id)
@@ -102,10 +99,10 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
     if rank == 0:
         for population in populations:
             if population not in population_ranges:
-                raise RuntimeError('plot_DG_input_selectivity_features: specified population: %s not found in '
+                raise RuntimeError('plot_input_selectivity_features: specified population: %s not found in '
                                    'provided selectivity_path: %s' % (population, selectivity_path))
             if population not in env.stimulus_config['Selectivity Type Probabilities']:
-                raise RuntimeError('plot_DG_input_selectivity_features: selectivity type not specified for '
+                raise RuntimeError('plot_input_selectivity_features: selectivity type not specified for '
                                    'population: %s' % population)
             valid_selectivity_namespaces[population] = []
             with h5py.File(selectivity_path, 'r') as selectivity_f:
@@ -113,7 +110,7 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
                     if 'Selectivity %s' % arena_id in this_namespace:
                         valid_selectivity_namespaces[population].append(this_namespace)
                 if len(valid_selectivity_namespaces[population]) == 0:
-                    raise RuntimeError('plot_DG_input_selectivity_features: no selectivity data in arena: %s found '
+                    raise RuntimeError('plot_input_selectivity_features: no selectivity data in arena: %s found '
                                        'for specified population: %s in provided selectivity_path: %s' %
                                        (arena_id, population, selectivity_path))
 
@@ -125,14 +122,14 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
     if rank == 0:
         for population in populations:
             if population not in coords_population_ranges:
-                raise RuntimeError('plot_DG_input_selectivity_features: specified population: %s not found in '
+                raise RuntimeError('plot_input_selectivity_features: specified population: %s not found in '
                                    'provided coords_path: %s' % (population, coords_path))
             with h5py.File(coords_path, 'r') as coords_f:
                 pop_size = population_ranges[population][1]
                 unique_gid_count = len(set(
                     coords_f['Populations'][population][distances_namespace]['U Distance']['Cell Index'][:]))
                 if pop_size != unique_gid_count:
-                    raise RuntimeError('plot_DG_input_selectivity_features: only %i/%i unique cell indexes found '
+                    raise RuntimeError('plot_input_selectivity_features: only %i/%i unique cell indexes found '
                                        'for specified population: %s in provided coords_path: %s' %
                                        (unique_gid_count, pop_size, population, coords_path))
                 if reference_u_arc_distance_bounds is None:
@@ -141,7 +138,7 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
                             coords_f['Populations'][population][distances_namespace].attrs['Reference U Min'], \
                             coords_f['Populations'][population][distances_namespace].attrs['Reference U Max']
                     except Exception:
-                        raise RuntimeError('plot_DG_input_selectivity_features: problem locating attributes '
+                        raise RuntimeError('plot_input_selectivity_features: problem locating attributes '
                                            'containing reference bounds in namespace: %s for population: %s from '
                                            'coords_path: %s' % (distances_namespace, population, coords_path))
                 if reference_v_arc_distance_bounds is None:
@@ -150,7 +147,7 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
                             coords_f['Populations'][population][distances_namespace].attrs['Reference V Min'], \
                             coords_f['Populations'][population][distances_namespace].attrs['Reference V Max']
                     except Exception:
-                        raise RuntimeError('plot_DG_input_selectivity_features: problem locating attributes '
+                        raise RuntimeError('plot_input_selectivity_features: problem locating attributes '
                                            'containing reference bounds in namespace: %s for population: %s from '
                                            'coords_path: %s' % (distances_namespace, population, coords_path))
     reference_u_arc_distance_bounds = comm.bcast(reference_u_arc_distance_bounds, root=0)
@@ -172,9 +169,6 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
             get_2D_arena_spatial_mesh(arena=arena, spatial_resolution=env.stimulus_config['Spatial Resolution'])
     arena_x_mesh = comm.bcast(arena_x_mesh, root=0)
     arena_y_mesh = comm.bcast(arena_y_mesh, root=0)
-
-    local_random = np.random.RandomState()
-    local_random.seed(subset_seed)
 
     for population in populations:
 
@@ -239,7 +233,6 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
                                          title='%s\nModule: %i' % (fig_title, this_module_id),
                                          **fig_options())
                     rate_map_sum_by_module[this_module_id] = np.add(rate_map, rate_map_sum_by_module[this_module_id])
-                comm.barrier()
                 if debug and iter_count >= 10:
                     break
 
@@ -298,33 +291,38 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
                     fig_title = '%s %s cells %s distribution' % (population, this_selectivity_type_name, key)
                     if save_fig is not None:
                         fig_options.saveFig = '%s %s' % (save_fig, fig_title)
+                    if colormap is not None:
+                        fig_options.colormap = colormap
                     title = '%s %s cells\n%s distribution' % (population, this_selectivity_type_name, key)
-                    plot_2D_histogram(merged_cell_attr_hist[key], x_edges=u_edges, y_edges=v_edges,
-                                      norm=cell_count_hist, ylabel='Transverse position (um)',
-                                      xlabel='Septo-temporal position (um)', title=title,
-                                      cbar_label='Mean value per bin', cbar=True, **fig_options())
+                    fig = plot_2D_histogram(merged_cell_attr_hist[key], x_edges=u_edges, y_edges=v_edges,
+                                            norm=cell_count_hist, ylabel='Transverse position (um)',
+                                            xlabel='Septo-temporal position (um)', title=title,
+                                            cbar_label='Mean value per bin', cbar=True, **fig_options())
+                    close_figure(fig)
 
                 for key in merged_component_attr_hist:
                     fig_title = '%s %s cells %s distribution' % (population, this_selectivity_type_name, key)
                     if save_fig is not None:
                         fig_options.saveFig = '%s %s' % (save_fig, fig_title)
                     title = '%s %s cells\n%s distribution' % (population, this_selectivity_type_name, key)
-                    plot_2D_histogram(merged_component_attr_hist[key], x_edges=u_edges, y_edges=v_edges,
-                                      norm=component_count_hist, ylabel='Transverse position (um)',
-                                      xlabel='Septo-temporal position (um)', title=title,
-                                      cbar_label='Mean value per bin', cbar=True, **fig_options())
+                    fig = plot_2D_histogram(merged_component_attr_hist[key], x_edges=u_edges, y_edges=v_edges,
+                                            norm=component_count_hist, ylabel='Transverse position (um)',
+                                            xlabel='Septo-temporal position (um)', title=title,
+                                            cbar_label='Mean value per bin', cbar=True, **fig_options())
+                    close_figure(fig)
 
                 for this_module_id in merged_rate_map_sum_by_module:
                     fig_title = '%s %s Module %i summed rate maps' % \
                                 (population, this_selectivity_type_name, this_module_id)
                     if save_fig is not None:
                         fig_options.saveFig = '%s %s' % (save_fig, fig_title)
-                    plot_2D_rate_map(x=arena_x_mesh, y=arena_y_mesh,
-                                     rate_map=merged_rate_map_sum_by_module[this_module_id],
-                                     title='%s %s summed rate maps\nModule %i' %
-                                           (population, this_selectivity_type_name, this_module_id), **fig_options())
+                    fig = plot_2D_rate_map(x=arena_x_mesh, y=arena_y_mesh,
+                                           rate_map=merged_rate_map_sum_by_module[this_module_id],
+                                           title='%s %s summed rate maps\nModule %i' %
+                                            (population, this_selectivity_type_name, this_module_id), **fig_options())
+                    close_figure(fig)
 
-    if interactive and rank == 0:
+    if is_interactive and rank == 0:
         context.update(locals())
 
 

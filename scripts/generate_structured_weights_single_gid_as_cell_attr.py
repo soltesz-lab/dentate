@@ -242,21 +242,22 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
     if is_interactive:
         context.update(locals())
 
-    normalized_delta_weights_by_src_gid_dict = \
-        synapses.generate_normalized_delta_weights(target_map=target_map,
-                                            initial_weight_dict=initial_weights_by_source_gid_dict,
-                                            input_rate_map_dict=input_rate_maps_by_source_gid_dict,
-                                            syn_count_dict=syn_count_by_source_gid_dict,
-                                            max_delta_weight=max_delta_weight, arena_x=arena_x, arena_y=arena_y,
-                                            reference_weight_dict=reference_weights_by_source_gid_dict,
-                                            reference_weights_are_delta=reference_weights_are_delta,
-                                            reference_weights_namespace=reference_weights_namespace,
-                                            optimize_method=optimize_method, verbose=verbose, plot=plot)
+    structured_weights_dict = \
+        synapses.generate_structured_weights(target_map=target_map,
+                                             initial_weight_dict=initial_weights_by_source_gid_dict,
+                                             input_rate_map_dict=input_rate_maps_by_source_gid_dict,
+                                             syn_count_dict=syn_count_by_source_gid_dict,
+                                             max_delta_weight=max_delta_weight, arena_x=arena_x, arena_y=arena_y,
+                                             reference_weight_dict=reference_weights_by_source_gid_dict,
+                                             reference_weights_are_delta=reference_weights_are_delta,
+                                             reference_weights_namespace=reference_weights_namespace,
+                                             optimize_method=optimize_method, verbose=verbose, plot=plot)
+    normalized_delta_weights_dict = structured_weights_dict['normalized_delta_weights']
 
     output_syn_ids = np.empty(len(initial_weights_by_syn_id_dict), dtype='uint32')
     output_weights = np.empty(len(initial_weights_by_syn_id_dict), dtype='float32')
     i = 0
-    for source_gid, this_weight in normalized_delta_weights_by_src_gid_dict.items():
+    for source_gid, this_weight in viewitems(normalized_delta_weights_dict):
         for syn_id in syn_ids_by_source_gid_dict[source_gid]:
             output_syn_ids[i] = syn_id
             output_weights[i] = this_weight
@@ -275,8 +276,10 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
         logger.info('Destination: %s; appended %s' % (destination, this_output_weights_namespace))
         output_weights_dict.clear()
         if output_features_path is not None:
+            LS_arena_rate_map = structured_weights_dict['LS_rate_map']
             this_output_features_namespace = '%s %s' % (output_features_namespace, arena_id)
             cell_attr_dict = dst_input_features[destination]
+            cell_attr_dict[gid]['Arena Rate Map'] = LS_arena_rate_map
             logger.info('Destination: %s; appending %s ...' % (destination, this_output_features_namespace))
             append_cell_attributes(output_features_path, destination, cell_attr_dict,
                                    namespace=this_output_features_namespace)

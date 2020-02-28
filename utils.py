@@ -1069,17 +1069,16 @@ def autocorr (y, lag):
     else:
         return r
 
-def butter_bandpass(lowcut, highcut, fs, order=5):
+def butter_bandpass_filter(lowcut, highcut, fs, order=5):
     nyq = 0.5 * fs
     low = lowcut / nyq
     high = highcut / nyq
-    b, a = signal.butter(order, [low, high], btype='band')
-    return b, a
+    sos = signal.butter(order, [low, high], btype='band', output='sos')
+    return sos
 
 
-def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
-    b, a = butter_bandpass(lowcut, highcut, fs, order=order)
-    y = signal.lfilter(b, a, data)
+def apply_filter(data, sos):
+    y = signal.sosfiltfilt(sos, data)
     return y
 
 def sed(a, b):
@@ -1095,15 +1094,6 @@ def mse(a, b):
 
 def gauss2d(x=0, y=0, mx=0, my=0, sx=1, sy=1, A=1.):
     return A * np.exp(-((x - mx)**2. / (2. * sx**2.) + (y - my)**2. / (2. * sy**2.)))
-
-
-def sigmoid_phi(x, a = 0.05, peak_rate = 1.):
-    res = peak_rate / (1. + np.exp(-a * x))
-    return res
-
-def exp_phi(x, a = 0.033):
-    res = 1. / np.exp(-a * x)
-    return res
 
 
 def get_low_pass_filtered_trace(trace, t, down_dt=0.5):

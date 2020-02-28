@@ -21,7 +21,7 @@ from dentate.cells import default_ordered_sec_types, get_distance_to_node, make_
 from dentate.env import Env
 from dentate.synapses import get_syn_filter_dict, get_syn_mech_param
 from dentate.utils import get_module_logger, Struct, add_bins, update_bins, finalize_bins
-from dentate.utils import power_spectrogram, butter_bandpass_filter, kde_scipy, make_geometric_graph, viewitems, \
+from dentate.utils import power_spectrogram, butter_bandpass_filter, apply_filter, kde_scipy, make_geometric_graph, viewitems, \
     zip_longest, basestring
 from dentate.neuron_utils import interplocs
 from dentate.io_utils import get_h5py_attr, set_h5py_attr
@@ -46,7 +46,7 @@ logger = get_module_logger(__name__)
 
 # Default figure configuration
 default_fig_options = Struct(figFormat='png', lw=3, figSize=(15,8), fontSize=14, saveFig=None, showFig=True,
-                             colormap=cm.jet, saveFigDir=None)
+                             colormap='viridis', saveFigDir=None)
 
 dflt_colors = ["#009BFF", "#E85EBE", "#00FF00", "#0000FF", "#FF0000", "#01FFFE", "#FFA6FE", 
               "#FFDB66", "#006401", "#010067", "#95003A", "#007DB5", "#FF00F6", "#FFEEE8", "#774D00",
@@ -82,6 +82,9 @@ def show_figure():
         plt.show(block=False)
     except:
         plt.show()
+
+def close_figure(fig):
+    plt.close(fig)
 
 
 def save_figure(file_name_prefix, fig=None, **kwargs):
@@ -488,11 +491,10 @@ def plot_single_vertex_dist(env, connectivity_path, coords_path, distances_names
         if normed:
             H = np.divide(H.astype(float), float(np.max(H)))
         pcm_boundaries = np.arange(0, np.max(H), .1)
-        cmap_pls = plt.cm.get_cmap('PuBu',len(pcm_boundaries))
+        cmap_pls = plt.cm.get_cmap(fig_options.colormap, len(pcm_boundaries))
         pcm_colors = list(cmap_pls(np.arange(len(pcm_boundaries))))
         pcm_cmap = mpl.colors.ListedColormap(pcm_colors[:-1], "")
         pcm_cmap.set_under(pcm_colors[0], alpha=0.0)
-        
         pcm = ax.pcolormesh(X, Y, H.T, cmap=pcm_cmap)
 
 #        pcm = ax.pcolormesh(X, Y, H.T, cmap=pcm_cmap,
@@ -562,7 +564,6 @@ def plot_tree_metrics(env, forest_path, coords_path, population, metric_namespac
 
     if percentile is not None:
         percentile_value = np.percentile(tree_metrics_array, percentile)
-        print('%f percentile value: %f' % (percentile, percentile_value))
         sample = np.where(tree_metrics_array >= percentile_value)
         tree_metrics_array = tree_metrics_array[sample]
         sorted_keys = np.asarray(sorted_keys)[sample]
@@ -1569,7 +1570,7 @@ def plot_lfp(config, input_path, time_range = None, compute_psd=False, window_si
 
         filtered_v = None
         if bandpass_filter:
-           filtered_v = butter_bandpass_filter(v, max(bandpass_filter[0], 1.0), bandpass_filter[1], Fs, order=2)
+           filtered_v = apply_filter(v, butter_bandpass(max(bandpass_filter[0], 1.0), bandpass_filter[1], Fs, order=2))
 
         ax = plt.subplot(gs[iplot,0])
         ax.set_title('%s' % (namespace_id), fontsize=fig_options.fontSize)
@@ -2610,7 +2611,7 @@ def plot_spike_rates(input_path, namespace_id, config_path=None, include = ['eac
 
         if graph_type == 'raster2d':
             im = plt.imshow(rate_matrix, origin='upper', aspect='auto', interpolation='none',
-                            extent=[time_range[0], time_range[1], 0, rate_matrix.shape[0]], cmap=fig_options['colormap'])
+                            extent=[time_range[0], time_range[1], 0, rate_matrix.shape[0]], cmap=fig_options.colormap)
             im.axes.tick_params(labelsize=fig_options.fontSize)
             cbar = plt.colorbar(im)
             cbar.ax.set_ylabel('Firing Rate (Hz)', fontsize=fig_options.fontSize)
@@ -3291,7 +3292,7 @@ def plot_place_cells(features_path, population, nfields=1, to_plot=100, **kwargs
     axes_dim = int(np.round(np.sqrt(to_plot)))
     fig, axes = plt.subplots(axes_dim, axes_dim)
     for i in range(len(cells_to_plot)):
-        img = axes[i%axes_dim, (i / axes_dim)].imshow(cells_to_plot[i], cmap='viridis')
+        img = axes[i%axes_dim, (i / axes_dim)].imshow(cells_to_plot[i], cmap=fig_options.colormap)
         plt.colorbar(img, ax=axes[i%axes_dim, (i / axes_dim)])
  
     if fig_options.saveFig:
@@ -3710,7 +3711,7 @@ def plot_selectivity_metrics (env, coords_path, features_path, distances_namespa
         H[nz] = np.divide(H[nz], np.max(H[nz]))
 
     X, Y = np.meshgrid(xedges, yedges)
-    pcm = ax.pcolormesh(X, Y, H.T, cmap='jet')
+    pcm = ax.pcolormesh(X, Y, H.T, cmap=fig_options.colormap)
     cbar = fig.colorbar(pcm, ax=ax, shrink=0.48, aspect=20)
     cbar.set_label(cbar_label, rotation=270., labelpad=20.)
 
@@ -3762,7 +3763,7 @@ def plot_stimulus_ratemap(env, input_path, namespace_id, population, arena_id=No
     rate_map_mean = rate_map_sum / float(n)
     title = 'Mean Stimulus Rate %s' % ns
     ax.set_title(title, fontsize=fig_options.fontSize)
-    img = ax.imshow(rate_map_mean, origin='lower', aspect='auto', cmap=cm.coolwarm)
+    img = ax.imshow(rate_map_mean, origin='lower', aspect='auto', cmap=fig_options.colormap)
     ax.set_ylabel('Y Position [cm]', fontsize=fig_options.fontSize)
     ax.set_xlabel('X Position [cm]', fontsize=fig_options.fontSize)
 
@@ -3951,7 +3952,7 @@ def plot_spike_histogram_autocorr (input_path, namespace_id, include = ['eachPop
             axes.set_title (str(subset), fontsize=fig_options.fontSize)
 
         if graph_type == 'matrix':
-            im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=fig_options['colormap'])
+            im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=fig_options.colormap)
             cbar = plt.colorbar(im)
             cbar.ax.set_ylabel('Correlation Coefficient', fontsize=fig_options.fontSize)
         elif graph_type == 'histogram':
@@ -3977,7 +3978,7 @@ def plot_spike_histogram_autocorr (input_path, namespace_id, include = ['eachPop
             else:
                 axes.set_xlim([X_min, X_max])
         else:
-            im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=fig_options['colormap'])
+            im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=fig_options.colormap)
             cbar = plt.colorbar(im)
             cbar.ax.set_ylabel('Correlation Coefficient', fontsize=fig_options.fontSize)
 
@@ -4052,7 +4053,7 @@ def plot_spike_histogram_corr (input_path, namespace_id, include = ['eachPop'], 
             axes.set_title (str(subset), fontsize=fig_options.fontSize)
             
         if graph_type == 'matrix':
-            im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=fig_options['colormap'])
+            im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=fig_options.colormap)
             cbar = plt.colorbar(im)
             cbar.ax.set_ylabel('Correlation Coefficient', fontsize=fig_options.fontSize)
         elif graph_type == 'histogram':
@@ -4081,7 +4082,7 @@ def plot_spike_histogram_corr (input_path, namespace_id, include = ['eachPop'], 
             else:
                 axes.set_xlim([-0.5, 0.5])
         else:
-            im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=fig_options['colormap'])
+            im = axes[iplot].imshow(pop_corr, origin='lower', aspect='auto', interpolation='none', cmap=fig_options.colormap)
             cbar = plt.colorbar(im)
             cbar.ax.set_ylabel('Correlation Coefficient', fontsize=fig_options.fontSize)
 
@@ -4879,7 +4880,7 @@ def plot_2D_rate_map(x, y, rate_map, peak_rate=None, title=None, **kwargs):
     if peak_rate is None:
         peak_rate = np.max(rate_map)
     fig, axes = plt.subplots(figsize=fig_options.figSize)
-    pc = axes.pcolor(x, y, rate_map, vmin=0., vmax=peak_rate)
+    pc = axes.pcolor(x, y, rate_map, vmin=0., vmax=peak_rate, cmap=fig_options.colormap)
     axes.set_aspect('equal')
     cbar = fig.colorbar(pc, ax=axes)
     cbar.set_label('Firing Rate (Hz)', rotation=270., labelpad=20., fontsize=fig_options.fontSize)
@@ -4895,6 +4896,8 @@ def plot_2D_rate_map(x, y, rate_map, peak_rate=None, title=None, **kwargs):
 
     if fig_options.showFig:
         fig.show()
+        
+    return fig
 
 
 def plot_2D_histogram(hist, x_edges, y_edges, norm=None, ylabel=None, xlabel=None, title=None,
@@ -4920,12 +4923,19 @@ def plot_2D_histogram(hist, x_edges, y_edges, norm=None, ylabel=None, xlabel=Non
     if norm is not None:
         non_zero = np.where(norm > 0.0)
         H[non_zero] = np.divide(H[non_zero], norm[non_zero])
-        H = np.ma.masked_where(norm == 0., H)
 
     if vmax is None:
         vmax = np.max(H)
-    fig, axes = plt.subplots(figsize=(9.4, 4.8))
-    pcm = axes.pcolormesh(x_edges, y_edges, H.T, vmin=vmin, vmax=vmax)
+    fig, axes = plt.subplots(figsize=fig_options.figSize)
+
+    pcm_boundaries = np.arange(vmin, vmax, .1)
+    cmap_pls = plt.cm.get_cmap(fig_options.colormap, len(pcm_boundaries))
+    pcm_colors = list(cmap_pls(np.arange(len(pcm_boundaries))))
+    pcm_cmap = mpl.colors.ListedColormap(pcm_colors[:-1], "")
+    pcm_cmap.set_under(pcm_colors[0], alpha=0.0)
+    
+    pcm = axes.pcolormesh(x_edges, y_edges, H.T, vmin=vmin, vmax=vmax, cmap=pcm_cmap)
+    
     axes.set_aspect('equal')
     axes.tick_params(labelsize=fig_options.fontSize)
     divider = make_axes_locatable(axes)
@@ -4948,3 +4958,5 @@ def plot_2D_histogram(hist, x_edges, y_edges, norm=None, ylabel=None, xlabel=Non
 
     if fig_options.showFig:
         fig.show()
+
+    return fig

@@ -8,7 +8,7 @@ from dentate.cells import get_distance_to_node, get_donor, get_mech_rules_dict, 
     custom_filter_modify_slope_if_terminal, custom_filter_by_branch_order
 from dentate.neuron_utils import h, default_ordered_sec_types, mknetcon, mknetcon_vecstim
 from dentate.utils import ExprClosure, NamedTupleWithDocstring, get_module_logger, generator_ifempty, map, range, str, \
-     viewitems, viewkeys, zip, zip_longest, partitionn, rejection_sampling, gauss2d, exp_phi
+     viewitems, viewkeys, zip, zip_longest, partitionn, rejection_sampling
 from neuroh5.io import write_cell_attributes
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -2474,11 +2474,11 @@ def get_activation_map_residual_mse(weights, input_matrix, target_map):
 
     return mse
     
-def generate_normalized_delta_weights(target_map, initial_weight_dict, input_rate_map_dict, syn_count_dict,
-                                      max_delta_weight=10., max_iter=100, target_amplitude=3., arena_x=None,
-                                      arena_y=None, reference_weight_dict=None, reference_weights_are_delta=False,
-                                      reference_weights_namespace='', optimize_method='L-BFGS-B',
-                                      verbose=False, plot=False):
+def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_dict, syn_count_dict,
+                                max_delta_weight=10., max_iter=100, target_amplitude=3., arena_x=None,
+                                arena_y=None, reference_weight_dict=None, reference_weights_are_delta=False,
+                                reference_weights_namespace='', optimize_method='L-BFGS-B',
+                                verbose=False, plot=False):
     """
 
     :param target_map: array
@@ -2562,6 +2562,7 @@ def generate_normalized_delta_weights(target_map, initial_weight_dict, input_rat
     scaled_LS_weights = normalized_delta_weights_array * max_delta_weight + mean_initial_weight
     flat_LS_map = scaled_LS_weights.dot(scaled_input_matrix) - 1.
     normalized_delta_weights_dict = dict(zip(source_gid_array, normalized_delta_weights_array))
+    scaled_LS_weights_dict = dict(zip(source_gid_array, scaled_LS_weights))
 
     if plot:
         flat_initial_LS_map = initial_LS_delta_weights.dot(scaled_input_matrix)
@@ -2583,4 +2584,6 @@ def generate_normalized_delta_weights(target_map, initial_weight_dict, input_rat
                                                reference_weights_are_delta = reference_weights_are_delta)
 
 
-    return normalized_delta_weights_dict
+    return {'normalized_delta_weights': normalized_delta_weights_dict,
+            'scaled_LS_weights': scaled_LS_weights_dict,
+            'LS_rate_map': flat_LS_map}
