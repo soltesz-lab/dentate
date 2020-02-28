@@ -2325,7 +2325,7 @@ def generate_sparse_weights(weights_name, fraction, seed, source_syn_dict):
     return weights_dict
 
 
-def plot_callback_normalized_delta_weights(**kwargs):
+def plot_callback_structured_weights(**kwargs):
     import matplotlib.pyplot as plt
     import matplotlib as mpl
     from dentate.plot import clean_axes
@@ -2487,7 +2487,6 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
     :param syn_count_dict: dict: {int: int}
     :param max_weight: float
     :param max_iter: int
-    :param SVD_beta: float
     :param target_amplitude: float
     :param arena_x: 2D array
     :param arena_y: 2D array
@@ -2562,28 +2561,25 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
     scaled_LS_weights = normalized_delta_weights_array * max_delta_weight + mean_initial_weight
     flat_LS_map = scaled_LS_weights.dot(scaled_input_matrix) - 1.
     normalized_delta_weights_dict = dict(zip(source_gid_array, normalized_delta_weights_array))
-    scaled_LS_weights_dict = dict(zip(source_gid_array, scaled_LS_weights))
 
     if plot:
         flat_initial_LS_map = initial_LS_delta_weights.dot(scaled_input_matrix)
-        plot_callback_normalized_delta_weights(optimize_method = optimize_method,
-                                               arena_x = arena_x,
-                                               arena_y = arena_y,
-                                               bounds = bounds,
-                                               max_weight = max_weight,
-                                               SVD_delta_weights = SVD_delta_weights,
-                                               initial_LS_delta_weights = initial_LS_delta_weights,
-                                               scaled_LS_weights = scaled_LS_weights,
-                                               initial_weight_array = initial_weight_array,
-                                               flat_scaled_target_map = flat_scaled_target_map,
-                                               flat_SVD_map = flat_SVD_map,
-                                               flat_initial_LS_map = flat_initial_LS_map,
-                                               flat_LS_map = flat_LS_map,
-                                               initial_background_map = initial_background_map,
-                                               reference_weight_array = reference_weight_array,
-                                               reference_weights_are_delta = reference_weights_are_delta)
+        plot_callback_structured_weights(optimize_method = optimize_method,
+                                         arena_x = arena_x,
+                                         arena_y = arena_y,
+                                         bounds = bounds,
+                                         max_weight = max_weight,
+                                         SVD_delta_weights = SVD_delta_weights,
+                                         initial_LS_delta_weights = initial_LS_delta_weights,
+                                         scaled_LS_weights = scaled_LS_weights,
+                                         initial_weight_array = initial_weight_array,
+                                         flat_scaled_target_map = flat_scaled_target_map,
+                                         flat_SVD_map = flat_SVD_map,
+                                         flat_initial_LS_map = flat_initial_LS_map,
+                                         flat_LS_map = flat_LS_map,
+                                         initial_background_map = initial_background_map,
+                                         reference_weight_array = reference_weight_array,
+                                         reference_weights_are_delta = reference_weights_are_delta)
 
 
-    return {'normalized_delta_weights': normalized_delta_weights_dict,
-            'scaled_LS_weights': scaled_LS_weights_dict,
-            'LS_rate_map': flat_LS_map}
+    return normalized_delta_weights_dict, flat_LS_map

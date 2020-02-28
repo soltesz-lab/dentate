@@ -100,6 +100,8 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
 
     env = Env(config_file=config)
 
+    target_gid = gid
+    
     if not dry_run:
         if output_weights_path is None:
             raise RuntimeError('Missing required argument: output_weights_path.')
@@ -135,7 +137,7 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
     target_map = np.asarray(get_rate_map(this_x0, this_y0, this_scaled_field_width, this_peak_rate, arena_x, arena_y),
                             dtype=np.float32)
     selectivity_type = env.selectivity_types['place']
-    dst_input_features[destination][gid] = {
+    dst_input_features[destination][target_gid] = {
         'Selectivity Type': np.array([selectivity_type], dtype=np.uint8),
         'Num Fields': np.array([num_fields], dtype=np.uint8),
         'Field Width': this_field_width,
@@ -145,21 +147,21 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
         'Arena Rate Map': this_rate_map.ravel()}
 
     initial_weights_by_syn_id_dict = dict()
-    selection = [gid]
+    selection = [target_gid]
     if initial_weights_path is not None:
         initial_weights_iter = \
             read_cell_attribute_selection(initial_weights_path, destination, namespace=initial_weights_namespace,
                                           selection=selection)
         syn_weight_attr_dict = dict(initial_weights_iter)
 
-        syn_ids = syn_weight_attr_dict[gid]['syn_id']
-        weights = syn_weight_attr_dict[gid][synapse_name]
+        syn_ids = syn_weight_attr_dict[target_gid]['syn_id']
+        weights = syn_weight_attr_dict[target_gid][synapse_name]
 
         for (syn_id, weight) in zip(syn_ids, weights):
             initial_weights_by_syn_id_dict[int(syn_id)] = float(weight)
 
         logger.info('destination: %s; gid %i; read initial synaptic weights for %i synapses' %
-                    (destination, gid, len(initial_weights_by_syn_id_dict)))
+                    (destination, target_gid, len(initial_weights_by_syn_id_dict)))
 
     reference_weights_by_syn_id_dict = None
     if reference_weights_path is not None:
@@ -169,14 +171,14 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
                                           selection=selection)
         syn_weight_attr_dict = dict(reference_weights_iter)
 
-        syn_ids = syn_weight_attr_dict[gid]['syn_id']
-        weights = syn_weight_attr_dict[gid][synapse_name]
+        syn_ids = syn_weight_attr_dict[target_gid]['syn_id']
+        weights = syn_weight_attr_dict[target_gid][synapse_name]
 
         for (syn_id, weight) in zip(syn_ids, weights):
             reference_weights_by_syn_id_dict[int(syn_id)] = float(weight)
 
         logger.info('destination: %s; gid %i; read reference synaptic weights for %i synapses' %
-                    (destination, gid, len(reference_weights_by_syn_id_dict)))
+                    (destination, target_gid, len(reference_weights_by_syn_id_dict)))
 
     source_gid_set_dict = defaultdict(set)
     syn_ids_by_source_gid_dict = defaultdict(list)
@@ -186,7 +188,7 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
     else:
         reference_weights_by_source_gid_dict = dict()
     (graph, edge_attr_info) = read_graph_selection(file_name=connections_path,
-                                                   selection=[gid],
+                                                   selection=[target_gid],
                                                    namespaces=['Synapses'])
     syn_id_attr_index = None
     for source, edge_iter in viewitems(graph[destination]):
@@ -197,7 +199,7 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
            'syn_id' in this_edge_attr_info['Synapses']:
             syn_id_attr_index = this_edge_attr_info['Synapses']['syn_id']
         for (destination_gid, edges) in edge_iter:
-            assert destination_gid == gid
+            assert destination_gid == target_gid
             source_gids, edge_attrs = edges
             syn_ids = edge_attrs['Synapses'][syn_id_attr_index]
             count = 0
@@ -218,7 +220,7 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
                             reference_weights_by_syn_id_dict[this_syn_id]
                 count += 1
             logger.info('destination: %s; gid %i; set initial synaptic weights for %d inputs from source population '
-                        '%s' % (destination, gid, count, source))
+                        '%s' % (destination, destination_gid, count, source))
 
     syn_count_by_source_gid_dict = dict()
     for source_gid in syn_ids_by_source_gid_dict:
@@ -242,7 +244,7 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
     if is_interactive:
         context.update(locals())
 
-    structured_weights_dict = \
+    normalized_delta_weights_dict, arena_LS_map = \
         synapses.generate_structured_weights(target_map=target_map,
                                              initial_weight_dict=initial_weights_by_source_gid_dict,
                                              input_rate_map_dict=input_rate_maps_by_source_gid_dict,
@@ -252,7 +254,6 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
                                              reference_weights_are_delta=reference_weights_are_delta,
                                              reference_weights_namespace=reference_weights_namespace,
                                              optimize_method=optimize_method, verbose=verbose, plot=plot)
-    normalized_delta_weights_dict = structured_weights_dict['normalized_delta_weights']
 
     output_syn_ids = np.empty(len(initial_weights_by_syn_id_dict), dtype='uint32')
     output_weights = np.empty(len(initial_weights_by_syn_id_dict), dtype='float32')
@@ -262,11 +263,11 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
             output_syn_ids[i] = syn_id
             output_weights[i] = this_weight
             i += 1
-    output_weights_dict = {destination_gid: {'syn_id': output_syn_ids,
-                                             synapse_name: output_weights}}
+    output_weights_dict = {target_gid: {'syn_id': output_syn_ids,
+                                        synapse_name: output_weights}}
 
     logger.info('destination: %s; gid %i; generated %s for %i synapses' %
-                (destination, destination_gid, output_weights_namespace, len(output_weights)))
+                (destination, target_gid, output_weights_namespace, len(output_weights)))
 
     if not dry_run:
         this_output_weights_namespace = '%s %s' % (output_weights_namespace, arena_id)
@@ -276,10 +277,10 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
         logger.info('Destination: %s; appended %s' % (destination, this_output_weights_namespace))
         output_weights_dict.clear()
         if output_features_path is not None:
-            LS_arena_rate_map = structured_weights_dict['LS_rate_map']
+            arena_rate_map = np.clip(arena_LS_map, 0., None) * peak_rate
             this_output_features_namespace = '%s %s' % (output_features_namespace, arena_id)
             cell_attr_dict = dst_input_features[destination]
-            cell_attr_dict[gid]['Arena Rate Map'] = LS_arena_rate_map
+            cell_attr_dict[target_gid]['Arena Rate Map'] = np.asarray(arena_rate_map.ravel(), dtype=np.float32)
             logger.info('Destination: %s; appending %s ...' % (destination, this_output_features_namespace))
             append_cell_attributes(output_features_path, destination, cell_attr_dict,
                                    namespace=this_output_features_namespace)
