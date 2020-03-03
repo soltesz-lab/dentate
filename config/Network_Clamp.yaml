@@ -87,7 +87,8 @@ Synaptic Optimization:
           apical:
             AMPA:
               weight:
-                a: [0.01, 4.0]
+                a: [0.01, 5.0]
+                b: [0.01, 1.0]
         MC:
           apical:
             AMPA:
@@ -95,14 +96,14 @@ Synaptic Optimization:
         BC:
           apical:
             GABA_A:
-              weight: [0.001, 1.0]
+              weight: [0.001, 2.0]
           soma:
             GABA_A:
-              weight: [0.0005, 1.0]
+              weight: [0.0005, 2.0]
         AAC:
           ais:
             GABA_A:
-              weight: [0.001, 1.0]
+              weight: [0.001, 2.0]
         !!python/tuple [HC, HCC]:
           apical:
             GABA_A:
