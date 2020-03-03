@@ -435,7 +435,7 @@ def optimize_params(env, pop_name, param_type, param_config_name):
     return param_bounds, param_names, param_initial_dict, param_range_tuples
 
 
-def init_state_objfun(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter, opt_npareval, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, param_type, param_config_name, recording_profile, state_variable, target_value, **kwargs):
+def init_state_objfun(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, param_type, param_config_name, recording_profile, state_variable, target_value, **kwargs):
 
     params = dict(locals())
     env = Env(**params)
@@ -485,7 +485,7 @@ def init_state_objfun(config_file, population, gid, generate_inputs, generate_we
     return f
 
 
-def optimize_state(env, tstop, pop_name, gid, state_variable, param_config_name, opt_iter=10, opt_npareval=None, solver_epsilon=1e-2, param_type='synaptic', init_params={}, results_file=None, verbose=False):
+def optimize_state(env, tstop, pop_name, gid, state_variable, param_config_name, opt_iter=10, solver_epsilon=1e-2, param_type='synaptic', init_params={}, results_file=None, verbose=False):
     import distgfs
 
     if (pop_name in env.netclamp_config.optimize_parameters[param_type]):
@@ -526,7 +526,6 @@ def optimize_state(env, tstop, pop_name, gid, state_variable, param_config_name,
                       'file_path': file_path,
                       'save': True,
                       'n_iter': opt_iter,
-                      'n_pareval': opt_npareval,
                       'solver_epsilon': solver_epsilon }
 
     opt_params, outputs = distgfs.run(distgfs_params, spawn_workers=True, verbose=verbose)
@@ -538,7 +537,7 @@ def optimize_state(env, tstop, pop_name, gid, state_variable, param_config_name,
 
 
 
-def init_rate_objfun(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter, opt_npareval, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, param_type, param_config_name, recording_profile, target_rate, **kwargs):
+def init_rate_objfun(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, param_type, param_config_name, recording_profile, target_rate, **kwargs):
 
     params = dict(locals())
     env = Env(**params)
@@ -581,7 +580,7 @@ def init_rate_objfun(config_file, population, gid, generate_inputs, generate_wei
     return f
 
 
-def optimize_rate(env, tstop, pop_name, gid, param_config_name, opt_iter=10, opt_npareval=None, solver_epsilon=1e-2, param_type='synaptic', init_params={},
+def optimize_rate(env, tstop, pop_name, gid, param_config_name, opt_iter=10, solver_epsilon=1e-2, param_type='synaptic', init_params={},
                        results_file=None, verbose=False):
     import distgfs
 
@@ -622,7 +621,6 @@ def optimize_rate(env, tstop, pop_name, gid, param_config_name, opt_iter=10, opt
                       'file_path': file_path,
                       'save': True,
                       'n_iter': opt_iter,
-                      'n_npareval': opt_npareval,
                       'solver_epsilon': solver_epsilon }
 
     opt_params, outputs = distgfs.run(distgfs_params, spawn_workers=True, verbose=verbose)
@@ -636,7 +634,7 @@ def optimize_rate(env, tstop, pop_name, gid, param_config_name, opt_iter=10, opt
 def optimize_rate_dist(env, tstop, pop_name, gid, param_config_name,
                        target_rate_map_path, target_rate_map_namespace,
                        target_rate_map_arena, target_rate_map_trajectory,
-                       opt_iter=10, opt_npareval=None, solver_epsilon=1e-2, param_type='synaptic', init_params={},
+                       opt_iter=10, solver_epsilon=1e-2, param_type='synaptic', init_params={},
                        results_file=None, verbose=False):
     import distgfs
 
@@ -667,7 +665,6 @@ def optimize_rate_dist(env, tstop, pop_name, gid, param_config_name,
                       'file_path': file_path,
                       'save': True,
                       'n_iter': opt_iter,
-                      'n_npareval': opt_npareval,
                       'solver_epsilon': solver_epsilon }
 
     opt_params, outputs = distgfs.run(distgfs_params, spawn_workers=True, verbose=verbose)
@@ -678,7 +675,7 @@ def optimize_rate_dist(env, tstop, pop_name, gid, param_config_name,
     return opt_params, outputs
 
 
-def init_rate_dist_objfun(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter, opt_npareval,
+def init_rate_dist_objfun(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter, 
              template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t,
              param_type, param_config_name, recording_profile, target_rate_map_path, target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory,
              **kwargs):
@@ -878,7 +875,6 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
 @click.option("--t-max", type=float)
 @click.option("--t-min", type=float)
 @click.option("--opt-iter", type=int, default=10, help='number of optimization iterations')
-@click.option("--opt-npareval", type=int, help='number of parallel optimization evaluations')
 @click.option("--template-paths", type=str, required=True,
               help='colon-separated list of paths to directories containing hoc cell templates')
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
@@ -913,7 +909,7 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
 @click.argument('target')# help='rate, rate_dist, state'
 
 
-def optimize(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter, opt_npareval,
+def optimize(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter, 
              template_paths, dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, spike_events_t,
              param_config_name, param_type, recording_profile, results_file, results_path, target_rate_map_path, target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory, target_state_variable, target):
     """
@@ -951,20 +947,20 @@ def optimize(config_file, population, gid, generate_inputs, generate_weights, t_
 
     if target == 'rate':
         optimize_rate(env, tstop, population, gid, param_config_name,
-                      opt_iter=opt_iter, opt_npareval=opt_npareval, param_type=param_type,
+                      opt_iter=opt_iter, param_type=param_type,
                       init_params=init_params, results_file=results_file,
                       verbose=verbose)
     elif target == 'ratedist' or target == 'rate_dist':
         optimize_rate_dist(env, tstop, population, gid, param_config_name,
                            target_rate_map_path, target_rate_map_namespace,
                            target_rate_map_arena, target_rate_map_trajectory,
-                           opt_iter=opt_iter, opt_npareval=opt_npareval, param_type=param_type,
+                           opt_iter=opt_iter, param_type=param_type,
                            init_params=init_params, results_file=results_file,
                            verbose=verbose)
     elif target == 'state':
         optimize_state(env, tstop, population, gid, param_config_name,
                        state_variable=target_state_variable, 
-                       opt_iter=opt_iter, opt_npareval=opt_npareval, param_type=param_type,
+                       opt_iter=opt_iter, param_type=param_type,
                        init_params=init_params, results_file=results_file,
                        verbose=verbose)
     else:
