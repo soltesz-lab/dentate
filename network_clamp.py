@@ -10,7 +10,7 @@ from dentate import io_utils, spikedata, synapses, stimulus, cell_clamp
 from dentate.cells import h, make_input_cell, register_cell, record_cell
 from dentate.env import Env
 from dentate.neuron_utils import h, configure_hoc_env, make_rec
-from dentate.utils import is_interactive, Context, Closure, mse, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger
+from dentate.utils import is_interactive, Context, Closure, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger
 from dentate.cell_clamp import init_biophys_cell
 from neuroh5.io import read_cell_attribute_selection
 
@@ -730,9 +730,9 @@ def init_rate_dist_objfun(config_file, population, gid, generate_inputs, generat
     logger.info("firing rate objective: target time bins: %s" % str(time_bins))
     logger.info("firing rate objective: target vector: %s" % str(target_rate_vector))
     logger.info("firing rate objective: target rate vector min/max is %.2f Hz (%.2f ms) / %.2f Hz (%.2f ms)" % (np.min(target_rate_vector), time_bins[np.argmin(target_rate_vector)], np.max(target_rate_vector), time_bins[np.argmax(target_rate_vector)]))
-    f = lambda **v: (-mse(gid_firing_rate_vector(run_with(env, {population: {gid: from_param_dict(v)}}), gid),
-                         target_rate_vector))
-
+    f = lambda **v: (-np.linalg.norm(gid_firing_rate_vector(run_with(env, {population: {gid: from_param_dict(v)}}), gid),
+                                     target_rate_vector) ** 2.)
+    
     return f
     
 

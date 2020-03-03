@@ -124,6 +124,8 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
     arena = env.stimulus_config['Arena'][arena_id]
     default_run_vel = arena.properties['default run velocity']  # cm/s
     arena_x, arena_y = stimulus.get_2D_arena_spatial_mesh(arena, spatial_resolution)
+    dim_x = len(arena_x)
+    dim_y = len(arena_y)
 
     dst_input_features = defaultdict(dict)
     num_fields = len(coordinates)
@@ -236,7 +238,7 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
                                                                 selection=source_gids)
             count = 0
             for gid, attr_dict in input_features_iter:
-                input_rate_maps_by_source_gid_dict[gid] = attr_dict['Arena Rate Map']
+                input_rate_maps_by_source_gid_dict[gid] = attr_dict['Arena Rate Map'].reshape((dim_x, dim_y))
                 count += 1
             logger.info('Read %s feature data for %i cells in population %s' %
                         (input_features_namespace, count, source))
@@ -277,10 +279,9 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
         logger.info('Destination: %s; appended %s' % (destination, this_output_weights_namespace))
         output_weights_dict.clear()
         if output_features_path is not None:
-            arena_rate_map = np.clip(arena_LS_map, 0., None) * peak_rate
             this_output_features_namespace = '%s %s' % (output_features_namespace, arena_id)
             cell_attr_dict = dst_input_features[destination]
-            cell_attr_dict[target_gid]['Arena Rate Map'] = np.asarray(arena_rate_map.ravel(), dtype=np.float32)
+            cell_attr_dict[target_gid]['Arena State Map'] = np.asarray(arena_LS_map.ravel(), dtype=np.float32)
             logger.info('Destination: %s; appending %s ...' % (destination, this_output_features_namespace))
             append_cell_attributes(output_features_path, destination, cell_attr_dict,
                                    namespace=this_output_features_namespace)

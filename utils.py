@@ -1081,16 +1081,6 @@ def apply_filter(data, sos):
     y = signal.sosfiltfilt(sos, data)
     return y
 
-def sed(a, b):
-    delta = a - b
-    sum_squared = np.dot(delta.T, delta)
-    return sum_squared
-
-def mse(a, b):
-    ssq = sed(a, b)
-    n = len(a)
-    return (1./n) * ssq
-
 
 def gauss2d(x=0, y=0, mx=0, my=0, sx=1, sy=1, A=1.):
     return A * np.exp(-((x - mx)**2. / (2. * sx**2.) + (y - my)**2. / (2. * sy**2.)))
