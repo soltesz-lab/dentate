@@ -35,6 +35,7 @@ def mpi_excepthook(type, value, traceback):
 sys_excepthook = sys.excepthook
 sys.excepthook = mpi_excepthook
 
+
 def distgfs_reduce_fun(xs):
     return xs[0]
 
@@ -674,7 +675,7 @@ def optimize_rate_dist(env, tstop, pop_name, gid, param_config_name,
     return opt_params, outputs
 
 
-def init_rate_dist_objfun(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter,
+def init_rate_dist_objfun(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter, 
              template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t,
              param_type, param_config_name, recording_profile, target_rate_map_path, target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory,
              **kwargs):
@@ -908,7 +909,7 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
 @click.argument('target')# help='rate, rate_dist, state'
 
 
-def optimize(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter,
+def optimize(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter, 
              template_paths, dataset_prefix, config_prefix, spike_events_path, spike_events_namespace, spike_events_t,
              param_config_name, param_type, recording_profile, results_file, results_path, target_rate_map_path, target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory, target_state_variable, target):
     """
@@ -923,6 +924,8 @@ def optimize(config_file, population, gid, generate_inputs, generate_weights, t_
     results_file_id = None
     if rank == 0:
         results_file_id = uuid.uuid4()
+
+    logger.info("before initializing env")
         
     results_file_id = comm.bcast(results_file_id, root=0)
     
@@ -933,9 +936,9 @@ def optimize(config_file, population, gid, generate_inputs, generate_weights, t_
     cache_queries = True
     params = dict(locals())
     env = Env(**params)
-    configure_hoc_env(env)
-
+    logger.info("initialized env")
     if size == 1:
+        configure_hoc_env(env)
         init(env, population, gid, spike_events_path, 
             generate_inputs_pops=set(generate_inputs), 
             generate_weights_pops=set(generate_weights), 
@@ -970,5 +973,6 @@ cli.add_command(go)
 cli.add_command(optimize)
 
 if __name__ == '__main__':
+
     cli(args=sys.argv[(list_find(lambda s: s.find(os.path.basename(__file__)) != -1, sys.argv) + 1):],
         standalone_mode=False)

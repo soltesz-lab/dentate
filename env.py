@@ -110,10 +110,9 @@ class Env(object):
             self.comm = comm
         rank = self.comm.Get_rank()
 
+        self.pc = None
         if self.comm is not None:
             self.pc = h.ParallelContext()
-        else:
-            self.pc = None
 
         # If true, the biophysical cells and synapses dictionary will be freed
         # as synapses and connections are instantiated.
