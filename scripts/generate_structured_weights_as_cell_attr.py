@@ -19,7 +19,7 @@ def mpi_excepthook(type, value, traceback):
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
 sys_excepthook = sys.excepthook
-sys.excepthook = mpi_excepthook
+#sys.excepthook = mpi_excepthook
 
 
     
@@ -170,23 +170,24 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
         source_gid_set_dict = defaultdict(set)
         syn_ids_by_source_gid_dict = defaultdict(list)
         structured_syn_id_count = 0
-        for source, (destination_gid, (source_gid_array, conn_attr_dict)) in zip_longest(sources, attr_gen_package):
-            syn_ids = conn_attr_dict['Synapses']['syn_id']
-            count = 0
-            for i in range(len(source_gid_array)):
-                this_source_gid = source_gid_array[i]
-                this_syn_id = syn_ids[i]
-                this_syn_wgt = initial_weights_by_syn_id_dict.get(this_syn_id, 1.0)
-                source_gid_set_dict[source].add(this_source_gid)
-                syn_ids_by_source_gid_dict[this_source_gid].append(this_syn_id)
-                syn_count_by_source_gid_dict[this_source_gid] += 1
-                if this_source_gid not in initial_weights_by_source_gid_dict:
-                    initial_weights_by_source_gid_dict[this_source_gid] = this_syn_wgt
+        if this_gid is not None:
+            for source, (destination_gid, (source_gid_array, conn_attr_dict)) in zip_longest(sources, attr_gen_package):
+                syn_ids = conn_attr_dict['Synapses']['syn_id']
+                count = 0
+                for i in range(len(source_gid_array)):
+                    this_source_gid = source_gid_array[i]
+                    this_syn_id = syn_ids[i]
+                    this_syn_wgt = initial_weights_by_syn_id_dict.get(this_syn_id, 1.0)
+                    source_gid_set_dict[source].add(this_source_gid)
+                    syn_ids_by_source_gid_dict[this_source_gid].append(this_syn_id)
+                    syn_count_by_source_gid_dict[this_source_gid] += 1
+                    if this_source_gid not in initial_weights_by_source_gid_dict:
+                        initial_weights_by_source_gid_dict[this_source_gid] = this_syn_wgt
 
-                count += 1
-            structured_syn_id_count += len(syn_ids)
-            logger.info('Rank %i; destination: %s; gid %i; %d edges from source population %s' %
-                        (rank, destination, this_gid, count, source))
+                    count += 1
+                structured_syn_id_count += len(syn_ids)
+                logger.info('Rank %i; destination: %s; gid %i; %d edges from source population %s' %
+                            (rank, destination, this_gid, count, source))
                     
         target_rate_maps = {}
         for input_features_namespace in this_input_features_namespaces:
