@@ -2533,7 +2533,7 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
 
 
     def activation_map_residual(weights, input_matrix, target_map):
-        res = np.linalg.norm(np.subtract(np.dot(input_matrix, weights), target_map)) ** 2.
+        res = np.linalg.norm(np.subtract(np.dot(input_matrix, weights), target_map) ** 2.)
         return res
 
     def activation_map_jac(weights, input_matrix, target_map):
