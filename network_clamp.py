@@ -731,8 +731,7 @@ def init_rate_dist_objfun(config_file, population, gid, generate_inputs, generat
     logger.info("firing rate objective: target time bins: %s" % str(time_bins))
     logger.info("firing rate objective: target vector: %s" % str(target_rate_vector))
     logger.info("firing rate objective: target rate vector min/max is %.2f Hz (%.2f ms) / %.2f Hz (%.2f ms)" % (np.min(target_rate_vector), time_bins[np.argmin(target_rate_vector)], np.max(target_rate_vector), time_bins[np.argmax(target_rate_vector)]))
-    f = lambda **v: (-np.linalg.norm(np.subtract(gid_firing_rate_vector(run_with(env, {population: {gid: from_param_dict(v)}}), gid),
-                                                 target_rate_vector) ** 2.))
+    f = lambda **v: (-np.square(np.subtract(gid_firing_rate_vector(run_with(env, {population: {gid: from_param_dict(v)}}), gid), target_rate_vector)).mean())
     
     return f
     
