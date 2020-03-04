@@ -358,7 +358,6 @@ def run_with(env, param_dict, cvode=False):
 
     if rank == 0:
         logger.info("*** Running simulation with dt = %.03f and tstop = %.02f" % (h.dt, h.tstop))
-        
         logger.info("*** Parameters: %s" % pprint.pformat(param_dict))
 
 
@@ -485,58 +484,6 @@ def init_state_objfun(config_file, population, gid, generate_inputs, generate_we
     return f
 
 
-def optimize_state(env, tstop, pop_name, gid, state_variable, param_config_name, opt_iter=10, solver_epsilon=1e-2, param_type='synaptic', init_params={}, results_file=None, verbose=False):
-    import distgfs
-
-    if (pop_name in env.netclamp_config.optimize_parameters[param_type]):
-        opt_params = env.netclamp_config.optimize_parameters[param_type][pop_name]
-        param_ranges = opt_params['Parameter ranges']
-        opt_target = opt_params['Targets']['state'][state_variable]
-    else:
-        raise RuntimeError(
-            "network_clamp.optimize_state: population %s does not have optimization configuration" % pop_name)
-
-    init_params['target_value'] = opt_target
-    init_params['state_variable'] = state_variable
-    param_bounds, param_names, param_initial_dict, param_range_tuples = \
-      optimize_params(env, pop_name, param_type, param_config_namee)
-    
-    hyperprm_space = { param_pattern: [param_range[0], param_range[1]]
-                       for param_pattern, (update_operator, pop_name, source, sec_type, syn_name, _, param_range) in
-                           zip(param_names, param_range_tuples) }
-
-    logger.info('network_clamp.optimize_state: init_params = %s' % pprint.pformat(init_params))
-    # Create an optimizer parameter set
-    if results_file is None:
-        if env.results_path is not None:
-            file_path = '%s/distgfs.network_clamp.%s.h5' % (env.results_path, str(env.results_file_id))
-        else:
-            file_path = 'distgfs.network_clamp.%s.h5' % (str(env.results_file_id))
-    else:
-        file_path = '%s/%s' % (env.results_path, results_file)
-        
-    distgfs_params = {'opt_id': 'network_clamp.state',
-                      'obj_fun_init_name': 'init_state_objfun',
-                      'obj_fun_init_module': 'dentate.network_clamp',
-                      'obj_fun_init_args': init_params,
-                      'reduce_fun_name': 'distgfs_reduce_fun',
-                      'reduce_fun_module': 'dentate.network_clamp',
-                      'problem_parameters': {},
-                      'space': hyperprm_space,
-                      'file_path': file_path,
-                      'save': True,
-                      'n_iter': opt_iter,
-                      'solver_epsilon': solver_epsilon }
-
-    opt_params, outputs = distgfs.run(distgfs_params, spawn_workers=True, verbose=verbose)
-    
-    logger.info('Optimized parameters: %s' % pprint.pformat(opt_params))
-    logger.info('Optimized objective function: %s' % pprint.pformat(outputs))
-
-    return opt_params, outputs
-
-
-
 def init_rate_objfun(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, param_type, param_config_name, recording_profile, target_rate, **kwargs):
 
     params = dict(locals())
@@ -578,101 +525,6 @@ def init_rate_objfun(config_file, population, gid, generate_inputs, generate_wei
                          target_rate))
 
     return f
-
-
-def optimize_rate(env, tstop, pop_name, gid, param_config_name, opt_iter=10, solver_epsilon=1e-2, param_type='synaptic', init_params={},
-                       results_file=None, verbose=False):
-    import distgfs
-
-    if (pop_name in env.netclamp_config.optimize_parameters[param_type]):
-        opt_params = env.netclamp_config.optimize_parameters[param_type][pop_name]
-        param_ranges = opt_params['Parameter ranges']
-        opt_target = opt_params['Targets']['firing rate']
-    else:
-        raise RuntimeError(
-            "network_clamp.optimize_rate: population %s does not have optimization configuration" % pop_name)
-
-    init_params['target_rate'] = opt_target
-    param_bounds, param_names, param_initial_dict, param_range_tuples = \
-      optimize_params(env, pop_name, param_type, param_config_name)
-    
-    hyperprm_space = { param_pattern: [param_range[0], param_range[1]]
-                       for param_pattern, (update_operator, pop_name, source, sec_type, syn_name, _, param_range) in
-                           zip(param_names, param_range_tuples) }
-
-    logger.info('network_clamp.optimize_rate: init_params = %s' % pprint.pformat(init_params))
-    # Create an optimizer parameter set
-    if results_file is None:
-        if env.results_path is not None:
-            file_path = '%s/distgfs.network_clamp.%s.h5' % (env.results_path, str(env.results_file_id))
-        else:
-            file_path = 'distgfs.network_clamp.%s.h5' % (str(env.results_file_id))
-    else:
-        file_path = '%s/%s' % (env.results_path, results_file)
-        
-    distgfs_params = {'opt_id': 'network_clamp.rate',
-                      'obj_fun_init_name': 'init_rate_objfun',
-                      'obj_fun_init_module': 'dentate.network_clamp',
-                      'obj_fun_init_args': init_params,
-                      'reduce_fun_name': 'distgfs_reduce_fun',
-                      'reduce_fun_module': 'dentate.network_clamp',
-                      'problem_parameters': {},
-                      'space': hyperprm_space,
-                      'file_path': file_path,
-                      'save': True,
-                      'n_iter': opt_iter,
-                      'solver_epsilon': solver_epsilon }
-
-    opt_params, outputs = distgfs.run(distgfs_params, spawn_workers=True, verbose=verbose)
-    
-    logger.info('Optimized parameters: %s' % pprint.pformat(opt_params))
-    logger.info('Optimized objective function: %s' % pprint.pformat(outputs))
-
-    return opt_params, outputs
-
-
-def optimize_rate_dist(env, tstop, pop_name, gid, param_config_name,
-                       target_rate_map_path, target_rate_map_namespace,
-                       target_rate_map_arena, target_rate_map_trajectory,
-                       opt_iter=10, solver_epsilon=1e-2, param_type='synaptic', init_params={},
-                       results_file=None, verbose=False):
-    import distgfs
-
-    param_bounds, param_names, param_initial_dict, param_range_tuples = \
-      optimize_params(env, pop_name, param_type, param_config_name)
-    
-    hyperprm_space = { param_pattern: [param_range[0], param_range[1]]
-                       for param_pattern, (update_operator, pop_name, source, sec_type, syn_name, _, param_range) in
-                           zip(param_names, param_range_tuples) }
-
-    logger.info('network_clamp.optimize_rate_dist: init_params = %s' % pprint.pformat(init_params))
-    # Create an optimizer parameter set
-    if results_file is None:
-        if env.results_path is not None:
-            file_path = '%s/distgfs.network_clamp.%s.h5' % (env.results_path, str(env.results_file_id))
-        else:
-            file_path = 'distgfs.network_clamp.%s.h5' % (str(env.results_file_id))
-    else:
-        file_path = '%s/%s' % (env.results_path, results_file)
-    distgfs_params = {'opt_id': 'network_clamp.rate_dist',
-                      'obj_fun_init_name': 'init_rate_dist_objfun',
-                      'obj_fun_init_module': 'dentate.network_clamp',
-                      'obj_fun_init_args': init_params,
-                      'reduce_fun_name': 'distgfs_reduce_fun',
-                      'reduce_fun_module': 'dentate.network_clamp',
-                      'problem_parameters': {},
-                      'space': hyperprm_space,
-                      'file_path': file_path,
-                      'save': True,
-                      'n_iter': opt_iter,
-                      'solver_epsilon': solver_epsilon }
-
-    opt_params, outputs = distgfs.run(distgfs_params, spawn_workers=True, verbose=verbose)
-    
-    logger.info('Optimized parameters: %s' % pprint.pformat(opt_params))
-    logger.info('Optimized objective function: %s' % pprint.pformat(outputs))
-
-    return opt_params, outputs
 
 
 def init_rate_dist_objfun(config_file, population, gid, generate_inputs, generate_weights, t_max, t_min, tstop, opt_iter, 
@@ -734,6 +586,48 @@ def init_rate_dist_objfun(config_file, population, gid, generate_inputs, generat
     f = lambda **v: (-np.square(np.subtract(gid_firing_rate_vector(run_with(env, {population: {gid: from_param_dict(v)}}), gid), target_rate_vector)).mean())
     
     return f
+
+
+def optimize_run(env, pop_name, param_config_name, init_objfun,
+                 opt_iter=10, solver_epsilon=1e-2, param_type='synaptic', init_params={}, 
+                 results_file=None, verbose=False):
+    import distgfs
+
+    param_bounds, param_names, param_initial_dict, param_range_tuples = \
+      optimize_params(env, pop_name, param_type, param_config_name)
+    
+    hyperprm_space = { param_pattern: [param_range[0], param_range[1]]
+                       for param_pattern, (update_operator, pop_name, source, sec_type, syn_name, _, param_range) in
+                           zip(param_names, param_range_tuples) }
+
+    # Create an optimizer parameter set
+    if results_file is None:
+        if env.results_path is not None:
+            file_path = '%s/distgfs.network_clamp.%s.h5' % (env.results_path, str(env.results_file_id))
+        else:
+            file_path = 'distgfs.network_clamp.%s.h5' % (str(env.results_file_id))
+    else:
+        file_path = '%s/%s' % (env.results_path, results_file)
+    distgfs_params = {'opt_id': 'network_clamp.rate_dist',
+                      'obj_fun_init_name': init_objfun, 
+                      'obj_fun_init_module': 'dentate.network_clamp',
+                      'obj_fun_init_args': init_params,
+                      'reduce_fun_name': 'distgfs_reduce_fun',
+                      'reduce_fun_module': 'dentate.network_clamp',
+                      'problem_parameters': {},
+                      'space': hyperprm_space,
+                      'file_path': file_path,
+                      'save': True,
+                      'n_iter': opt_iter,
+                      'solver_epsilon': solver_epsilon }
+
+    opt_params, outputs = distgfs.run(distgfs_params, spawn_workers=True, verbose=verbose)
+    
+    logger.info('Optimized parameters: %s' % pprint.pformat(opt_params))
+    logger.info('Optimized objective function: %s' % pprint.pformat(outputs))
+
+    return opt_params, outputs
+
     
 
 def write_output(env):
@@ -924,7 +818,6 @@ def optimize(config_file, population, gid, generate_inputs, generate_weights, t_
     if rank == 0:
         results_file_id = uuid.uuid4()
 
-    logger.info("before initializing env")
         
     results_file_id = comm.bcast(results_file_id, root=0)
     
@@ -935,7 +828,7 @@ def optimize(config_file, population, gid, generate_inputs, generate_weights, t_
     cache_queries = True
     params = dict(locals())
     env = Env(**params)
-    logger.info("initialized env")
+
     if size == 1:
         configure_hoc_env(env)
         init(env, population, gid, spike_events_path, 
@@ -943,28 +836,31 @@ def optimize(config_file, population, gid, generate_inputs, generate_weights, t_
             generate_weights_pops=set(generate_weights), 
             spike_events_namespace=spike_events_namespace, 
             t_var=spike_events_t, t_min=t_min, t_max=t_max)
+        
+    if (population in env.netclamp_config.optimize_parameters[param_type]):
+        opt_params = env.netclamp_config.optimize_parameters[param_type][population]
+    else:
+        raise RuntimeError(
+            "network_clamp.optimize: population %s does not have optimization configuration" % population)
 
     if target == 'rate':
-        optimize_rate(env, tstop, population, gid, param_config_name,
-                      opt_iter=opt_iter, param_type=param_type,
-                      init_params=init_params, results_file=results_file,
-                      verbose=verbose)
+        opt_target = opt_params['Targets']['firing rate']
+        init_params['target_rate'] = opt_target
+        init_objfun_name = 'init_rate_dist_objfun'
     elif target == 'ratedist' or target == 'rate_dist':
-        optimize_rate_dist(env, tstop, population, gid, param_config_name,
-                           target_rate_map_path, target_rate_map_namespace,
-                           target_rate_map_arena, target_rate_map_trajectory,
-                           opt_iter=opt_iter, param_type=param_type,
-                           init_params=init_params, results_file=results_file,
-                           verbose=verbose)
+        init_objfun_name = 'init_rate_dist_objfun'
     elif target == 'state':
-        optimize_state(env, tstop, population, gid, param_config_name,
-                       state_variable=target_state_variable, 
-                       opt_iter=opt_iter, param_type=param_type,
-                       init_params=init_params, results_file=results_file,
-                       verbose=verbose)
+        opt_target = opt_params['Targets']['state'][state_variable]
+        init_params['target_value'] = opt_target
+        init_params['state_variable'] = target_state_variable
+        init_objfun_name = 'init_state_objfun'
     else:
-        raise RuntimeError('network_clamp.optimize: unknown optimization target %s' % \
-                           target)
+        raise RuntimeError('network_clamp.optimize: unknown optimization target %s' % target) 
+        
+    optimize_run(env, population, param_config_name, init_objfun_name,
+                 opt_iter=opt_iter, param_type=param_type,
+                 init_params=init_params, results_file=results_file,
+                 verbose=verbose)
 
 
 cli.add_command(show)

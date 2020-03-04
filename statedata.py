@@ -10,7 +10,7 @@ from neuroh5.io import read_cell_attributes, read_cell_attribute_selection, read
 logger = get_module_logger(__name__)
 
 
-def query_state(input_file, population_names, namespace_id=None):
+def query_state(input_file, population_names, namespace_ids=None):
 
     pop_state_dict = {}
 
@@ -21,15 +21,15 @@ def query_state(input_file, population_names, namespace_id=None):
     for pop_name in attr_info_dict:
         cell_index = None
         pop_state_dict[pop_name] = {}
-        if namespace_id is None:
+        if namespace_ids is None:
             namespace_id_lst = attr_info_dict[pop_name].keys()
         else:
-            namespace_id_lst = [namespace_id]
+            namespace_id_lst = namespace_ids
     return namespace_id_lst, attr_info_dict
 
 
 def read_state(input_file, population_names, namespace_id, time_variable='t', state_variable='v', time_range=None,
-               max_units=None, unit_no=None, comm=None):
+               max_units=None, gid=None, comm=None):
     if comm is None:
         comm = MPI.COMM_WORLD
     pop_state_dict = {}
@@ -37,7 +37,7 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', st
     logger.info('Reading state data from populations %s, namespace %s...' % (str(population_names), namespace_id))
 
     attr_info_dict = read_cell_attribute_info(input_file, populations=population_names, read_cell_index=True)
-    
+
     for pop_name in population_names:
         cell_index = None
         pop_state_dict[pop_name] = {}
@@ -48,24 +48,24 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', st
         cell_set = set(cell_index)
                 
         # Limit to max_units
-        if unit_no is None:
+        if gid is None:
             if (max_units is not None) and (len(cell_set) > max_units):
                 logger.info('  Reading only randomly sampled %i out of %i units for population %s' % (
                 max_units, len(cell_set), pop_name))
                 sample_inds = np.random.randint(0, len(cell_set) - 1, size=int(max_units))
                 cell_set_lst = list(cell_set)
-                unit_no = set([cell_set_lst[i] for i in sample_inds])
+                gid = set([cell_set_lst[i] for i in sample_inds])
             else:
-                unit_no = set(cell_index)
+                gid = cell_set
         else:
-            unit_no = set(unit_no)
+            gid = set(gid)
 
         state_dict = {}
-        if unit_no is None:
+        if gid is None:
             valiter = read_cell_attributes(input_file, pop_name, namespace=namespace_id, comm=comm)
         else:
             valiter = read_cell_attribute_selection(input_file, pop_name, namespace=namespace_id,
-                                                    selection=list(unit_no), comm=comm)
+                                                    selection=list(gid), comm=comm)
 
         if time_range is None:
             for cellind, vals in valiter:

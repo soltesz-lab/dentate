@@ -12,7 +12,7 @@ script_name = os.path.basename(__file__)
 @click.option("--state-namespace-pattern", type=str)
 @click.option("--populations", '-i', type=str, multiple=True)
 @click.option("--max-units", type=int, default=1)
-@click.option("--unit-no", '-u', type=int, default=None, multiple=True)
+@click.option("--gid", '-g', type=int, default=None, multiple=True)
 @click.option("--t-variable", type=str, default='t')
 @click.option("--state-variable", type=str, default='v')
 @click.option("--t-max", type=float)
@@ -21,7 +21,7 @@ script_name = os.path.basename(__file__)
 @click.option("--query", "-q", type=bool, default=False, is_flag=True)
 @click.option("--reduce", type=bool, default=False, is_flag=True)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(state_path, state_namespace, state_namespace_pattern, populations, max_units, unit_no, t_variable, state_variable, t_max, t_min, font_size, query, reduce, verbose):
+def main(state_path, state_namespace, state_namespace_pattern, populations, max_units, gid, t_variable, state_variable, t_max, t_min, font_size, query, reduce, verbose):
 
     utils.config_logging(verbose)
     logger = utils.get_script_logger(script_name)
@@ -39,7 +39,8 @@ def main(state_path, state_namespace, state_namespace_pattern, populations, max_
     else:
         populations = list(populations)
 
-    namespace_id_lst, attr_info_dict = statedata.query_state(state_path, populations, namespace_id=state_namespace)
+    namespace_id_lst, attr_info_dict = statedata.query_state(state_path, populations,
+                                                             namespace_ids=[state_namespace])
     if query:
         for this_namespace_id in namespace_id_lst:
             print("Namespace: %s" % str(this_namespace_id))
@@ -59,12 +60,12 @@ def main(state_path, state_namespace, state_namespace_pattern, populations, max_
             if m:
                 state_namespaces.append(namespace_id)
         
-    if len(unit_no) == 0:
-        unit_no = None
+    if len(gid) == 0:
+        gid = None
 
     plot.plot_intracellular_state (state_path, state_namespaces, include=populations, time_range=time_range,
                                    time_variable=t_variable, state_variable=state_variable,
-                                   max_units=max_units, unit_no=unit_no, reduce=reduce,
+                                   max_units=max_units, gid=gid, reduce=reduce,
                                    fontSize=font_size, saveFig=True)
     
 

@@ -16,7 +16,7 @@ from matplotlib.ticker import FormatStrFormatter, MaxNLocator
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from dentate.graph import vertex_distribution, vertex_metrics
-from dentate.statedata import read_state
+from dentate.statedata import read_state, query_state
 from dentate.cells import default_ordered_sec_types, get_distance_to_node, make_morph_graph
 from dentate.env import Env
 from dentate.synapses import get_syn_filter_dict, get_syn_mech_param
@@ -45,7 +45,7 @@ except ImportError as e:
 logger = get_module_logger(__name__)
 
 # Default figure configuration
-default_fig_options = Struct(figFormat='png', lw=3, figSize=(15,8), fontSize=14, saveFig=None, showFig=True,
+default_fig_options = Struct(figFormat='png', lw=2, figSize=(15,8), fontSize=14, saveFig=None, showFig=True,
                              colormap='viridis', saveFigDir=None)
 
 dflt_colors = ["#009BFF", "#E85EBE", "#00FF00", "#0000FF", "#FF0000", "#01FFFE", "#FFA6FE", 
@@ -1672,7 +1672,7 @@ def plot_lfp_spectrogram(config, input_path, time_range = None, window_size=4096
 
 ## Plot intracellular state trace 
 def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], time_range = None,
-                              time_variable='t', state_variable='v', max_units = 1, unit_no = None,
+                              time_variable='t', state_variable='v', max_units = 1, gid = None,
                               labels = None,  reduce = False, **kwargs): 
     ''' 
     Line plot of intracellular state variable (default: v). Returns the figure handle.
@@ -1696,6 +1696,15 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
     for k in population_names:
         pop_num_cells[k] = population_ranges[k][1]
 
+    if gid is None:
+        for population in state_info.keys():
+            if intracellular_namespace in state_info[population]:
+                state_pop_name = population
+                gid = dict(state_info[population][intracellular_namespace])[intracellular_variable][0]
+                break
+
+    _, state_info = query_state(input_path, population_names, namespace_ids=namespace_ids)
+
     # Replace 'eachPop' with list of populations
     if 'eachPop' in include: 
         include.remove('eachPop')
@@ -1706,7 +1715,7 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
     for namespace_id in namespace_ids:
         data = read_state (input_path, include, namespace_id, time_variable=time_variable,
                             state_variable=state_variable, time_range=time_range, max_units = max_units,
-                            unit_no = unit_no)
+                            gid = gid)
         states  = data['states']
         
         for (pop_name, pop_states) in viewitems(states):
@@ -1826,7 +1835,7 @@ def plot_intracellular_state_in_tree (gid, population, forest_path, state_input_
     cell_state_dict = {}
     for namespace_id in namespace_ids:
         data = read_state (state_input_path, [population], namespace_id, time_variable=time_variable,
-                            state_variable=state_variable, time_range=time_range, unit_no = [gid])
+                            state_variable=state_variable, time_range=time_range, gid = [gid])
         states  = data['states']
         cell_state_dict[namespace_id] = states[population][gid]
 
@@ -1906,7 +1915,7 @@ def plot_intracellular_state_in_tree (gid, population, forest_path, state_input_
 
 
 ## Plot spike raster
-def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', max_spikes = int(1e6), labels = 'legend', pop_rates = True, spike_hist = None, spike_hist_bin = 5, marker='|', **kwargs):
+def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', max_spikes = int(1e6), labels = 'legend', pop_rates = True, spike_hist = None, spike_hist_bin = 5, marker='.', **kwargs):
     ''' 
     Raster plot of network spike times. Returns the figure handle.
 
@@ -2279,9 +2288,10 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
     return fig
 
 
-def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, unit_no, include='eachPop',
+def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid, include='eachPop',
                        time_range=None, time_variable='t', intracellular_variable='v', labels='legend',
-                       pop_rates=True, spike_hist=None, spike_hist_bin=5, marker=',', **kwargs):
+                       pop_rates=True, spike_plot_type='scatter', spike_hist=None, spike_hist_bin=5,
+                       marker='.', **kwargs):
     """
     Raster plot of target cell intracellular trace + spike raster of presynaptic inputs. Returns the figure handle.
 
@@ -2294,7 +2304,7 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, uni
     pop_rates = (True|False): Include population rates (default: False)
     spike_hist (None|'overlay'|'subplot'): overlay line over raster showing spike histogram (spikes/bin) (default: False)
     spike_hist_bin (int): Size of bin in ms to use for histogram (default: 5)
-    marker (char): Marker for each spike (default: '|')
+    marker (char): Marker for each spike (default: '.')
     """
     fig_options = copy.copy(default_fig_options)
     fig_options.update(kwargs)
@@ -2302,15 +2312,29 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, uni
     (population_ranges, N) = read_population_ranges(input_path)
     population_names = read_population_names(input_path)
 
-    popName = None
+    _, state_info = query_state(input_path, population_names, namespace_ids=[intracellular_namespace])
+    
+    state_pop_name = None
     pop_num_cells = {}
     pop_start_inds = {}
-    for k in population_names:
-        pop_start_inds[k] = population_ranges[k][0]
-        pop_range = population_ranges[k]
-        pop_num_cells[k] = pop_range[1]
-        if (unit_no >= pop_range[0]) and (unit_no < pop_range[0] + pop_range[1]):
-            popName = k
+
+    for population in population_names:
+        pop_start_inds[population] = population_ranges[population][0]
+        pop_range = population_ranges[population]
+        pop_num_cells[population] = pop_range[1]
+        
+    if gid is None:
+        for population in state_info.keys():
+            if intracellular_namespace in state_info[population]:
+                state_pop_name = population
+                gid = dict(state_info[population][intracellular_namespace])[intracellular_variable][0]
+                break
+    else:
+        for population in population_names:
+            pop_range = population_ranges[population]
+            if (gid >= pop_range[0]) and (gid < pop_range[0] + pop_range[1]):
+                state_pop_name = population
+                break
 
     include = list(include)
     # Replace 'eachPop' with list of populations
@@ -2325,8 +2349,10 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, uni
 
     spkdata = spikedata.read_spike_events(input_path, include, spike_namespace, \
                                           spike_train_attr_name=time_variable, time_range=time_range)
-    indata = read_state(input_path, [popName], intracellular_namespace, time_variable=time_variable, \
-                        state_variable=intracellular_variable, time_range=time_range, unit_no=[unit_no])
+    logger.info('plot_network_clamp: reading recorded intracellular variable %s for gid %d' % \
+                (intracellular_variable, gid))
+    indata = read_state(input_path, [state_pop_name], intracellular_namespace, time_variable=time_variable, \
+                        state_variable=intracellular_variable, time_range=time_range, gid=[gid])
 
     spkpoplst = spkdata['spkpoplst']
     spkindlst = spkdata['spkindlst']
@@ -2342,15 +2368,6 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, uni
     if time_range[0] == time_range[1] or time_range[0] == float('inf') or time_range[1] == float('inf'):
         raise RuntimeError('plot_network_clamp: invalid time_range: %s' % time_range)
 
-    histo_dict = {}
-    # Calculate spike histogram if requested
-    if spike_hist:
-        if spktlst:
-            all_spkts = np.concatenate(spktlst, axis=0)
-        else:
-            all_spkts = np.array([])
-        sphist_y, bin_edges = np.histogram(all_spkts, bins=np.arange(time_range[0], time_range[1], spike_hist_bin))
-        sphist_x = bin_edges[:-1] + (spike_hist_bin / 2)
 
     maxN = 0
     minN = N
@@ -2380,26 +2397,54 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, uni
         fig, axes = plt.subplots(nrows=len(spkpoplst) + 2, sharex=True, figsize=fig_options.figSize,
                                  gridspec_kw={'height_ratios': [1] * len(spkpoplst) + [2, 2]})
 
-    sctplots = []
+    stplots = []
 
+    def sphist(spkts):
+        sphist_y, bin_edges = np.histogram(spkts, bins=np.arange(time_range[0], time_range[1], spike_hist_bin))
+        sphist_x = bin_edges[:-1] + (spike_hist_bin / 2)
+
+        pch = interpolate.pchip(sphist_x, sphist_y)
+        res_npts = int((sphist_x.max() - sphist_x.min()))
+        sphist_x_res = np.linspace(sphist_x.min(), sphist_x.max(), res_npts, endpoint=True)
+        sphist_y_res = pch(sphist_x_res)
+
+        return sphist_x_res, sphist_y_res
+        
+    
     for i, pop_name in enumerate(include):
         pop_spkinds, pop_spkts = pop_spk_dict.get(pop_name, ([], []))
 
-        # sctplots.append(axes[i].scatter(pop_spkts, pop_spkinds, s=10, linewidths=fig_options.lw, marker=marker,
-        #       c=pop_colors.get(pop_name, dflt_colors[0]), alpha=0.5, label=pop_name))
-        sctplots.append(axes[i].scatter(pop_spkts, pop_spkinds, marker='.',
-                                        c=pop_colors.get(pop_name, dflt_colors[0]), alpha=0.5, label=pop_name))
+        if spike_plot_type == 'scatter':
+            sct = axes[i].scatter(pop_spkts, pop_spkinds, marker=marker, linewidths=fig_options.lw,
+                                  c=pop_colors.get(pop_name, dflt_colors[0]), alpha=0.5, label=pop_name)
+            stplots.append(sct)
+            axes[i].set_ylim(S, S + N - 1)
+            if i == 0:
+                axes[i].set_xlim(time_range)
+                axes[i].set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
+                axes[i].set_ylabel('Cell Index', fontsize=fig_options.fontSize)
+
+                axes[i].tick_params(axis='x', which='major', labelsize=fig_options.fontSize)
+                axes[i].tick_params(axis='x', which='minor', labelsize=fig_options.fontSize)
+                
+        elif spike_plot_type == 'histogram' or spike_plot_type == 'hist': 
+            sphist_x, sphist_y = sphist(pop_spkts)
+            sph = axes[i].fill_between(sphist_x, sphist_y, linewidth=fig_options.lw,
+                                       color=pop_colors.get(pop_name, dflt_colors[0]), alpha=0.5,
+                                       label=pop_name)
+            axes[i].set_ylim(0., np.ceil(np.max(sphist_y)))
+            stplots.append(sph)
+            
+            if i == 0:
+                axes[i].set_xlim(time_range)
+                axes[i].set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
+                axes[i].set_ylabel('Spike Count', fontsize=fig_options.fontSize)
+        else:
+            raise RuntimeError('plot_network_clamp: unknown spike plot type %s' % spike_plot_type)
 
         N = pop_num_cells[pop_name]
         S = pop_start_inds[pop_name]
-        axes[i].set_ylim(S, S + N - 1)
 
-    axes[0].set_xlim(time_range)
-    axes[0].set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
-    axes[0].set_ylabel('Cell Index', fontsize=fig_options.fontSize)
-
-    axes[0].tick_params(axis='x', which='major', labelsize=fig_options.fontSize)
-    axes[0].tick_params(axis='x', which='minor', labelsize=fig_options.fontSize)
 
     fig.subplots_adjust(hspace=0)
     plt.setp([a.get_xticklabels() for a in fig.axes[:-2]], visible=False)
@@ -2422,26 +2467,22 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, uni
         lgd_labels = [pop_name + ' (%i active)' % (len(pop_active_cells[pop_name])) for pop_name in spkpoplst if
                       pop_name in avg_rates]
 
-    try:
-        # Plot spike histogram
-        pch = interpolate.pchip(sphist_x, sphist_y)
-        res_npts = int((sphist_x.max() - sphist_x.min()))
-        sphist_x_res = np.linspace(sphist_x.min(), sphist_x.max(), res_npts, endpoint=True)
-        sphist_y_res = pch(sphist_x_res)
-
-        if spike_hist == 'overlay':
-            ax2 = axes[-2].twinx()
-            ax2.plot(sphist_x_res, sphist_y_res, linewidth=0.5)
-            ax2.set_ylabel('Spike count', fontsize=fig_options.fontSize)  # add yaxis label in opposite side
-            ax2.set_xlim(time_range)
-        elif spike_hist == 'subplot':
-            ax2 = axes[-2]
-            ax2.plot(sphist_x_res, sphist_y_res, linewidth=1.0)
-            ax2.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
-            ax2.set_ylabel('Spike count', fontsize=fig_options.fontSize)
-            ax2.set_xlim(time_range)
-    except Exception:
-        pass
+    if spike_hist:
+        # Calculate and plot spike histogram if requested
+        if spktlst:
+            all_spkts = np.concatenate(spktlst, axis=0)
+            sphist_x, sphist_y = sphist(all_spkts)
+            if spike_hist == 'overlay':
+                ax2 = axes[-2].twinx()
+                ax2.plot(sphist_x, sphist_y, linewidth=0.5)
+                ax2.set_ylabel('Spike count', fontsize=fig_options.fontSize)  # add yaxis label in opposite side
+                ax2.set_xlim(time_range)
+            elif spike_hist == 'subplot':
+                ax2 = axes[-2]
+                ax2.plot(sphist_x, sphist_y, linewidth=1.0)
+                ax2.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
+                ax2.set_ylabel('Spike count', fontsize=fig_options.fontSize)
+                ax2.set_xlim(time_range)
 
     # Plot intracellular state
     ax3 = axes[-1]
@@ -2450,7 +2491,7 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, uni
     ax3.set_xlim(time_range)
 
     states = indata['states']
-    stplots = []
+    stvplots = []
     from dentate.utils import get_low_pass_filtered_trace
     for (pop_name, pop_states) in viewitems(states):
         for (gid, cell_states) in viewitems(pop_states):
@@ -2461,14 +2502,15 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, uni
             res_npts = int((st_x.max() - st_x.min())) * 10
             st_x_res = np.linspace(st_x.min(), st_x.max(), res_npts, endpoint=True)
             st_y_res = pch(st_x_res)
-            stplots.append(ax3.plot(st_x_res, st_y_res, linewidth=fig_options.lw, marker=marker, alpha=0.5, 
+            stvplots.append(ax3.plot(st_x_res, st_y_res, linewidth=fig_options.lw, marker=marker, alpha=0.5, 
                 label=pop_name))
             """
             filtered_st_y = get_low_pass_filtered_trace(st_y, st_x)
-            stplots.append(
-                ax3.plot(st_x, st_y, label=pop_name, alpha=0.5))
-            stplots.append(
-                ax3.plot(st_x, filtered_st_y, label='%s (filtered)' % pop_name, alpha=0.5))
+            stvplots.append(
+                ax3.plot(st_x, st_y, label=pop_name, linewidth=fig_options.lw, alpha=0.5))
+            stvplots.append(
+                ax3.plot(st_x, filtered_st_y, label='%s (filtered)' % pop_name,
+                         linewidth=fig_options.lw, alpha=0.5))
 
     if labels == 'legend':
         # Shrink axes by 15%
@@ -2476,7 +2518,7 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, uni
             box = ax.get_position()
             ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
         # Add legend
-        lgd = fig.legend(sctplots, lgd_labels, loc='center right',
+        lgd = fig.legend(stplots, lgd_labels, loc='center right',
                          fontsize='small', scatterpoints=1, markerscale=5.,
                          bbox_to_anchor=(1.002, 0.5), bbox_transform=plt.gcf().transFigure)
         fig.artists.append(lgd)
@@ -2487,12 +2529,15 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, uni
             axes[i].add_artist(at)
         max_label_len = max([len(l) for l in lgd_labels])
 
+    else:
+        raise RuntimeError('plot_network_clamp: unknown label type %s' % labels)
+        
     # save figure
     if fig_options.saveFig:
         if isinstance(fig_options.saveFig, basestring):
             filename = fig_options.saveFig
         else:
-            filename = 'Network Clamp %s %i.%s' % (popName, unit_no, fig_options.figFormat)
+            filename = 'Network Clamp %s %i.%s' % (state_pop_name, gid, fig_options.figFormat)
             plt.savefig(filename)
 
     # show fig

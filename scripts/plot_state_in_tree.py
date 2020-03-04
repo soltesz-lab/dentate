@@ -34,7 +34,8 @@ def main(forest_path, state_path, state_namespace, state_namespace_pattern, popu
         else:
             time_range = [t_min, t_max]
 
-    namespace_id_lst, attr_info_dict = statedata.query_state(state_path, [population], namespace_id=state_namespace)
+    namespace_id_lst, attr_info_dict = statedata.query_state(state_path, [population],
+                                                             namespace_ids=[state_namespace])
     if query:
         for this_namespace_id in namespace_id_lst:
             print("Namespace: %s" % str(this_namespace_id))
