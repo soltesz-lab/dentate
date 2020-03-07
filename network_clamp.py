@@ -19,6 +19,8 @@ logger = get_module_logger(__name__)
 
 context = Context()
 
+dist_workers_dict = {}
+
 def mpi_excepthook(type, value, traceback):
     """
 
@@ -633,47 +635,50 @@ def optimize_run(env, pop_name, param_config_name, init_objfun,
     return opt_params, outputs
 
     
-def netclamp_dist_ctrl(controller, init_params, cell_index_set):
+def dist_ctrl(controller, run_id, init_params, cell_index_set):
     """Controller for distributed network clamp runs."""
-    gfsopt = gfsinit(gfsopt_params)
-    logger.info("Optimizing for %d iterations..." % gfsopt.n_iter)
-    iter_count = 0
     task_ids = []
-    while iter_count < gfsopt.n_iter:
-        controller.recv()
-        
-        if (iter_count > 0) and gfsopt.save and (iter_count % gfsopt.save_iter == 0):
-            gfsopt.save_evals()
+    for gid in cell_index_set:
+        task_id = controller.submit_call("dist_run", module_name="dentate.network_clamp",
+                                         args=(run_id, init_params, gid,))
+        task_ids.append(task_id)
 
-        if len(task_ids) > 0:
-            task_id, res = controller.get_next_result()
-            
-            if gfsopt.reduce_fun is None:
-                rres = res
-            else:
-                rres = gfsopt.reduce_fun(res)
-            eval_req = gfsopt.evals[task_id]
-            vals = list(eval_req.x)
-            eval_req.set(rres)
-            task_ids.remove(task_id)
-            iter_count += 1
-            logger.info("optimization iteration %d: parameter coordinates %s: %s" % (iter_count, str(vals), str(rres)))
-            
-        while (len(controller.ready_workers) > 0) and (len(gfsopt.evals) < gfsopt.n_iter):
-            eval_req = gfsopt.optimizer.get_next_x()
-            vals = list(eval_req.x)
-            task_id = controller.submit_call("eval_fun", module_name="distgfs",
-                                             args=(gfsopt.opt_id, iter_count, vals,))
-            task_ids.append(task_id)
-            gfsopt.evals[task_id] = eval_req
-                
-    if gfsopt.save:
-        gfsopt.save_evals()
+    for task_id in task_ids: 
+        task_id, res = controller.get_next_result()
+
     controller.info()
 
-def netclamp_dist_work(worker, gfsopt_params):
+    
+def dist_init(worker, run_id, init_params, cell_index_set):
     """Initialize workers for distributed network clamp runs."""
-    gfsinit(gfsopt_params)
+    netclamp_worker_dict[run_id] = init_params
+
+    
+def dist_run(worker, run_id, gid):
+    """Initialize workers for distributed network clamp runs."""
+
+    init_params = netclamp_worker_dict[run_id]
+    
+    env = Env(**init_params)
+    env.results_file_path = None
+    configure_hoc_env(env)
+
+    population = init_params['population']
+    spike_events_path = init_params['spike_events_path']
+    spike_events_namespace = init_params['spike_events_namespace']
+    generate_inputs = generate_inputs.get('generate_inputs', None)
+    generate_weights_pop = generate_weights.get('generate_weights', None)
+    
+    init(env, population, gid, spike_events_path, 
+         generate_inputs_pops=set(generate_inputs), 
+         generate_weights_pops=set(generate_weights), 
+         spike_events_namespace=spike_events_namespace, 
+         t_var=spike_events_t, t_min=t_min, t_max=t_max)
+
+    run(env)
+    write_output(env)
+
+    return None
     
 
 def write_output(env):
@@ -824,13 +829,13 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
     if size > 1:
         import distwq
         if distwq.is_controller:
-            distwq.run(fun_name="netclamp_dist_ctrl", module_name="dentate.network_clamp",
-                       verbose=True, args=(init_params, cell_index_set),
+            distwq.run(fun_name="dist_ctrl", module_name="dentate.network_clamp",
+                       verbose=True, args=(results_file_id, init_params, cell_index_set),
                        spawn_workers=True, nprocs_per_worker=1)
 
         else:
-            distwq.run(fun_name="netclamp_dist_work", module_name="dentate.network_clamp",
-                       verbose=True, args=(init_params, cell_index_set),
+            distwq.run(fun_name="dist_init", module_name="dentate.network_clamp",
+                       verbose=True, args=(results_file_id, init_params, cell_index_set),
                        spawn_workers=True, nprocs_per_worker=1)
     else:
         env = Env(**init_params, comm=comm)
@@ -934,7 +939,7 @@ def optimize(config_file, population, gid, generate_inputs, generate_weights, t_
     if target == 'rate':
         opt_target = opt_params['Targets']['firing rate']
         init_params['target_rate'] = opt_target
-        init_objfun_name = 'init_rate_dist_objfun'
+        init_objfun_name = 'init_rate_objfun'
     elif target == 'ratedist' or target == 'rate_dist':
         init_objfun_name = 'init_rate_dist_objfun'
     elif target == 'state':

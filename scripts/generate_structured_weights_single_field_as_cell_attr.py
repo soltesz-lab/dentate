@@ -33,7 +33,7 @@ def get_rate_map(x0, y0, field_width, peak_rate, x, y):
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coordinates", '-c', required=True, type=(float, float), multiple=True)
-@click.option("--gid", required=True, type=int)
+@click.option("--gid", type=int)
 @click.option("--field-width", default=40.0, type=float)
 @click.option("--peak-rate", default=20.0, type=float)
 @click.option("--input-features-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -100,7 +100,6 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
 
     env = Env(config_file=config)
 
-    target_gid = gid
     
     if not dry_run:
         if output_weights_path is None:
@@ -126,6 +125,11 @@ def main(config, coordinates, gid, field_width, peak_rate, input_features_path, 
     arena_x, arena_y = stimulus.get_2D_arena_spatial_mesh(arena, spatial_resolution)
     dim_x = len(arena_x)
     dim_y = len(arena_y)
+
+    if gid is None:
+        target_gids = []
+    else:
+        target_gids = [gid]
 
     dst_input_features = defaultdict(dict)
     num_fields = len(coordinates)
