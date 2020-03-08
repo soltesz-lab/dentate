@@ -38,6 +38,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--initial-weights-namespace", type=str, default='Weights')
 @click.option("--output-weights-namespace", type=str, default='Structured Weights')
 @click.option("--reference-weights-namespace", type=str, default='Weights')
+@click.option("--reference-weights-are-delta", type=bool, default=False)
 @click.option("--connections-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--destination", '-d', type=str)
 @click.option("--sources", '-s', type=str, multiple=True)
@@ -45,8 +46,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--field-width-scale", type=float, default=1.2)
 @click.option("--max-delta-weight", type=float, default=4.)
 @click.option("--optimize-method", type=str, default='L-BFGS-B')
-@click.option("--reference-weights-are-delta", type=bool, default=False)
-@click.option("--max-iter", type=int, default=10)
+@click.option("--optimize-tol", type=str, default=1e-4)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
@@ -55,7 +55,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
 @click.option("--plot", is_flag=True)
-def main(config, coordinates, gid, input_features_path, input_features_namespaces, initial_weights_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, arena_id, field_width_scale, max_delta_weight, optimize_method, reference_weights_are_delta, max_iter,  io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot):
+def main(config, coordinates, gid, input_features_path, input_features_namespaces, initial_weights_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, reference_weights_are_delta, connections_path, destination, sources, arena_id, field_width_scale, max_delta_weight, optimize_method, optimize_tol,  io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot):
     """
 
     :param config: str (path to .yaml file)
@@ -281,8 +281,9 @@ def main(config, coordinates, gid, input_features_path, input_features_namespace
                                                 input_rate_map_dict=input_rate_maps_by_source_gid_dict,
                                                 syn_count_dict=syn_count_by_source_gid_dict,
                                                 max_delta_weight=max_delta_weight, arena_x=arena_x, arena_y=arena_y,
-                                                optimize_method=optimize_method, verbose=verbose,
-                                                plot=plot)
+                                                optimize_method=optimize_method,
+                                                optimize_tol=optimize_tol,
+                                                verbose=verbose, plot=plot)
 
             output_syn_ids = np.empty(structured_syn_id_count, dtype='uint32')
             output_weights = np.empty(structured_syn_id_count, dtype='float32')
