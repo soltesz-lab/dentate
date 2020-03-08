@@ -26,14 +26,18 @@ sys.excepthook = mpi_excepthook
 
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--coordinates", '-c', type=(float, float))
+@click.option("--gid", type=int, multiple=True)
 @click.option("--input-features-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--input-features-namespaces", type=str, multiple=True, default=['Place Selectivity', 'Grid Selectivity'])
-@click.option("--output-weights-path", required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--initial-weights-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--output-weights-path", required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
+@click.option("--reference-weights-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--h5types-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--synapse-name", type=str, default='AMPA')
 @click.option("--initial-weights-namespace", type=str, default='Weights')
 @click.option("--output-weights-namespace", type=str, default='Structured Weights')
+@click.option("--reference-weights-namespace", type=str, default='Weights')
 @click.option("--connections-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--destination", '-d', type=str)
 @click.option("--sources", '-s', type=str, multiple=True)
@@ -41,6 +45,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--field-width-scale", type=float, default=1.2)
 @click.option("--max-delta-weight", type=float, default=4.)
 @click.option("--optimize-method", type=str, default='L-BFGS-B')
+@click.option("--reference-weights-are-delta", type=bool, default=False)
 @click.option("--max-iter", type=int, default=10)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
@@ -50,7 +55,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
 @click.option("--plot", is_flag=True)
-def main(config, input_features_path, input_features_namespaces, output_weights_path, initial_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, connections_path, destination, sources, arena_id, field_width_scale, max_delta_weight, optimize_method, max_iter,  io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot):
+def main(config, coordinates, gid, input_features_path, input_features_namespaces, initial_weights_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, arena_id, field_width_scale, max_delta_weight, optimize_method, reference_weights_are_delta, max_iter,  io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot):
     """
 
     :param config: str (path to .yaml file)
@@ -126,6 +131,10 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
     gid_count = 0
     start_time = time.time()
 
+    target_gid_set = None
+    if len(gid) > 0:
+        target_gid_set = set(gid)
+    
     connection_gen_list = [ NeuroH5ProjectionGen(connections_path, source, destination, namespaces=['Synapses'], comm=comm) \
                                for source in sources ]
 
@@ -138,7 +147,9 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
             raise Exception('Rank: %i; destination: %s; this_gid not matched across multiple attribute '
                             'generators: %s' % (rank, destination,
                                                 [attr_gen_items[0] for attr_gen_items in attr_gen_package]))
-
+        
+        if (target_gid_set is not None) and (this_gid not in target_gid_set):
+            continue
 
         if this_gid is None:
             selection = []
@@ -165,6 +176,28 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
 
             logger.info('destination: %s; gid %i; read initial synaptic weights for %i synapses' %
                         (destination, this_gid, len(initial_weights_by_syn_id_dict)))
+            
+        reference_weights_by_syn_id_dict = None
+        if reference_weights_path is not None:
+            reference_weights_by_syn_id_dict = dict()
+            reference_weights_iter = \
+              read_cell_attribute_selection(reference_weights_path, destination, namespace=reference_weights_namespace,
+                                            selection=selection)
+            syn_weight_attr_dict = dict(reference_weights_iter)
+
+            syn_ids = syn_weight_attr_dict[target_gid]['syn_id']
+            weights = syn_weight_attr_dict[target_gid][synapse_name]
+
+            for (syn_id, weight) in zip(syn_ids, weights):
+                reference_weights_by_syn_id_dict[int(syn_id)] = float(weight)
+
+            logger.info('destination: %s; gid %i; read reference synaptic weights for %i synapses' %
+                        (destination, target_gid, len(reference_weights_by_syn_id_dict)))
+            
+        if reference_weights_by_syn_id_dict is None:
+            reference_weights_by_source_gid_dict = None
+        else:
+            reference_weights_by_source_gid_dict = dict()
 
         syn_count_by_source_gid_dict = defaultdict(int)
         source_gid_set_dict = defaultdict(set)
@@ -182,6 +215,9 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
                 syn_count_by_source_gid_dict[this_source_gid] += 1
                 if this_source_gid not in initial_weights_by_source_gid_dict:
                     initial_weights_by_source_gid_dict[this_source_gid] = this_syn_wgt
+                if reference_weights_by_source_gid_dict is not None:
+                    reference_weights_by_source_gid_dict[this_source_gid] = \
+                      reference_weights_by_syn_id_dict[this_syn_id]
 
                 count += 1
             structured_syn_id_count += len(syn_ids)
@@ -196,6 +232,11 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
                                                                 comm=env.comm, selection=selection)
             count = 0
             for gid, attr_dict in input_features_iter:
+                if coordinates is not None:
+                    attr_dict['X Offset'] =  np.asarray([coordinates[0]], dtype=np.float32)
+                    attr_dict['Y Offset'] =  np.asarray([coordinates[1]], dtype=np.float32)
+                    attr_dict['Num Fields'] = np.asarray([1], dtype=np.uint8)
+                    
                 input_cell_config = stimulus.get_input_cell_config(target_selectivity_type,
                                                                    selectivity_type_index,
                                                                    selectivity_attr_dict=attr_dict)
@@ -234,6 +275,9 @@ def main(config, input_features_path, input_features_namespaces, output_weights_
             normalized_delta_weights_dict, arena_LS_map = \
               synapses.generate_structured_weights(target_map=target_rate_maps[this_gid],
                                                 initial_weight_dict=initial_weights_by_source_gid_dict,
+                                                reference_weight_dict=reference_weights_by_source_gid_dict,
+                                                reference_weights_are_delta=reference_weights_are_delta,
+                                                reference_weights_namespace=reference_weights_namespace,
                                                 input_rate_map_dict=input_rate_maps_by_source_gid_dict,
                                                 syn_count_dict=syn_count_by_source_gid_dict,
                                                 max_delta_weight=max_delta_weight, arena_x=arena_x, arena_y=arena_y,
