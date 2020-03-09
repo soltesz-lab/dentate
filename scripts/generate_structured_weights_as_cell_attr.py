@@ -49,7 +49,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--field-width-scale", type=float, default=1.2)
 @click.option("--max-delta-weight", type=float, default=4.)
 @click.option("--optimize-method", type=str, default='L-BFGS-B')
-@click.option("--optimize-tol", type=str, default=1e-4)
+@click.option("--optimize-tol", type=float, default=1e-4)
 @click.option("--peak-rate", type=float)
 @click.option("--reference-weights-are-delta", type=bool, default=False)
 @click.option("--io-size", type=int, default=-1)
