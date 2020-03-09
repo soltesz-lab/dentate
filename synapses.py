@@ -2464,7 +2464,7 @@ def plot_callback_structured_weights(**kwargs):
 def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_dict, syn_count_dict,
                                 max_delta_weight=10., max_iter=100, target_amplitude=3., arena_x=None,
                                 arena_y=None, reference_weight_dict=None, reference_weights_are_delta=False,
-                                reference_weights_namespace='', optimize_method='L-BFGS-B',
+                                reference_weights_namespace='', optimize_method='L-BFGS-B', optimize_tol=1e-4,
                                 verbose=False, plot=False):
     """
 
@@ -2544,16 +2544,10 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
         return grad
 
     
-    if optimize_method == 'L-BFGS-B':
-        result = opt.minimize(activation_map_residual, initial_LS_delta_weights, jac=activation_map_jac,
-                            args=(scaled_input_matrix, flat_scaled_target_map), method='L-BFGS-B',
-                            bounds=[bounds] * len(initial_LS_delta_weights),
-                            options={'gtol': 1e-8, 'disp': verbose, 'maxiter': max_iter})
-        LS_delta_weights = np.array(result.x)
-    elif optimize_method == 'dogbox':
+    if optimize_method == 'dogbox':
         result = opt.least_squares(activation_map_residual, initial_LS_delta_weights, jac=activation_map_jac,
                                    args=(scaled_input_matrix, flat_scaled_target_map),
-                                   bounds=bounds, method='dogbox', 
+                                   bounds=bounds, method='dogbox', ftol=optimize_tol, loss='soft_l1', 
                                    verbose=2 if verbose else 0, max_nfev=max_iter)
         LS_delta_weights = np.array(result.x)
     elif optimize_method == 'oja':
@@ -2561,7 +2555,7 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
         pca = PCA(whiten=True)
         w = pca.fit_transform(initial_LS_delta_weights.reshape((-1, 1)))
         input_matrix = scaled_input_matrix
-        tol = 1e-8
+        tol = optimize_tol
         learning_rate = 1e-4
         it = 0
         while activation_map_residual(w, input_matrix, flat_scaled_target_map) > tol and it < max_iter:
@@ -2574,8 +2568,11 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
             
         LS_delta_weights = np.copy(w)
     else:
-        raise RuntimeError('generate_structured_delta_weights: optimization method: %s not implemented' %
-                           optimize_method)
+        result = opt.minimize(activation_map_residual, initial_LS_delta_weights, jac=activation_map_jac,
+                            args=(scaled_input_matrix, flat_scaled_target_map), method=optimize_method,
+                            bounds=[bounds] * len(initial_LS_delta_weights), tol=optimize_tol,
+                            options={'disp': verbose, 'maxiter': max_iter})
+        LS_delta_weights = np.array(result.x)
 
     normalized_delta_weights_array = LS_delta_weights / np.max(LS_delta_weights)
     scaled_LS_weights = normalized_delta_weights_array * max_delta_weight + mean_initial_weight
