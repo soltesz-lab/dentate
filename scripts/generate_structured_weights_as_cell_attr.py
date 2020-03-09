@@ -27,7 +27,8 @@ sys.excepthook = mpi_excepthook
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coordinates", '-c', type=(float, float))
-@click.option("--gid", type=int, multiple=True)
+@click.option("--field-width", type=float)
+@click.option("--gid", '-g', type=int, multiple=True)
 @click.option("--input-features-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--input-features-namespaces", type=str, multiple=True, default=['Place Selectivity', 'Grid Selectivity'])
 @click.option("--initial-weights-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -45,6 +46,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--field-width-scale", type=float, default=1.2)
 @click.option("--max-delta-weight", type=float, default=4.)
 @click.option("--optimize-method", type=str, default='L-BFGS-B')
+@click.option("--peak-rate", type=float)
 @click.option("--reference-weights-are-delta", type=bool, default=False)
 @click.option("--max-iter", type=int, default=10)
 @click.option("--io-size", type=int, default=-1)
@@ -55,7 +57,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
 @click.option("--plot", is_flag=True)
-def main(config, coordinates, gid, input_features_path, input_features_namespaces, initial_weights_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, arena_id, field_width_scale, max_delta_weight, optimize_method, reference_weights_are_delta, max_iter,  io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot):
+def main(config, coordinates, field_width, gid, input_features_path, input_features_namespaces, initial_weights_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, arena_id, field_width_scale, max_delta_weight, optimize_method, peak_rate, reference_weights_are_delta, max_iter,  io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot):
     """
 
     :param config: str (path to .yaml file)
@@ -224,7 +226,7 @@ def main(config, coordinates, gid, input_features_path, input_features_namespace
             logger.info('Rank %i; destination: %s; gid %i; %d edges from source population %s' %
                         (rank, destination, this_gid, count, source))
                     
-        target_rate_maps = {}
+        input_features_attr_dict = {}
         for input_features_namespace in this_input_features_namespaces:
             input_features_iter = read_cell_attribute_selection(input_features_path, destination, 
                                                                 namespace=input_features_namespace,
@@ -232,22 +234,37 @@ def main(config, coordinates, gid, input_features_path, input_features_namespace
                                                                 comm=env.comm, selection=selection)
             count = 0
             for gid, attr_dict in input_features_iter:
-                if coordinates is not None:
-                    attr_dict['X Offset'] =  np.asarray([coordinates[0]], dtype=np.float32)
-                    attr_dict['Y Offset'] =  np.asarray([coordinates[1]], dtype=np.float32)
-                    attr_dict['Num Fields'] = np.asarray([1], dtype=np.uint8)
-                    
-                input_cell_config = stimulus.get_input_cell_config(target_selectivity_type,
-                                                                   selectivity_type_index,
-                                                                   selectivity_attr_dict=attr_dict)
-                if input_cell_config.num_fields > 0:
-                    input_cell_config.field_width *= field_width_scale
-                    target_map = np.asarray(input_cell_config.get_rate_map(arena_x, arena_y),
-                                            dtype=np.float32)
-                    target_rate_maps[gid] = target_map
-                    count += 1
+                input_features_attr_dict[gid] = attr_dict
+                count += 1
             if rank == 0:
                 logger.info('Read %s feature data for %i cells in population %s' % (input_features_namespace, count, destination))
+
+        target_rate_maps = {}
+        for gid in selection:
+            attr_dict = input_features_attr_dict.get(gid, {})
+            attr_dict['Selectivity Type'] = np.array([selectivity_type_index], dtype=np.uint8)
+            
+            if coordinates is not None:
+                attr_dict['X Offset'] =  np.asarray([coordinates[0]], dtype=np.float32)
+                attr_dict['Y Offset'] =  np.asarray([coordinates[1]], dtype=np.float32)
+                attr_dict['Num Fields'] = np.asarray([1], dtype=np.uint8)
+
+            if field_width is not None:
+                num_fields = attr_dict['Num Fields'][0]
+                attr_dict['Field Width'] = np.asarray([field_width]*num_fields, dtype=np.float32)
+
+            if peak_rate is not None:
+                num_fields = attr_dict['Num Fields'][0]
+                attr_dict['Peak Rate'] = np.asarray([peak_rate]*num_fields, dtype=np.float32)
+
+            input_cell_config = stimulus.get_input_cell_config(target_selectivity_type,
+                                                               selectivity_type_index,
+                                                               selectivity_attr_dict=attr_dict)
+            if input_cell_config.num_fields > 0:
+                input_cell_config.field_width *= field_width_scale
+                target_map = np.asarray(input_cell_config.get_rate_map(arena_x, arena_y),
+                                        dtype=np.float32)
+                target_rate_maps[gid] = target_map
 
         input_rate_maps_by_source_gid_dict = {}
         for source in sources:
