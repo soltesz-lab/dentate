@@ -405,6 +405,8 @@ def write_cell_selection(env, write_selection_file_path, populations=None, write
                 trees_output_dict[gid] = tree
                 num_cells += 1
 
+            assert(len(trees_output_dict) == len(gid_range))
+                
         elif (pop_name in env.cell_attribute_info) and ('Coordinates' in env.cell_attribute_info[pop_name]):
             if rank == 0:
                 logger.info("*** Reading coordinates for population %s" % pop_name)

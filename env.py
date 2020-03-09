@@ -1,4 +1,4 @@
-import os
+import os, pprint
 from collections import defaultdict, namedtuple
 import numpy as np
 from mpi4py import MPI
@@ -398,16 +398,17 @@ class Env(object):
 
     def init_stimulus_config(self, arena_id=None, trajectory_id=None, **kwargs):
         if arena_id is not None:
-            if trajectory_id is None:
-                raise RuntimeError('init_stimulus_config: trajectory id parameter is not provided')
             if arena_id in self.stimulus_config['Arena']:
                 self.arena_id = arena_id
             else:
                 raise RuntimeError('init_stimulus_config: arena id parameter not found in stimulus configuration')
-            if trajectory_id in self.stimulus_config['Arena'][arena_id].trajectories:
-                self.trajectory_id = trajectory_id
+            if trajectory_id is None:
+                self.trajectory_id = None
             else:
-                raise RuntimeError('init_stimulus_config: trajectory id parameter not found in stimulus configuration')
+                if trajectory_id in self.stimulus_config['Arena'][arena_id].trajectories:
+                    self.trajectory_id = trajectory_id
+                else:
+                    raise RuntimeError('init_stimulus_config: trajectory id parameter not found in stimulus configuration')
 
     def parse_stimulus_config(self):
         stimulus_dict = self.model_config['Stimulus']

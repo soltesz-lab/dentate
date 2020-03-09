@@ -28,6 +28,8 @@ sys.excepthook = mpi_excepthook
                 help='path to directory containing required neuroh5 data files')
 @click.option("--distance-bin-extent", type=float, default=1000., help='Longitudinal extent of sample bin in micrometers')
 @click.option("--distances-namespace", '-n', type=str, default='Arc Distances')
+@click.option("--input-features-path", type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--input-features-namespaces", type=str, multiple=True, default=['Place Selectivity', 'Grid Selectivity'])
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
 @click.option("--spike-input-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False),
                   help='path to file for input spikes when cell selection is specified')
@@ -41,7 +43,7 @@ sys.excepthook = mpi_excepthook
               help='name of trajectory used for spatial stimulus')
 @click.option("--write-selection", is_flag=True)
 @click.option("--verbose", "-v", is_flag=True)
-def main(arena_id, bin_sample_count, config, config_prefix, dataset_prefix, distances_namespace, distance_bin_extent, populations, spike_input_path, spike_input_namespace, spike_input_attr, output_path, io_size, trajectory_id, write_selection, verbose):
+def main(arena_id, bin_sample_count, config, config_prefix, dataset_prefix, distances_namespace, distance_bin_extent, input_features_path, input_features_namespaces, populations, spike_input_path, spike_input_namespace, spike_input_attr, output_path, io_size, trajectory_id, write_selection, verbose):
 
     utils.config_logging(verbose)
     logger = utils.get_script_logger(os.path.basename(__file__))
@@ -80,9 +82,33 @@ def main(arena_id, bin_sample_count, config, config_prefix, dataset_prefix, dist
     if rank == 0:
         for population in populations:
             distances = read_cell_attributes(env.data_file_path, population, namespace=distances_namespace, comm=comm0)
-            soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
-            del distances
-        
+
+            soma_distances = {}
+            if input_features_path is not None:
+                num_fields_dict = {}
+                for input_features_namespace in input_features_namespaces:
+                    if arena_id is not None:
+                        this_features_namespace = '%s %s' % (input_features_namespace, arena_id)
+                    else:
+                        this_features_namespace = input_features_namespace
+                    input_features_iter = read_cell_attributes(input_features_path, population, 
+                                                            namespace=this_features_namespace,
+                                                            mask=set(['Num Fields']), 
+                                                            comm=comm0)
+                    count = 0
+                    for gid, attr_dict in input_features_iter:
+                        num_fields_dict[gid] = attr_dict['Num Fields']
+                        count += 1
+                    logger.info('Read feature data from namespace %s for %i cells in population %s' % (this_features_namespace, count, population))
+
+                for (gid, v) in distances:
+                    num_fields = num_fields_dict.get(gid, 0)
+                    if num_fields > 0:
+                        soma_distances[gid] = (v['U Distance'][0], v['V Distance'][0])
+            else:
+                for (gid, v) in distances:
+                    soma_distances[gid] = (v['U Distance'][0], v['V Distance'][0])
+            
             numitems = len(list(soma_distances.keys()))
             logger.info('read %s distances (%i elements)' % (population, numitems))
 

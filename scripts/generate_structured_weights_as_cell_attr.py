@@ -254,6 +254,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
         source_gid_set_dict = defaultdict(set)
         syn_ids_by_source_gid_dict = defaultdict(list)
         structured_syn_id_count = 0
+
         for source, (destination_gid, (source_gid_array, conn_attr_dict)) in zip_longest(sources, attr_gen_package):
             syn_ids = conn_attr_dict['Synapses']['syn_id']
             count = 0
