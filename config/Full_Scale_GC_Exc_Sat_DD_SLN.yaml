@@ -20,8 +20,7 @@ Cell Types:
     mechanism file: 20190205_DG_GC_tuned_NMDA_mech.yaml
     synapses:
       correct_for_spines: True
-      weights: True
-      weights namespaces: ['Structured Log-Normal Weights A']
+#      weights namespaces: ['Structured Log-Normal Weights A']
       density: !include GC_synapse_density.yaml
   MC:
     template: MossyCell
@@ -29,8 +28,6 @@ Cell Types:
     mechanism file: 20191029_DG_MC_excitability_mech.yaml
     synapses:
       density: !include MC_synapse_density.yaml
-#      weights: True
-#      weights namespaces: ['Structured Log-Normal Weights A']
   HC:
     template: HIPPCell
     synapses:
