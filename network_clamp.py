@@ -18,7 +18,7 @@ from neuroh5.io import read_cell_attribute_selection, read_cell_attribute_info
 logger = get_module_logger(__name__)
 
 context = Context()
-
+env = None
 
 def mpi_excepthook(type, value, traceback):
     """
@@ -658,9 +658,12 @@ def dist_run(init_params, gid):
         results_file_id = uuid.uuid4()
         init_params['results_file_id'] = results_file_id
 
-    env = Env(**init_params)
-    configure_hoc_env(env)
-
+    global env
+    if env is None:
+        env = Env(**init_params)
+        configure_hoc_env(env)
+    env.pc.gid_clear()
+    
     population = init_params['population']
     spike_events_path = init_params['spike_events_path']
     spike_events_namespace = init_params['spike_events_namespace']
