@@ -662,7 +662,10 @@ def dist_run(init_params, gid):
     if env is None:
         env = Env(**init_params)
         configure_hoc_env(env)
-    env.pc.gid_clear()
+    env.clear()
+
+    env.results_file_id = results_file_id
+    env.results_file_path = "%s/%s_results_%s.h5" % (env.results_path, env.modelName, env.results_file_id)
     
     population = init_params['population']
     spike_events_path = init_params['spike_events_path']

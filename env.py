@@ -1,3 +1,4 @@
+
 import os, pprint
 from collections import defaultdict, namedtuple
 import numpy as np
@@ -759,3 +760,22 @@ class Env(object):
 
         if rank == 0:
             self.logger.info('attribute info: %s' % str(self.cell_attribute_info))
+
+    def clear(self):
+        self.gidset = set([])
+        self.gjlist = []
+        self.cells = defaultdict(list)
+        self.artificial_cells = defaultdict(dict)
+        self.biophys_cells = defaultdict(dict)
+        self.recording_sets = {}
+        if self.pc is not None:
+            self.pc.gid_clear()
+        if self.t_vec is not None:
+            self.t_vec.resize(0)
+        if self.id_vec is not None:
+            self.id_vec.resize(0)
+        if self.t_rec is not None:
+            self.t_rec.resize(0)
+        self.recs_dict = {}
+        for pop_name, _ in viewitems(self.Populations):
+            self.recs_dict[pop_name] = defaultdict(list)
