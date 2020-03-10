@@ -52,6 +52,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--optimize-grad", is_flag=True)
 @click.option("--peak-rate", type=float)
 @click.option("--reference-weights-are-delta", type=bool, default=False)
+@click.option("--use-arena-margin", is_flag=True)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
@@ -60,7 +61,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
 @click.option("--plot", is_flag=True)
-def main(config, coordinates, field_width, gid, input_features_path, input_features_namespaces, initial_weights_path, output_features_namespace, output_features_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, arena_id, field_width_scale, max_delta_weight, optimize_method, optimize_tol, optimize_grad, peak_rate, reference_weights_are_delta, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot):
+def main(config, coordinates, field_width, gid, input_features_path, input_features_namespaces, initial_weights_path, output_features_namespace, output_features_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, arena_id, field_width_scale, max_delta_weight, optimize_method, optimize_tol, optimize_grad, peak_rate, reference_weights_are_delta, use_arena_margin, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot):
     """
 
     :param config: str (path to .yaml file)
@@ -119,8 +120,9 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     target_selectivity_type = env.selectivity_types[target_selectivity_type_name]
     features_attrs = defaultdict(dict)
     source_features_attr_names = ['Selectivity Type', 'Num Fields', 'Field Width', 'Peak Rate',
+                                  'Module ID', 'Grid Spacing', 'Grid Orientation', 'Field Width Concentration Factor', 
                                   'X Offset', 'Y Offset']
-    target_features_attr_names = ['Selectivity Type', 'Num Fields', 'Field Width', 'Peak Rate',
+    target_features_attr_names = ['Selectivity Type', 'Num Fields', 'Field Width', 'Peak Rate', 
                                   'X Offset', 'Y Offset']
 
     local_random = np.random.RandomState()
@@ -131,8 +133,6 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     arena = env.stimulus_config['Arena'][arena_id]
     default_run_vel = arena.properties['default run velocity']  # cm/s
 
-    arena_x, arena_y = stimulus.get_2D_arena_spatial_mesh(arena, spatial_resolution)
-    
     gid_count = 0
     start_time = time.time()
 
@@ -178,8 +178,10 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                 count += 1
             if rank == 0:
                 logger.info('Read %s feature data for %i cells in population %s' % (input_features_namespace, count, destination))
-            
+
+        arena_margin = 0.
         target_selectivity_features_dict = {}
+        target_selectivity_config_dict = {}
         for gid in selection:
             target_selectivity_features_dict[gid] = dst_input_features_attr_dict.get(gid, {})
             target_selectivity_features_dict[gid]['Selectivity Type'] = np.asarray([target_selectivity_type], dtype=np.uint8)
@@ -200,12 +202,19 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                                selectivity_type_index,
                                                                selectivity_attr_dict=target_selectivity_features_dict[gid])
             if input_cell_config.num_fields > 0:
+                arena_margin = max(arena_margin, np.max(input_cell_config.field_width) / 2.) if use_arena_margin else 0.
                 input_cell_config.field_width *= field_width_scale
-                target_map = np.asarray(input_cell_config.get_rate_map(arena_x, arena_y),
-                                        dtype=np.float32)
-                target_selectivity_features_dict[gid]['Arena Rate Map'] = target_map
+                target_selectivity_config_dict[gid] = input_cell_config
                 has_structured_weights = True
 
+        arena_x, arena_y = stimulus.get_2D_arena_spatial_mesh(arena, spatial_resolution,
+                                                              margin=arena_margin)
+        for gid, input_cell_config in viewitems(target_selectivity_config_dict):
+            target_map = np.asarray(input_cell_config.get_rate_map(arena_x, arena_y),
+                                    dtype=np.float32)
+            target_selectivity_features_dict[gid]['Arena Rate Map'] = target_map
+
+                
         if not has_structured_weights:
             selection = []
                 
@@ -294,6 +303,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                 count = 0
                 for gid, attr_dict in input_features_iter:
                     this_selectivity_type = attr_dict['Selectivity Type'][0]
+                    this_selectivity_type_name = selectivity_type_index[this_selectivity_type]
                     input_cell_config = stimulus.get_input_cell_config(this_selectivity_type,
                                                                        selectivity_type_index,
                                                                        selectivity_attr_dict=attr_dict)
