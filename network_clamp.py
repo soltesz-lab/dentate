@@ -652,14 +652,12 @@ def dist_ctrl(controller, run_id, init_params, cell_index_set):
     
 def dist_init(worker, run_id, init_params, cell_index_set):
     """Initialize workers for distributed network clamp runs."""
-    netclamp_worker_dict[run_id] = init_params
+    dist_workers_dict[run_id] = init_params
 
     
-def dist_run(worker, run_id, gid):
+def dist_run(run_id, init_params, gid):
     """Initialize workers for distributed network clamp runs."""
 
-    init_params = netclamp_worker_dict[run_id]
-    
     env = Env(**init_params)
     env.results_file_path = None
     configure_hoc_env(env)
@@ -667,9 +665,12 @@ def dist_run(worker, run_id, gid):
     population = init_params['population']
     spike_events_path = init_params['spike_events_path']
     spike_events_namespace = init_params['spike_events_namespace']
-    generate_inputs = generate_inputs.get('generate_inputs', None)
-    generate_weights_pop = generate_weights.get('generate_weights', None)
-    
+    generate_inputs = init_params.get('generate_inputs', [])
+    generate_weights = init_params.get('generate_weights', [])
+    spike_events_t = init_params['spike_events_t']
+    t_min = init_params['t_min']
+    t_max = init_params['t_max']
+
     init(env, population, gid, spike_events_path, 
          generate_inputs_pops=set(generate_inputs), 
          generate_weights_pops=set(generate_weights), 
@@ -753,7 +754,7 @@ def show(config_file, population, gid, template_paths, dataset_prefix, config_pr
 @click.command()
 @click.option("--config-file", '-c', required=True, type=str, help='model configuration file name')
 @click.option("--population", '-p', required=True, type=str, default='GC', help='target population')
-@click.option("--gid", '-g', required=False, type=int, default=0, help='target cell gid')
+@click.option("--gid", '-g', required=False, type=int, help='target cell gid')
 @click.option("--generate-inputs", '-e', required=False, type=str, multiple=True,
               help='generate spike trains for the given presynaptic population')
 @click.option("--generate-weights", '-w', required=False, type=str, multiple=True,
@@ -813,13 +814,15 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
     cell_index_set = set([])
     if gid is None:
         cell_index_data = None
+        comm0 = comm.Split(2 if rank == 0 else 1, 0)
         if rank == 0:
-            comm0 = env.comm.Split(2 if rank == 0 else 1, 0)
             env = Env(**init_params, comm=comm0)
+            logger.info('env.data_file_path = %s' % env.data_file_path)
             attr_info_dict = read_cell_attribute_info(env.data_file_path, populations=[population],
                                                       read_cell_index=True, comm=comm0)
             cell_index = None
-            attr_name, attr_cell_index = next(iter(attr_info_dict[pop_name]['Trees']))
+            attr_name, attr_cell_index = next(iter(attr_info_dict[population]['Trees']))
+            logger.info('attr_cell_index = %s' % str(attr_cell_index))
             cell_index_set = set(attr_cell_index)
         cell_index_set = comm.bcast(cell_index_set, root=0)
     else:
@@ -840,7 +843,7 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
                        spawn_workers=True, nprocs_per_worker=1)
     else:
         env = Env(**init_params, comm=comm)
-        for gid in cell_index:
+        for gid in cell_index_set:
             init(env, population, gid, spike_events_path, generate_inputs_pops=set(generate_inputs),
                 generate_weights_pops=set(generate_weights), spike_events_namespace=spike_events_namespace,
                 t_var=spike_events_t, t_min=t_min, t_max=t_max,
