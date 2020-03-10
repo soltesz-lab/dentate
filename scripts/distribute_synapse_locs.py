@@ -185,7 +185,7 @@ def main(config, config_prefix, template_path, output_path, forest_path, populat
     for population in populations:
         logger.info('Rank %i population: %s' % (rank, population))
         (population_start, _) = pop_ranges[population]
-        template_class = env.load_cell_template(population)
+        template_class = load_cell_template(env, population)
 
         density_dict = env.celltypes[population]['synapses']['density']
         layer_set_dict = defaultdict(set)

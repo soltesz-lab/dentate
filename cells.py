@@ -1,6 +1,6 @@
 import collections, os, sys, traceback, copy, datetime, math, itertools, pprint
 import numpy as np
-from dentate.neuron_utils import h, d_lambda, default_hoc_sec_lists, default_ordered_sec_types, freq, make_rec
+from dentate.neuron_utils import h, d_lambda, default_hoc_sec_lists, default_ordered_sec_types, freq, make_rec, load_cell_template
 from dentate.utils import get_module_logger, map, range, zip, zip_longest, viewitems, read_from_yaml, write_to_yaml
 from neuroh5.io import read_cell_attribute_selection, read_graph_selection, read_tree_selection
 
@@ -2305,7 +2305,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     :param mech_file_path: str (path)
     :return: :class:'BiophysCell'
     """
-    env.load_cell_template(pop_name)
+    load_cell_template(env, pop_name)
     if tree_dict is None:
         tree_attr_iter, _ = read_tree_selection(env.data_file_path, pop_name, [gid], comm=env.comm, topology=True)
         _, tree_dict = next(tree_attr_iter)

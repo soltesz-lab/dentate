@@ -77,7 +77,7 @@ def main(config_file, config_prefix, input_path, population, template_paths, dat
         io_utils.mkout(env, env.results_file_path)
     env.comm.barrier()
     env.cell_selection = {}
-    template_class = env.load_cell_template(population)
+    template_class = load_cell_template(env, population)
 
     if input_path is not None:
         env.data_file_path = input_path

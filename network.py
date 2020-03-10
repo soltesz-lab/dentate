@@ -587,7 +587,7 @@ def make_cells(env):
     for pop_name in pop_names:
         if rank == 0:
             logger.info("*** Creating population %s" % pop_name)
-        env.load_cell_template(pop_name)
+        load_cell_template(env, pop_name)
 
 
         recording_set = set([])
@@ -707,7 +707,7 @@ def make_cell_selection(env):
     for pop_name in pop_names:
         if rank == 0:
             logger.info("*** Creating selected cells from population %s" % pop_name)
-        env.load_cell_template(pop_name)
+        load_cell_template(env, pop_name)
         templateClass = getattr(h, env.celltypes[pop_name]['template'])
 
         gid_range = [gid for gid in env.cell_selection[pop_name] if gid % nhosts == rank]

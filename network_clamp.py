@@ -19,7 +19,6 @@ logger = get_module_logger(__name__)
 
 context = Context()
 
-dist_workers_dict = {}
 
 def mpi_excepthook(type, value, traceback):
     """
@@ -636,12 +635,12 @@ def optimize_run(env, pop_name, param_config_name, init_objfun,
     return opt_params, outputs
 
     
-def dist_ctrl(controller, run_id, init_params, cell_index_set):
+def dist_ctrl(controller, init_params, cell_index_set):
     """Controller for distributed network clamp runs."""
     task_ids = []
     for gid in cell_index_set:
         task_id = controller.submit_call("dist_run", module_name="dentate.network_clamp",
-                                         args=(run_id, init_params, gid,))
+                                         args=(init_params, gid,))
         task_ids.append(task_id)
 
     for task_id in task_ids: 
@@ -650,16 +649,16 @@ def dist_ctrl(controller, run_id, init_params, cell_index_set):
     controller.info()
 
     
-def dist_init(worker, run_id, init_params, cell_index_set):
-    """Initialize workers for distributed network clamp runs."""
-    dist_workers_dict[run_id] = init_params
-
     
-def dist_run(run_id, init_params, gid):
+def dist_run(init_params, gid):
     """Initialize workers for distributed network clamp runs."""
+
+    results_file_id = init_params.get('results_file_id', None)
+    if results_file_id is None:
+        results_file_id = uuid.uuid4()
+        init_params['results_file_id'] = results_file_id
 
     env = Env(**init_params)
-    env.results_file_path = None
     configure_hoc_env(env)
 
     population = init_params['population']
@@ -795,8 +794,6 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
     Runs network clamp simulation for the specified gid, or for all gids found in the input data file.
     """
     
-    if results_file_id is None:
-        results_file_id = uuid.uuid4()
     init_params = dict(locals())
     comm = MPI.COMM_WORLD
     size = comm.Get_size()
@@ -804,25 +801,17 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
     np.seterr(all='raise')
     verbose = True
 
-    if results_file_id is None:
-        if rank == 0:
-            results_file_id = uuid.uuid4()
-        
-        results_file_id = comm.bcast(results_file_id, root=0)
-        init_params['results_file_id'] = results_file_id
     
     cell_index_set = set([])
     if gid is None:
         cell_index_data = None
         comm0 = comm.Split(2 if rank == 0 else 1, 0)
         if rank == 0:
-            env = Env(**init_params, comm=comm0)
-            logger.info('env.data_file_path = %s' % env.data_file_path)
+            env = Env(**init_params, configure_nrn=False, comm=comm0)
             attr_info_dict = read_cell_attribute_info(env.data_file_path, populations=[population],
                                                       read_cell_index=True, comm=comm0)
             cell_index = None
             attr_name, attr_cell_index = next(iter(attr_info_dict[population]['Trees']))
-            logger.info('attr_cell_index = %s' % str(attr_cell_index))
             cell_index_set = set(attr_cell_index)
         cell_index_set = comm.bcast(cell_index_set, root=0)
     else:
@@ -834,14 +823,15 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
         import distwq
         if distwq.is_controller:
             distwq.run(fun_name="dist_ctrl", module_name="dentate.network_clamp",
-                       verbose=True, args=(results_file_id, init_params, cell_index_set),
+                       verbose=True, args=(init_params, cell_index_set),
                        spawn_workers=True, nprocs_per_worker=1)
 
         else:
-            distwq.run(fun_name="dist_init", module_name="dentate.network_clamp",
-                       verbose=True, args=(results_file_id, init_params, cell_index_set),
-                       spawn_workers=True, nprocs_per_worker=1)
+            distwq.run(verbose=True, spawn_workers=True, nprocs_per_worker=1)
     else:
+        if results_file_id is None:
+            results_file_id = uuid.uuid4()
+        init_params['results_file_id'] = results_file_id
         env = Env(**init_params, comm=comm)
         for gid in cell_index_set:
             init(env, population, gid, spike_events_path, generate_inputs_pops=set(generate_inputs),
