@@ -806,14 +806,13 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
     rank = comm.Get_rank()
     np.seterr(all='raise')
     verbose = True
-
     
     cell_index_set = set([])
     if gid is None:
         cell_index_data = None
         comm0 = comm.Split(2 if rank == 0 else 1, 0)
         if rank == 0:
-            env = Env(**init_params, configure_nrn=False, comm=comm0)
+            env = Env(**init_params, comm=comm0)
             attr_info_dict = read_cell_attribute_info(env.data_file_path, populations=[population],
                                                       read_cell_index=True, comm=comm0)
             cell_index = None
@@ -839,6 +838,7 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
             results_file_id = uuid.uuid4()
         init_params['results_file_id'] = results_file_id
         env = Env(**init_params, comm=comm)
+        configure_hoc_env(env)
         for gid in cell_index_set:
             init(env, population, gid, spike_events_path, generate_inputs_pops=set(generate_inputs),
                 generate_weights_pops=set(generate_weights), spike_events_namespace=spike_events_namespace,

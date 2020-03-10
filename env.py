@@ -104,6 +104,7 @@ class Env(object):
         self.spike_onset_delay = {}
         self.recording_sets = {}
 
+        self.pc = None
         if comm is None:
             self.comm = MPI.COMM_WORLD
         else:
