@@ -46,7 +46,7 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', st
                 cell_index = attr_cell_index
 
         cell_set = set(cell_index)
-                
+
         # Limit to max_units
         if gid is None:
             if (max_units is not None) and (len(cell_set) > max_units):
@@ -54,18 +54,18 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', st
                 max_units, len(cell_set), pop_name))
                 sample_inds = np.random.randint(0, len(cell_set) - 1, size=int(max_units))
                 cell_set_lst = list(cell_set)
-                gid = set([cell_set_lst[i] for i in sample_inds])
+                gid_set = set([cell_set_lst[i] for i in sample_inds])
             else:
-                gid = cell_set
+                gid_set = cell_set
         else:
-            gid = set(gid)
+            gid_set = set(gid)
 
         state_dict = {}
         if gid is None:
             valiter = read_cell_attributes(input_file, pop_name, namespace=namespace_id, comm=comm)
         else:
             valiter = read_cell_attribute_selection(input_file, pop_name, namespace=namespace_id,
-                                                    selection=list(gid), comm=comm)
+                                                    selection=list(gid_set), comm=comm)
 
         if time_range is None:
             for cellind, vals in valiter:

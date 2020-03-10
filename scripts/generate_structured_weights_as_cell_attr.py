@@ -119,7 +119,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     target_selectivity_type = env.selectivity_types[target_selectivity_type_name]
     features_attrs = defaultdict(dict)
     source_features_attr_names = ['Selectivity Type', 'Num Fields', 'Field Width', 'Peak Rate',
-                                  'X Offset', 'Y Offset', 'Arena Rate Map']
+                                  'X Offset', 'Y Offset']
     target_features_attr_names = ['Selectivity Type', 'Num Fields', 'Field Width', 'Peak Rate',
                                   'X Offset', 'Y Offset']
 
@@ -293,7 +293,12 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                                     comm=env.comm, selection=source_gids)
                 count = 0
                 for gid, attr_dict in input_features_iter:
-                    this_arena_rate_map = attr_dict['Arena Rate Map']
+                    this_selectivity_type = attr_dict['Selectivity Type'][0]
+                    input_cell_config = stimulus.get_input_cell_config(this_selectivity_type,
+                                                                       selectivity_type_index,
+                                                                       selectivity_attr_dict=attr_dict)
+                    this_arena_rate_map = np.asarray(input_cell_config.get_rate_map(arena_x, arena_y),
+                                                     dtype=np.float32)
                     input_rate_maps_by_source_gid_dict[gid] = this_arena_rate_map
                     count += 1
                 if rank == 0:

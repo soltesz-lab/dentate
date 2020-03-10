@@ -7,10 +7,10 @@ from mpi4py import MPI
 import numpy as np
 import click
 from dentate import io_utils, spikedata, synapses, stimulus, cell_clamp
-from dentate.cells import h, make_input_cell, register_cell, record_cell
+from dentate.cells import h, make_input_cell, register_cell, record_cell, report_topology
 from dentate.env import Env
 from dentate.neuron_utils import h, configure_hoc_env, make_rec
-from dentate.utils import is_interactive, Context, Closure, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger
+from dentate.utils import is_interactive, Context, Closure, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger, config_logging
 from dentate.cell_clamp import init_biophys_cell
 from neuroh5.io import read_cell_attribute_selection, read_cell_attribute_info
 
@@ -742,7 +742,7 @@ def show(config_file, population, gid, template_paths, dataset_prefix, config_pr
     rank = comm.Get_rank()
 
     if rank == 0:
-        comm0 = env.comm.Split(2 if rank == 0 else 1, 0)
+        comm0 = comm.Split(2 if rank == 0 else 1, 0)
     
         env = Env(**init_params, comm=comm0)
         configure_hoc_env(env)
@@ -750,7 +750,10 @@ def show(config_file, population, gid, template_paths, dataset_prefix, config_pr
         init(env, population, gid, spike_events_path, \
             spike_events_namespace=spike_events_namespace, \
             t_var=spike_events_t, plot_cell=plot_cell, write_cell=write_cell)
-            
+
+        cell = env.biophys_cells[population][gid]
+        logger.info(pprint.pformat(report_topology(cell, env)))
+        
         if env.profile_memory:
             profile_memory(logger)
             
@@ -806,6 +809,7 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
     rank = comm.Get_rank()
     np.seterr(all='raise')
     verbose = True
+    init_params['verbose'] = verbose
     
     cell_index_set = set([])
     if gid is None:

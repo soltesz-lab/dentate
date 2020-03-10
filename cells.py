@@ -2047,6 +2047,7 @@ def make_morph_graph(biophys_cell, node_filters={}):
     pt_layers = []
     pt_idx = 0
     sec_pts = collections.defaultdict(list)
+
     for node in nodes:
         sec = node.sec
         nn = sec.n3d()
@@ -2309,6 +2310,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     if tree_dict is None:
         tree_attr_iter, _ = read_tree_selection(env.data_file_path, pop_name, [gid], comm=env.comm, topology=True)
         _, tree_dict = next(tree_attr_iter)
+
     hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict)
     cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env,
                        mech_file_path=mech_file_path, mech_dict=mech_dict)

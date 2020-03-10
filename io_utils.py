@@ -138,7 +138,7 @@ def mkout(env, results_filename):
         dataset_path = os.path.join(env.dataset_prefix, env.datasetName)
         data_file_path = os.path.join(dataset_path, env.model_config['Cell Data'])
         data_file = h5py.File(data_file_path, 'r')
-        results_file = h5py.File(results_filename)
+        results_file = h5py.File(results_filename, 'a')
         if 'H5Types' not in results_file:
             data_file.copy('/H5Types', results_file)
             data_file.close()
