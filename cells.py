@@ -2190,7 +2190,6 @@ def normalize_tree_topology(neurotree_dict, swc_type_defs):
             if src_parent is not None:
                 src_parent_pts = section_pt_dict[src_parent]
                 pt_parents[dst_pts[0]] = src_parent_pts[-1]
-                sec_edges.append((src_parent, dst))
                 sec_parents_dict[dst] = src_parent
 
     ## Rebuild section graph in order to eliminate remaining inconsistencies
