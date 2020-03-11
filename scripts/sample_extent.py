@@ -138,6 +138,7 @@ def main(arena_id, bin_sample_count, config, config_prefix, dataset_prefix, dist
 
             distance_bins = np.arange(U_min, U_max, distance_bin_extent)
             distance_bin_array = np.digitize(distance_U_array, distance_bins)
+
             selection_set = set([])
             for bin_index in range(len(distance_bins)+1):
                 bin_gids = gid_array[np.where(distance_bin_array == bin_index)[0]]
@@ -149,7 +150,7 @@ def main(arena_id, bin_sample_count, config, config_prefix, dataset_prefix, dist
 
         yaml_output_dict = {}
         for k, v in utils.viewitems(selection_dict):
-            yaml_output_dict[k] = list(v)
+            yaml_output_dict[k] = list(sorted(v))
          
         yaml_output_path = '%s/DG_slice.yaml' % output_path
         with open(yaml_output_path, 'w') as outfile:
