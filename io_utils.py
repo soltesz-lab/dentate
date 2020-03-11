@@ -374,8 +374,8 @@ def write_cell_selection(env, write_selection_file_path, populations=None, write
     if 'io_size' not in write_kwds:
         write_kwds['io_size'] = env.io_size
 
-    rank = int(env.pc.id())
-    nhosts = int(env.pc.nhost())
+    rank = int(env.comm.Get_rank())
+    nhosts = int(env.comm.Get_size())
 
     dataset_path = env.dataset_path
     data_file_path = env.data_file_path
@@ -445,8 +445,8 @@ def write_connection_selection(env, write_selection_file_path, populations=None,
     
     connectivity_file_path = env.connectivity_file_path
     forest_file_path = env.forest_file_path
-    rank = int(env.pc.id())
-    nhosts = int(env.pc.nhost())
+    rank = int(env.comm.Get_rank())
+    nhosts = int(env.comm.Get_size())
     syn_attrs = env.synapse_attributes
 
     if populations is None:
@@ -573,8 +573,8 @@ def write_input_cell_selection(env, input_sources, write_selection_file_path, po
     if 'io_size' not in write_kwds:
         write_kwds['io_size'] = env.io_size
 
-    rank = int(env.pc.id())
-    nhosts = int(env.pc.nhost())
+    rank = int(env.comm.Get_rank())
+    nhosts = int(env.comm.Get_size())
 
     dataset_path = env.dataset_path
     input_file_path = env.data_file_path

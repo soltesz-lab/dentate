@@ -8,14 +8,14 @@ DG_populations = ["AAC", "BC", "GC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC", "M
 DG_IN_populations = ["AAC", "BC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC"]
 DG_EXT_populations = ["MPP", "LPP", "CA3c"]
 
-DG_cells_file = "DG_Cells_Full_Scale_20200112.h5"
-DG_connections_file = "DG_Connections_Full_Scale_20200112.h5"
+DG_cells_file = "DG_Cells_Full_Scale_20200311.h5"
+DG_connections_file = "DG_Connections_Full_Scale_20200311.h5"
 
 DG_GC_coordinate_file  = "DG_coords_20190717_compressed.h5"
 DG_IN_coordinate_file  = "DG_coords_20190717_compressed.h5"
 DG_EXT_coordinate_file = "DG_coords_20190717_compressed.h5"
 
-DG_GC_forest_file = "DGC_forest_reindex_20190717_compressed.h5"
+DG_GC_forest_file = "DGC_forest_normalized_20200215_compressed.h5"
 DG_IN_forest_file = "DG_IN_forest_20200112_compressed.h5"
 
 DG_GC_forest_syns_file = "DGC_forest_syns_20190717_compressed.h5"
@@ -127,17 +127,17 @@ syn_weight_files = {
 }
 
 ## Creates H5Types entries
-with h5py.File(DG_cells_file) as f:
+with h5py.File(DG_cells_file, 'w') as f:
     input_file  = h5py.File(h5types_file,'r')
     input_file.copy('/H5Types',f)
     input_file.close()
-with h5py.File(DG_connections_file) as f:
+with h5py.File(DG_connections_file, 'w') as f:
     input_file  = h5py.File(h5types_file,'r')
     input_file.copy('/H5Types',f)
     input_file.close()
 
 ## Creates coordinates entries
-with h5py.File(DG_cells_file) as f:
+with h5py.File(DG_cells_file, 'a') as f:
 
     grp = f.create_group("Populations")
                 
@@ -151,7 +151,7 @@ with h5py.File(DG_cells_file) as f:
         grp[p]["Arc Distances"] = h5py.ExternalLink(coords_file,"/Populations/%s/%s" % (p, distances_ns))
 
 ## Creates forest entries and synapse attributes
-with h5py.File(DG_cells_file) as f:
+with h5py.File(DG_cells_file, 'a') as f:
 
     grp = f["Populations"]
 
@@ -172,7 +172,7 @@ with h5py.File(DG_cells_file) as f:
                     grp[p][w] = h5py.ExternalLink(weight_dict[w],"/Populations/%s/%s" % (p,w))
 
 ## Creates connectivity entries
-with h5py.File(DG_connections_file) as f:
+with h5py.File(DG_connections_file, 'a') as f:
 
     grp = f.create_group("Projections")
                
@@ -182,7 +182,7 @@ with h5py.File(DG_connections_file) as f:
     grp['GC'] = h5py.ExternalLink(connectivity_files['GC'],"/Projections/%s" % 'GC')
 
 ## Creates vector stimulus entries
-with h5py.File(DG_cells_file) as f:
+with h5py.File(DG_cells_file, 'a') as f:
 
     grp = f["Populations"]
 
