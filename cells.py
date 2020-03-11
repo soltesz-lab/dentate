@@ -2110,7 +2110,7 @@ def normalize_tree_topology(neurotree_dict, swc_type_defs):
     :param neurotree_dict:
     :param swc_type_defs:
     :return: neurotree dict
-
+    
     """
     import networkx as nx
     
@@ -2127,7 +2127,8 @@ def normalize_tree_topology(neurotree_dict, swc_type_defs):
     soma_pts = np.where(pt_swc_types == swc_type_defs['soma'])[0]
     section_swc_types = []
     section_pt_dict = {}
-
+    pt_section_dict = {}
+    
     i = 1
     section_idx = 0
     soma_section_idx = None
@@ -2142,6 +2143,7 @@ def normalize_tree_topology(neurotree_dict, swc_type_defs):
         for ip in range(num_points):
             p = pt_sections[i]
             section_pt_dict[section_idx].append(p)
+            pt_section_dict[p] = section_idx
             i += 1
         section_idx += 1
 
@@ -2149,7 +2151,7 @@ def normalize_tree_topology(neurotree_dict, swc_type_defs):
     for src, dst in zip(sec_src, sec_dst):
         sec_parents_dict[dst] = src
 
-    sec_edges = []
+    soma_edges = []
     for section_idx in sorted(section_pt_dict.keys()):
         section_pts = section_pt_dict[section_idx]
         section_swc_type = section_swc_types[section_idx]
@@ -2158,14 +2160,14 @@ def normalize_tree_topology(neurotree_dict, swc_type_defs):
         if section_parent is None:
             if (section_swc_type == swc_type_defs['apical']) or (section_swc_type == swc_type_defs['basal']):
                 pt_parents[section_pts[0]] = soma_pts[-1]
-                sec_edges.append((soma_section_idx, section_idx))
+                soma_edges.append((soma_section_idx, section_idx))
                 sec_parents_dict[section_idx] = soma_section_idx
 
 
     sec_graph = nx.DiGraph()
     for i, j in zip(sec_src, sec_dst):
         sec_graph.add_edge(i, j)
-    for i, j in sec_edges:
+    for i, j in soma_edges:
         sec_graph.add_edge(i, j)
 
     sec_graph_roots = [n for n,d in sec_graph.in_degree() if d==0]
@@ -2189,13 +2191,20 @@ def normalize_tree_topology(neurotree_dict, swc_type_defs):
                 pt_parents[dst_pts[0]] = src_parent_pts[-1]
                 sec_edges.append((src_parent, dst))
                 sec_parents_dict[dst] = src_parent
-            else:
-                sec_edges.append((src, dst))
-        else:
-            sec_edges.append((src, dst))
-            
-    sec_src = np.asarray([i for (i,j) in sec_edges], dtype=np.uint16)
-    sec_dst = np.asarray([j for (i,j) in sec_edges], dtype=np.uint16)
+
+    ## Rebuild section graph in order to eliminate remaining inconsistencies
+    sec_graph = nx.DiGraph()
+    
+    for section_idx in section_pt_dict:
+        pts = section_pt_dict[section_idx]
+        parent_pt = pt_parents[pts[0]]
+        if parent_pt > -1:
+            parent_section_idx = pt_section_dict[parent_pt]
+            sec_graph.add_edge(parent_section_idx, section_idx)
+
+    edges_in_order = list(nx.dfs_edges(sec_graph, source=sec_graph_roots[0]))
+    sec_src = np.asarray([i for (i,j) in edges_in_order], dtype=np.uint16)
+    sec_dst = np.asarray([j for (i,j) in edges_in_order], dtype=np.uint16)
     
     new_tree_dict = { 'x': pt_xs,
                       'y': pt_ys,
