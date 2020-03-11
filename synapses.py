@@ -2331,6 +2331,10 @@ def plot_callback_structured_weights(**kwargs):
     from dentate.plot import clean_axes
     default_font_size = mpl.rcParams['font.size']
 
+    gid = kwargs['gid']
+    field_width = kwargs['field_width']
+    show_fig = kwargs.get('show_fig', False)
+    save_fig = kwargs.get('save_fig', None)
     arena_x = kwargs['arena_x']
     arena_y = kwargs['arena_y']
     bounds = kwargs['bounds']
@@ -2377,6 +2381,7 @@ def plot_callback_structured_weights(**kwargs):
 
     row = 0
     ax = fig.add_subplot(gs[row, 0])
+    ax.set_title('gid %s; field width is %.02f cm' % (gid, field_width[0]), y=0.98)
     ax.plot(range(len(flat_scaled_target_map)), initial_background_map, label='Initial')
     if reference_weight_array is not None:
         ax.plot(range(len(flat_scaled_target_map)), flat_reference_map, label='Reference')
@@ -2457,15 +2462,19 @@ def plot_callback_structured_weights(**kwargs):
     fig.colorbar(p, ax=ax)
     row += 1
 
-    
-    plt.show()
+    if save_fig is not None:
+        plt.savefig(save_fig)
+        
+    if show_fig:
+        plt.show()
 
     
 def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_dict, syn_count_dict,
                                 max_delta_weight=10., max_iter=1000, target_amplitude=3., arena_x=None,
                                 arena_y=None, reference_weight_dict=None, reference_weights_are_delta=False,
                                 reference_weights_namespace='', optimize_method='L-BFGS-B', optimize_tol=1e-6,
-                                optimize_grad=False, verbose=False, plot=False):
+                                optimize_grad=False, verbose=False, plot=False, show_fig=False, save_fig=None,
+                                fig_kwargs={}):
     """
 
     :param target_map: array
@@ -2602,7 +2611,9 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
                                          flat_LS_map = flat_LS_map,
                                          initial_background_map = initial_background_map,
                                          reference_weight_array = reference_weight_array,
-                                         reference_weights_are_delta = reference_weights_are_delta)
+                                         reference_weights_are_delta = reference_weights_are_delta,
+                                         show_fig=show_fig, save_fig=save_fig,
+                                         **fig_kwargs)
 
 
     return normalized_delta_weights_dict, flat_LS_map

@@ -61,7 +61,9 @@ sys.excepthook = mpi_excepthook
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
 @click.option("--plot", is_flag=True)
-def main(config, coordinates, field_width, gid, input_features_path, input_features_namespaces, initial_weights_path, output_features_namespace, output_features_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, arena_id, field_width_scale, max_delta_weight, optimize_method, optimize_tol, optimize_grad, peak_rate, reference_weights_are_delta, use_arena_margin, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot):
+@click.option("--show-fig", is_flag=True)
+@click.option("--save-fig", type=click.Path(exists=True, file_okay=False, dir_okay=True))
+def main(config, coordinates, field_width, gid, input_features_path, input_features_namespaces, initial_weights_path, output_features_namespace, output_features_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, arena_id, field_width_scale, max_delta_weight, optimize_method, optimize_tol, optimize_grad, peak_rate, reference_weights_are_delta, use_arena_margin, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot, show_fig, save_fig):
     """
 
     :param config: str (path to .yaml file)
@@ -96,6 +98,9 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
 
     env = Env(comm=comm, config_file=config, io_size=io_size)
 
+    if plot and (not save_fig) and (not show_fig):
+        show_fig = True
+    
     if (not dry_run) and (rank==0):
         if not os.path.isfile(output_weights_path):
             if initial_weights_path is not None:
@@ -182,6 +187,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
         arena_margin = 0.
         target_selectivity_features_dict = {}
         target_selectivity_config_dict = {}
+        target_field_width_dict = {}
         for gid in selection:
             target_selectivity_features_dict[gid] = dst_input_features_attr_dict.get(gid, {})
             target_selectivity_features_dict[gid]['Selectivity Type'] = np.asarray([target_selectivity_type], dtype=np.uint8)
@@ -203,6 +209,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                                selectivity_attr_dict=target_selectivity_features_dict[gid])
             if input_cell_config.num_fields > 0:
                 arena_margin = max(arena_margin, np.max(input_cell_config.field_width) / 2.) if use_arena_margin else 0.
+                target_field_width_dict[gid] = input_cell_config.field_width
                 input_cell_config.field_width *= field_width_scale
                 target_selectivity_config_dict[gid] = input_cell_config
                 has_structured_weights = True
@@ -321,6 +328,10 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             if is_interactive:
                 context.update(locals())
 
+            save_fig_path = None
+            if save_fig is not None:
+                save_fig_path = '%s/Structured Weights %s %d.svg' % (save_fig, destination, this_gid)
+                
             normalized_delta_weights_dict, arena_LS_map = \
               synapses.generate_structured_weights(target_map=target_selectivity_features_dict[this_gid]['Arena Rate Map'],
                                                 initial_weight_dict=initial_weights_by_source_gid_dict,
@@ -333,7 +344,10 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                 optimize_method=optimize_method,
                                                 optimize_tol=optimize_tol,
                                                 optimize_grad=optimize_grad,
-                                                verbose=verbose, plot=plot)
+                                                verbose=verbose, plot=plot, show_fig=show_fig,
+                                                save_fig=save_fig_path,
+                                                fig_kwargs={'gid': this_gid,
+                                                            'field_width': target_field_width_dict[this_gid]})
 
             this_selectivity_dict = target_selectivity_features_dict[this_gid]
             output_features_dict[this_gid] = { fld: this_selectivity_dict[fld]
