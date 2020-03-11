@@ -7,10 +7,10 @@ from mpi4py import MPI
 import numpy as np
 import click
 from dentate import io_utils, spikedata, synapses, stimulus, cell_clamp
-from dentate.cells import h, make_input_cell, register_cell, record_cell
+from dentate.cells import h, make_input_cell, register_cell, record_cell, report_topology
 from dentate.env import Env
 from dentate.neuron_utils import h, configure_hoc_env, make_rec
-from dentate.utils import is_interactive, Context, Closure, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger
+from dentate.utils import is_interactive, Context, Closure, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger, config_logging
 from dentate.cell_clamp import init_biophys_cell
 from neuroh5.io import read_cell_attribute_selection, read_cell_attribute_info
 
@@ -18,8 +18,7 @@ from neuroh5.io import read_cell_attribute_selection, read_cell_attribute_info
 logger = get_module_logger(__name__)
 
 context = Context()
-
-dist_workers_dict = {}
+env = None
 
 def mpi_excepthook(type, value, traceback):
     """
@@ -636,12 +635,12 @@ def optimize_run(env, pop_name, param_config_name, init_objfun,
     return opt_params, outputs
 
     
-def dist_ctrl(controller, run_id, init_params, cell_index_set):
+def dist_ctrl(controller, init_params, cell_index_set):
     """Controller for distributed network clamp runs."""
     task_ids = []
     for gid in cell_index_set:
         task_id = controller.submit_call("dist_run", module_name="dentate.network_clamp",
-                                         args=(run_id, init_params, gid,))
+                                         args=(init_params, gid,))
         task_ids.append(task_id)
 
     for task_id in task_ids: 
@@ -650,26 +649,33 @@ def dist_ctrl(controller, run_id, init_params, cell_index_set):
     controller.info()
 
     
-def dist_init(worker, run_id, init_params, cell_index_set):
-    """Initialize workers for distributed network clamp runs."""
-    netclamp_worker_dict[run_id] = init_params
-
     
-def dist_run(worker, run_id, gid):
+def dist_run(init_params, gid):
     """Initialize workers for distributed network clamp runs."""
 
-    init_params = netclamp_worker_dict[run_id]
-    
-    env = Env(**init_params)
-    env.results_file_path = None
-    configure_hoc_env(env)
+    results_file_id = init_params.get('results_file_id', None)
+    if results_file_id is None:
+        results_file_id = uuid.uuid4()
+        init_params['results_file_id'] = results_file_id
 
+    global env
+    if env is None:
+        env = Env(**init_params)
+        configure_hoc_env(env)
+    env.clear()
+
+    env.results_file_id = results_file_id
+    env.results_file_path = "%s/%s_results_%s.h5" % (env.results_path, env.modelName, env.results_file_id)
+    
     population = init_params['population']
     spike_events_path = init_params['spike_events_path']
     spike_events_namespace = init_params['spike_events_namespace']
-    generate_inputs = generate_inputs.get('generate_inputs', None)
-    generate_weights_pop = generate_weights.get('generate_weights', None)
-    
+    generate_inputs = init_params.get('generate_inputs', [])
+    generate_weights = init_params.get('generate_weights', [])
+    spike_events_t = init_params['spike_events_t']
+    t_min = init_params['t_min']
+    t_max = init_params['t_max']
+
     init(env, population, gid, spike_events_path, 
          generate_inputs_pops=set(generate_inputs), 
          generate_weights_pops=set(generate_weights), 
@@ -736,7 +742,7 @@ def show(config_file, population, gid, template_paths, dataset_prefix, config_pr
     rank = comm.Get_rank()
 
     if rank == 0:
-        comm0 = env.comm.Split(2 if rank == 0 else 1, 0)
+        comm0 = comm.Split(2 if rank == 0 else 1, 0)
     
         env = Env(**init_params, comm=comm0)
         configure_hoc_env(env)
@@ -744,7 +750,10 @@ def show(config_file, population, gid, template_paths, dataset_prefix, config_pr
         init(env, population, gid, spike_events_path, \
             spike_events_namespace=spike_events_namespace, \
             t_var=spike_events_t, plot_cell=plot_cell, write_cell=write_cell)
-            
+
+        cell = env.biophys_cells[population][gid]
+        logger.info(pprint.pformat(report_topology(cell, env)))
+        
         if env.profile_memory:
             profile_memory(logger)
             
@@ -753,7 +762,7 @@ def show(config_file, population, gid, template_paths, dataset_prefix, config_pr
 @click.command()
 @click.option("--config-file", '-c', required=True, type=str, help='model configuration file name')
 @click.option("--population", '-p', required=True, type=str, default='GC', help='target population')
-@click.option("--gid", '-g', required=False, type=int, default=0, help='target cell gid')
+@click.option("--gid", '-g', required=False, type=int, help='target cell gid')
 @click.option("--generate-inputs", '-e', required=False, type=str, multiple=True,
               help='generate spike trains for the given presynaptic population')
 @click.option("--generate-weights", '-w', required=False, type=str, multiple=True,
@@ -794,32 +803,24 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
     Runs network clamp simulation for the specified gid, or for all gids found in the input data file.
     """
     
-    if results_file_id is None:
-        results_file_id = uuid.uuid4()
     init_params = dict(locals())
     comm = MPI.COMM_WORLD
     size = comm.Get_size()
     rank = comm.Get_rank()
     np.seterr(all='raise')
     verbose = True
-
-    if results_file_id is None:
-        if rank == 0:
-            results_file_id = uuid.uuid4()
-        
-        results_file_id = comm.bcast(results_file_id, root=0)
-        init_params['results_file_id'] = results_file_id
+    init_params['verbose'] = verbose
     
     cell_index_set = set([])
     if gid is None:
         cell_index_data = None
+        comm0 = comm.Split(2 if rank == 0 else 1, 0)
         if rank == 0:
-            comm0 = env.comm.Split(2 if rank == 0 else 1, 0)
             env = Env(**init_params, comm=comm0)
             attr_info_dict = read_cell_attribute_info(env.data_file_path, populations=[population],
                                                       read_cell_index=True, comm=comm0)
             cell_index = None
-            attr_name, attr_cell_index = next(iter(attr_info_dict[pop_name]['Trees']))
+            attr_name, attr_cell_index = next(iter(attr_info_dict[population]['Trees']))
             cell_index_set = set(attr_cell_index)
         cell_index_set = comm.bcast(cell_index_set, root=0)
     else:
@@ -831,16 +832,18 @@ def go(config_file, population, gid, generate_inputs, generate_weights, tstop, t
         import distwq
         if distwq.is_controller:
             distwq.run(fun_name="dist_ctrl", module_name="dentate.network_clamp",
-                       verbose=True, args=(results_file_id, init_params, cell_index_set),
+                       verbose=True, args=(init_params, cell_index_set),
                        spawn_workers=True, nprocs_per_worker=1)
 
         else:
-            distwq.run(fun_name="dist_init", module_name="dentate.network_clamp",
-                       verbose=True, args=(results_file_id, init_params, cell_index_set),
-                       spawn_workers=True, nprocs_per_worker=1)
+            distwq.run(verbose=True, spawn_workers=True, nprocs_per_worker=1)
     else:
+        if results_file_id is None:
+            results_file_id = uuid.uuid4()
+        init_params['results_file_id'] = results_file_id
         env = Env(**init_params, comm=comm)
-        for gid in cell_index:
+        configure_hoc_env(env)
+        for gid in cell_index_set:
             init(env, population, gid, spike_events_path, generate_inputs_pops=set(generate_inputs),
                 generate_weights_pops=set(generate_weights), spike_events_namespace=spike_events_namespace,
                 t_var=spike_events_t, t_min=t_min, t_max=t_max,

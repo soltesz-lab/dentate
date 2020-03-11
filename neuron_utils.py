@@ -160,9 +160,13 @@ def configure_hoc_env(env):
     if hasattr(env, 'dataset_path'):
         h.dataset_path = env.dataset_path if env.dataset_path is not None else ""
     h.pc = h.ParallelContext()
+    h.pc.gid_clear()
     env.pc = h.pc
     h.dt = env.dt
     h.tstop = env.tstop
+    env.t_vec = h.Vector()  # Spike time of all cells on this host
+    env.id_vec = h.Vector()  # Ids of spike times on this host
+    env.t_rec = h.Vector() # Timestamps of intracellular traces on this host
     if 'celsius' in env.globals:
         h.celsius = env.globals['celsius']
     ## more accurate integration of synaptic discontinuities
@@ -171,6 +175,30 @@ def configure_hoc_env(env):
     ## sparse parallel transfer
     if hasattr(h, 'nrn_sparse_partrans'):
         h.nrn_sparse_partrans = 1
+    find_template(env, 'StimCell', path=env.template_paths)
+    find_template(env, 'VecStimCell', path=env.template_paths)
+
+
+def load_cell_template(env, pop_name):
+    """
+    :param pop_name: str
+    """
+    if pop_name in env.template_dict:
+        return env.template_dict[pop_name]
+    rank = env.comm.Get_rank()
+    if not (pop_name in env.celltypes):
+        raise KeyError('load_cell_templates: unrecognized cell population: %s' % pop_name)
+    template_name = env.celltypes[pop_name]['template']
+    if 'template file' in env.celltypes[pop_name]:
+            template_file = env.celltypes[pop_name]['template file']
+    else:
+        template_file = None
+    if not hasattr(h, template_name):
+        find_template(env, template_name, template_file=template_file, path=env.template_paths)
+    assert (hasattr(h, template_name))
+    template_class = getattr(h, template_name)
+    env.template_dict[pop_name] = template_class
+    return template_class
 
 
 def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v', label=None, dt=h.dt, description=''):

@@ -35,7 +35,6 @@ def main(config_file, population, gid, template_paths, dataset_prefix, config_pr
 
     params = dict(locals())
     env = Env(**params)
-
     configure_hoc_env(env)
 
     ## Determine if a mechanism configuration file exists for this cell type
@@ -44,7 +43,7 @@ def main(config_file, population, gid, template_paths, dataset_prefix, config_pr
     else:
         mech_file_path = None
 
-    logger.info('loading tree %i' % gid)
+    logger.info('loading cell %i' % gid)
 
     load_weights = False
     biophys_cell = get_biophys_cell(env, population, gid, 

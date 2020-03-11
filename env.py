@@ -1,9 +1,9 @@
+
 import os, pprint
 from collections import defaultdict, namedtuple
 import numpy as np
 from mpi4py import MPI
 import yaml
-from dentate.neuron_utils import h, find_template
 from dentate.synapses import SynapseAttributes, get_syn_filter_dict
 from dentate.utils import IncludeLoader, ExprClosure, config_logging, get_root_logger, str, viewitems, zip, read_from_yaml
 from neuroh5.io import read_cell_attribute_info, read_population_names, read_population_ranges, read_projection_names
@@ -53,8 +53,8 @@ class Env(object):
     """
 
     def __init__(self, comm=None, config_file=None, template_paths="templates", hoc_lib_path=None,
-                 dataset_prefix=None, config_prefix=None, results_path=None, results_file_id=None,
-                 results_namespace_id=None,
+                 configure_nrn=True, dataset_prefix=None, config_prefix=None,
+                 results_path=None, results_file_id=None, results_namespace_id=None,
                  node_rank_file=None, io_size=0, recording_profile=None, recording_fraction=1.0,
                  coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hours=0.5,
                  checkpoint_interval=500.0, checkpoint_clear_data=True, 
@@ -104,15 +104,15 @@ class Env(object):
         self.spike_onset_delay = {}
         self.recording_sets = {}
 
+        self.pc = None
         if comm is None:
             self.comm = MPI.COMM_WORLD
         else:
             self.comm = comm
         rank = self.comm.Get_rank()
 
-        self.pc = None
-        if self.comm is not None:
-            self.pc = h.ParallelContext()
+        if configure_nrn:
+            from dentate.neuron_utils import h, find_template
 
         # If true, the biophysical cells and synapses dictionary will be freed
         # as synapses and connections are instantiated.
@@ -351,9 +351,10 @@ class Env(object):
                                          'rho': config['rho'],
                                          'dt': config['dt']}
 
-        self.t_vec = h.Vector()  # Spike time of all cells on this host
-        self.id_vec = h.Vector()  # Ids of spike times on this host
-        self.t_rec = h.Vector() # Timestamps of intracellular traces on this host
+
+        self.t_vec = None
+        self.id_vec = None
+        self.t_rec = None
         self.recs_dict = {}  # Intracellular samples on this host
         for pop_name, _ in viewitems(self.Populations):
             self.recs_dict[pop_name] = defaultdict(list)
@@ -370,10 +371,6 @@ class Env(object):
         self.edge_count = defaultdict(dict)
         self.syns_set = defaultdict(set)
 
-        # stimulus cell templates
-        if len(self.template_paths) > 0:
-            find_template(self, 'StimCell', path=self.template_paths)
-            find_template(self, 'VecStimCell', path=self.template_paths)
 
     def parse_arena_domain(self, config):
         vertices = config['vertices']
@@ -765,24 +762,21 @@ class Env(object):
         if rank == 0:
             self.logger.info('attribute info: %s' % str(self.cell_attribute_info))
 
-    def load_cell_template(self, pop_name):
-        """
-
-        :param pop_name: str
-        """
-        if pop_name in self.template_dict:
-            return self.template_dict[pop_name]
-        rank = self.comm.Get_rank()
-        if not (pop_name in self.celltypes):
-            raise KeyError('Env.load_cell_templates: unrecognized cell population: %s' % pop_name)
-        template_name = self.celltypes[pop_name]['template']
-        if 'template file' in self.celltypes[pop_name]:
-            template_file = self.celltypes[pop_name]['template file']
-        else:
-            template_file = None
-        if not hasattr(h, template_name):
-            find_template(self, template_name, template_file=template_file, path=self.template_paths)
-        assert (hasattr(h, template_name))
-        template_class = getattr(h, template_name)
-        self.template_dict[pop_name] = template_class
-        return template_class
+    def clear(self):
+        self.gidset = set([])
+        self.gjlist = []
+        self.cells = defaultdict(list)
+        self.artificial_cells = defaultdict(dict)
+        self.biophys_cells = defaultdict(dict)
+        self.recording_sets = {}
+        if self.pc is not None:
+            self.pc.gid_clear()
+        if self.t_vec is not None:
+            self.t_vec.resize(0)
+        if self.id_vec is not None:
+            self.id_vec.resize(0)
+        if self.t_rec is not None:
+            self.t_rec.resize(0)
+        self.recs_dict = {}
+        for pop_name, _ in viewitems(self.Populations):
+            self.recs_dict[pop_name] = defaultdict(list)

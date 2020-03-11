@@ -8,7 +8,7 @@ from scipy.spatial import cKDTree
 from scipy.spatial.distance import euclidean
 
 from dentate import cells
-from dentate.neuron_utils import h
+from dentate.neuron_utils import h, load_cell_template
 from dentate.utils import get_module_logger, viewitems
 from neuroh5.io import append_graph, read_tree_selection
 
@@ -218,8 +218,8 @@ def generate_gj_connections(env, forest_path, soma_coords_dict,
         template_name_a = env.celltypes[population_a]['template']
         template_name_b = env.celltypes[population_b]['template']
 
-        env.load_cell_template(population_a)
-        env.load_cell_template(population_b)
+        load_cell_template(env, population_a)
+        load_cell_template(env, population_b)
         template_class_a = getattr(h, template_name_a)
         template_class_b = getattr(h, template_name_b)
 

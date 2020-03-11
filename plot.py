@@ -999,9 +999,8 @@ def plot_biophys_cell_tree (env, biophys_cell, node_filters={'swc_types': ['apic
     import networkx as nx
     from mayavi import mlab
 
-    
     morph_graph = make_morph_graph(biophys_cell, node_filters=node_filters)
-
+    
     colormap = kwargs.get("colormap", 'coolwarm')
     mlab.figure(bgcolor=kwargs.get("bgcolor", (0,0,0)))
     
@@ -1672,7 +1671,7 @@ def plot_lfp_spectrogram(config, input_path, time_range = None, window_size=4096
 
 ## Plot intracellular state trace 
 def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], time_range = None,
-                              time_variable='t', state_variable='v', max_units = 1, gid = None,
+                              time_variable='t', state_variable='v', max_units = 1, gid_set = None,
                               labels = None,  reduce = False, **kwargs): 
     ''' 
     Line plot of intracellular state variable (default: v). Returns the figure handle.
@@ -1696,14 +1695,14 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
     for k in population_names:
         pop_num_cells[k] = population_ranges[k][1]
 
-    if gid is None:
+    _, state_info = query_state(input_path, population_names, namespace_ids=namespace_ids)
+
+    if gid_set is None:
         for population in state_info.keys():
             if intracellular_namespace in state_info[population]:
                 state_pop_name = population
-                gid = dict(state_info[population][intracellular_namespace])[intracellular_variable][0]
+                gid_set = list(dict(state_info[population][intracellular_namespace])[intracellular_variable][0])
                 break
-
-    _, state_info = query_state(input_path, population_names, namespace_ids=namespace_ids)
 
     # Replace 'eachPop' with list of populations
     if 'eachPop' in include: 
@@ -1715,7 +1714,7 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
     for namespace_id in namespace_ids:
         data = read_state (input_path, include, namespace_id, time_variable=time_variable,
                             state_variable=state_variable, time_range=time_range, max_units = max_units,
-                            gid = gid)
+                            gid = gid_set)
         states  = data['states']
         
         for (pop_name, pop_states) in viewitems(states):
@@ -1937,7 +1936,6 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     (population_ranges, N) = read_population_ranges(input_path)
     population_names  = read_population_names(input_path)
 
-    print('population_names: %s' % str(population_names))
     total_num_cells = 0
     pop_num_cells = {}
     pop_start_inds = {}
