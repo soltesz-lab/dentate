@@ -27,7 +27,6 @@ GapjunctionConfig = namedtuple('GapjunctionConfig',
 
 NetclampConfig = namedtuple('NetclampConfig',
                             ['template_params',
-                             'input_generators',
                              'weight_generators',
                              'optimize_parameters'])
 
@@ -56,8 +55,8 @@ class Env(object):
                  configure_nrn=True, dataset_prefix=None, config_prefix=None,
                  results_path=None, results_file_id=None, results_namespace_id=None,
                  node_rank_file=None, io_size=0, recording_profile=None, recording_fraction=1.0,
-                 coredat=False, tstop=0, v_init=-65, stimulus_onset=0.0, max_walltime_hours=0.5,
-                 checkpoint_interval=500.0, checkpoint_clear_data=True, 
+                 coredat=False, tstop=0., v_init=-65, stimulus_onset=0.0, n_trials=1,
+                 max_walltime_hours=0.5, checkpoint_interval=500.0, checkpoint_clear_data=True, 
                  results_write_time=0, dt=0.025, ldbal=False, lptbal=False, transfer_debug=False,
                  cell_selection_path=None, spike_input_path=None, spike_input_namespace=None, spike_input_attr=None,
                  cleanup=True, cache_queries=False, profile_memory=False, verbose=False, **kwargs):
@@ -164,6 +163,9 @@ class Env(object):
 
         # stimulus onset time [ms]
         self.stimulus_onset = float(stimulus_onset)
+
+        # number of trials
+        self.n_ntrials = int(n_trials)
 
         # maximum wall time in hours
         self.max_walltime_hours = float(max_walltime_hours)
@@ -458,7 +460,6 @@ class Env(object):
         :return:
         """
         netclamp_config_dict = self.model_config['Network Clamp']
-        input_generator_dict = netclamp_config_dict['Input Generator']
         weight_generator_dict = netclamp_config_dict['Weight Generator']
         template_param_rules_dict = netclamp_config_dict['Template Parameter Rules']
         opt_param_rules_dict = {}
@@ -469,7 +470,8 @@ class Env(object):
         for (template_name, params) in viewitems(template_param_rules_dict):
             template_params[template_name] = params
 
-        self.netclamp_config = NetclampConfig(template_params, input_generator_dict, weight_generator_dict,
+        self.netclamp_config = NetclampConfig(template_params,
+                                              weight_generator_dict,
                                               opt_param_rules_dict)
 
     def parse_origin_coords(self):

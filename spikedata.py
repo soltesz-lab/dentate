@@ -4,7 +4,7 @@ import numpy as np
 from scipy import interpolate
 from neuroh5.io import read_cell_attributes, read_population_names, read_population_ranges, write_cell_attributes
 import dentate
-from dentate.utils import get_module_logger, Struct, autocorr, baks, consecutive, mvcorrcoef, viewitems, zip
+from dentate.utils import get_module_logger, Struct, autocorr, baks, consecutive, mvcorrcoef, viewitems, zip, get_trial_time_ranges
 
 ## This logger will inherit its setting from its root logger, dentate,
 ## which is created in module env
@@ -17,19 +17,17 @@ default_pf_analysis_options = Struct(**{'Minimum Width': 10.,
                                         'Minimum Rate': None})
 
 
-def get_env_spike_dict(env, t_start=0.0, include_artificial=True):
+def get_env_spike_dict(env, include_artificial=True):
     """
-    Constructs  a dictionary with per-gid spike times from the output vectors with spike times and gids contained in env.
+    Constructs  a dictionary with per-gid per-trial spike times from the output vectors with spike times and gids contained in env.
     """
 
     t_vec = np.array(env.t_vec, dtype=np.float32)
     id_vec = np.array(env.id_vec, dtype=np.uint32)
 
-    if t_start > 0.0:
-        inds = np.where(t_vec >= t_start)
-        t_vec = t_vec[inds]
-        id_vec = id_vec[inds]
-
+    trial_time_ranges = get_trial_time_ranges(env.t_rec.to_python(), env.n_trials)
+    trial_time_bin_edges = [ t_trial_start for t_trial_start, t_trial_end in trial_time_ranges ] 
+    
     binlst = []
     typelst = sorted(env.celltypes.keys())
     binvect = np.asarray([env.celltypes[k]['start'] for k in typelst ])
@@ -61,7 +59,9 @@ def get_env_spike_dict(env, t_start=0.0, include_artificial=True):
                 spiketrain -= equilibration_duration
                 if gid in env.spike_onset_delay:
                     spiketrain -= env.spike_onset_delay[gid]
-                spkdict[gid] = spiketrain
+                trial_bins = np.digitize(spiketrain, trial_time_bins) - 1
+                trial_spikes = [spiketrain[np.where(trial_bins == trial_i)[0]] for trial_i in range(env.n_trials)]
+                spkdict[gid] = trial_spikes
         pop_spkdict[pop_name] = spkdict
 
     return pop_spkdict

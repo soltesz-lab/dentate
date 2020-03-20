@@ -1,55 +1,6 @@
 Template Parameter Rules:
   StimCell:
     - rate
-Input Generator:
-  MPP:
-    template: StimCell
-    params:
-      rate: 10.
-  LPP:
-    template: StimCell
-    params:
-      rate: 10.
-  BC:
-    template: StimCell
-    params:
-      rate: 24.
-  AAC:
-    template: StimCell
-    params:
-      rate: 25.
-  HC:
-    template: StimCell
-    params:
-      rate: 20.
-  HCC:
-    template: StimCell
-    params:
-      rate: 5.
-  IS:
-    template: StimCell
-    params:
-      rate: 2.
-  NGFC:
-    template: StimCell
-    params:
-      rate: 2.
-  MOPP:
-    template: StimCell
-    params:
-      rate: 2.
-  MC:
-    template: StimCell
-    params:
-      rate: 2.
-  CA3c:
-    template: StimCell
-    params:
-      rate: 2.
-  GC:
-    template: StimCell
-    params:
-      rate: 1.0
 Weight Generator:
   MC:
     GC:

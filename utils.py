@@ -1102,3 +1102,22 @@ def get_low_pass_filtered_trace(trace, t, down_dt=0.5):
     down_filtered = down_filtered[pad_len:-pad_len]
     filtered = np.interp(t, down_t, down_filtered)
     return filtered
+
+
+def get_trial_time_ranges(time_vec, n_trials, t_offset=0.):
+    time_vec = np.asarray(time_vec, dtype=np.float32) - t_offset
+    t_trial = (np.max(time_vec) - np.min(time_vec)) / float(n_trials)
+    t_start = np.min(time_vec)
+    t_trial_ranges = [ (float(i)*t_trial + t_start, float(i)*t_trial + t_start + t_trial) for i in range(n_trials) ] 
+    return t_trial_ranges
+
+
+def get_trial_time_indices(time_vec, n_trials, t_offset=0.):
+    time_vec = np.asarray(time_vec, dtype=np.float32) - t_offset
+    t_trial = (np.max(time_vec) - np.min(time_vec)) / float(n_trials)
+    t_start = np.min(time_vec)
+    t_trial_ranges = [ (float(i)*t_trial + t_start, float(i)*t_trial + t_start + t_trial) for i in range(n_trials) ] 
+    t_trial_inds = [ np.where((time_vec >= (t_trial_start + t_offset)) & (time_vec < t_trial_end))[0]
+                     for t_trial_start, t_trial_end in t_trial_ranges ]
+    return t_trial_inds
+

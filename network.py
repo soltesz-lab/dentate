@@ -860,6 +860,8 @@ def init_input_cells(env, input_sources=None):
 
     pop_names = sorted(env.celltypes.keys())
 
+    trial_index_attr = 'Trial Index'
+    trial_dur_attr = 'Trial Duration'
     for pop_name in pop_names:
 
         if 'spike train' in env.celltypes[pop_name]:
@@ -884,14 +886,14 @@ def init_input_cells(env, input_sources=None):
                     if env.node_ranks is None:
                         cell_vecstim_dict = scatter_read_cell_attributes(input_file_path, pop_name,
                                                                          namespaces=[vecstim_namespace],
-                                                                         mask=set([vecstim_attr]),
+                                                                         mask=set([vecstim_attr, trial_index_attr, trial_dur_attr]),
                                                                          comm=env.comm, io_size=env.io_size,
                                                                          return_type='tuple')
                     else:
                         cell_vecstim_dict = scatter_read_cell_attributes(input_file_path, pop_name,
                                                                          namespaces=[vecstim_namespace],
                                                                          node_rank_map=env.node_ranks,
-                                                                         mask=set([vecstim_attr]),
+                                                                         mask=set([vecstim_attr, trial_index_attr, trial_dur_attr]),
                                                                          comm=env.comm, io_size=env.io_size,
                                                                          return_type='tuple')
                     vecstim_iter, vecstim_attr_info = cell_vecstim_dict[vecstim_namespace]
@@ -902,17 +904,29 @@ def init_input_cells(env, input_sources=None):
                         vecstim_iter, vecstim_attr_info = read_cell_attribute_selection(input_file_path, 
                                                                                         pop_name, gid_range, \
                                                                                         namespace=vecstim_namespace, \
-                                                                                        mask=set([vecstim_attr]), \
+                                                                                        mask=set([vecstim_attr, trial_index_attr, trial_dur_attr]), \
                                                                                         comm=env.comm, return_type='tuple')
                     else:
                         vecstim_iter = []
 
                 vecstim_attr_index = vecstim_attr_info.get(vecstim_attr, None)
+                trial_index_attr_index = vecstim_attr_info.get(trial_index_attr, None)
+                trial_dur_attr_index = vecstim_attr_info.get(trial_dur_attr, None)
                 for (gid, vecstim_tuple) in vecstim_iter:
-
                     spiketrain = vecstim_tuple[vecstim_attr_index]
+                    if trial_attr_index is None:
+                        trial_index = None
+                    else:
+                        trial_index = vecstim_tuple[trial_index_attr_index]
+                        trial_duration = vecstim_tuple[trial_dur_attr_index]
                     if len(spiketrain) > 0:
-                        spiketrain = np.sort(spiketrain)
+                        if trial_index is not None:
+                            trial_spiketrains = []
+                            for trial_i in range(env.n_trials):
+                                trial_spiketrain_i = spiketrain[np.where(trial_index == trial_i)[0]]
+                                trial_spiketrain_i += trial_duration*float(trial_i)
+                                trial_spiketrains.append(trial_spiketrain_i)
+                            spiketrain = np.concatenate(trial_spiketrains)
                         spiketrain += float(env.stimulus_config['Equilibration Duration'])
                         logger.info("*** Spike train for %s gid %i is of length %i (%g : %g ms)" %
                                     (pop_name, gid, len(spiketrain), spiketrain[0], spiketrain[-1]))
@@ -960,7 +974,7 @@ def init_input_cells(env, input_sources=None):
                 if rank == 0:
                     logger.info("*** Initializing input source %s" % pop_name)
 
-                vecstim_attr_set = set(['t'])
+                vecstim_attr_set = set(['t', trial_index_attr, trial_dur_attr])
                 if env.spike_input_attr is not None:
                     vecstim_attr_set.add(env.spike_input_attr)
                 if 'spike train' in env.celltypes[pop_name]:
@@ -970,9 +984,12 @@ def init_input_cells(env, input_sources=None):
                                                                     list(this_gid_range), \
                                                                     namespace=input_ns, \
                                                                     mask=vecstim_attr_set, \
-                                                                    comm=env.comm, return_type='tuple') for (input_path, input_ns) in spike_input_source_loc ]
+                                                                    comm=env.comm, return_type='tuple')
+                                      for (input_path, input_ns) in spike_input_source_loc ]
 
                 for cell_spikes_iter, cell_spikes_attr_info in cell_spikes_items:
+                    trial_index_attr_index = cell_spikes_attr_info.get(trial_index_attr, None)
+                    trial_dur_attr_index = cell_spikes_attr_info.get(trial_dur_attr, None)
                     if (env.spike_input_attr is not None) and (env.spike_input_attr in cell_spikes_attr_info):
                         spike_train_attr_index = cell_spikes_attr_info.get(env.spike_input_attr, None)
                     elif vecstim_attr in viewkeys(cell_spikes_attr_info):

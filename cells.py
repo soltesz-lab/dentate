@@ -2279,21 +2279,22 @@ def make_input_cell(env, gid, pop_id, input_source_dict):
     """
 
     input_sources = input_source_dict[pop_id]
-    input_gen = input_sources['gen']
-    if input_gen is None:
+    if 'spiketrains' in input_sources:
         cell = h.VecStimCell(gid)
-        if 'spiketrains' in input_sources:
-            spk_inds = input_sources['spiketrains']['gid']
-            spk_ts = input_sources['spiketrains']['t']
-            data = spk_ts[np.where(spk_inds == gid)]
-            cell.pp.play(h.Vector(data))
-    else:
+        spk_attr_dict = input_sources['spiketrains'].get(gid, None)
+        if spk_attr_dict is not None:
+            spk_ts = spk_attr_dict['t']
+            cell.pp.play(h.Vector(spk_ts))
+    elif 'generator' in input_sources:
+        input_gen = input_sources['generator']
         template_name = input_gen['template']
         param_values = input_gen['params']
         template = getattr(h, template_name)
         params = [param_values[p] for p in env.netclamp_config.template_params[template_name]]
         cell = template(gid, *params)
-
+    else:
+        raise RuntimeError('cells.make_input_cell: unrecognized input cell configuration')
+        
     return cell
 
 

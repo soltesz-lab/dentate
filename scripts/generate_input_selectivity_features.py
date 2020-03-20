@@ -17,7 +17,7 @@ def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
-#sys.excepthook = mpi_excepthook
+sys.excepthook = mpi_excepthook
 
 
 def debug_callback(context):
@@ -31,6 +31,15 @@ def debug_callback(context):
                      title='%s\nNormalized cell position: %.3f' % (fig_title, context.norm_u_arc_distance),
                      **fig_options())
 
+def merge_count_dict(d1, d2):
+    dd = defaultdict(lambda: 0)
+    for d in (d1, d2): 
+        for key, value in d.items():
+            dd[key] += value
+    return dict(dd.items())
+
+mpi_op_merge_count_dict = MPI.Op.Create(merge_count_dict, commute=True)
+    
 
 @click.command()
 @click.option("--config", required=True, type=str)
@@ -116,7 +125,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
 
     if not dry_run and rank == 0:
         if output_path is None:
-            raise RuntimeError('generate_DG_input_selectivity_features: missing output_path')
+            raise RuntimeError('generate_input_selectivity_features: missing output_path')
         if not os.path.isfile(output_path):
             input_file = h5py.File(coords_path, 'r')
             output_file = h5py.File(output_path, 'w')
@@ -129,27 +138,33 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
     if len(populations) == 0:
         populations = sorted(population_ranges.keys())
 
-    reference_u_arc_distance_bounds = None
+    reference_u_arc_distance_bounds_dict = {}
     if rank == 0:
         for population in populations:
             if population not in population_ranges:
-                raise RuntimeError('generate_DG_input_selectivity_features: specified population: %s not found in '
+                raise RuntimeError('generate_input_selectivity_features: specified population: %s not found in '
                                    'provided coords_path: %s' % (population, coords_path))
             if population not in env.stimulus_config['Selectivity Type Probabilities']:
-                raise RuntimeError('generate_DG_input_selectivity_features: selectivity type not specified for '
+                raise RuntimeError('generate_input_selectivity_features: selectivity type not specified for '
                                    'population: %s' % population)
             with h5py.File(coords_path, 'r') as coords_f:
                 pop_size = population_ranges[population][1]
                 unique_gid_count = len(set(
                     coords_f['Populations'][population][distances_namespace]['U Distance']['Cell Index'][:]))
                 if pop_size != unique_gid_count:
-                    raise RuntimeError('generate_DG_input_selectivity_features: only %i/%i unique cell indexes found '
+                    raise RuntimeError('generate_input_selectivity_features: only %i/%i unique cell indexes found '
                                        'for specified population: %s in provided coords_path: %s' %
                                        (unique_gid_count, pop_size, population, coords_path))
-
-    if arena_id not in env.stimulus_config['Arena']:
-        raise RuntimeError('Arena with ID: %s not specified by configuration at file path: %s' %
-                           (arena_id, config_prefix + '/' + config))
+                try:
+                    reference_u_arc_distance_bounds_dict[population] = \
+                      coords_f['Populations'][population][distances_namespace].attrs['Reference U Min'], \
+                      coords_f['Populations'][population][distances_namespace].attrs['Reference U Max']
+                except Exception:
+                    raise RuntimeError('generate_input_selectivity_features: problem locating attributes '
+                                       'containing reference bounds in namespace: %s for population: %s from '
+                                       'coords_path: %s' % (distances_namespace, population, coords_path))
+    comm.barrier()
+    reference_u_arc_distance_bounds_dict = comm.bcast(reference_u_arc_distance_bounds_dict, root=0)
 
     selectivity_type_names = dict([ (val, key) for (key, val) in viewitems(env.selectivity_types) ])
     selectivity_type_namespaces = dict()
@@ -159,7 +174,16 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
         chars[0] = chars[0].upper()
         selectivity_type_namespaces[this_selectivity_type_name] = ''.join(chars) + ' Selectivity %s' % arena_id
 
+    if arena_id not in env.stimulus_config['Arena']:
+        raise RuntimeError('Arena with ID: %s not specified by configuration at file path: %s' %
+                           (arena_id, config_prefix + '/' + config))
     arena = env.stimulus_config['Arena'][arena_id]
+    arena_x_mesh, arena_y_mesh = None, None
+    if rank == 0:
+        arena_x_mesh, arena_y_mesh = \
+             get_2D_arena_spatial_mesh(arena=arena, spatial_resolution=env.stimulus_config['Spatial Resolution'])
+    arena_x_mesh = comm.bcast(arena_x_mesh, root=0)
+    arena_y_mesh = comm.bcast(arena_y_mesh, root=0)
 
     local_random = np.random.RandomState()
     selectivity_seed_offset = int(env.model_config['Random Seeds']['Input Selectivity'])
@@ -172,37 +196,90 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
     if (debug or interactive) and rank == 0:
         context.update(dict(locals()))
 
-    if gather:
-        pop_distances = {}
-        rate_map_sum = {}
-
+    pop_distances = {}
+    rate_map_sum = {}
     write_every = max(1, int(math.floor(write_size / comm.size)))
     for population in populations:
+        if rank == 0:
+            logger.info('Generating input selectivity features for population %s...' % population)
 
-        this_pop_norm_distances, this_rate_map_sum = \
-          generate_input_selectivity_features(env, population, arena, 
-                                              selectivity_config, selectivity_type_names,
-                                              selectivity_type_namespaces,
-                                              coords_path, output_path, 
-                                              distances_namespace=distances_namespace,
-                                              comm=comm, io_size=io_size, write_every=write_every,
-                                              chunk_size=chunk_size, value_chunk_size=value_chunk_size,
-                                              dry_run=dry_run, debug= (debug_callback, context) if debug else False)
-                                              
-                                              
-        if gather:
-            pop_distances[population] = this_pop_norm_distances
-            rate_map_sum[population] = this_rate_map_sum
+        reference_u_arc_distance_bounds = reference_u_arc_distance_bounds_dict[population]
+        
+        pop_norm_distances = {}
+        rate_map_sum = defaultdict(lambda: np.zeros_like(arena_x_mesh))
+        start_time = time.time()
+        gid_count = defaultdict(lambda: 0)
+        distances_attr_gen = NeuroH5CellAttrGen(coords_path, population, namespace=distances_namespace,
+                                                comm=comm, io_size=io_size, cache_size=cache_size)
+
+        selectivity_attr_dict = dict((key, dict()) for key in env.selectivity_types)
+        for iter_count, (gid, distances_attr_dict) in enumerate(distances_attr_gen):
+            if gid is not None:
+                u_arc_distance = distances_attr_dict['U Distance'][0]
+                norm_u_arc_distance = ((u_arc_distance - reference_u_arc_distance_bounds[0]) /
+                                       (reference_u_arc_distance_bounds[1] - reference_u_arc_distance_bounds[0]))
+
+                pop_norm_distances[gid] = norm_u_arc_distance
+
+                this_selectivity_type_name, this_selectivity_attr_dict = \ 
+                 generate_input_selectivity_features(env, population, gid, arena, arena_x_mesh, arena_y_mesh,
+                                                     reference_u_arc_distance_bounds,
+                                                     selectivity_config, selectivity_type_names,
+                                                     selectivity_type_namespaces, rate_map_sum=rate_map_sum,
+                                                     debug= (debug_callback, context) if debug else False)
+                 selectivity_attr_dict[this_selectivity_type_name][gid] = this_selectivity_attr_dict
+                 gid_count[this_selectivity_type_name] += 1
+
+            total_gid_count = 0
+            selectivity_gid_count = comm.reduce(gid_count, root=0, op=mpi_op_merge_count_dict)
+            if rank == 0:
+                for selectivity_type_name in selectivity_gid_count:
+                    total_gid_count += selectivity_gid_count[selectivity_type_name]
+                for selectivity_type_name in selectivity_gid_count:
+                    logger.info('generated selectivity features for %i/%i %s %s cells in %.2f s' %
+                                (selectivity_gid_count[selectivity_type_name], total_gid_count, population, selectivity_type_name,
+                                 (time.time() - start_time)))
+                 
+            if (iter_count > 0 and iter_count % write_every == 0) or (debug and iter_count == 10):
+
+                if not dry_run:
+                    for selectivity_type_name in sorted(selectivity_attr_dict.keys()):
+                        if rank == 0:
+                            logger.info('writing selectivity features for %s [%s]...' % (population, selectivity_type_name))
+                        selectivity_type_namespace = selectivity_type_namespaces[selectivity_type_name]
+                        append_cell_attributes(output_path, population, selectivity_attr_dict[selectivity_type_name],
+                                               namespace=selectivity_type_namespace, comm=comm, io_size=io_size,
+                                               chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+                del selectivity_attr_dict
+                selectivity_attr_dict = dict((key, dict()) for key in env.selectivity_types)
+
+        pop_distances[population] = this_pop_norm_distances
+        rate_map_sum[population] = this_rate_map_sum
+                    
+        total_gid_count = 0
+        selectivity_gid_count = comm.reduce(gid_count, root=0, op=mpi_op_merge_count_dict)
+        
+        if rank == 0:
+            for selectivity_type_name in selectivity_gid_count:
+                total_gid_count += selectivity_gid_count[selectivity_type_name]
+            for selectivity_type_name in merged_gid_count:
+                logger.info('generated selectivity features for %i/%i %s %s cells in %.2f s' %
+                            (selectivity_gid_count[selectivity_type_name], total_gid_count, population, selectivity_type_name,
+                             (time.time() - start_time)))
+
+        if not dry_run:
+            for selectivity_type_name in sorted(selectivity_attr_dict.keys()):
+                if rank == 0:
+                    logger.info('writing selectivity features for %s [%s]...' % (population, selectivity_type_name))
+                selectivity_type_namespace = selectivity_type_namespaces[selectivity_type_name]
+                append_cell_attributes(output_path, population, selectivity_attr_dict[selectivity_type_name],
+                                       namespace=selectivity_type_namespace, comm=comm, io_size=io_size,
+                                       chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+        del selectivity_attr_dict
+        comm.barrier()
             
                 
     if gather:
-        arena_x_mesh, arena_y_mesh = None, None
-        if rank == 0:
-            arena_x_mesh, arena_y_mesh = \
-              get_2D_arena_spatial_mesh(arena=arena, spatial_resolution=env.stimulus_config['Spatial Resolution'])
-        arena_x_mesh = comm.bcast(arena_x_mesh, root=0)
-        arena_y_mesh = comm.bcast(arena_y_mesh, root=0)
-
         pop_norm_distances = comm.gather(pop_norm_distances, root=0)
         rate_map_sum = dict([(key, dict(val.items())) for key, val in viewitems(rate_map_sum)])
         rate_map_sum = comm.gather(rate_map_sum, root=0)
