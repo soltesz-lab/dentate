@@ -855,7 +855,7 @@ def generate_concentric_trajectory(arena, velocity=30., spatial_resolution=1., s
 
 
 def generate_input_selectivity_features(env, population, arena, arena_x, arena_y,
-                                        gid, reference_u_arc_distance_bounds,
+                                        gid, norm_distances, 
                                         selectivity_config, selectivity_type_names,
                                         selectivity_type_namespaces,
                                         rate_map_sum=None, debug=False):
@@ -871,6 +871,7 @@ def generate_input_selectivity_features(env, population, arena, arena_x, arena_y
     :param population: str
     :param arena: str
     :param gid: int
+    :param distances: (float, float)
     :param selectivity_config: 
     :param selectivity_type_names: 
     :param selectivity_type_namespaces: 
@@ -882,9 +883,7 @@ def generate_input_selectivity_features(env, population, arena, arena_x, arena_y
     else:
         rank = 0
     
-    u_arc_distance = distances_attr_dict['U Distance'][0]
-    norm_u_arc_distance = ((u_arc_distance - reference_u_arc_distance_bounds[0]) /
-                           (reference_u_arc_distance_bounds[1] - reference_u_arc_distance_bounds[0]))
+    norm_u_arc_distance = norm_distances[0]
     selectivity_seed_offset = int(env.model_config['Random Seeds']['Input Selectivity'])
 
     local_random = np.random.RandomState()
@@ -914,8 +913,6 @@ def generate_input_selectivity_features(env, population, arena, arena_x, arena_y
         
     selectivity_attr_dict['Arena Rate Map'] = \
         np.asarray(rate_map, dtype=np.float32).reshape(-1,)
-
-    pop_norm_distances[gid] = norm_u_arc_distance
 
     if rate_map_sum is not None:
         rate_map_sum[this_selectivity_type_name] = \

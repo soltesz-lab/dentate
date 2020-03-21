@@ -15,6 +15,8 @@ context = Struct(**dict(locals()))
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
+    sys.stdout.flush()
+    sys.stderr.flush()
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
 sys.excepthook = mpi_excepthook
@@ -31,13 +33,20 @@ def debug_callback(context):
                      title='%s\nNormalized cell position: %.3f' % (fig_title, context.norm_u_arc_distance),
                      **fig_options())
 
-def merge_count_dict(d1, d2):
+def merge_dict(d1, d2, datatype):
+    dd = {}
+    for d in (d1, d2):
+        dd.update(d1)
+    return dd
+
+def merge_count_dict(d1, d2, datatype):
     dd = defaultdict(lambda: 0)
     for d in (d1, d2): 
         for key, value in d.items():
             dd[key] += value
     return dict(dd.items())
 
+mpi_op_merge_dict = MPI.Op.Create(merge_dict, commute=True)
 mpi_op_merge_count_dict = MPI.Op.Create(merge_count_dict, commute=True)
     
 
@@ -140,7 +149,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
 
     reference_u_arc_distance_bounds_dict = {}
     if rank == 0:
-        for population in populations:
+        for population in sorted(populations):
             if population not in population_ranges:
                 raise RuntimeError('generate_input_selectivity_features: specified population: %s not found in '
                                    'provided coords_path: %s' % (population, coords_path))
@@ -196,17 +205,17 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
     if (debug or interactive) and rank == 0:
         context.update(dict(locals()))
 
-    pop_distances = {}
+    pop_norm_distances = {}
     rate_map_sum = {}
     write_every = max(1, int(math.floor(write_size / comm.size)))
-    for population in populations:
+    for population in sorted(populations):
         if rank == 0:
             logger.info('Generating input selectivity features for population %s...' % population)
 
         reference_u_arc_distance_bounds = reference_u_arc_distance_bounds_dict[population]
         
-        pop_norm_distances = {}
-        rate_map_sum = defaultdict(lambda: np.zeros_like(arena_x_mesh))
+        this_pop_norm_distances = {}
+        this_rate_map_sum = defaultdict(lambda: np.zeros_like(arena_x_mesh))
         start_time = time.time()
         gid_count = defaultdict(lambda: 0)
         distances_attr_gen = NeuroH5CellAttrGen(coords_path, population, namespace=distances_namespace,
@@ -216,31 +225,35 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
         for iter_count, (gid, distances_attr_dict) in enumerate(distances_attr_gen):
             if gid is not None:
                 u_arc_distance = distances_attr_dict['U Distance'][0]
+                v_arc_distance = distances_attr_dict['V Distance'][0]
                 norm_u_arc_distance = ((u_arc_distance - reference_u_arc_distance_bounds[0]) /
                                        (reference_u_arc_distance_bounds[1] - reference_u_arc_distance_bounds[0]))
 
-                pop_norm_distances[gid] = norm_u_arc_distance
+                this_pop_norm_distances[gid] = norm_u_arc_distance
 
-                this_selectivity_type_name, this_selectivity_attr_dict = \ 
-                 generate_input_selectivity_features(env, population, gid, arena, arena_x_mesh, arena_y_mesh,
-                                                     reference_u_arc_distance_bounds,
+                this_selectivity_type_name, this_selectivity_attr_dict = \
+                 generate_input_selectivity_features(env, population, arena,
+                                                     arena_x_mesh, arena_y_mesh,
+                                                     gid, (norm_u_arc_distance, v_arc_distance),
                                                      selectivity_config, selectivity_type_names,
-                                                     selectivity_type_namespaces, rate_map_sum=rate_map_sum,
+                                                     selectivity_type_namespaces,
+                                                     rate_map_sum=this_rate_map_sum,
                                                      debug= (debug_callback, context) if debug else False)
-                 selectivity_attr_dict[this_selectivity_type_name][gid] = this_selectivity_attr_dict
-                 gid_count[this_selectivity_type_name] += 1
+                selectivity_attr_dict[this_selectivity_type_name][gid] = this_selectivity_attr_dict
+                gid_count[this_selectivity_type_name] += 1
 
-            total_gid_count = 0
-            selectivity_gid_count = comm.reduce(gid_count, root=0, op=mpi_op_merge_count_dict)
-            if rank == 0:
-                for selectivity_type_name in selectivity_gid_count:
-                    total_gid_count += selectivity_gid_count[selectivity_type_name]
-                for selectivity_type_name in selectivity_gid_count:
-                    logger.info('generated selectivity features for %i/%i %s %s cells in %.2f s' %
-                                (selectivity_gid_count[selectivity_type_name], total_gid_count, population, selectivity_type_name,
-                                 (time.time() - start_time)))
                  
             if (iter_count > 0 and iter_count % write_every == 0) or (debug and iter_count == 10):
+                total_gid_count = 0
+                gid_count_dict = dict(gid_count.items())
+                selectivity_gid_count = comm.reduce(gid_count_dict, root=0, op=mpi_op_merge_count_dict)
+                if rank == 0:
+                    for selectivity_type_name in selectivity_gid_count:
+                        total_gid_count += selectivity_gid_count[selectivity_type_name]
+                    for selectivity_type_name in selectivity_gid_count:
+                        logger.info('generated selectivity features for %i/%i %s %s cells in %.2f s' %
+                                    (selectivity_gid_count[selectivity_type_name], total_gid_count, population, selectivity_type_name,
+                                    (time.time() - start_time)))
 
                 if not dry_run:
                     for selectivity_type_name in sorted(selectivity_attr_dict.keys()):
@@ -253,16 +266,20 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
                 del selectivity_attr_dict
                 selectivity_attr_dict = dict((key, dict()) for key in env.selectivity_types)
 
-        pop_distances[population] = this_pop_norm_distances
+            if debug and iter_count >= 10:
+                break
+            
+        pop_norm_distances[population] = this_pop_norm_distances
         rate_map_sum[population] = this_rate_map_sum
                     
         total_gid_count = 0
-        selectivity_gid_count = comm.reduce(gid_count, root=0, op=mpi_op_merge_count_dict)
+        gid_count_dict = dict(gid_count.items())
+        selectivity_gid_count = comm.reduce(gid_count_dict, root=0, op=mpi_op_merge_count_dict)
         
         if rank == 0:
             for selectivity_type_name in selectivity_gid_count:
                 total_gid_count += selectivity_gid_count[selectivity_type_name]
-            for selectivity_type_name in merged_gid_count:
+            for selectivity_type_name in selectivity_gid_count:
                 logger.info('generated selectivity features for %i/%i %s %s cells in %.2f s' %
                             (selectivity_gid_count[selectivity_type_name], total_gid_count, population, selectivity_type_name,
                              (time.time() - start_time)))
@@ -280,14 +297,14 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
             
                 
     if gather:
-        pop_norm_distances = comm.gather(pop_norm_distances, root=0)
+        merged_pop_norm_distances = {}
+        for population in sorted(populations):
+            merged_pop_norm_distances[population] = \
+              comm.reduce(pop_norm_distances[population], root=0,
+                          op=mpi_op_merge_dict)
         rate_map_sum = dict([(key, dict(val.items())) for key, val in viewitems(rate_map_sum)])
         rate_map_sum = comm.gather(rate_map_sum, root=0)
         if rank == 0:
-            merged_pop_norm_distances = defaultdict(list)
-            for each_pop_norm_distances in pop_norm_distances:
-                for population in each_pop_norm_distances:
-                    merged_pop_norm_distances[population].extend(each_pop_norm_distances[population])
             merged_rate_map_sum = defaultdict(lambda: defaultdict(lambda: np.zeros_like(arena_x_mesh)))
             for each_rate_map_sum in rate_map_sum:
                 for population in each_rate_map_sum:
@@ -297,7 +314,8 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
                                    each_rate_map_sum[population][selectivity_type_name])
             if plot:
                 for population in merged_pop_norm_distances:
-                    hist, edges = np.histogram(merged_pop_norm_distances[population], bins=100)
+                    norm_distance_values = np.asarray(list(merged_pop_norm_distances[population].values()))
+                    hist, edges = np.histogram(norm_distance_values, bins=100)
                     fig, axes = plt.subplots(1)
                     axes.plot(edges[1:], hist)
                     axes.set_title('Population: %s' % population)
@@ -305,7 +323,8 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
                     axes.set_ylabel('Cell count')
                     clean_axes(axes)
                     if save_fig is not None:
-                        save_figure('%s normalized distances histogram' % save_fig, fig=fig, **fig_options())
+                        save_figure('%s %s normalized distances histogram' % (save_fig, population),
+                                    fig=fig, **fig_options())
                     if fig_options.showFig:
                         fig.show()
                 for population in merged_rate_map_sum:

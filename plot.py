@@ -4938,7 +4938,7 @@ def plot_2D_rate_map(x, y, rate_map, peak_rate=None, title=None, **kwargs):
         save_figure(fig_options.saveFig, fig=fig, **fig_options())
 
     if fig_options.showFig:
-        fig.show()
+        plt.show()
         
     return fig
 
@@ -5000,6 +5000,6 @@ def plot_2D_histogram(hist, x_edges, y_edges, norm=None, ylabel=None, xlabel=Non
         save_figure(fig_options.saveFig, fig=fig, **fig_options())
 
     if fig_options.showFig:
-        fig.show()
+        plt.show()
 
     return fig

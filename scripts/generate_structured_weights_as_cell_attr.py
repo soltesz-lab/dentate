@@ -330,7 +330,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
 
             save_fig_path = None
             if save_fig is not None:
-                save_fig_path = '%s/Structured Weights %s %d.svg' % (save_fig, destination, this_gid)
+                save_fig_path = '%s/Structured Weights %s %d.png' % (save_fig, destination, this_gid)
                 
             normalized_delta_weights_dict, arena_LS_map = \
               synapses.generate_structured_weights(target_map=target_selectivity_features_dict[this_gid]['Arena Rate Map'],
