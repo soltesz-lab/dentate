@@ -934,8 +934,6 @@ def generate_input_spike_trains(env, selectivity_type_names, trajectory, gid, se
 
     if comm is None:
         comm = MPI.COMM_WORLD
-    if io_size <= 0:
-        io_size = comm.size
     rank = comm.rank
 
     t, x, y, d = trajectory
@@ -961,8 +959,9 @@ def generate_input_spike_trains(env, selectivity_type_names, trajectory, gid, se
     spike_trains = []
     trial_indices = []
     for i in range(n_trials):
-        spike_train = get_inhom_poisson_spike_times_by_thinning(rate_map, t, dt=env.dt,
-                                                                generator=local_random)
+        spike_train = np.asarray(get_inhom_poisson_spike_times_by_thinning(rate_map, t, dt=env.dt,
+                                                                    generator=local_random),
+                                 dtype=np.float32)
         spike_trains.append(spike_train)
         trial_indices.append(np.ones((spike_train.shape[0],), dtype=np.uint8) * i)
         

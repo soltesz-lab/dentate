@@ -15,6 +15,8 @@ context = Struct(**dict(locals()))
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
+    sys.stdout.flush()
+    sys.stderr.flush()
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
 sys.excepthook = mpi_excepthook
@@ -34,23 +36,24 @@ def get_equilibration(env):
 
 
 def debug_callback(context):
-    fig_title = '%s %s cell %i' % (context.population, context.this_selectivity_type_name, context.gid)
+    from dentate.plot import plot_1D_rate_map
+    fig_title = '%s %s %s cell %i' % (context.trajectory_id, context.population, context.this_selectivity_type_name, context.gid)
     fig_options = copy.copy(context.fig_options)
     if context.save_fig is not None:
         fig_options.saveFig = '%s %s' % (context.save_fig, fig_title)
-    plot_1D_rate_map(t=t, rate_map=context.rate_map,
+    plot_1D_rate_map(t=context.t, rate_map=context.rate_map,
                      peak_rate=context.env.stimulus_config['Peak Rate'][context.population][context.this_selectivity_type],
                      spike_train=context.spike_train, title=fig_title, **fig_options())
 
     
-def plot_summed_spike_psth(t, merged_spike_hist_sum, spike_hist_resolution, fig_options):
+def plot_summed_spike_psth(t, trajectory_id, selectivity_type_name, merged_spike_hist_sum, spike_hist_resolution, fig_options):
+    import matplotlib.pyplot as plt
+    from dentate.plot import save_figure, clean_axes
 
     spike_hist_edges = np.linspace(min(t), max(t), spike_hist_resolution + 1)
     for population, this_selectivity_type_name in viewitems(merged_spike_hist_sum):
         for this_selectivity_type_name in merged_spike_hist_sum[population]:
             fig_title = '%s %s summed spike PSTH' % (population, this_selectivity_type_name)
-            if save_fig is not None:
-                fig_options.saveFig = '%s %s' % (save_fig, fig_title)
             fig, axes = plt.subplots()
             axes.plot(spike_hist_edges[1:], merged_spike_hist_sum[population][selectivity_type_name])
             axes.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
@@ -61,7 +64,9 @@ def plot_summed_spike_psth(t, merged_spike_hist_sum, spike_hist_resolution, fig_
             clean_axes(axes)
 
             if fig_options.saveFig is not None:
-                save_figure(fig_options.saveFig, fig=fig, **fig_options())
+                save_title = 'Summed spike PSTH %s %s %s' % (trajectory_id, population, selectivity_type_name)
+                save_fig = '%s %s' % (fig_options.saveFig, save_title)
+                save_figure(save_fig, fig=fig, **fig_options())
                 
             if fig_options.showFig:
                 fig.show()
@@ -74,7 +79,7 @@ def plot_summed_spike_psth(t, merged_spike_hist_sum, spike_hist_resolution, fig_
 @click.option("--selectivity-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--arena-id", type=str, default='A')
 @click.option("--populations", '-p', type=str, multiple=True)
-@click.option("--n-trials", '-p', type=int, default=1)
+@click.option("--n-trials", type=int, default=1)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
@@ -84,7 +89,6 @@ def plot_summed_spike_psth(t, merged_spike_hist_sum, spike_hist_resolution, fig_
 @click.option("--spikes-namespace", type=str, default='Input Spikes')
 @click.option("--spike-train-attr-name", type=str, default='Spike Train')
 @click.option("--gather", is_flag=True)
-@click.option("--interactive", is_flag=True)
 @click.option("--debug", is_flag=True)
 @click.option("--plot", is_flag=True)
 @click.option("--show-fig", is_flag=True)
@@ -96,7 +100,7 @@ def plot_summed_spike_psth(t, merged_spike_hist_sum, spike_hist_resolution, fig_
 @click.option("--dry-run", is_flag=True)
 def main(config, config_prefix, selectivity_path, arena_id, populations, n_trials, io_size, chunk_size,
          value_chunk_size, cache_size, write_size, output_path, spikes_namespace, spike_train_attr_name, gather,
-         interactive, debug, plot, show_fig, save_fig, save_fig_dir, font_size, fig_format,
+         debug, plot, show_fig, save_fig, save_fig_dir, font_size, fig_format,
          verbose, dry_run):
     """
 
@@ -115,7 +119,6 @@ def main(config, config_prefix, selectivity_path, arena_id, populations, n_trial
     :param spikes_namespace: str
     :param spike_train_attr_name: str
     :param gather: bool
-    :param interactive: bool
     :param debug: bool
     :param plot: bool
     :param show_fig: bool
@@ -139,6 +142,15 @@ def main(config, config_prefix, selectivity_path, arena_id, populations, n_trial
 
     if save_fig is not None:
         plot = True
+
+    if plot:
+        from dentate.plot import default_fig_options
+
+        fig_options = copy.copy(default_fig_options)
+        fig_options.saveFigDir = save_fig_dir
+        fig_options.fontSize = font_size
+        fig_options.figFormat = fig_format
+        fig_options.showFig = show_fig
 
     population_ranges = read_population_ranges(selectivity_path, comm)[0]
 
@@ -191,7 +203,7 @@ def main(config, config_prefix, selectivity_path, arena_id, populations, n_trial
 
         trajectory = t, x, y, d
         trajectory_namespace = 'Trajectory %s %s' % (arena_id, trajectory_id)
-        this_spikes_namespace = '%s %s %s' % (spikes_namespace, arena_id, trajectory_id)
+        output_namespace = '%s %s %s' % (spikes_namespace, arena_id, trajectory_id)
 
         if not dry_run and rank == 0:
             if output_path is None:
@@ -227,7 +239,7 @@ def main(config, config_prefix, selectivity_path, arena_id, populations, n_trial
             this_spike_hist_sum = defaultdict(lambda: np.zeros(spike_hist_resolution))
 
             process_time = dict()
-            for this_selectivity_namespace in sorted(selectivity_type_namespaces[population]):
+            for this_selectivity_namespace in sorted(valid_selectivity_namespaces[population]):
 
                 if rank == 0:
                     logger.info('Generating input source spike trains for population %s [%s]...' % (population, this_selectivity_namespace))
@@ -238,23 +250,25 @@ def main(config, config_prefix, selectivity_path, arena_id, populations, n_trial
                                                           comm=comm, io_size=io_size,
                                                           cache_size=cache_size)
                 spikes_attr_dict = dict()
-                selectivity_type_name = None
                 gid_count = 0
                 for iter_count, (gid, selectivity_attr_dict) in enumerate(selectivity_attr_gen):
                     if gid is not None:
+                        context.update(locals())
                         spikes_attr_dict[gid] = \
-                            generate_input_spike_trains(env, selectivity_type_names, population, trajectory,
+                            generate_input_spike_trains(env, selectivity_type_names, trajectory,
                                                         gid, selectivity_attr_dict, n_trials=n_trials,
                                                         spike_train_attr_name=spike_train_attr_name,
                                                         spike_hist_resolution=spike_hist_resolution,
-                                                        equilibrate=equilibrate, spike_hist_sum=this_spike_hist_sum,
+                                                        equilibrate=equilibrate,
+                                                        spike_hist_sum=this_spike_hist_sum,
                                                         debug= (debug_callback, context) if debug else False)
+                        gid_count += 1
 
                     if (iter_count > 0 and iter_count % write_every == 0) or (debug and iter_count == 10):
                         total_gid_count = comm.reduce(gid_count, root=0, op=MPI.SUM)
                         if rank == 0:
-                            logger.info('generated spike trains for %i %s %s cells' %
-                                        (total_gid_count, population, selectivity_type_name))
+                            logger.info('generated spike trains for %i %s cells' %
+                                        (total_gid_count, population))
                     
                         if not dry_run:
                             append_cell_attributes(output_path, population, spikes_attr_dict,
@@ -276,9 +290,8 @@ def main(config, config_prefix, selectivity_path, arena_id, populations, n_trial
             
             total_gid_count = comm.reduce(gid_count, root=0, op=MPI.SUM)
             if rank == 0:
-                logger.info('generated spike trains for %i %s %s cells in %.2f s' %
-                            (total_gid_count, population,
-                             selectivity_type_name, process_time))
+                logger.info('generated spike trains for %i %s cells in %.2f s' %
+                            (total_gid_count, population, process_time))
 
             if gather:
                 spike_hist_sum_dict[population] = this_spike_hist_sum
@@ -296,24 +309,18 @@ def main(config, config_prefix, selectivity_path, arena_id, populations, n_trial
                             merged_spike_hist_sum[population][selectivity_type_name] = \
                                 np.add(merged_spike_hist_sum[population][selectivity_type_name],
                                        each_spike_hist_sum[population][selectivity_type_name])
-            if plot:
-                from dentate.plot import default_fig_options, save_figure, plot_1D_rate_map, clean_axes
 
-                fig_options = copy.copy(default_fig_options)
-                fig_options.saveFigDir = save_fig_dir
-                fig_options.fontSize = font_size
-                fig_options.figFormat = fig_format
-                fig_options.showFig = show_fig
+                if plot:
                 
-                if save_fig is not None:
-                    save_fig = '%s %s' % (save_fig, arena_id)
-                    fig_options.saveFig = save_fig
+                    if save_fig is not None:
+                        fig_options.saveFig = save_fig
                     
-                plot_summed_spike_psth(t, merged_spike_hist_sum, spike_hist_resolution, fig_options)
+                        plot_summed_spike_psth(t, trajectory_id, selectivity_type_name, merged_spike_hist_sum,
+                                               spike_hist_resolution, fig_options)
 
         comm.barrier()
 
-    if interactive and rank == 0:
+    if is_interactive and rank == 0:
         context.update(locals())
 
 
