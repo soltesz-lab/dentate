@@ -7,6 +7,7 @@ mpirun.mpich -np 8 python3 ./scripts/generate_input_spike_trains.py \
              --config-prefix=./config \
              --selectivity-path=${dataset_prefix}/DG_input_features_20200320.h5 \
              --output-path=${dataset_prefix}/DG_input_spike_trains_20200321.h5 \
+             --n-trials=3 \
              -p MPP -p LPP -p MC -v --gather --plot --save-fig DG_input_spike_trains
 
 

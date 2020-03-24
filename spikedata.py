@@ -60,7 +60,10 @@ def get_env_spike_dict(env, include_artificial=True):
                 if gid in env.spike_onset_delay:
                     spiketrain -= env.spike_onset_delay[gid]
                 trial_bins = np.digitize(spiketrain, trial_time_bins) - 1
-                trial_spikes = [spiketrain[np.where(trial_bins == trial_i)[0]] for trial_i in range(env.n_trials)]
+                trial_spikes = [np.copy(spiketrain[np.where(trial_bins == trial_i)[0]])
+                                for trial_i in range(env.n_trials)]
+                for trial_i, trial_spiketrain in enumerate(trial_spikes):
+                    trial_spiketrain -= trial_time_ranges[trial_i][0]
                 spkdict[gid] = trial_spikes
         pop_spkdict[pop_name] = spkdict
 
@@ -68,7 +71,7 @@ def get_env_spike_dict(env, include_artificial=True):
 
 
 def read_spike_events(input_file, population_names, namespace_id, spike_train_attr_name='t', time_range=None,
-                      max_spikes=None):
+                      max_spikes=None, n_trials=1, merge_trials=False):
     """
     Reads spike trains from a NeuroH5 file, and returns a dictionary with spike times and cell indices.
     :param input_file: str (path to file)
@@ -77,11 +80,17 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
     :param spike_train_attr_name: str
     :param time_range: list of float
     :param max_spikes: float
+    :param n_trials: int
+    :param merge_trials: bool
     :return: dict
     """
+    assert((n_trials >= 1) || (n_trials == -1))
+
+    
     spkpoplst = []
     spkindlst = []
     spktlst = []
+    spktrials = []
     num_cell_spks = {}
     pop_active_cells = {}
 
@@ -101,14 +110,24 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
 
         pop_spkindlst = []
         pop_spktlst = []
+        pop_spktriallst = []
 
         # Time Range
         if time_range is None or time_range[1] is None:
             for spkind, spkts in spkiter:
-
-                for spkt in spkts[spike_train_attr_name]:
+                trial_dur = spkts.get('Trial Duration', np.asarray([0.]))
+                trial_ind = spkts.get('Trial Index', np.zeros((len(spkts)),))
+                if n_trials == -1:
+                    n_trials = trial_dur.shape[0]
+                for spk_i, spkt in enumerate(spkts[spike_train_attr_name]):
+                    trial_i = trial_ind[spk_i]
+                    if trial_i >= n_trials:
+                        continue
+                    if merge_trials and trial_i > 0:
+                        spkt += np.sum(trial_dur[:(trial_i+1)])
                     pop_spkindlst.append(spkind)
                     pop_spktlst.append(spkt)
+                    pop_spktriallst.append(trial_i)
                     if spkt < tmin:
                         tmin = spkt
                     if spkt > tmax:
@@ -119,10 +138,20 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
             if time_range[0] is None:
                 time_range[0] = 0.0
             for spkind, spkts in spkiter:
-                for spkt in spkts[spike_train_attr_name]:
+                trial_dur = spkts.get('Trial Duration', np.asarray([0.]))
+                trial_ind = spkts.get('Trial Index', np.zeros((len(spkts)),))
+                if n_trials == -1:
+                    n_trials = trial_dur.shape[0]
+                for spk_i, spkt in enumerate(spkts[spike_train_attr_name]):
+                    trial_i = trial_ind[spk_i]
+                    if trial_i >= n_trials:
+                        continue
+                    if merge_trials and trial_i > 0:
+                        spkt += np.sum(trial_dur[:(trial_i+1)])
                     if time_range[0] <= spkt <= time_range[1]:
                         pop_spkindlst.append(spkind)
                         pop_spktlst.append(spkt)
+                        pop_spktriallst.append(trial_i)
                         if spkt < tmin:
                             tmin = spkt
                         if spkt > tmax:
@@ -140,6 +169,8 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
         del (pop_spktlst)
         pop_spkinds = np.asarray(pop_spkindlst, dtype=np.uint32)
         del (pop_spkindlst)
+        pop_spktrials = np.asarray(pop_spktriallst, dtype=np.uint32)
+        del (pop_spktriallst)
 
         # Limit to max_spikes
         if (max_spikes is not None) and (len(pop_spkts) > max_spikes):
@@ -148,19 +179,37 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
             sample_inds = np.random.randint(0, len(pop_spkinds) - 1, size=int(max_spikes))
             pop_spkts = pop_spkts[sample_inds]
             pop_spkinds = pop_spkinds[sample_inds]
+            pop_spktrials = pop_spkinds[sample_inds]
             tmax = max(tmax, max(pop_spkts))
 
-        sort_idxs = np.argsort(pop_spkts)
         spkpoplst.append(pop_name)
-        spktlst.append(np.take(pop_spkts, sort_idxs))
+        pop_trial_spkindlst = []
+        pop_trial_spktlst = []
+        for trial_i in range(n_trials):
+            trial_idxs = np.where(pop_spktrials == trial_i)[0]
+            sorted_trial_idxs = np.argsort(pop_spkts[trial_idxs])
+            pop_trial_spktlst.append(np.take(pop_spkts[trial_idxs], sorted_trial_idxs))
+            pop_trial_spkindlst.append(np.take(pop_spkinds[trial_idxs], sorted_trial_idxs))
+                
         del pop_spkts
-        spkindlst.append(np.take(pop_spkinds, sort_idxs))
         del pop_spkinds
+        del pop_spktrials
+
+        if merge_trials:
+            pop_spkinds = np.concatenate(pop_trial_spkindlst)
+            pop_spktlst = np.concatenate(pop_trial_spktlst)
+            spkindlst.append(pop_spkinds)
+            spktlst.append(pop_spktlst)
+        else:
+            spkindlst.append(pop_trial_spkindlst)
+            spktlst.append(pop_trial_spktlst)
+            
 
         logger.info(' Read %i spikes for population %s' % (this_num_cell_spks, pop_name))
 
     return {'spkpoplst': spkpoplst, 'spktlst': spktlst, 'spkindlst': spkindlst, 'tmin': tmin, 'tmax': tmax,
-            'pop_active_cells': pop_active_cells, 'num_cell_spks': num_cell_spks}
+            'pop_active_cells': pop_active_cells, 'num_cell_spks': num_cell_spks,
+            'n_trials': n_trials}
 
 
 def make_spike_dict(spkinds, spkts):

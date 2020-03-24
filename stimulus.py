@@ -960,7 +960,7 @@ def generate_input_spike_trains(env, selectivity_type_names, trajectory, gid, se
     trial_indices = []
     for i in range(n_trials):
         spike_train = np.asarray(get_inhom_poisson_spike_times_by_thinning(rate_map, t, dt=env.dt,
-                                                                    generator=local_random),
+                                                                           generator=local_random),
                                  dtype=np.float32)
         spike_trains.append(spike_train)
         trial_indices.append(np.ones((spike_train.shape[0],), dtype=np.uint8) * i)
@@ -974,7 +974,7 @@ def generate_input_spike_trains(env, selectivity_type_names, trajectory, gid, se
     spikes_attr_dict = dict()
     spikes_attr_dict[spike_train_attr_name] = np.asarray(np.concatenate(spike_trains), dtype=np.float32)
     spikes_attr_dict['Trial Index'] = np.asarray(np.concatenate(trial_indices), dtype=np.uint8)
-    spikes_attr_dict['Trial Duration'] = np.asarray([trial_duration], dtype=np.float32)
+    spikes_attr_dict['Trial Duration'] = np.asarray([trial_duration]*n_trials, dtype=np.float32)
     
     if return_selectivity_features:
         spikes_attr_dict['Selectivity Type'] = np.array([this_selectivity_type], dtype=np.uint8)

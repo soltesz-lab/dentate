@@ -107,7 +107,8 @@ def init_inputs_from_spikes(env, populations, t_range,
                                           presyn_names,
                                           this_spike_events_namespace,
                                           spike_train_attr_name=spike_train_attr_name,
-                                          time_range=t_range)
+                                          time_range=t_range, n_trials=n_trials,
+                                          merge_trials=True)
     spkindlst = spkdata['spkindlst']
     spktlst = spkdata['spktlst']
     spkpoplst = spkdata['spkpoplst']

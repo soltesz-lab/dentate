@@ -4,7 +4,7 @@ from mpi4py import MPI
 import h5py
 import numpy as np
 import dentate
-from dentate.utils import Struct, range, str, viewitems, basestring, Iterable, compose_iter, get_module_logger
+from dentate.utils import Struct, range, str, viewitems, basestring, Iterable, compose_iter, get_module_logger, get_trial_time_ranges
 from neuroh5.io import write_cell_attributes, append_cell_attributes, append_cell_trees, write_graph, read_cell_attribute_selection, read_tree_selection, read_graph_selection
 from neuron import h
 
@@ -160,6 +160,10 @@ def spikeout(env, output_path, t_start=None, clear_data=False):
 
     t_vec = np.array(env.t_vec, dtype=np.float32)
     id_vec = np.array(env.id_vec, dtype=np.uint32)
+    n_trials = env.n_trials
+
+    trial_time_ranges = get_trial_time_ranges(env.t_rec.to_python(), env.n_trials)
+    trial_time_bin_edges = [ t_trial_start for t_trial_start, t_trial_end in trial_time_ranges ] 
 
     binlst = []
     typelst = sorted(env.celltypes.keys())
@@ -174,6 +178,7 @@ def spikeout(env, output_path, t_start=None, clear_data=False):
     else:
         namespace_id = "Spike Events %s" % str(env.results_namespace_id)
 
+    trial_dur = np.asarray([env.tstop] * n_trials, dtype=np.float32)
     equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
     for i, pop_name in enumerate(pop_names):
         spkdict = {}
@@ -191,10 +196,17 @@ def spikeout(env, output_path, t_start=None, clear_data=False):
                         spkdict[gid] = {'t': [t]}
             for gid in spkdict:
                 spiketrain = np.array(spkdict[gid]['t'], dtype=np.float32)
-                spiketrain -= equilibration_duration
                 if gid in env.spike_onset_delay:
                     spiketrain -= env.spike_onset_delay[gid]
-                spkdict[gid]['t'] = spiketrain
+                trial_bins = np.digitize(spiketrain, trial_time_bins) - 1
+                trial_spikes = [np.copy(spiketrain[np.where(trial_bins == trial_i)[0]])
+                                for trial_i in range(n_trials)]
+                for trial_i, trial_spiketrain in enumerate(trial_spikes):
+                    trial_spiketrain -= trial_time_ranges[trial_i][0]
+                    trial_spiketrain -= equilibration_duration
+                spkdict[gid]['t'] = np.concatenate(trial_spikes)
+                spkgdict[gid]['Trial Duration'] = trial_dur
+                spkgdict[gid]['Trial Index'] = np.asarray(trial_bins, dtype=np.uint8)
         append_cell_attributes(output_path, pop_name, spkdict, namespace=namespace_id, comm=env.comm, io_size=env.io_size)
         del (spkdict)
 
