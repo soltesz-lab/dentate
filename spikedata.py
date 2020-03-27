@@ -115,8 +115,9 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
         # Time Range
         if time_range is None or time_range[1] is None:
             for spkind, spkts in spkiter:
+                slen = len(spkts[spike_train_attr_name])
                 trial_dur = spkts.get('Trial Duration', np.asarray([0.]))
-                trial_ind = spkts.get('Trial Index', np.zeros((len(spkts)),))
+                trial_ind = spkts.get('Trial Index', np.zeros((slen,),dtype=np.uint8))
                 if n_trials == -1:
                     n_trials = trial_dur.shape[0]
                 for spk_i, spkt in enumerate(spkts[spike_train_attr_name]):

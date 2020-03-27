@@ -2273,7 +2273,7 @@ def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
     return hoc_cell
 
 
-def make_input_cell(env, gid, pop_id, input_source_dict):
+def make_input_cell(env, gid, pop_id, input_source_dict, spike_train_attr_name='t'):
     """
     Instantiates an input generator according to the given cell template.
     """
@@ -2283,7 +2283,7 @@ def make_input_cell(env, gid, pop_id, input_source_dict):
         cell = h.VecStimCell(gid)
         spk_attr_dict = input_sources['spiketrains'].get(gid, None)
         if spk_attr_dict is not None:
-            spk_ts = spk_attr_dict['t']
+            spk_ts = spk_attr_dict[spike_train_attr_name]
             cell.pp.play(h.Vector(spk_ts))
     elif 'generator' in input_sources:
         input_gen = input_sources['generator']

@@ -292,7 +292,8 @@ def init(env, pop_name, gid, arena_id=None, trajectory_id=None, n_trials=1,
             ## if spike_generator_dict contains an entry for the respective presynaptic population,
             ## then use the given generator to generate spikes.
             if not (presyn_gid in env.gidset):
-                cell = make_input_cell(env, presyn_gid, presyn_id, input_source_dict)
+                cell = make_input_cell(env, presyn_gid, presyn_id, input_source_dict,
+                                       spike_train_attr_name=spike_train_attr_name)
                 register_cell(env, presyn_id, presyn_gid, cell)
 
     source_weight_params = generate_weights(env, weight_source_dict, this_syn_attrs)
@@ -835,19 +836,23 @@ def cli():
               help='path to directory containing network and cell mechanism config files')
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), \
               help='path to directory where output files will be written')
-@click.option("--spike-events-path", '-s', type=click.Path(),
+@click.option("--spike-events-path", '-s', type=click.Path(exists=True, dir_okay=False, file_okay=True),
               help='path to neuroh5 file containing spike times')
 @click.option("--spike-events-namespace", type=str, default='Spike Events',
               help='namespace containing spike times')
 @click.option("--spike-events-t", required=False, type=str, default='t',
               help='name of variable containing spike times')
+@click.option("--input-features-path", required=False, type=click.Path(),
+              help='path to neuroh5 file containing input selectivity features')
+@click.option("--input-features-namespaces", type=str, multiple=True, required=False, default=['Place Selectivity', 'Grid Selectivity'],
+              help='namespace containing input selectivity features')
 @click.option('--plot-cell', is_flag=True, help='plot the distribution of weight and g_unit synaptic parameters')
 @click.option('--write-cell', is_flag=True, help='write out selected cell tree morphology and connections')
 @click.option('--profile-memory', is_flag=True, help='calculate and print heap usage after the simulation is complete')
 @click.option('--recording-profile', type=str, default='Network clamp default', help='recording profile to use')
 
 def show(config_file, population, gid, arena_id, trajectory_id, template_paths, dataset_prefix, config_prefix, results_path,
-         spike_events_path, spike_events_namespace, spike_events_t, plot_cell, write_cell, profile_memory, recording_profile):
+         spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, plot_cell, write_cell, profile_memory, recording_profile):
     """
     Show configuration for the specified cell.
     """
@@ -866,8 +871,9 @@ def show(config_file, population, gid, arena_id, trajectory_id, template_paths, 
         env = Env(**init_params, comm=comm0)
         configure_hoc_env(env)
 
-        init(env, population, gid, arena_id, trajectory_id, n_trials,
-             spike_events_path, spike_events_namespace=spike_events_namespace,
+        init(env, population, gid, arena_id, trajectory_id, 
+             spike_events_path=spike_events_path,
+             spike_events_namespace=spike_events_namespace,
              spike_train_attr_name=spike_events_t,
              input_features_path=input_features_path,
              input_features_namespaces=input_features_namespaces,
