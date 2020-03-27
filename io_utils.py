@@ -157,13 +157,15 @@ def spikeout(env, output_path, t_start=None, clear_data=False):
     :param clear_data: 
     :return:
     """
+    equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
+    n_trials = env.n_trials
 
     t_vec = np.array(env.t_vec, dtype=np.float32)
     id_vec = np.array(env.id_vec, dtype=np.uint32)
-    n_trials = env.n_trials
 
     trial_time_ranges = get_trial_time_ranges(env.t_rec.to_python(), env.n_trials)
-    trial_time_bin_edges = [ t_trial_start for t_trial_start, t_trial_end in trial_time_ranges ] 
+    trial_time_bins = [ t_trial_start for t_trial_start, t_trial_end in trial_time_ranges ] 
+    trial_dur = np.asarray([env.tstop + equilibration_duration] * n_trials, dtype=np.float32)
 
     binlst = []
     typelst = sorted(env.celltypes.keys())
@@ -178,8 +180,6 @@ def spikeout(env, output_path, t_start=None, clear_data=False):
     else:
         namespace_id = "Spike Events %s" % str(env.results_namespace_id)
 
-    trial_dur = np.asarray([env.tstop] * n_trials, dtype=np.float32)
-    equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
     for i, pop_name in enumerate(pop_names):
         spkdict = {}
         sinds = np.where(inds == i)
@@ -202,11 +202,11 @@ def spikeout(env, output_path, t_start=None, clear_data=False):
                 trial_spikes = [np.copy(spiketrain[np.where(trial_bins == trial_i)[0]])
                                 for trial_i in range(n_trials)]
                 for trial_i, trial_spiketrain in enumerate(trial_spikes):
-                    trial_spiketrain -= trial_time_ranges[trial_i][0]
-                    trial_spiketrain -= equilibration_duration
+                    trial_spiketrain = trial_spikes[trial_i]
+                    trial_spiketrain -= np.sum(trial_dur[:(trial_i)]) + equilibration_duration
                 spkdict[gid]['t'] = np.concatenate(trial_spikes)
-                spkgdict[gid]['Trial Duration'] = trial_dur
-                spkgdict[gid]['Trial Index'] = np.asarray(trial_bins, dtype=np.uint8)
+                spkdict[gid]['Trial Duration'] = trial_dur
+                spkdict[gid]['Trial Index'] = np.asarray(trial_bins, dtype=np.uint8)
         append_cell_attributes(output_path, pop_name, spkdict, namespace=namespace_id, comm=env.comm, io_size=env.io_size)
         del (spkdict)
 
@@ -219,7 +219,7 @@ def spikeout(env, output_path, t_start=None, clear_data=False):
         logger.info("*** Output spike results to file %s" % output_path)
 
 
-def recsout(env, output_path, t_start=None, clear_data=False):
+def recsout(env, output_path, t_start=None, clear_data=False, write_cell_location_data=False, write_trial_data=False):
     """
     Writes intracellular state traces to specified NeuroH5 output file.
 
@@ -232,6 +232,11 @@ def recsout(env, output_path, t_start=None, clear_data=False):
     t_rec = env.t_rec
     equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
     reduce_data = env.recording_profile.get('reduce', None)
+    n_trials = env.n_trials
+
+    trial_time_ranges = get_trial_time_ranges(env.t_rec.to_python(), env.n_trials)
+    trial_time_bins = [ t_trial_start for t_trial_start, t_trial_end in trial_time_ranges ] 
+    trial_dur = np.asarray([env.tstop + equilibration_duration] * n_trials, dtype=np.float32)
 
     for pop_name in sorted(env.celltypes.keys()):
         local_rec_types = list(env.recs_dict[pop_name].keys())
@@ -242,12 +247,15 @@ def recsout(env, output_path, t_start=None, clear_data=False):
             for rec in recs:
                 gid = rec['gid']
                 data_vec = np.array(rec['vec'], copy=clear_data, dtype=np.float32)
-                time_vec = np.array(t_rec, copy=clear_data, dtype=np.float32)[:-1]
-                time_vec -= equilibration_duration
+                time_vec = np.array(t_rec, copy=clear_data, dtype=np.float32)
                 if t_start is not None:
                     time_inds = np.where(time_vec >= t_start)[0]
                     time_vec = time_vec[time_inds]
                     data_vec = data_vec[time_inds]
+                trial_bins = np.digitize(time_vec, trial_time_bins) - 1
+                for trial_i in range(n_trials):
+                    trial_inds = np.where(trial_bins == trial_i)[0]
+                    time_vec[trial_inds] -= np.sum(trial_dur[:(trial_i)]) + equilibration_duration
                 label = rec['label']
                 if label in attr_dict[gid]:
                     if reduce_data is None:
@@ -259,15 +267,18 @@ def recsout(env, output_path, t_start=None, clear_data=False):
                 else:
                     attr_dict[gid][label] = data_vec
                     attr_dict[gid]['t'] = time_vec
-                distance = rec.get('distance', None)
-                if distance is not None:
-                    attr_dict[gid]['distance'] = np.asarray([distance], dtype=np.float32)
-                section = rec.get('section', None)
-                if section is not None:
-                    attr_dict[gid]['section'] = np.asarray([section], dtype=np.int16)
-                loc = rec.get('loc', None)
-                if loc is not None:
-                    attr_dict[gid]['loc'] = np.asarray([loc], dtype=np.float32)
+                if write_trial_data:
+                    attr_dict[gid]['trial duration'] = trial_dur
+                if write_cell_location_data:
+                    distance = rec.get('distance', None)
+                    if distance is not None:
+                        attr_dict[gid]['distance'] = np.asarray([distance], dtype=np.float32)
+                    section = rec.get('section', None)
+                    if section is not None:
+                        attr_dict[gid]['section'] = np.asarray([section], dtype=np.int16)
+                    loc = rec.get('loc', None)
+                    if loc is not None:
+                        attr_dict[gid]['loc'] = np.asarray([loc], dtype=np.float32)
                 if clear_data:
                     rec['vec'].resize(0)
             if env.results_namespace_id is None:

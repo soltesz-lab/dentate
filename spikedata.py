@@ -21,12 +21,15 @@ def get_env_spike_dict(env, include_artificial=True):
     """
     Constructs  a dictionary with per-gid per-trial spike times from the output vectors with spike times and gids contained in env.
     """
+    equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
+    n_trials = env.n_trials
 
     t_vec = np.array(env.t_vec, dtype=np.float32)
     id_vec = np.array(env.id_vec, dtype=np.uint32)
 
     trial_time_ranges = get_trial_time_ranges(env.t_rec.to_python(), env.n_trials)
-    trial_time_bin_edges = [ t_trial_start for t_trial_start, t_trial_end in trial_time_ranges ] 
+    trial_time_bins = [ t_trial_start for t_trial_start, t_trial_end in trial_time_ranges ] 
+    trial_dur = np.asarray([env.tstop + equilibration_duration] * n_trials, dtype=np.float32)
     
     binlst = []
     typelst = sorted(env.celltypes.keys())
@@ -37,7 +40,6 @@ def get_env_spike_dict(env, include_artificial=True):
     inds = np.digitize(id_vec, bins)
 
     pop_spkdict = {}
-    equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
     for i, pop_name in enumerate(pop_names):
         spkdict = {}
         sinds = np.where(inds == i)
@@ -49,21 +51,19 @@ def get_env_spike_dict(env, include_artificial=True):
                 t = ts[j]
                 if (not include_artificial) and (gid in env.artificial_cells[pop_name]):
                     continue
-                if t >= t_start:
-                    if gid in spkdict:
-                        spkdict[gid].append(t)
-                    else:
-                        spkdict[gid] = [t]
+                if gid in spkdict:
+                   spkdict[gid].append(t)
+                else:
+                   spkdict[gid] = [t]
             for gid in spkdict:
                 spiketrain = np.array(spkdict[gid], dtype=np.float32)
-                spiketrain -= equilibration_duration
                 if gid in env.spike_onset_delay:
                     spiketrain -= env.spike_onset_delay[gid]
                 trial_bins = np.digitize(spiketrain, trial_time_bins) - 1
                 trial_spikes = [np.copy(spiketrain[np.where(trial_bins == trial_i)[0]])
                                 for trial_i in range(env.n_trials)]
                 for trial_i, trial_spiketrain in enumerate(trial_spikes):
-                    trial_spiketrain -= trial_time_ranges[trial_i][0]
+                    trial_spiketrain -= np.sum(trial_dur[:(trial_i)]) + equilibration_duration
                 spkdict[gid] = trial_spikes
         pop_spkdict[pop_name] = spkdict
 
@@ -71,7 +71,7 @@ def get_env_spike_dict(env, include_artificial=True):
 
 
 def read_spike_events(input_file, population_names, namespace_id, spike_train_attr_name='t', time_range=None,
-                      max_spikes=None, n_trials=1, merge_trials=False):
+                      max_spikes=None, n_trials=-1, merge_trials=False):
     """
     Reads spike trains from a NeuroH5 file, and returns a dictionary with spike times and cell indices.
     :param input_file: str (path to file)
@@ -84,7 +84,7 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
     :param merge_trials: bool
     :return: dict
     """
-    assert((n_trials >= 1) || (n_trials == -1))
+    assert((n_trials >= 1) | (n_trials == -1))
 
     
     spkpoplst = []
@@ -123,8 +123,8 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
                     trial_i = trial_ind[spk_i]
                     if trial_i >= n_trials:
                         continue
-                    if merge_trials and trial_i > 0:
-                        spkt += np.sum(trial_dur[:(trial_i+1)])
+                    if merge_trials:
+                        spkt += np.sum(trial_dur[:trial_i])
                     pop_spkindlst.append(spkind)
                     pop_spktlst.append(spkt)
                     pop_spktriallst.append(trial_i)
@@ -146,9 +146,9 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
                     trial_i = trial_ind[spk_i]
                     if trial_i >= n_trials:
                         continue
-                    if merge_trials and trial_i > 0:
-                        spkt += np.sum(trial_dur[:(trial_i+1)])
                     if time_range[0] <= spkt <= time_range[1]:
+                        if merge_trials:
+                            spkt += np.sum(trial_dur[:trial_i])
                         pop_spkindlst.append(spkind)
                         pop_spktlst.append(spkt)
                         pop_spktriallst.append(trial_i)

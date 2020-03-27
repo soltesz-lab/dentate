@@ -95,20 +95,23 @@ def generate_weights(env, weight_source_rules, this_syn_attrs):
     return weights_dict
 
 
-def init_inputs_from_spikes(env, populations, t_range,
+def init_inputs_from_spikes(env, presyn_sources, t_range,
                             spike_events_path, spike_events_namespace,
                             arena_id, trajectory_id, spike_train_attr_name='t', n_trials=1):
-        
+
+    populations = list(presyn_sources.keys())
+    
     equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
 
     this_spike_events_namespace = '%s %s %s' % (spike_events_namespace, arena_id, trajectory_id)
     ## Load spike times of presynaptic cells
     spkdata = spikedata.read_spike_events(spike_events_path,
-                                          presyn_names,
+                                          populations,
                                           this_spike_events_namespace,
                                           spike_train_attr_name=spike_train_attr_name,
                                           time_range=t_range, n_trials=n_trials,
                                           merge_trials=True)
+    
     spkindlst = spkdata['spkindlst']
     spktlst = spkdata['spktlst']
     spkpoplst = spkdata['spkpoplst']
@@ -136,10 +139,9 @@ def init_inputs_from_spikes(env, populations, t_range,
     return input_source_dict
 
 
-def init_inputs_from_features(env, populations, t_range,
+def init_inputs_from_features(env, presyn_sources, t_range,
                               input_features_path, input_features_namespaces,
                               arena_id, trajectory_id, spike_train_attr_name='t', n_trials=1):
-
     equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
     spatial_resolution = float(env.stimulus_config['Spatial Resolution'])
     temporal_resolution = float(env.stimulus_config['Temporal Resolution'])
@@ -153,33 +155,45 @@ def init_inputs_from_features(env, populations, t_range,
                                  'Field Width Concentration Factor', 
                                  'X Offset', 'Y Offset']
     
-    selectivity_type_index = { i: n for n, i in viewitems(env.selectivity_types) }
+    selectivity_type_names = { i: n for n, i in viewitems(env.selectivity_types) }
 
     arena = env.stimulus_config['Arena'][arena_id]
-    arena_x, arena_y = get_2D_arena_spatial_mesh(arena=arena, spatial_resolution=spatial_resolution)
+    arena_x, arena_y = stimulus.get_2D_arena_spatial_mesh(arena=arena, spatial_resolution=spatial_resolution)
     
     trajectory = arena.trajectories[trajectory_id]
-    t, x, y, d = generate_linear_trajectory(trajectory,
-                                            temporal_resolution=temporal_resolution,
-                                            equilibration_duration=equilibration_duration)
+    t, x, y, d = stimulus.generate_linear_trajectory(trajectory,
+                                                     temporal_resolution=temporal_resolution,
+                                                     equilibration_duration=equilibration_duration)
+    if t_range is not None:
+        t_range_inds = np.where((t <= t_range[1]) & (t >= t_range[0] - equilibration_duration))[0] 
+        t = t[t_range_inds]
+        x = x[t_range_inds]
+        y = y[t_range_inds]
+        d = d[t_range_inds]
     trajectory = t, x, y, d
 
     equilibrate = stimulus.get_equilibration(env)
 
     input_source_dict = {}
-    for population in populations:
+    for population in presyn_sources:
+        selection = list(presyn_sources[population])
+        logger.info("generating spike trains for %d inputs from presynaptic population %s..." % (len(selection), population))
         pop_index = int(env.Populations[population])
         spikes_attr_dict = {}
         for input_features_namespace in this_input_features_namespaces:
-            input_features_iter = read_cell_attributes(input_features_path, population, 
-                                                       namespace=input_features_namespace,
-                                                       mask=set(input_features_attr_names), 
-                                                       comm=env.comm)
+            input_features_iter = read_cell_attribute_selection(input_features_path, population,
+                                                                selection=selection,
+                                                                namespace=input_features_namespace,
+                                                                mask=set(input_features_attr_names), 
+                                                                comm=env.comm)
             for gid, selectivity_attr_dict in input_features_iter:
-                spikes_attr_dict[gid] = generate_input_spike_trains(env, selectivity_type_names, population, trajectory, 
-                                                                    gid, selectivity_attr_dict, return_selectivity_features=False,
-                                                                    spike_train_attr_name=spike_train_attr_name,
-                                                                    equilibrate=equilibrate, n_trials=n_trials, comm=env.comm)
+                spikes_attr_dict[gid] = stimulus.generate_input_spike_trains(env, selectivity_type_names,
+                                                                             trajectory, gid, selectivity_attr_dict,
+                                                                             spike_train_attr_name=spike_train_attr_name,
+                                                                             equilibrate=equilibrate, n_trials=n_trials,
+                                                                             return_selectivity_features=False,
+                                                                             merge_trials=True,
+                                                                             comm=env.comm)
                 spikes_attr_dict[gid][spike_train_attr_name] += equilibration_duration
 
         input_source_dict[pop_index] = {'spiketrains': spikes_attr_dict}
@@ -208,17 +222,19 @@ def init(env, pop_name, gid, arena_id=None, trajectory_id=None, n_trials=1,
         env.cell_selection = {}
     selection = env.cell_selection.get(pop_name, [])
     env.cell_selection[pop_name] = [gid] + [selection]
-    
+
     ## If specified, presynaptic spikes that only fall within this time range
     ## will be loaded or generated
     if t_max is None:
         t_range = None
     else:
         if t_min is None:
-            t_range = [0.0, t_max]
+            t_range = [0., t_max]
         else:
             t_range = [t_min, t_max]
-
+    if t_range is not None:
+        env.tstop = t_range[1] - t_range[0]
+            
     ## Attribute namespace that contains recorded spike events
     namespace_id = spike_events_namespace
 
@@ -228,17 +244,8 @@ def init(env, pop_name, gid, arena_id=None, trajectory_id=None, n_trials=1,
     ## Load cell gid and its synaptic attributes and connection data
     cell = init_biophys_cell(env, pop_name, gid, write_cell=write_cell)
 
-    if spike_events_path is not None:
-        input_source_dict = init_inputs_from_spikes(env, presyn_names, t_range,
-                                                    spike_events_path, spike_events_namespace,
-                                                    arena_id, trajectory_id, spike_train_attr_name, n_trials)
-    elif input_features_path is not None:
-        input_source_dict = init_inputs_from_features(env, presyn_names, t_range,
-                                                      input_features_path, input_features_namespaces,
-                                                      arena_id, trajectory_id, n_trials)
-    else:
-        raise RuntimeError('network_clamp.init: neither input spikes nor input features are provided')
-            
+    pop_index_dict = { ind: name for name, ind in viewitems(env.Populations) }
+    
     weight_source_dict = {}
     for presyn_name in presyn_names:
         presyn_index = int(env.Populations[presyn_name])
@@ -258,11 +265,28 @@ def init(env, pop_name, gid, arena_id=None, trajectory_id=None, n_trials=1,
     min_delay = float('inf')
     syn_attrs = env.synapse_attributes
     this_syn_attrs = syn_attrs[gid]
-    weight_params = defaultdict(dict)
+    presyn_sources = defaultdict(set)
+    
+    for syn_id, syn in viewitems(this_syn_attrs):
+        presyn_id = syn.source.population
+        presyn_name = pop_index_dict[presyn_id]
+        presyn_gid = syn.source.gid
+        presyn_sources[presyn_name].add(presyn_gid)
+
+    if spike_events_path is not None:
+        input_source_dict = init_inputs_from_spikes(env, presyn_sources, t_range,
+                                                    spike_events_path, spike_events_namespace,
+                                                    arena_id, trajectory_id, spike_train_attr_name, n_trials)
+    elif input_features_path is not None:
+        input_source_dict = init_inputs_from_features(env, presyn_sources, t_range,
+                                                      input_features_path, input_features_namespaces,
+                                                      arena_id, trajectory_id, spike_train_attr_name, n_trials)
+    else:
+        raise RuntimeError('network_clamp.init: neither input spikes nor input features are provided')
+
     for syn_id, syn in viewitems(this_syn_attrs):
         presyn_id = syn.source.population
         presyn_gid = syn.source.gid
-        delay = syn.source.delay
         if presyn_id in input_source_dict:
             ## Load presynaptic spike times into the VecStim for each synapse;
             ## if spike_generator_dict contains an entry for the respective presynaptic population,
@@ -515,16 +539,19 @@ def optimize_params(env, pop_name, param_type, param_config_name):
     return param_bounds, param_names, param_initial_dict, param_range_tuples
 
 
-def init_state_objfun(config_file, population, gid, arena_id, trajectory_id, generate_weights, t_max, t_min, tstop, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, n_trials, param_type, param_config_name, recording_profile, state_variable, target_value, **kwargs):
+def init_state_objfun(config_file, population, gid, arena_id, trajectory_id, generate_weights, t_max, t_min, tstop, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, n_trials, param_type, param_config_name, recording_profile, state_variable, target_value, **kwargs):
 
     params = dict(locals())
     env = Env(**params)
     env.results_file_path = None
     configure_hoc_env(env)
-    init(env, population, gid, arena_id, trajectory_id, spike_events_path, 
+    init(env, population, gid, arena_id, trajectory_id, n_trials,
+         spike_events_path, spike_events_namespace=spike_events_namespace, 
+         spike_train_attr_name=spike_events_t,
+         input_features_path=input_features_path,
+         input_features_namespaces=input_features_namespaces,
          generate_weights_pops=set(generate_weights), 
-         spike_events_namespace=spike_events_namespace, 
-         spike_train_attr_name=spike_events_t, t_min=t_min, t_max=t_max,
+         t_min=t_min, t_max=t_max,
          n_trials=n_trials)
 
     time_step = env.stimulus_config['Temporal Resolution']
@@ -564,17 +591,19 @@ def init_state_objfun(config_file, population, gid, arena_id, trajectory_id, gen
     return f
 
 
-def init_rate_objfun(config_file, population, gid, arena_id, trajectory_id, generate_weights, t_max, t_min, tstop, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, n_trials, param_type, param_config_name, recording_profile, target_rate, **kwargs):
+def init_rate_objfun(config_file, population, gid, arena_id, trajectory_id, n_trials, generate_weights, t_max, t_min, tstop, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, param_type, param_config_name, recording_profile, target_rate, **kwargs):
 
     params = dict(locals())
     env = Env(**params)
     env.results_file_path = None
     configure_hoc_env(env)
-    init(env, population, gid, arena_id, trajectory_id, spike_events_path, 
-         generate_weights_pops=set(generate_weights), 
-         spike_events_namespace=spike_events_namespace, 
-         spike_train_attr_name=spike_events_t, t_min=t_min, t_max=t_max,
-         n_trials=n_trials)
+    init(env, population, gid, arena_id, trajectory_id, n_trials,
+         spike_events_path, spike_events_namespace=spike_events_namespace, 
+         spike_train_attr_name=spike_events_t,
+         input_features_path=input_features_path,
+         input_features_namespaces=input_features_namespaces,
+         generate_weights_pops=set(generate_weights),
+         t_min=t_min, t_max=t_max)
 
     time_step = env.stimulus_config['Temporal Resolution']
     param_bounds, param_names, param_initial_dict, param_range_tuples = \
@@ -609,20 +638,25 @@ def init_rate_objfun(config_file, population, gid, arena_id, trajectory_id, gene
     return f
 
 
-def init_rate_dist_objfun(config_file, population, gid, arena_id, trajectory_id, generate_weights, t_max, t_min, tstop,
+def init_rate_dist_objfun(config_file, population, gid, arena_id, trajectory_id, n_trials,
+                          generate_weights, t_max, t_min, tstop,
                           opt_iter, template_paths, dataset_prefix, config_prefix, results_path,
-                          spike_events_path, spike_events_namespace, spike_events_t, n_trials, param_type, param_config_name, recording_profile,
+                          spike_events_path, spike_events_namespace, spike_events_t,
+                          input_features_path, input_features_namespaces,
+                          param_type, param_config_name, recording_profile,
                           target_rate_map_path, target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory,  **kwargs):
 
     params = dict(locals())
     env = Env(**params)
     env.results_file_path = None
     configure_hoc_env(env)
-    init(env, population, gid, arena_id, trajectory_id, spike_events_path, 
+    init(env, population, gid, arena_id, trajectory_id, n_trials,
+         spike_events_path, spike_events_namespace=spike_events_namespace, 
+         spike_train_attr_name=spike_events_t,
+         input_features_path=input_features_path,
+         input_features_namespaces=input_features_namespaces,
          generate_weights_pops=set(generate_weights), 
-         spike_events_namespace=spike_events_namespace, 
-         spike_train_attr_name=spike_events_t, t_min=t_min, t_max=t_max,
-         n_trials=n_trials)
+         t_min=t_min, t_max=t_max)
 
     time_step = env.stimulus_config['Temporal Resolution']
 
@@ -755,11 +789,13 @@ def dist_run(init_params, gid):
     t_max = init_params['t_max']
     n_trials = init_params['n_trials']
     
-    init(env, population, gid, arena_id, trajectory_id, spike_events_path, 
-         generate_weights_pops=set(generate_weights), 
-         spike_events_namespace=spike_events_namespace, 
-         spike_train_attr_name=spike_events_t, t_min=t_min, t_max=t_max,
-         n_trials=n_trials)
+    init(env, population, gid, arena_id, trajectory_id, n_trials,
+         spike_events_path, spike_events_namespace=spike_events_namespace, 
+         spike_train_attr_name=spike_events_t,
+         input_features_path=input_features_path,
+         input_features_namespaces=input_features_namespaces,
+         generate_weights_pops=set(generate_weights),
+         t_min=t_min, t_max=t_max)
 
     run(env)
     write_output(env)
@@ -774,7 +810,9 @@ def write_output(env):
     io_utils.spikeout(env, env.results_file_path)
     if rank == 0:
         logger.info("*** Writing intracellular data")
-    io_utils.recsout(env, env.results_file_path)
+    io_utils.recsout(env, env.results_file_path,
+                     write_cell_location_data=True,
+                     write_trial_data=True)
 
 
 @click.group()
@@ -797,7 +835,7 @@ def cli():
               help='path to directory containing network and cell mechanism config files')
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), \
               help='path to directory where output files will be written')
-@click.option("--spike-events-path", '-s', required=True, type=click.Path(),
+@click.option("--spike-events-path", '-s', type=click.Path(),
               help='path to neuroh5 file containing spike times')
 @click.option("--spike-events-namespace", type=str, default='Spike Events',
               help='namespace containing spike times')
@@ -828,9 +866,11 @@ def show(config_file, population, gid, arena_id, trajectory_id, template_paths, 
         env = Env(**init_params, comm=comm0)
         configure_hoc_env(env)
 
-        init(env, population, gid, arena_id, trajectory_id, spike_events_path,
-             spike_events_namespace=spike_events_namespace,
+        init(env, population, gid, arena_id, trajectory_id, n_trials,
+             spike_events_path, spike_events_namespace=spike_events_namespace,
              spike_train_attr_name=spike_events_t,
+             input_features_path=input_features_path,
+             input_features_namespaces=input_features_namespaces,
              plot_cell=plot_cell, write_cell=write_cell)
 
         cell = env.biophys_cells[population][gid]
@@ -849,8 +889,7 @@ def show(config_file, population, gid, arena_id, trajectory_id, template_paths, 
 @click.option("--trajectory-id", '-t', required=True, type=str, help='trajectory id for input stimulus')
 @click.option("--generate-weights", '-w', required=False, type=str, multiple=True,
               help='generate weights for the given presynaptic population')
-@click.option("--tstop", '-t', type=float, default=150.0, help='simulation end time')
-@click.option("--t-max", type=float)
+@click.option("--t-max", '-t', type=float, default=150.0, help='simulation end time')
 @click.option("--t-min", type=float)
 @click.option("--template-paths", type=str, required=True,
               help='colon-separated list of paths to directories containing hoc cell templates')
@@ -859,12 +898,16 @@ def show(config_file, population, gid, arena_id, trajectory_id, template_paths, 
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='config',
               help='path to directory containing network and cell mechanism config files')
-@click.option("--spike-events-path", '-s', required=True, type=click.Path(),
+@click.option("--spike-events-path", '-s', type=click.Path(),
               help='path to neuroh5 file containing spike times')
 @click.option("--spike-events-namespace", type=str, default='Spike Events',
               help='namespace containing spike times')
 @click.option("--spike-events-t", required=False, type=str, default='t',
               help='name of variable containing spike times')
+@click.option("--input-features-path", required=False, type=click.Path(),
+              help='path to neuroh5 file containing input selectivity features')
+@click.option("--input-features-namespaces", type=str, multiple=True, required=False, default=['Place Selectivity', 'Grid Selectivity'],
+              help='namespace containing input selectivity features')
 @click.option("--n-trials", required=False, type=int, default=1,
               help='number of trials for input stimulus')
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), \
@@ -878,16 +921,17 @@ def show(config_file, population, gid, arena_id, trajectory_id, template_paths, 
 @click.option('--profile-memory', is_flag=True, help='calculate and print heap usage after the simulation is complete')
 @click.option('--recording-profile', type=str, default='Network clamp default', help='recording profile to use')
 
-def go(config_file, population, gid, arena_id, trajectory_id, generate_weights, tstop, t_max, t_min,
+def go(config_file, population, gid, arena_id, trajectory_id, generate_weights, t_max, t_min,
        template_paths, dataset_prefix, config_prefix,
-       spike_events_path, spike_events_namespace, spike_events_t, n_trials,
+       spike_events_path, spike_events_namespace, spike_events_t,
+       input_features_path, input_features_namespaces, n_trials, 
        results_path, results_file_id, results_namespace_id, plot_cell, write_cell,
        profile_memory, recording_profile):
 
     """
     Runs network clamp simulation for the specified gid, or for all gids found in the input data file.
     """
-    
+
     init_params = dict(locals())
     comm = MPI.COMM_WORLD
     size = comm.Get_size()
@@ -929,12 +973,14 @@ def go(config_file, population, gid, arena_id, trajectory_id, generate_weights, 
         env = Env(**init_params, comm=comm)
         configure_hoc_env(env)
         for gid in cell_index_set:
-            init(env, population, gid, arena_id, trajectory_id, spike_events_path, 
-                generate_weights_pops=set(generate_weights),
-                spike_events_namespace=spike_events_namespace,
-                spike_train_attr_name=spike_events_t,
-                n_trials=n_trials, t_min=t_min, t_max=t_max,
-                plot_cell=plot_cell, write_cell=write_cell)
+            init(env, population, gid, arena_id, trajectory_id, n_trials,
+                 spike_events_path, spike_events_namespace=spike_events_namespace,
+                 spike_train_attr_name=spike_events_t,
+                 input_features_path=input_features_path,
+                 input_features_namespaces=input_features_namespaces,
+                 generate_weights_pops=set(generate_weights),
+                 t_min=t_min, t_max=t_max,
+                 plot_cell=plot_cell, write_cell=write_cell)
             run(env)
             write_output(env)
         if env.profile_memory:
@@ -949,8 +995,7 @@ def go(config_file, population, gid, arena_id, trajectory_id, generate_weights, 
 @click.option("--trajectory-id", '-t', required=True, type=str, help='trajectory id')
 @click.option("--generate-weights", '-w', required=False, type=str, multiple=True,
               help='generate weights for the given presynaptic population')
-@click.option("--tstop", '-t', type=float, default=150.0, help='simulation end time')
-@click.option("--t-max", type=float)
+@click.option("--t-max", '-t', type=float, default=150.0, help='simulation end time')
 @click.option("--t-min", type=float)
 @click.option("--opt-iter", type=int, default=10, help='number of optimization iterations')
 @click.option("--template-paths", type=str, required=True,
@@ -968,16 +1013,16 @@ def go(config_file, population, gid, arena_id, trajectory_id, generate_weights, 
 @click.option("--results-file", required=False, type=str, help='optimization results file')
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), \
               help='path to directory where output files will be written')
-@click.option("--input-features-path", required=False, type=click.Path(),
-              help='path to neuroh5 file containing input selectivity features')
-@click.option("--input-features-namespaces", type=str, multiple=True, required=False, default=['Place Selectivity', 'Grid Selectivity'],
-              help='namespace containing input selectivity features')
-@click.option("--spike-events-path", required=False, type=click.Path(),
+@click.option("--spike-events-path", type=click.Path(),
               help='path to neuroh5 file containing spike times')
 @click.option("--spike-events-namespace", type=str, required=False, default='Spike Events',
               help='namespace containing input spike times')
 @click.option("--spike-events-t", required=False, type=str, default='t',
               help='name of variable containing spike times')
+@click.option("--input-features-path", required=False, type=click.Path(),
+              help='path to neuroh5 file containing input selectivity features')
+@click.option("--input-features-namespaces", type=str, multiple=True, required=False, default=['Place Selectivity', 'Grid Selectivity'],
+              help='namespace containing input selectivity features')
 @click.option("--n-trials", required=False, type=int, default=1,
               help='number of trials for input stimulus')
 @click.option("--target-rate-map-path", required=False, type=click.Path(),
@@ -993,11 +1038,11 @@ def go(config_file, population, gid, arena_id, trajectory_id, generate_weights, 
 @click.argument('target')# help='rate, rate_dist, state'
 
 
-def optimize(config_file, population, gid, arena_id, trajectory_id, generate_weights, t_max, t_min, tstop, opt_iter, 
+def optimize(config_file, population, gid, arena_id, trajectory_id, generate_weights, t_max, t_min, opt_iter, 
              template_paths, dataset_prefix, config_prefix,
              param_config_name, param_type, recording_profile, results_file, results_path,
-             input_features_path, input_features_namespaces, 
-             spike_events_path, spike_events_namespace, spike_events_t, n_trials,
+             spike_events_path, spike_events_namespace, spike_events_t, 
+             input_features_path, input_features_namespaces, n_trials,
              target_rate_map_path, target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory, target_state_variable, target):
     """
     Optimize the firing rate of the specified cell in a network clamp configuration.
@@ -1024,10 +1069,12 @@ def optimize(config_file, population, gid, arena_id, trajectory_id, generate_wei
 
     if size == 1:
         configure_hoc_env(env)
-        init(env, population, gid, arena_id, trajectory_id, spike_events_path, 
+        init(env, population, gid, arena_id, trajectory_id, n_trials,
+             spike_events_path, spike_events_namespace=spike_events_namespace, 
+             spike_train_attr_name=spike_events_t,
+             input_features_path=input_features_path,
+             input_features_namespaces=input_features_namespaces,
              generate_weights_pops=set(generate_weights), 
-             spike_events_namespace=spike_events_namespace, 
-             spike_train_attr_name=spike_events_t, n_trials=n_trials,
              t_min=t_min, t_max=t_max)
         
     if (population in env.netclamp_config.optimize_parameters[param_type]):

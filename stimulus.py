@@ -2,7 +2,7 @@ import os, sys, gc, copy, time
 import numpy as np
 from collections import defaultdict, ChainMap
 from mpi4py import MPI
-from dentate.utils import get_module_logger, object, range, str, Struct
+from dentate.utils import get_module_logger, object, range, str, Struct, gauss2d
 from dentate.stgen import get_inhom_poisson_spike_times_by_thinning
 from neuroh5.io import read_cell_attributes, append_cell_attributes, NeuroH5CellAttrGen
 import h5py
@@ -371,6 +371,10 @@ class ConstantInputCellConfig(object):
         rate_map = np.ones_like(x, dtype=np.float32) * self.peak_rate
         return rate_map
 
+def gaussian(x, mu, sig):
+    return np.exp(-np.power(x - mu, 2.) / (2 * np.power(sig, 2.)))
+    
+    
 def get_place_rate_map(x0, y0, width, x, y):
     """
 
@@ -381,8 +385,10 @@ def get_place_rate_map(x0, y0, width, x, y):
     :param y: array
     :return: array
     """
-    return np.exp(-(((x - x0) / (width / 3. / np.sqrt(2.)))) ** 2.) * \
-           np.exp(-(((y - y0) / (width / 3. / np.sqrt(2.)))) ** 2.)
+
+    fw = 2. * np.sqrt(2. * np.log(100.))
+    return gauss2d(x=x, y=y, mx=x0, my=y0, sx=width / fw, sy=width / fw)
+           
 
 
 def get_grid_rate_map(x0, y0, spacing, orientation, x, y, a=0.7):
@@ -486,6 +492,19 @@ def get_input_cell_config(selectivity_type, selectivity_type_names, population=N
             RuntimeError('get_input_cell_config: selectivity type: %s not yet implemented' % selectivity_type_name)
 
     return input_cell_config
+
+
+def get_equilibration(env):
+    if 'Equilibration Duration' in env.stimulus_config and env.stimulus_config['Equilibration Duration'] > 0.:
+        equilibrate_len = int(env.stimulus_config['Equilibration Duration'] /
+                              env.stimulus_config['Temporal Resolution'])
+        from scipy.signal import hann
+        equilibrate_hann = hann(2 * equilibrate_len)[:equilibrate_len]
+        equilibrate = (equilibrate_hann, equilibrate_len)
+    else:
+        equilibrate = None
+
+    return equilibrate
 
 
 def choose_input_selectivity_type(p, local_random):
@@ -923,7 +942,7 @@ def generate_input_selectivity_features(env, population, arena, arena_x, arena_y
 
 def generate_input_spike_trains(env, selectivity_type_names, trajectory, gid, selectivity_attr_dict, spike_train_attr_name='Spike Train',
                                 selectivity_type_name=None, spike_hist_resolution=1000, equilibrate=None, spike_hist_sum=None,
-                                return_selectivity_features=True, n_trials=1, comm=None, debug=False):
+                                return_selectivity_features=True, n_trials=1, merge_trials=True, comm=None, debug=False):
     """
     Generates spike trains for the given gid according to the
     input selectivity rate maps contained in the given selectivity
@@ -937,7 +956,6 @@ def generate_input_spike_trains(env, selectivity_type_names, trajectory, gid, se
     rank = comm.rank
 
     t, x, y, d = trajectory
-
     local_random = np.random.RandomState()
     input_spike_train_seed = int(env.model_config['Random Seeds']['Input Spiketrains'])
 
@@ -962,9 +980,11 @@ def generate_input_spike_trains(env, selectivity_type_names, trajectory, gid, se
         spike_train = np.asarray(get_inhom_poisson_spike_times_by_thinning(rate_map, t, dt=env.dt,
                                                                            generator=local_random),
                                  dtype=np.float32)
+        if merge_trials:
+            spike_train += float(i)*trial_duration
         spike_trains.append(spike_train)
         trial_indices.append(np.ones((spike_train.shape[0],), dtype=np.uint8) * i)
-        
+
     if debug and rank == 0:
         callback, context = debug
         this_context = Struct(**dict(context()))
@@ -972,8 +992,13 @@ def generate_input_spike_trains(env, selectivity_type_names, trajectory, gid, se
         callback(this_context)
 
     spikes_attr_dict = dict()
-    spikes_attr_dict[spike_train_attr_name] = np.asarray(np.concatenate(spike_trains), dtype=np.float32)
-    spikes_attr_dict['Trial Index'] = np.asarray(np.concatenate(trial_indices), dtype=np.uint8)
+    if merge_trials:
+        spikes_attr_dict[spike_train_attr_name] = np.asarray(np.concatenate(spike_trains), dtype=np.float32)
+        spikes_attr_dict['Trial Index'] = np.asarray(np.concatenate(trial_indices), dtype=np.uint8)
+    else:
+        spikes_attr_dict[spike_train_attr_name] = spike_trains
+        spikes_attr_dict['Trial Index'] = trial_indices
+        
     spikes_attr_dict['Trial Duration'] = np.asarray([trial_duration]*n_trials, dtype=np.float32)
     
     if return_selectivity_features:

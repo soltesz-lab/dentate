@@ -1083,9 +1083,14 @@ def apply_filter(data, sos):
 
 
 def gauss2d(x=0, y=0, mx=0, my=0, sx=1, sy=1, A=1.):
-    return A * np.exp(-((x - mx)**2. / (2. * sx**2.) + (y - my)**2. / (2. * sy**2.)))
+    ## prevent exp underflow/overflow
+    exparg = np.clip(((x - mx)**2. / (2. * sx**2.) + (y - my)**2. / (2. * sy**2.)), -500., 500.)
+    return A * np.exp(-exparg)
 
+def gaussian(x, mu, sig, A=1.):
+    return A * np.exp(-np.power(x - mu, 2.) / (2. * np.power(sig, 2.)))
 
+    
 def get_low_pass_filtered_trace(trace, t, down_dt=0.5):
     import scipy.signal as signal
     down_t = np.arange(np.min(t), np.max(t), down_dt)

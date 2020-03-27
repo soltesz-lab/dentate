@@ -165,7 +165,7 @@ class Env(object):
         self.stimulus_onset = float(stimulus_onset)
 
         # number of trials
-        self.n_ntrials = int(n_trials)
+        self.n_trials = int(n_trials)
 
         # maximum wall time in hours
         self.max_walltime_hours = float(max_walltime_hours)

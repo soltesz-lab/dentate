@@ -4,7 +4,7 @@ import copy, random
 from mpi4py import MPI
 import h5py
 from dentate.env import Env
-from dentate.stimulus import get_input_cell_config, generate_linear_trajectory, generate_input_spike_trains
+from dentate.stimulus import get_input_cell_config, generate_linear_trajectory, generate_input_spike_trains, get_equilibration
 from dentate.utils import *
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 
@@ -21,18 +21,6 @@ def mpi_excepthook(type, value, traceback):
         MPI.COMM_WORLD.Abort(1)
 sys.excepthook = mpi_excepthook
 
-
-def get_equilibration(env):
-    if 'Equilibration Duration' in env.stimulus_config and env.stimulus_config['Equilibration Duration'] > 0.:
-        equilibrate_len = int(env.stimulus_config['Equilibration Duration'] /
-                              env.stimulus_config['Temporal Resolution'])
-        from scipy.signal import hann
-        equilibrate_hann = hann(2 * equilibrate_len)[:equilibrate_len]
-        equilibrate = (equilibrate_hann, equilibrate_len)
-    else:
-        equilibrate = None
-
-    return equilibrate
 
 
 def debug_callback(context):
