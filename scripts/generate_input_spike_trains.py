@@ -65,6 +65,7 @@ def plot_summed_spike_psth(t, trajectory_id, selectivity_type_name, merged_spike
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='config')
 @click.option("--selectivity-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--selectivity-namespace", type=str, default='Selectivity')
 @click.option("--arena-id", type=str, default='A')
 @click.option("--populations", '-p', type=str, multiple=True)
 @click.option("--n-trials", type=int, default=1)
@@ -86,7 +87,7 @@ def plot_summed_spike_psth(t, trajectory_id, selectivity_type_name, merged_spike
 @click.option("--fig-format", required=False, type=str, default='svg')
 @click.option("--verbose", '-v', is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, config_prefix, selectivity_path, arena_id, populations, n_trials, io_size, chunk_size,
+def main(config, config_prefix, selectivity_path, selectivity_namespace, arena_id, populations, n_trials, io_size, chunk_size,
          value_chunk_size, cache_size, write_size, output_path, spikes_namespace, spike_train_attr_name, gather,
          debug, plot, show_fig, save_fig, save_fig_dir, font_size, fig_format,
          verbose, dry_run):
@@ -95,6 +96,7 @@ def main(config, config_prefix, selectivity_path, arena_id, populations, n_trial
     :param config: str (.yaml file name)
     :param config_prefix: str (path to dir)
     :param selectivity_path: str (path to file)
+    :param selectivity_namespace: str
     :param arena_id: str
     :param populations: str
     :param n_trials: int
@@ -154,10 +156,10 @@ def main(config, config_prefix, selectivity_path, arena_id, populations, n_trial
     if rank == 0:
         for population in populations:
             if population not in population_ranges:
-                raise RuntimeError('generate_source_spike_trains: specified population: %s not found in '
+                raise RuntimeError('generate_input_spike_trains: specified population: %s not found in '
                                    'provided selectivity_path: %s' % (population, selectivity_path))
             if population not in env.stimulus_config['Selectivity Type Probabilities']:
-                raise RuntimeError('generate_source_spike_trains: selectivity type not specified for '
+                raise RuntimeError('generate_input_spike_trains: selectivity type not specified for '
                                    'population: %s' % population)
             valid_selectivity_namespaces[population] = []
             with h5py.File(selectivity_path, 'r') as selectivity_f:
@@ -165,7 +167,7 @@ def main(config, config_prefix, selectivity_path, arena_id, populations, n_trial
                     if 'Selectivity %s' % arena_id in this_namespace:
                         valid_selectivity_namespaces[population].append(this_namespace)
                 if len(valid_selectivity_namespaces[population]) == 0:
-                    raise RuntimeError('generate_source_spike_trains: no selectivity data in arena: %s found '
+                    raise RuntimeError('generate_input_spike_trains: no selectivity data in arena: %s found '
                                        'for specified population: %s in provided selectivity_path: %s' %
                                        (arena_id, population, selectivity_path))
     comm.barrier()
@@ -195,7 +197,7 @@ def main(config, config_prefix, selectivity_path, arena_id, populations, n_trial
 
         if not dry_run and rank == 0:
             if output_path is None:
-                raise RuntimeError('generate_source_spike_trains: missing output_path')
+                raise RuntimeError('generate_input_spike_trains: missing output_path')
             if not os.path.isfile(output_path):
                 with h5py.File(output_path, 'w') as output_file:
                     input_file = h5py.File(selectivity_path, 'r')
@@ -210,7 +212,7 @@ def main(config, config_prefix, selectivity_path, arena_id, populations, n_trial
                 else:
                     loaded_t = f[trajectory_namespace]['t'][:]
                     if len(t) != len(loaded_t):
-                        raise RuntimeError('generate_source_spike_trains: file at path: %s already contains the '
+                        raise RuntimeError('generate_input_spike_trains: file at path: %s already contains the '
                                            'namespace: %s, but the dataset sizes are inconsistent with the provided input'
                                            'configuration' % (output_path, trajectory_namespace))
         comm.barrier()

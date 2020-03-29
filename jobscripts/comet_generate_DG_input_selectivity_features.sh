@@ -11,29 +11,20 @@
 #
 
 
-module load python
-module unload intel
-module load gnu
-module load openmpi_ib
-module load mkl
-module load hdf5
+. $HOME/comet_env.sh
 
-
-export PYTHONPATH=$HOME/.local/lib/python3.5/site-packages:/opt/sdsc/lib
-export PYTHONPATH=$HOME/bin/nrnpython3/lib/python:$PYTHONPATH
-export PYTHONPATH=$HOME/model:$PYTHONPATH
-export SCRATCH=/oasis/scratch/comet/iraikov/temp_project
-ulimit -c unlimited
 
 set -x
 
+export SLURM_NODEFILE=`generate_pbs_nodefile`
 
-ibrun -np 288 \
-    python3.5 $HOME/model/dentate/scripts/generate_DG_input_selectivity_features.py \
+#Run the job using mpirun_rsh
+mpirun_rsh -export-all -hostfile $SLURM_NODEFILE -np 288 \
+    python3 $HOME/model/dentate/scripts/generate_input_selectivity_features.py \
     --config=Full_Scale_Basis.yaml \
     --config-prefix=./config \
     --coords-path=${SCRATCH}/dentate/Full_Scale_Control/DG_coords_20190717_compressed.h5 \
-    --output-path=${SCRATCH}/dentate/Full_Scale_Control/DG_input_features_20191119.h5 \
+    --output-path=${SCRATCH}/dentate/Full_Scale_Control/DG_input_features_20200321.h5 \
     --io-size 24 \
     -v
 

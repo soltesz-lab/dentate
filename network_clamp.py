@@ -784,8 +784,10 @@ def dist_run(init_params, gid):
     trajectory_id = init_params['trajectory_id']
     spike_events_path = init_params['spike_events_path']
     spike_events_namespace = init_params['spike_events_namespace']
-    generate_weights = init_params.get('generate_weights', [])
     spike_events_t = init_params['spike_events_t']
+    input_features_path = init_params['input_features_path']
+    input_features_namespaces = init_params['input_features_namespaces']
+    generate_weights = init_params.get('generate_weights', [])
     t_min = init_params['t_min']
     t_max = init_params['t_max']
     n_trials = init_params['n_trials']

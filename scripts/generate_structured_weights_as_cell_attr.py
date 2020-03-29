@@ -383,7 +383,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                     logger.info('Destination: %s; appended weights for %i cells' % (destination, count))
                 if output_features_path is not None:
                     if output_features_namespace is None:
-                        output_features_namespace = 'Selectivity Features'
+                        output_features_namespace = '%s Selectivity' % target_selectivity_type.title()
                     this_output_features_namespace = '%s %s' % (output_features_namespace, arena_id)
                     append_cell_attributes(output_features_path, destination, output_features_dict,
                                            namespace=this_output_features_namespace)

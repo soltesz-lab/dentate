@@ -15,7 +15,7 @@ DG_GC_coordinate_file  = "DG_coords_20190717_compressed.h5"
 DG_IN_coordinate_file  = "DG_coords_20190717_compressed.h5"
 DG_EXT_coordinate_file = "DG_coords_20190717_compressed.h5"
 
-DG_GC_forest_file = "DGC_forest_normalized_20200215_compressed.h5"
+DG_GC_forest_file = "DGC_forest_normalized_20200311_compressed.h5"
 DG_IN_forest_file = "DG_IN_forest_20200112_compressed.h5"
 
 DG_GC_forest_syns_file = "DGC_forest_syns_20190717_compressed.h5"

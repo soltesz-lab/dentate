@@ -161,6 +161,10 @@ Arena:
       simplices: [[0,1], [1,2], [2,3], [3,0]]
 
     Trajectory:
+      DDiag:
+        path: [[-125, -125], [125, 125]]
+        run velocity: 30.  # cm/s
+
       Diag:
         path: [[-100, -100], [100, 100]]
         run velocity: 30.  # cm/s

@@ -20,7 +20,7 @@ ibrun -v python3 ./scripts/normalize_trees.py \
     --config-prefix=$HOME/model/dentate/config \
     --config=Full_Scale_Basis.yaml \
     --forest-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_reindex_20190717_compressed.h5 \
-    --output-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_normalized_20200215.h5 \
+    --output-path=$SCRATCH/dentate/Full_Scale_Control/DGC_forest_normalized_20200311.h5 \
     --io-size=48 -v
 
 
