@@ -31,9 +31,9 @@ Weight Generator:
         sigma: 1.0
         clip: [0.0, 3.0]
 Synaptic Optimization:
-  Parameter ranges:
-    Weight all grp:
-      GC:
+  GC:
+    Parameter ranges:
+      Weight all grp:
         !!python/tuple [MPP, LPP]:
           apical:
             AMPA:
@@ -65,8 +65,7 @@ Synaptic Optimization:
               weight: [0.01, 1.0]
             GABA_B:
               weight: [0.001, 1.0]
-    Weight inhibitory grp:
-      GC:
+      Weight inhibitory grp:
         BC:
           apical:
             GABA_A:
@@ -89,15 +88,17 @@ Synaptic Optimization:
             GABA_B:
               weight: [0.001, 1.0]
   Targets:
-    GC:
       state:
         v: -65.0
       firing rate: 0.75
       fraction active: 0.01
-    MC:
+  MC:
+    Targets:
       firing rate: 1.5
       fraction active: 0.3
   BC:
+    Targets:
       firing rate: 21.0
   HCC:
+    Targets:
       firing rate: 10.0

@@ -502,9 +502,9 @@ def optimize_params(env, pop_name, param_type, param_config_name):
         param_expr_dict['weight'] = weights_dict['expr']
 
     if param_type == 'synaptic':
-        if (pop_name in env.netclamp_config.optimize_parameters['synaptic']['Parameter ranges'][param_config_name]):
-            opt_params = env.netclamp_config.optimize_parameters['synaptic']['Parameter ranges'][param_config_name]
-            param_ranges = opt_params[pop_name]
+        if (pop_name in env.netclamp_config.optimize_parameters['synaptic']
+            opt_params = env.netclamp_config.optimize_parameters['synaptic'][pop_name]
+            param_ranges = opt_params['Parameter ranges'][param_config_name]
         else:
             raise RuntimeError(
                 "network_clamp.optimize_params: population %s does not have optimization configuration" % pop_name)
