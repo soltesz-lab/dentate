@@ -540,7 +540,7 @@ def optimize_params(env, pop_name, param_type, param_config_name):
     return param_bounds, param_names, param_initial_dict, param_range_tuples
 
 
-def init_state_objfun(config_file, population, gid, arena_id, trajectory_id, generate_weights, t_max, t_min, tstop, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, n_trials, param_type, param_config_name, recording_profile, state_variable, target_value, **kwargs):
+def init_state_objfun(config_file, population, gid, arena_id, trajectory_id, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, n_trials, param_type, param_config_name, recording_profile, state_variable, target_value, **kwargs):
 
     params = dict(locals())
     env = Env(**params)
@@ -592,7 +592,7 @@ def init_state_objfun(config_file, population, gid, arena_id, trajectory_id, gen
     return f
 
 
-def init_rate_objfun(config_file, population, gid, arena_id, trajectory_id, n_trials, generate_weights, t_max, t_min, tstop, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, param_type, param_config_name, recording_profile, target_rate, **kwargs):
+def init_rate_objfun(config_file, population, gid, arena_id, trajectory_id, n_trials, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, param_type, param_config_name, recording_profile, target_rate, **kwargs):
 
     params = dict(locals())
     env = Env(**params)
@@ -640,7 +640,7 @@ def init_rate_objfun(config_file, population, gid, arena_id, trajectory_id, n_tr
 
 
 def init_rate_dist_objfun(config_file, population, gid, arena_id, trajectory_id, n_trials,
-                          generate_weights, t_max, t_min, tstop,
+                          generate_weights, t_max, t_min, 
                           opt_iter, template_paths, dataset_prefix, config_prefix, results_path,
                           spike_events_path, spike_events_namespace, spike_events_t,
                           input_features_path, input_features_namespaces,
@@ -668,7 +668,7 @@ def init_rate_dist_objfun(config_file, population, gid, arena_id, trajectory_id,
 
     trj_x, trj_y, trj_d, trj_t = stimulus.read_trajectory(target_rate_map_path, target_rate_map_arena, target_rate_map_trajectory)
 
-    time_range = (0., min(np.max(trj_t), tstop))
+    time_range = (0., min(np.max(trj_t), t_max))
     
     time_bins = np.arange(time_range[0], time_range[1], time_step)
     target_rate_vector = np.interp(time_bins, trj_t, trj_rate_map)
@@ -684,25 +684,25 @@ def init_rate_dist_objfun(config_file, population, gid, arena_id, trajectory_id,
         return result
 
     def gid_firing_rate_vector(spkdict, gid):
+        trial_rates = []
         for i in range(n_trials):
             if gid in spkdict[population]:
-                spkdict1 = {gid: spkdict[population][gid]}
+                spkdict1 = {gid: spkdict[population][gid][i]}
             else:
                 spkdict1 = {gid: np.asarray([], dtype=np.float32)}
-            rate_dict = spikedata.spike_rates(spkdict1)
             spike_density_dict = spikedata.spike_density_estimate (population, spkdict1, time_bins)
-            if gid in spkdict[population]:
-                rate = spike_density_dict[gid]['rate']
-                logger.info('firing rate objective: spike times of gid %i: %s' % (gid, str(spkdict[population][gid])))
-                logger.info('firing rate objective: firing rate of gid %i: %s' % (gid, str(rate)))
-                logger.info('firing rate objective: min/max rates of gid %i are %.2f / %.2f Hz' % (gid, np.min(rate), np.max(rate)))
-            return spike_density_dict[gid]['rate']
-        logger.info("firing rate objective: target time bins: %s" % str(time_bins))
-        logger.info("firing rate objective: target vector: %s" % str(target_rate_vector))
-        logger.info("firing rate objective: target rate vector min/max is %.2f Hz (%.2f ms) / %.2f Hz (%.2f ms)" % (np.min(target_rate_vector), time_bins[np.argmin(target_rate_vector)], np.max(target_rate_vector), time_bins[np.argmax(target_rate_vector)]))
+            rate = spike_density_dict[gid]['rate']
+            trial_rates.append(rate)
+            logger.info('firing rate objective: spike times of gid %i: %s' % (gid, str(spkdict[population][gid])))
+            logger.info('firing rate objective: firing rate of gid %i: %s' % (gid, str(rate)))
+            logger.info('firing rate objective: min/max rates of gid %i are %.2f / %.2f Hz' % (gid, np.min(rate), np.max(rate)))
+        return np.mean(np.row_stack(trial_rates), axis=0)
+
+    logger.info("firing rate objective: target time bins: %s" % str(time_bins))
+    logger.info("firing rate objective: target vector: %s" % str(target_rate_vector))
+    logger.info("firing rate objective: target rate vector min/max is %.2f Hz (%.2f ms) / %.2f Hz (%.2f ms)" % (np.min(target_rate_vector), time_bins[np.argmin(target_rate_vector)], np.max(target_rate_vector), time_bins[np.argmax(target_rate_vector)]))
         
-    f = lambda **v: (-np.square(np.subtract(gid_firing_rate_vector(run_with(env, {population: {gid: from_param_dict(v)}}), gid),
-                                            target_rate_vector)).mean())
+    f = lambda **v: (-np.square(np.subtract(gid_firing_rate_vector(run_with(env, {population: {gid: from_param_dict(v)}}), gid), target_rate_vector)).mean())
     
     return f
 
