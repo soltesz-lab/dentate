@@ -357,9 +357,10 @@ def run(env, cvode=False):
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
+    rec_dt = 0.1
     if env.recording_profile is not None:
         rec_dt = env.recording_profile.get('dt', 0.1) 
-        env.t_rec.record(h._ref_t, rec_dt)
+    env.t_rec.record(h._ref_t, rec_dt)
     env.t_vec.resize(0)
     env.id_vec.resize(0)
 
@@ -448,9 +449,10 @@ def run_with(env, param_dict, cvode=False):
                                           origin='soma', update_targets=True)
             cell = env.pc.gid2cell(gid)
 
+    rec_dt = 0.1
     if env.recording_profile is not None:
         rec_dt = env.recording_profile.get('dt', 0.1) 
-        env.t_rec.record(h._ref_t, rec_dt)
+    env.t_rec.record(h._ref_t, rec_dt)
 
     env.t_vec.resize(0)
     env.id_vec.resize(0)
@@ -669,12 +671,13 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
 
 
 def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, n_trials,
-                          generate_weights, t_max, t_min, 
+                          generate_weights, t_max, t_min,
                           opt_iter, template_paths, dataset_prefix, config_prefix, results_path,
                           spike_events_path, spike_events_namespace, spike_events_t,
                           input_features_path, input_features_namespaces,
                           param_type, param_config_name, recording_profile,
-                          target_rate_map_path, target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory,  worker, **kwargs):
+                          target_rate_map_path, target_rate_map_namespace,
+			  target_rate_map_arena, target_rate_map_trajectory,  worker, **kwargs):
 
     params = dict(locals())
     env = Env(**params)
