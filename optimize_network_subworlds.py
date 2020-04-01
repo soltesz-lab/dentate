@@ -72,6 +72,7 @@ def config_worker():
                              (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M'))
     if 'env' not in context():
         try:
+            context.comm = MPI.COMM_WORLD
             init_network()
         except Exception as err:
             context.logger.exception(err)
@@ -152,6 +153,7 @@ def config_controller():
                              (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M'))
     if 'env' not in context():
         try:
+            context.comm = MPI.COMM_WORLD
             init_env()
         except Exception as err:
             context.logger.exception(err)

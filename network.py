@@ -10,12 +10,18 @@ from mpi4py import MPI
 from dentate import cells, io_utils, lfp, lpt, simtime, synapses
 from dentate.neuron_utils import h, configure_hoc_env, cx, make_rec, mkgap
 from dentate.utils import compose_iter, imapreduce, get_module_logger, profile_memory
-from dentate.utils import range, str, viewitems, zip, zip_longest
+from dentate.utils import range, str, viewitems, viewkeys, zip, zip_longest
 from neuroh5.io import bcast_graph, read_cell_attribute_selection, read_graph_selection, read_tree_selection, \
     scatter_read_cell_attributes, scatter_read_graph, scatter_read_trees, write_cell_attributes, write_graph
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
+
+
+def set_union(a, b, datatype):
+    return a.union(b)
+
+mpi_op_set_union = MPI.Op.Create(set_union, commute=True)
 
 
 def ld_bal(env):
@@ -827,15 +833,14 @@ def make_input_cell_selection(env, input_sources):
             local_input_gid_range = input_gid_range.difference(set(env.cell_selection[pop_name]))
         else:
             local_input_gid_range = input_gid_range
-        input_gid_ranges = env.comm.allgather(local_input_gid_range)
+        input_gid_ranges = env.comm.allreduce(local_input_gid_range, op=mpi_op_set_union)
 
         created_input_gids = []
-        for gid_range in input_gid_ranges:
-            for gid in gid_range:
-                if (gid % nhosts == rank) and not env.pc.gid_exists(gid):
-                    input_cell = cells.make_input_cell(env, gid, pop_index, input_source_dict)
-                    cells.register_cell(env, pop_name, gid, input_cell)
-                    created_input_gids.append(gid)
+        for gid in input_gid_ranges:
+            if (gid % nhosts == rank) and not env.pc.gid_exists(gid):
+                input_cell = cells.make_input_cell(env, gid, pop_index, input_source_dict)
+                cells.register_cell(env, pop_name, gid, input_cell)
+                created_input_gids.append(gid)
 
         logger.info('*** Rank %i: created %s input sources for gids %s' % (rank, pop_name, str(created_input_gids)))
 
@@ -947,13 +952,11 @@ def init_input_cells(env, input_sources=None):
             else:
                 local_gid_range = gid_range
 
-            gid_ranges = env.comm.allgather(local_gid_range)
+            gid_ranges = env.comm.allreduce(local_gid_range, op=mpi_op_set_union)
             this_gid_range = set([])
-            for gid_range in gid_ranges:
-                for gid in gid_range:
-                    if gid % nhosts == rank:
-                        this_gid_range.add(gid)
-
+            for gid in gid_ranges:
+                if gid % nhosts == rank:
+                    this_gid_range.add(gid)
 
             has_spike_train = False
             spike_input_source_loc = []
@@ -996,8 +999,10 @@ def init_input_cells(env, input_sources=None):
                         spike_train_attr_index = cell_spikes_attr_info.get(vecstim_attr, None)
                     elif 't' in viewkeys(cell_spikes_attr_info):
                         spike_train_attr_index = cell_spikes_attr_info.get('t', None)
+                    elif 'Spike Train' in viewkeys(cell_spikes_attr_info):
+                        spike_train_attr_index = cell_spikes_attr_info.get('Spike Train', None)
                     else:
-                        raise RuntimeError("init_input_cells: unable to determine spike train attribute in for gid %d in spike input file %s; namespace %s" % (gid, env.spike_input_path, env.spike_input_ns))
+                        raise RuntimeError("init_input_cells: unable to determine spike train attribute in for gid %d in spike input file %s; namespace %s; attr keys %s" % (gid, env.spike_input_path, env.spike_input_ns, str(list(cell_spikes_attr_info.keys()))))
                         
                     for gid, cell_spikes_tuple in cell_spikes_iter:
                         spiketrain = cell_spikes_tuple[spike_train_attr_index]
