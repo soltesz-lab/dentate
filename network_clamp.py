@@ -599,7 +599,7 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
     for gid in cell_index_set:
         state_recs_dict[gid] = record_cell(env, population, gid, recording_profile=recording_profile)
 
-    def f(v): 
+    def f(v, **kwargs): 
         state_values_dict = gid_state_value(run_with(env, {population: {gid: from_param_dict(v[gid]) 
                                                                         for gid in cell_index_set}}), 
                                             cell_index_set,
@@ -659,7 +659,7 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
 
     logger.info("firing rate objective: target rate: %.02f" % target_rate)
 
-    def f(v): 
+    def f(v, **kwargs): 
         firing_rates_dict = gid_firing_rate(run_with(env, {population: {gid: from_param_dict(v[gid]) 
                                                                         for gid in cell_index_set}}), 
                                             cell_index_set)
@@ -692,7 +692,7 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
 
     input_namespace = '%s %s %s' % (target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory)
     it = read_cell_attribute_selection(target_rate_map_path, population, namespace=input_namespace,
-                                        selection=[gid], mask=set(['Trajectory Rate Map']))
+                                        selection=list(cell_index_set), mask=set(['Trajectory Rate Map']))
     trj_rate_maps = { gid: attr_dict['Trajectory Rate Map']
                       for gid, attr_dict in it }
 
@@ -736,14 +736,10 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
                                     for gid in cell_index_set }
         return firing_rate_vector_dict
 
-    logger.info("firing rate objective: target time bins: %s" % str(time_bins))
-    logger.info("firing rate objective: target vector: %s" % str(target_rate_vector))
-    logger.info("firing rate objective: target rate vector min/max is %.2f Hz (%.2f ms) / %.2f Hz (%.2f ms)" % (np.min(target_rate_vector), time_bins[np.argmin(target_rate_vector)], np.max(target_rate_vector), time_bins[np.argmax(target_rate_vector)]))
-        
-    def f(v): 
+    def f(v, **kwargs): 
         firing_rate_vectors_dict = gid_firing_rate_vectors(run_with(env, {population: {gid: from_param_dict(v[gid]) for gid in cell_index_set}}), cell_index_set)
         return { gid: -np.square(np.subtract(firing_rate_vectors_dict[gid], 
-                                             target_rate_vector)).mean()
+                                             target_rate_vector_dict[gid])).mean()
                  for gid in cell_index_set }
     
     return f
