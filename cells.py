@@ -2316,6 +2316,9 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     :return: :class:'BiophysCell'
     """
     load_cell_template(env, pop_name)
+    logger.info("env.data_file_path = %s" % env.data_file_path)
+    logger.info("gid = %d" % gid)
+
     if tree_dict is None:
         tree_attr_iter, _ = read_tree_selection(env.data_file_path, pop_name, [gid], comm=env.comm, topology=True)
         _, tree_dict = next(tree_attr_iter)
@@ -2439,7 +2442,11 @@ def register_cell(env, pop_name, gid, cell):
     if hasattr(cell, 'spike_onset_delay'):
         env.spike_onset_delay[gid] = cell.spike_onset_delay
 
-
+def is_cell_registered(env, gid):
+    """
+    Returns True if cell gid has already been registered, False otherwise.
+    """
+    return env.pc.gid_exists(gid)    
 
 def record_cell(env, pop_name, gid, recording_profile=None):
     """
