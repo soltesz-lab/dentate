@@ -119,7 +119,7 @@ def init_inputs_from_spikes(env, presyn_sources, t_range,
 
     ## Organize spike times by index of presynaptic population and gid
     input_source_dict = {}
-    for population in populations:
+    for population in sorted(populations):
         pop_index = int(env.Populations[population])
         spk_pop_index = list_index(population, spkpoplst)
         if spk_pop_index is None:
@@ -176,7 +176,7 @@ def init_inputs_from_features(env, presyn_sources, t_range,
     equilibrate = stimulus.get_equilibration(env)
 
     input_source_dict = {}
-    for population in presyn_sources:
+    for population in sorted(presyn_sources):
         selection = list(presyn_sources[population])
         logger.info("generating spike trains for %d inputs from presynaptic population %s..." % (len(selection), population))
         pop_index = int(env.Populations[population])
