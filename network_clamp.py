@@ -459,6 +459,7 @@ def run_with(env, param_dict, cvode=False):
 
     st_comptime = env.pc.step_time()
 
+    h.cvode.cache_efficient(1)
     h.cvode_active(1 if cvode else 0)
 
     h.t = 0.0
