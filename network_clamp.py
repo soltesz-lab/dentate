@@ -1108,9 +1108,7 @@ def optimize(config_file, population, gid, arena_id, trajectory_id, generate_wei
     results_file_id = comm.bcast(results_file_id, root=0)
     
     np.seterr(all='raise')
-    verbose = False
-    if rank == 0 or rank == 1:
-        verbose = True
+    verbose = True
     cache_queries = True
 
     cell_index_set = set([])
