@@ -459,6 +459,7 @@ def run_with(env, param_dict, cvode=False):
 
     st_comptime = env.pc.step_time()
 
+    h.cvode.cache_efficient(1)
     h.cvode_active(1 if cvode else 0)
 
     h.t = 0.0
@@ -1107,9 +1108,7 @@ def optimize(config_file, population, gid, arena_id, trajectory_id, generate_wei
     results_file_id = comm.bcast(results_file_id, root=0)
     
     np.seterr(all='raise')
-    verbose = False
-    if rank == 0 or rank == 1:
-        verbose = True
+    verbose = True
     cache_queries = True
 
     cell_index_set = set([])
