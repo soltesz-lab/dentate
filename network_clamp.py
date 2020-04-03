@@ -782,13 +782,12 @@ def optimize_run(env, pop_name, param_config_name, init_objfun,
                       'n_iter': opt_iter,
                       'solver_epsilon': solver_epsilon }
 
-    opt_params, outputs = distgfs.run(distgfs_params, verbose=verbose,
-                                      spawn_workers=True, nprocs_per_worker=1)
+    results_dict = distgfs.run(distgfs_params, verbose=verbose,
+                               spawn_workers=True, nprocs_per_worker=1)
     
-    logger.info('Optimized parameters: %s' % pprint.pformat(opt_params))
-    logger.info('Optimized objective function: %s' % pprint.pformat(outputs))
+    logger.info('Optimized parameters and objective function: %s' % pprint.pformat(results_dict))
 
-    return opt_params, outputs
+    return results_dict
 
     
 def dist_ctrl(controller, init_params, cell_index_set):
