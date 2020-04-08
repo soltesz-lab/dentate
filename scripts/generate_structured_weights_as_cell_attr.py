@@ -197,10 +197,13 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                 target_selectivity_features_dict[gid]['Y Offset'] =  np.asarray([coordinates[1]], dtype=np.float32)
                 target_selectivity_features_dict[gid]['Num Fields'] = np.asarray([1], dtype=np.uint8)
 
-            num_fields = target_selectivity_features_dict[gid]['Num Fields']
+            num_fields = target_selectivity_features_dict[gid]['Num Fields'][0]
             if field_width is not None:
                 target_selectivity_features_dict[gid]['Field Width'] = np.asarray([field_width]*num_fields, dtype=np.float32)
-
+            else:
+                this_field_width = target_selectivity_features_dict[gid]['Field Width']
+                target_selectivity_features_dict[gid]['Field Width'] = this_field_width[:num_fields]
+                
             if peak_rate is not None:
                 target_selectivity_features_dict[gid]['Peak Rate'] = np.asarray([peak_rate]*num_fields, dtype=np.float32)
 
@@ -383,8 +386,9 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                     logger.info('Destination: %s; appended weights for %i cells' % (destination, count))
                 if output_features_path is not None:
                     if output_features_namespace is None:
-                        output_features_namespace = '%s Selectivity' % target_selectivity_type.title()
+                        output_features_namespace = '%s Selectivity' % target_selectivity_type_name.title()
                     this_output_features_namespace = '%s %s' % (output_features_namespace, arena_id)
+                    logger.info(str(output_features_dict))
                     append_cell_attributes(output_features_path, destination, output_features_dict,
                                            namespace=this_output_features_namespace)
                     count = comm.reduce(len(output_features_dict), op=MPI.SUM, root=0)

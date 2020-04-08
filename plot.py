@@ -2396,17 +2396,22 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
     stplots = []
 
     def sphist(trial_spkts):
-        bin_edges = np.histogram_bin_edges(trial_spkts[0], bins=np.arange(time_range[0], time_range[1], spike_hist_bin))
-        trial_sphist_ys = np.array([ np.histogram(spkts, bins=bin_edges)[0]
+        if len(trial_spkts) > 0:
+            bin_edges = np.histogram_bin_edges(trial_spkts[0], bins=np.arange(time_range[0], time_range[1], spike_hist_bin))
+            trial_sphist_ys = np.array([ np.histogram(spkts, bins=bin_edges)[0]
                                      for spkts in trial_spkts ])
-        sphist_y = np.mean(trial_sphist_ys, axis=0)
+            sphist_y = np.mean(trial_sphist_ys, axis=0)
             
-        sphist_x = bin_edges[:-1] + (spike_hist_bin / 2)
+            sphist_x = bin_edges[:-1] + (spike_hist_bin / 2)
 
-        pch = interpolate.pchip(sphist_x, sphist_y)
-        res_npts = int((sphist_x.max() - sphist_x.min()))
-        sphist_x_res = np.linspace(sphist_x.min(), sphist_x.max(), res_npts, endpoint=True)
-        sphist_y_res = pch(sphist_x_res)
+            pch = interpolate.pchip(sphist_x, sphist_y)
+            res_npts = int((sphist_x.max() - sphist_x.min()))
+            sphist_x_res = np.linspace(sphist_x.min(), sphist_x.max(), res_npts, endpoint=True)
+            sphist_y_res = pch(sphist_x_res)
+        else:
+            bin_edges=np.arange(time_range[0], time_range[1], spike_hist_bin)
+            sphist_x_res = bin_edges[:-1] + (spike_hist_bin / 2)
+            sphist_y_res = np.zeros(sphist_x_res.shape)
 
         return sphist_x_res, sphist_y_res
         
