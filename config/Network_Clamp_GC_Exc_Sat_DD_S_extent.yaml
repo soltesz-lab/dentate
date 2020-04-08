@@ -1,6 +1,6 @@
 Network Clamp:  !include Network_Clamp.yaml
 Model Name: Single_GC_Exc_Sat_DD_S_extent
-Dataset Name: Single
+Dataset Name: Slice
 Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
 Geometry: !include Geometry.yaml

@@ -4,7 +4,7 @@
 #SBATCH -o ./results/dentate_Test_GC_slice.%j.o
 #SBATCH --nodes=30
 #SBATCH --ntasks-per-node=12
-#SBATCH -p compute
+#SBATCH -p development
 #SBATCH -t 5:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
