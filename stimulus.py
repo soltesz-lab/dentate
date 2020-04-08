@@ -942,7 +942,7 @@ def generate_input_selectivity_features(env, population, arena, arena_x, arena_y
 
 def generate_input_spike_trains(env, selectivity_type_names, trajectory, gid, selectivity_attr_dict, spike_train_attr_name='Spike Train',
                                 selectivity_type_name=None, spike_hist_resolution=1000, equilibrate=None, spike_hist_sum=None,
-                                return_selectivity_features=True, n_trials=1, merge_trials=True, comm=None, debug=False):
+                                return_selectivity_features=True, n_trials=1, merge_trials=True, time_range=None, comm=None, debug=False):
     """
     Generates spike trains for the given gid according to the
     input selectivity rate maps contained in the given selectivity
@@ -955,7 +955,14 @@ def generate_input_spike_trains(env, selectivity_type_names, trajectory, gid, se
         comm = MPI.COMM_WORLD
     rank = comm.rank
 
+    if time_range is not None:
+        if time_range[0] is None:
+            time_range[0] = 0.0
+
     t, x, y, d = trajectory
+
+    equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
+
     local_random = np.random.RandomState()
     input_spike_train_seed = int(env.model_config['Random Seeds']['Input Spiketrains'])
 
@@ -972,8 +979,11 @@ def generate_input_spike_trains(env, selectivity_type_names, trajectory, gid, se
     if equilibrate is not None:
         equilibrate_filter, equilibrate_len = equilibrate
         rate_map[:equilibrate_len] = np.multiply(rate_map[:equilibrate_len], equilibrate_filter)
-        
+
     trial_duration = np.max(t) - np.min(t)
+    if time_range is not None:
+        trial_duration = max(trial_duration, (time_range[1] - time_range[0]) + equilibration_duration )
+        
     spike_trains = []
     trial_indices = []
     for i in range(n_trials):

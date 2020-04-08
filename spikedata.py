@@ -138,9 +138,12 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
         else:
             if time_range[0] is None:
                 time_range[0] = 0.0
+            time_span = time_range[1] - time_range[0]
             for spkind, spkts in spkiter:
                 trial_dur = spkts.get('Trial Duration', np.asarray([0.]))
-                trial_ind = spkts.get('Trial Index', np.zeros((len(spkts)),))
+                trial_dur[1:] = np.asarray([max(x, time_span) for x in trial_dur[1:] ],
+                                           dtype=np.float32)
+                trial_ind = spkts.get('Trial Index', np.zeros((len(spkts[spike_train_attr_name])),dtype=np.int))
                 if n_trials == -1:
                     n_trials = trial_dur.shape[0]
                 for spk_i, spkt in enumerate(spkts[spike_train_attr_name]):

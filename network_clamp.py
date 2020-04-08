@@ -96,7 +96,7 @@ def generate_weights(env, weight_source_rules, this_syn_attrs):
     return weights_dict
 
 
-def init_inputs_from_spikes(env, presyn_sources, t_range,
+def init_inputs_from_spikes(env, presyn_sources, time_range,
                             spike_events_path, spike_events_namespace,
                             arena_id, trajectory_id, spike_train_attr_name='t', n_trials=1):
 
@@ -110,7 +110,7 @@ def init_inputs_from_spikes(env, presyn_sources, t_range,
                                           populations,
                                           this_spike_events_namespace,
                                           spike_train_attr_name=spike_train_attr_name,
-                                          time_range=t_range, n_trials=n_trials,
+                                          time_range=time_range, n_trials=n_trials,
                                           merge_trials=True)
     
     spkindlst = spkdata['spkindlst']
@@ -140,13 +140,17 @@ def init_inputs_from_spikes(env, presyn_sources, t_range,
     return input_source_dict
 
 
-def init_inputs_from_features(env, presyn_sources, t_range,
+def init_inputs_from_features(env, presyn_sources, time_range,
                               input_features_path, input_features_namespaces,
                               arena_id, trajectory_id, spike_train_attr_name='t', n_trials=1):
+
+    if time_range is not None:
+        if time_range[0] is None:
+            time_range[0] = 0.0
+
     equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
     spatial_resolution = float(env.stimulus_config['Spatial Resolution'])
     temporal_resolution = float(env.stimulus_config['Temporal Resolution'])
-    
     
     this_input_features_namespaces = ['%s %s' % (input_features_namespace, arena_id)
                                       for input_features_namespace in input_features_namespaces]
@@ -165,8 +169,8 @@ def init_inputs_from_features(env, presyn_sources, t_range,
     t, x, y, d = stimulus.generate_linear_trajectory(trajectory,
                                                      temporal_resolution=temporal_resolution,
                                                      equilibration_duration=equilibration_duration)
-    if t_range is not None:
-        t_range_inds = np.where((t <= t_range[1]) & (t >= t_range[0] - equilibration_duration))[0] 
+    if time_range is not None:
+        t_range_inds = np.where((t <= time_range[1]) & (t >= time_range[0] - equilibration_duration))[0] 
         t = t[t_range_inds]
         x = x[t_range_inds]
         y = y[t_range_inds]
@@ -190,10 +194,12 @@ def init_inputs_from_features(env, presyn_sources, t_range,
             for gid, selectivity_attr_dict in input_features_iter:
                 spikes_attr_dict[gid] = stimulus.generate_input_spike_trains(env, selectivity_type_names,
                                                                              trajectory, gid, selectivity_attr_dict,
+                                                                             equilibrate=equilibrate,
                                                                              spike_train_attr_name=spike_train_attr_name,
-                                                                             equilibrate=equilibrate, n_trials=n_trials,
+                                                                             n_trials=n_trials,
                                                                              return_selectivity_features=False,
                                                                              merge_trials=True,
+                                                                             time_range=time_range,
                                                                              comm=env.comm)
                 spikes_attr_dict[gid][spike_train_attr_name] += equilibration_duration
 
@@ -233,8 +239,6 @@ def init(env, pop_name, gid_set, arena_id=None, trajectory_id=None, n_trials=1,
             t_range = [0., t_max]
         else:
             t_range = [t_min, t_max]
-    if t_range is not None:
-        env.tstop = t_range[1] - t_range[0]
             
     ## Attribute namespace that contains recorded spike events
     namespace_id = spike_events_namespace
@@ -287,6 +291,9 @@ def init(env, pop_name, gid_set, arena_id=None, trajectory_id=None, n_trials=1,
     else:
         raise RuntimeError('network_clamp.init: neither input spikes nor input features are provided')
 
+    if t_range is not None:
+        env.tstop = t_range[1] - t_range[0]
+
     for gid in gid_set:
         this_syn_attrs = syn_attrs[gid]
         for syn_id, syn in viewitems(this_syn_attrs):
@@ -333,6 +340,7 @@ def init(env, pop_name, gid_set, arena_id=None, trajectory_id=None, n_trials=1,
                                                      output_dir=env.results_path)
         
         
+
     cell = env.pc.gid2cell(gid)
     for sec in list(cell.all):
         h.psection(sec=sec)
