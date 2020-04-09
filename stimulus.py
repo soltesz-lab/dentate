@@ -976,7 +976,7 @@ def generate_input_spike_trains(env, selectivity_type_names, trajectory, gid, se
                                               selectivity_type_names=selectivity_type_names,
                                               selectivity_attr_dict=selectivity_attr_dict)
     rate_map = input_cell_config.get_rate_map(x=x, y=y)
-    if equilibrate is not None:
+    if (selectivity_type_name != 'constant') and (equilibrate is not None):
         equilibrate_filter, equilibrate_len = equilibrate
         rate_map[:equilibrate_len] = np.multiply(rate_map[:equilibrate_len], equilibrate_filter)
 
