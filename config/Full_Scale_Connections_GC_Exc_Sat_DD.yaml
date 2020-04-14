@@ -244,7 +244,7 @@ Synapses:
       sections: [apical]
       layers: [Hilus]
       proportions: [0.7]
-      contacts: 17.5
+      contacts: 1.0
       mechanisms:
         AMPA:
           dur_onset: 0.5
