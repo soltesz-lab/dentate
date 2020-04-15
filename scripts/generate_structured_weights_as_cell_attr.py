@@ -16,6 +16,8 @@ context = Context()
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
+    sys.stdout.flush()
+    sys.stderr.flush()
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
 sys.excepthook = mpi_excepthook
@@ -117,8 +119,6 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
 
     this_output_weights_namespace = '%s %s' % (output_weights_namespace, arena_id)
     this_input_features_namespaces = ['%s %s' % (input_features_namespace, arena_id) for input_features_namespace in input_features_namespaces]
-
-    initial_weights_dict = None
 
     selectivity_type_index = { i: n for n, i in viewitems(env.selectivity_types) }
     target_selectivity_type_name = 'place'
@@ -228,46 +228,44 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
         if not has_structured_weights:
             selection = []
                 
-        initial_weights_by_syn_id_dict = {}
-        initial_weights_by_source_gid_dict = {}
+        initial_weights_by_syn_id_dict = defaultdict(lambda: dict())
 
         if initial_weights_path is not None:
             initial_weights_iter = \
               read_cell_attribute_selection(initial_weights_path, destination,
                                             namespace=initial_weights_namespace,
                                             selection=selection)
-            syn_weight_attr_dict = dict(initial_weights_iter)
 
-            syn_ids = syn_weight_attr_dict[target_gid]['syn_id']
-            weights = syn_weight_attr_dict[target_gid][synapse_name]
+            initial_weights_gid_count = 0
+            for this_gid, syn_weight_attr_dict in initial_weights_iter:
+                syn_ids = syn_weight_attr_dict['syn_id']
+                weights = syn_weight_attr_dict[synapse_name]
 
-            for (syn_id, weight) in zip(syn_ids, weights):
-                initial_weights_by_syn_id_dict[int(syn_id)] = float(weight)
+                for (syn_id, weight) in zip(syn_ids, weights):
+                    initial_weights_by_syn_id_dict[this_gid][int(syn_id)] = float(weight)
+                initial_weights_gid_count += 1
 
-            logger.info('destination: %s; gid %i; read initial synaptic weights for %i synapses' %
-                        (destination, this_gid, len(initial_weights_by_syn_id_dict)))
+            logger.info('destination: %s; read initial synaptic weights for %i gids' %
+                        (destination, initial_weights_gid_count))
             
         reference_weights_by_syn_id_dict = None
         if reference_weights_path is not None:
-            reference_weights_by_syn_id_dict = dict()
+            reference_weights_by_syn_id_dict = defaultdict(lambda: dict())
             reference_weights_iter = \
               read_cell_attribute_selection(reference_weights_path, destination, namespace=reference_weights_namespace,
                                             selection=selection)
-            syn_weight_attr_dict = dict(reference_weights_iter)
+            reference_weights_gid_count = 0
 
-            syn_ids = syn_weight_attr_dict[target_gid]['syn_id']
-            weights = syn_weight_attr_dict[target_gid][synapse_name]
-
-            for (syn_id, weight) in zip(syn_ids, weights):
-                reference_weights_by_syn_id_dict[int(syn_id)] = float(weight)
-
-            logger.info('destination: %s; gid %i; read reference synaptic weights for %i synapses' %
-                        (destination, target_gid, len(reference_weights_by_syn_id_dict)))
+            for this_gid, syn_weight_attr_dict in reference_weights_iter:
+                syn_ids = syn_weight_attr_dict['syn_id']
+                weights = syn_weight_attr_dict[synapse_name]
             
-        if reference_weights_by_syn_id_dict is None:
-            reference_weights_by_source_gid_dict = None
-        else:
-            reference_weights_by_source_gid_dict = dict()
+                for (syn_id, weight) in zip(syn_ids, weights):
+                    reference_weights_by_syn_id_dict[this_gid][int(syn_id)] = float(weight)
+
+            logger.info('destination: %s; read reference synaptic weights for %i gids' %
+                        (destination, reference_weights_gid_count))
+            
 
         syn_count_by_source_gid_dict = defaultdict(int)
         source_gid_set_dict = defaultdict(set)
@@ -278,17 +276,30 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             for source, (destination_gid, (source_gid_array, conn_attr_dict)) in zip_longest(sources, attr_gen_package):
                 syn_ids = conn_attr_dict['Synapses']['syn_id']
                 count = 0
+                this_initial_weights_by_syn_id_dict = None
+                this_reference_weights_by_syn_id_dict = None
+                if destination_gid is not None:
+                    this_initial_weights_by_syn_id_dict = initial_weights_by_syn_id_dict[destination_gid]
+                    if reference_weights_by_syn_id_dict is not None:
+                        this_reference_weights_by_syn_id_dict = reference_weights_by_syn_id_dict[destination_gid]
+                    
+                this_initial_weights_by_source_gid_dict = dict()
+
+                this_reference_weights_by_source_gid_dict = None
+                if this_reference_weights_by_syn_id_dict is not None:
+                    this_reference_weights_by_source_gid_dict = dict()
+
                 for i in range(len(source_gid_array)):
                     this_source_gid = source_gid_array[i]
                     this_syn_id = syn_ids[i]
-                    this_syn_wgt = initial_weights_by_syn_id_dict.get(this_syn_id, 1.0)
+                    this_syn_wgt = this_initial_weights_by_syn_id_dict.get(this_syn_id, 1.0)
                     source_gid_set_dict[source].add(this_source_gid)
                     syn_ids_by_source_gid_dict[this_source_gid].append(this_syn_id)
                     syn_count_by_source_gid_dict[this_source_gid] += 1
-                    if this_source_gid not in initial_weights_by_source_gid_dict:
-                        initial_weights_by_source_gid_dict[this_source_gid] = this_syn_wgt
-                    if reference_weights_by_source_gid_dict is not None:
-                        reference_weights_by_source_gid_dict[this_source_gid] = \
+                    if this_source_gid not in this_initial_weights_by_source_gid_dict:
+                        this_initial_weights_by_source_gid_dict[this_source_gid] = this_syn_wgt
+                    if this_reference_weights_by_source_gid_dict is not None:
+                        this_reference_weights_by_source_gid_dict[this_source_gid] = \
                          reference_weights_by_syn_id_dict[this_syn_id]
 
                     count += 1
@@ -337,8 +348,8 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                 
             normalized_delta_weights_dict, arena_LS_map = \
               synapses.generate_structured_weights(target_map=target_selectivity_features_dict[this_gid]['Arena Rate Map'],
-                                                initial_weight_dict=initial_weights_by_source_gid_dict,
-                                                reference_weight_dict=reference_weights_by_source_gid_dict,
+                                                initial_weight_dict=this_initial_weights_by_source_gid_dict,
+                                                reference_weight_dict=this_reference_weights_by_source_gid_dict,
                                                 reference_weights_are_delta=reference_weights_are_delta,
                                                 reference_weights_namespace=reference_weights_namespace,
                                                 input_rate_map_dict=input_rate_maps_by_source_gid_dict,

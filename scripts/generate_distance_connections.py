@@ -21,6 +21,8 @@ from neuroh5.io import bcast_cell_attributes, read_cell_attributes, read_populat
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
      sys_excepthook(type, value, traceback)
+     sys.stdout.flush()
+     sys.stderr.flush()
      if MPI.COMM_WORLD.size > 1:
          MPI.COMM_WORLD.Abort(1)
 sys.excepthook = mpi_excepthook
