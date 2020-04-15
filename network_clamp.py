@@ -148,7 +148,6 @@ def init_inputs_from_features(env, presyn_sources, time_range,
         if time_range[0] is None:
             time_range[0] = 0.0
 
-    pprint.pprint(env.stimulus_config)
     equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
     spatial_resolution = float(env.stimulus_config['Spatial Resolution'])
     temporal_resolution = float(env.stimulus_config['Temporal Resolution'])
