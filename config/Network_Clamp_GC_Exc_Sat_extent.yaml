@@ -1,14 +1,15 @@
 Network Clamp:  !include Network_Clamp.yaml
-Model Name: dentatenet_Full_Scale_GC_Exc_Sat
-Dataset Name: 
+Model Name: Single_GC_Exc_Sat_extent
+Dataset Name: Slice
 Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
 Cell Data: dentatenet_Full_Scale_GC_Exc_Sat_DD_S_extent_20200327.h5
 Connection Data: dentatenet_Full_Scale_GC_Exc_Sat_DD_S_extent_20200327.h5
-Connection Generator: !include Network_Clamp_Connections_GC_Exc_Sat.yaml
+Connection Generator: !include Network_Clamp_Connections_GC_Exc_Sat_extent.yaml
 Recording: !include Recording.yaml
+Stimulus: !include Input_Configuration.yaml
 ## Cell types for dentate gyrus model
 Cell Types:
   GC:
@@ -21,7 +22,6 @@ Cell Types:
   MC:
     template: MossyCell
     synapses:
-      weights: False
       density: !include MC_synapse_density.yaml
   HC:
     template: HIPPCell

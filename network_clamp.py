@@ -11,7 +11,7 @@ from dentate.cells import h, make_input_cell, register_cell, record_cell, report
 from dentate.env import Env
 from dentate.neuron_utils import h, configure_hoc_env, make_rec
 from dentate.utils import is_interactive, Context, Closure, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger, config_logging
-from dentate.utils import get_trial_time_indices, get_trial_time_ranges
+from dentate.utils import get_trial_time_indices, get_trial_time_ranges, get_low_pass_filtered_trace
 from dentate.cell_clamp import init_biophys_cell
 from neuroh5.io import read_cell_attribute_selection, read_cell_attribute_info
 
@@ -557,7 +557,7 @@ def optimize_params(env, pop_name, param_type, param_config_name):
     return param_bounds, param_names, param_initial_dict, param_range_tuples
 
 
-def init_state_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, n_trials, param_type, param_config_name, recording_profile, state_variable, target_value, worker, **kwargs):
+def init_state_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, n_trials, param_type, param_config_name, recording_profile, state_variable, state_filter, target_value, worker, **kwargs):
 
     params = dict(locals())
     env = Env(**params)
@@ -569,8 +569,7 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
          input_features_path=input_features_path,
          input_features_namespaces=input_features_namespaces,
          generate_weights_pops=set(generate_weights), 
-         t_min=t_min, t_max=t_max,
-         n_trials=n_trials)
+         t_min=t_min, t_max=t_max)
 
     time_step = env.stimulus_config['Temporal Resolution']
     equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
@@ -585,14 +584,23 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
         return result
 
     def gid_state_value(spkdict, cell_index_set, t_offset, n_trials, t_rec, state_recs_dict):
-        t_trial_inds = get_trial_time_indices(t_rec.to_python(), t_offset, n_trials)
+        t_vec = np.asarray(t_rec.to_python(), dtype=np.float32)
+        t_trial_inds = get_trial_time_indices(t_vec, n_trials, t_offset)
         results_dict = {}
+        filter_fun = None
+        if state_filter == 'lowpass':
+            filter_fun = lambda x, t: get_low_pass_filtered_trace(x, t)
         for gid in state_recs_dict:
             state_values = []
             state_recs = state_recs_dict[gid]
             for rec in state_recs:
                 vec = np.asarray(rec['vec'].to_python(), dtype=np.float32)
-                data = np.asarray([ np.mean(vec[t_inds]) for t_inds in t_trial_inds ])
+                if filter_fun is None:
+                    data = np.asarray([ np.mean(vec[t_inds])
+                                            for t_inds in t_trial_inds ])
+                else:
+                    data = np.asarray([ np.mean(filter_fun(vec[t_inds], t_vec[t_inds]))
+                                            for t_inds in t_trial_inds ])
                 state_values.append(np.mean(data))
             m = np.mean(np.asarray(state_values))
             logger.info('state value objective: mean value of %s of gid %i is %.2f' % (state_variable, gid, m))
@@ -742,11 +750,14 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
             for gid in spkdict[population]:
                 logger.info('firing rate objective: trial %d spike times of gid %i: %s' % (i, gid, str(spkdict[population][gid])))
                 logger.info('firing rate objective: trial %d firing rate of gid %i: %s' % (i, gid, str(spike_density_dict[gid])))
-                logger.info('firing rate objective: trial %d firing rate min/max of gid %i: %.02f / %.02f Hz' % (i, gid, np.min(spike_density_dict[gid]['rate']), np.max(spike_density_dict[gid]['rate'])))
+                logger.info('firing rate objective: trial %d firing rate min/max of gid %i: %.02f / %.02f Hz' % (i, gid, np.min(rates_dict[gid]), np.max(rates_dict[gid])))
 
-        firing_rate_vector_dict = { gid: np.mean(np.row_stack(rates_dict[gid]), axis=0)
-                                    for gid in cell_index_set }
-        return firing_rate_vector_dict
+        mean_rate_vector_dict = { gid: np.mean(np.row_stack(rates_dict[gid]), axis=0)
+                                  for gid in cell_index_set }
+        for gid in mean_rate_vector_dict:
+            logger.info('firing rate objective: mean firing rate vector of gid %i: %s' % (gid, str(mean_rate_vector_dict[gid])))
+            logger.info('firing rate objective: mean firing rate min/max of gid %i: %.02f / %.02f Hz' % (gid, np.min(mean_rate_vector_dict[gid]), np.max(mean_rate_vector_dict[gid])))
+        return mean_rate_vector_dict
 
     def f(v, **kwargs): 
         firing_rate_vectors_dict = gid_firing_rate_vectors(run_with(env, {population: {gid: from_param_dict(v[gid]) for gid in cell_index_set}}), cell_index_set)
@@ -792,7 +803,6 @@ def optimize_run(env, pop_name, param_config_name, init_objfun,
 
     results_dict = distgfs.run(distgfs_params, verbose=verbose,
                                spawn_workers=True, nprocs_per_worker=1)
-    
     logger.info('Optimized parameters and objective function: %s' % pprint.pformat(results_dict))
 
     return results_dict
@@ -1090,6 +1100,8 @@ def go(config_file, population, gid, arena_id, trajectory_id, generate_weights, 
               help='namespace containing target rate maps used for rate optimization')
 @click.option("--target-state-variable", type=str, required=False, 
               help='name of state variable used for state optimization')
+@click.option("--target-state-filter", type=str, required=False, 
+              help='optional filter for state values used for state optimization')
 @click.argument('target')# help='rate, rate_dist, state'
 
 
@@ -1098,7 +1110,8 @@ def optimize(config_file, population, gid, arena_id, trajectory_id, generate_wei
              param_config_name, param_type, recording_profile, results_file, results_path,
              spike_events_path, spike_events_namespace, spike_events_t, 
              input_features_path, input_features_namespaces, n_trials,
-             target_rate_map_path, target_rate_map_namespace, target_state_variable, target):
+             target_rate_map_path, target_rate_map_namespace, target_state_variable,
+             target_state_filter, target):
     """
     Optimize the firing rate of the specified cell in a network clamp configuration.
     """
@@ -1163,9 +1176,10 @@ def optimize(config_file, population, gid, arena_id, trajectory_id, generate_wei
         init_params['target_rate_map_trajectory'] = trajectory_id
         init_objfun_name = 'init_rate_dist_objfun'
     elif target == 'state':
-        opt_target = opt_params['Targets']['state'][state_variable]
+        opt_target = opt_params['Targets']['state'][target_state_variable]
         init_params['target_value'] = opt_target
         init_params['state_variable'] = target_state_variable
+        init_params['state_filter'] = target_state_filter
         init_objfun_name = 'init_state_objfun'
     else:
         raise RuntimeError('network_clamp.optimize: unknown optimization target %s' % target) 
