@@ -741,11 +741,13 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
             for gid in spkdict[population]:
                 logger.info('firing rate objective: trial %d spike times of gid %i: %s' % (i, gid, str(spkdict[population][gid])))
                 logger.info('firing rate objective: trial %d firing rate of gid %i: %s' % (i, gid, str(spike_density_dict[gid])))
-                logger.info('firing rate objective: trial %d firing rate min/max of gid %i: %.02f / %.02f Hz' % (i, gid, np.min(spike_density_dict[gid]['rate']), np.max(spike_density_dict[gid]['rate'])))
+                logger.info('firing rate objective: trial %d firing rate min/max of gid %i: %.02f / %.02f Hz' % (i, gid, np.min(rate_dict[gid]), np.max(rate_dict[gid])))
 
-        firing_rate_vector_dict = { gid: np.mean(np.row_stack(rates_dict[gid]), axis=0)
-                                    for gid in cell_index_set }
-        return firing_rate_vector_dict
+        mean_rate_vector_dict = { gid: np.mean(np.row_stack(rates_dict[gid]), axis=0)
+                                  for gid in cell_index_set }
+        for gid in mean_rate_vector_dict:
+            logger.info('firing rate objective: mean firing rate min/max of gid %i: %.02f / %.02f Hz' % (i, gid, np.min(mean_rate_vector_dict[gid]), np.max(mean_rate_vector_dict[gid])))
+        return mean_rate_vector_dict
 
     def f(v, **kwargs): 
         firing_rate_vectors_dict = gid_firing_rate_vectors(run_with(env, {population: {gid: from_param_dict(v[gid]) for gid in cell_index_set}}), cell_index_set)

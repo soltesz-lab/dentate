@@ -143,6 +143,23 @@ Synaptic Optimization:
               weight: [0.01, 2.0]
             GABA_B:
               weight: [0.001, 1.0]
+      Weight excitatory:
+        MPP:
+          apical:
+            AMPA:
+              weight:
+                a: [0.01, 5.0]
+                b: [0.01, 1.0]
+        LPP:
+          apical:
+            AMPA:
+              weight:
+                a: [0.01, 5.0]
+                b: [0.01, 1.0]
+        MC:
+          apical:
+            AMPA:
+              weight: [0.01, 4.0]
       Weight all:
         !!python/tuple [MPP, LPP]:
           apical:
