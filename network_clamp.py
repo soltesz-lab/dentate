@@ -793,8 +793,7 @@ def optimize_run(env, pop_name, param_config_name, init_objfun,
 
     results_dict = distgfs.run(distgfs_params, verbose=verbose,
                                spawn_workers=True, nprocs_per_worker=1)
-    if distwq.is_controller:
-        logger.info('Optimized parameters and objective function: %s' % pprint.pformat(results_dict))
+    logger.info('Optimized parameters and objective function: %s' % pprint.pformat(results_dict))
 
     return results_dict
 
