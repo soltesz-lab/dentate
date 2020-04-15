@@ -148,7 +148,8 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     connection_gen_list = [ NeuroH5ProjectionGen(connections_path, source, destination, namespaces=['Synapses'], comm=comm) \
                                for source in sources ]
 
-    structured_weights_dict = {}
+    output_features_dict = {}
+    output_weights_dict = {}
     for iter_count, attr_gen_package in enumerate(zip_longest(*connection_gen_list)):
         
         local_time = time.time()
@@ -335,8 +336,6 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                 if rank == 0:
                     logger.info('Read %s feature data for %i cells in population %s' % (input_features_namespace, count, source))
 
-        output_features_dict = {}
-        output_weights_dict = {}
         if has_structured_weights:
 
             if is_interactive:
