@@ -569,8 +569,7 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
          input_features_path=input_features_path,
          input_features_namespaces=input_features_namespaces,
          generate_weights_pops=set(generate_weights), 
-         t_min=t_min, t_max=t_max,
-         n_trials=n_trials)
+         t_min=t_min, t_max=t_max)
 
     time_step = env.stimulus_config['Temporal Resolution']
     equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
@@ -585,7 +584,7 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
         return result
 
     def gid_state_value(spkdict, cell_index_set, t_offset, n_trials, t_rec, state_recs_dict):
-        t_trial_inds = get_trial_time_indices(t_rec.to_python(), t_offset, n_trials)
+        t_trial_inds = get_trial_time_indices(t_rec.to_python(), n_trials, t_offset)
         results_dict = {}
         for gid in state_recs_dict:
             state_values = []
@@ -1163,7 +1162,7 @@ def optimize(config_file, population, gid, arena_id, trajectory_id, generate_wei
         init_params['target_rate_map_trajectory'] = trajectory_id
         init_objfun_name = 'init_rate_dist_objfun'
     elif target == 'state':
-        opt_target = opt_params['Targets']['state'][state_variable]
+        opt_target = opt_params['Targets']['state'][target_state_variable]
         init_params['target_value'] = opt_target
         init_params['state_variable'] = target_state_variable
         init_objfun_name = 'init_state_objfun'
