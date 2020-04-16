@@ -89,6 +89,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     utils.config_logging(verbose)
     logger = utils.get_script_logger(__file__)
 
+    
     comm = MPI.COMM_WORLD
     rank = comm.rank
     nranks = comm.size
@@ -148,7 +149,8 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     connection_gen_list = [ NeuroH5ProjectionGen(connections_path, source, destination, namespaces=['Synapses'], comm=comm) \
                                for source in sources ]
 
-    structured_weights_dict = {}
+    output_features_dict = {}
+    output_weights_dict = {}
     for iter_count, attr_gen_package in enumerate(zip_longest(*connection_gen_list)):
         
         local_time = time.time()
@@ -192,12 +194,14 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             target_selectivity_features_dict[gid] = dst_input_features_attr_dict.get(gid, {})
             target_selectivity_features_dict[gid]['Selectivity Type'] = np.asarray([target_selectivity_type], dtype=np.uint8)
 
+            num_fields = target_selectivity_features_dict[gid]['Num Fields'][0]
+            
             if coordinates[0] is not None:
+                num_fields = 1
                 target_selectivity_features_dict[gid]['X Offset'] =  np.asarray([coordinates[0]], dtype=np.float32)
                 target_selectivity_features_dict[gid]['Y Offset'] =  np.asarray([coordinates[1]], dtype=np.float32)
-                target_selectivity_features_dict[gid]['Num Fields'] = np.asarray([1], dtype=np.uint8)
+                target_selectivity_features_dict[gid]['Num Fields'] = np.asarray([num_fields], dtype=np.uint8)
 
-            num_fields = target_selectivity_features_dict[gid]['Num Fields'][0]
             if field_width is not None:
                 target_selectivity_features_dict[gid]['Field Width'] = np.asarray([field_width]*num_fields, dtype=np.float32)
             else:
@@ -335,8 +339,6 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                 if rank == 0:
                     logger.info('Read %s feature data for %i cells in population %s' % (input_features_namespace, count, source))
 
-        output_features_dict = {}
-        output_weights_dict = {}
         if has_structured_weights:
 
             if is_interactive:
