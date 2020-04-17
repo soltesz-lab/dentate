@@ -2288,7 +2288,8 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
 
 def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid, include='eachPop',
                        time_range=None, time_variable='t', intracellular_variable='v', labels='legend',
-                       pop_rates=True, spike_hist_bin=5, n_trials=-1, marker='.', **kwargs):
+                       pop_rates=True, spike_hist_bin=5, lowpass_plot_type='overlay',
+                       n_trials=-1, marker='.', **kwargs):
     """
     Raster plot of target cell intracellular trace + spike raster of presynaptic inputs. Returns the figure handle.
 
@@ -2390,8 +2391,15 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
     N = pop_num_cells[pop_name]
     S = pop_start_inds[pop_name]
 
-    fig, axes = plt.subplots(nrows=len(spkpoplst) + 2, sharex=True, figsize=fig_options.figSize,
-                             gridspec_kw={'height_ratios': [1] * len(spkpoplst) + [2, 2]})
+    n_plots = len(spkpoplst) + 2
+    plot_height_ratios = [1] * len(spkpoplst) + [2, 2]
+    
+    if lowpass_plot_type == 'subplot':
+        n_plots += 1
+        plot_height_ratios.append(1)
+    
+    fig, axes = plt.subplots(nrows=n_plots, sharex=True, figsize=fig_options.figSize,
+                             gridspec_kw={'height_ratios': plot_height_ratios})
 
     stplots = []
 
@@ -2464,17 +2472,23 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
         merged_trial_spkts = [ np.concatenate(trial_spkts, axis=0)
                                for trial_spkts in all_trial_spkts ]
         sphist_x, sphist_y = sphist(merged_trial_spkts)
-        ax2 = axes[-2]
+        ax2 = axes[len(spkpoplst)]
         ax2.plot(sphist_x, sphist_y, linewidth=1.0)
         ax2.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
         ax2.set_ylabel('Spike count', fontsize=fig_options.fontSize)
         ax2.set_xlim(time_range)
 
     # Plot intracellular state
-    ax3 = axes[-1]
+    ax3 = axes[len(spkpoplst)+1]
     ax3.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
     ax3.set_ylabel(intracellular_variable, fontsize=fig_options.fontSize)
     ax3.set_xlim(time_range)
+
+    # Plot lowpass-filtered intracellular state if lowpass_plot_type is set to subplot
+    if lowpass_plot_type == 'subplot':
+        ax4 = axes[len(spkpoplst)+2]
+    else:
+        ax4 = None
 
     states = indata['states']
     stvplots = []
@@ -2500,9 +2514,13 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
             for st_y in st_ys:
                 stvplots.append(
                     ax3.plot(st_x, st_y, label=pop_name, linewidth=fig_options.lw, alpha=0.5))
-            stvplots.append(
+            if lowpass_plot_type == 'overlay':
                 ax3.plot(st_x, filtered_st_y, label='%s (filtered)' % pop_name,
-                         linewidth=fig_options.lw, alpha=0.5))
+                         linewidth=fig_options.lw, alpha=0.75)
+            else:
+                ax4.plot(st_x, filtered_st_y, label='%s (filtered)' % pop_name,
+                         linewidth=fig_options.lw, alpha=0.75)
+        
 
     if labels == 'legend':
         # Shrink axes by 15%
