@@ -233,6 +233,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             selection = []
                 
         initial_weights_by_syn_id_dict = defaultdict(lambda: dict())
+        initial_weights_by_source_gid_dict = defaultdict(lambda: dict())
 
         if initial_weights_path is not None:
             initial_weights_iter = \
@@ -253,6 +254,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                         (destination, initial_weights_gid_count))
             
         reference_weights_by_syn_id_dict = None
+        reference_weights_by_source_gid_dict = defaultdict(lambda: dict())
         if reference_weights_path is not None:
             reference_weights_by_syn_id_dict = defaultdict(lambda: dict())
             reference_weights_iter = \
@@ -281,17 +283,16 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                 syn_ids = conn_attr_dict['Synapses']['syn_id']
                 count = 0
                 this_initial_weights_by_syn_id_dict = None
+                this_initial_weights_by_source_gid_dict = None
                 this_reference_weights_by_syn_id_dict = None
+                this_reference_weights_by_source_gid_dict = None
                 if destination_gid is not None:
                     this_initial_weights_by_syn_id_dict = initial_weights_by_syn_id_dict[destination_gid]
+                    this_initial_weights_by_source_gid_dict = initial_weights_by_source_gid_dict[destination_gid]
                     if reference_weights_by_syn_id_dict is not None:
                         this_reference_weights_by_syn_id_dict = reference_weights_by_syn_id_dict[destination_gid]
-                    
-                this_initial_weights_by_source_gid_dict = dict()
+                        this_reference_weights_by_source_gid_dict = reference_weights_by_source_gid_dict[destination_gid]
 
-                this_reference_weights_by_source_gid_dict = None
-                if this_reference_weights_by_syn_id_dict is not None:
-                    this_reference_weights_by_source_gid_dict = dict()
 
                 for i in range(len(source_gid_array)):
                     this_source_gid = source_gid_array[i]
@@ -302,9 +303,9 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                     syn_count_by_source_gid_dict[this_source_gid] += 1
                     if this_source_gid not in this_initial_weights_by_source_gid_dict:
                         this_initial_weights_by_source_gid_dict[this_source_gid] = this_syn_wgt
-                    if this_reference_weights_by_source_gid_dict is not None:
+                    if this_reference_weights_by_syn_id_dict is not None:
                         this_reference_weights_by_source_gid_dict[this_source_gid] = \
-                         reference_weights_by_syn_id_dict[this_syn_id]
+                         this_reference_weights_by_syn_id_dict[this_syn_id]
 
                     count += 1
                 structured_syn_id_count += len(syn_ids)

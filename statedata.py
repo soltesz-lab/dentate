@@ -76,15 +76,17 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', st
                     loc = vals.get('loc', [None])[0]
                     tvals = np.asarray(vals[time_variable], dtype=np.float32)
                     svals = np.asarray(vals[state_variable], dtype=np.float32)
-                    trial_bounds = np.where(np.isclose(tvals, tvals[0], atol=1e-4))[0]
-                    if n_trials == -1 or n_trials > 1:
-                        state_dict[cellind] = (np.split(tvals, trial_bounds[1:n_trials]),
-                                               np.split(svals, trial_bounds[1:n_trials]),
-                                               distance, section, loc)
+                    trial_bounds = list(np.where(np.isclose(tvals, tvals[0], atol=1e-4))[0])
+                    n_trial_bounds = len(trial_bounds)
+                    trial_bounds.append(len(tvals))
+                    if n_trials == -1:
+                        this_n_trials = n_trial_bounds
                     else:
-                        state_dict[cellind] = ([tvals[:trial_bounds[1]]],
-                                               [svals[:trial_bounds[1]]],
-                                               distance, section, loc)
+                        this_n_trials = min(n_trial_bounds, n_trials)
+
+                    state_dict[cellind] = (np.split(tvals, trial_bounds[1:n_trials]),
+                                           np.split(svals, trial_bounds[1:n_trials]),
+                                           distance, section, loc)
                         
         else:
             for cellind, vals in valiter:
@@ -96,16 +98,17 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', st
                                         vals[time_variable] >= time_range[0])
                     tvals = np.asarray(vals[time_variable][tinds], dtype=np.float32)
                     svals = np.asarray(vals[state_variable][tinds], dtype=np.float32)
-                    trial_bounds = np.where(np.isclose(tvals, tvals[0], atol=1e-4))[0][1:]
-                    if n_trials == -1 or n_trials > 1:
-                        state_dict[cellind] = (np.split(tvals, trial_bounds[1:n_trials]),
-                                               np.split(svals, trial_bounds[1:n_trials]),
-                                               distance, section, loc)
+                    trial_bounds = list(np.where(np.isclose(tvals, tvals[0], atol=1e-4))[0])
+                    n_trial_bounds = len(trial_bounds)
+                    trial_bounds.append(len(tvals))
+                    if n_trials == -1:
+                        this_n_trials = n_trial_bounds
                     else:
-                        state_dict[cellind] = ([tvals[:trial_bounds[1]]],
-                                               [svals[:trial_bounds[1]]],
-                                               distance, section, loc)
+                        this_n_trials = min(n_trial_bounds, n_trials)
 
+                    state_dict[cellind] = (np.split(tvals, trial_bounds[1:n_trials]),
+                                           np.split(svals, trial_bounds[1:n_trials]),
+                                           distance, section, loc)
 
         pop_state_dict[pop_name] = state_dict
 
