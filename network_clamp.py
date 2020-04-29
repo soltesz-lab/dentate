@@ -583,7 +583,7 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
             result.append((update_operator, population, source, sec_type, syn_name, param_name, params_dict[param_pattern]))
         return result
 
-    def gid_state_value(spkdict, cell_index_set, t_offset, n_trials, t_rec, state_recs_dict):
+    def gid_state_values(spkdict, t_offset, n_trials, t_rec, state_recs_dict):
         t_vec = np.asarray(t_rec.to_python(), dtype=np.float32)
         t_trial_inds = get_trial_time_indices(t_vec, n_trials, t_offset)
         results_dict = {}
@@ -619,12 +619,11 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
         state_recs_dict[gid] = record_cell(env, population, gid, recording_profile=recording_profile)
 
     def f(v, **kwargs): 
-        state_values_dict = gid_state_value(run_with(env, {population: {gid: from_param_dict(v[gid]) 
+        state_values_dict = gid_state_values(run_with(env, {population: {gid: from_param_dict(v[gid]) 
                                                                         for gid in cell_index_set}}), 
-                                            cell_index_set,
-                                            equilibration_duration, 
-                                            n_trials, env.t_rec, 
-                                            state_recs_dict)
+                                             equilibration_duration, 
+                                             n_trials, env.t_rec, 
+                                             state_recs_dict)
         return { gid: -abs(state_values_dict[gid] - target_value) for gid in cell_index_set }
 
     return f
