@@ -33,6 +33,46 @@ Weight Generator:
 Synaptic Optimization:
   GC:
     Parameter ranges:
+      Weight exc grp ext 2:
+        !!python/tuple [MPP, LPP]:
+          apical:
+            AMPA:
+              weight:
+                a: [0.01, 10.0]
+                b: [0.01, 2.0]
+        MC:
+          apical:
+            AMPA:
+              weight: [0.1, 5.0]
+        BC:
+          apical:
+            GABA_A:
+              weight: [0.1, 4.0]
+          soma:
+            GABA_A:
+              weight: [0.1, 4.0]
+        AAC:
+          ais:
+            GABA_A:
+              weight: [0.1, 4.0]
+        HC:
+          apical:
+            GABA_A:
+              weight: [0.1, 4.0]
+        HCC:
+          apical:
+            GABA_A:
+              weight: [0.1, 4.0]
+        NGFC:
+          apical:
+            GABA_A:
+              weight: [0.1, 4.0]
+            GABA_B:
+              weight: [0.1, 4.0]
+        MOPP:
+          apical:
+            GABA_A:
+              weight: [0.1, 4.0]
       Weight all grp ext 2:
         !!python/tuple [MPP, LPP]:
           apical:
