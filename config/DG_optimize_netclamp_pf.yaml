@@ -1,0 +1,27 @@
+optimization_title: DG_optimize_netclamp_pf
+param_gen: PopulationAnnealing
+feature_names:
+- GC in field firing rate vector
+- GC out of field firing rate vector
+objective_names:
+- GC in field firing rate vector
+- GC out of field firing rate vector
+update_context:
+- - optimize_network_clamp
+  - update_network_clamp
+get_features_stages:
+- source: optimize_network_clamp
+  compute_features: compute_features_firing_rate_vector
+get_objectives:
+  optimize_network_clamp: get_objectives
+kwargs:
+  config_file: Network_Clamp_GC_Exc_Sat_S_extent.yaml
+  tstop: 9500.
+  v_init: -77.
+  dt: 0.025
+  cleanup: False
+  verbose: True
+  cache_queries: True
+  output_results: False
+  population: 'GC'
+  
