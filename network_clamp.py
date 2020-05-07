@@ -694,7 +694,9 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
                           param_type, param_config_name, recording_profile,
                           target_rate_map_path, target_rate_map_namespace,
 			  target_rate_map_arena, target_rate_map_trajectory,  worker, **kwargs):
-
+    
+    rate_eps = 1e-2
+    
     params = dict(locals())
     env = Env(**params)
     env.results_file_path = None
@@ -722,7 +724,8 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
     time_bins = np.arange(time_range[0], time_range[1], time_step)
     target_rate_vector_dict = { gid: np.interp(time_bins, trj_t, trj_rate_maps[gid])
                                 for gid in trj_rate_maps }
-
+    for gid, target_rate_vector in viewitems(target_rate_vector_dict):
+        target_rate_vector[np.abs(target_rate_vector) < rate_eps] = 0.
     
     param_bounds, param_names, param_initial_dict, param_range_tuples = \
       optimize_params(env, population, param_type, param_config_name)
