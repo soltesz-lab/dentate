@@ -426,17 +426,8 @@ def run_with(env, param_dict, cvode=False):
 
         synapse_config = env.celltypes[pop_name]['synapses']
         weights_dict = synapse_config.get('weights', {})
-        param_expr_dict = {}
-        if 'expr' in weights_dict:
-            param_expr_dict['weight'] = weights_dict['expr']
 
         for gid, params_tuples in viewitems(gid_param_dict):
-            for update_operator, destination, source, sec_type, syn_name, param_path, param_value in params_tuples:
-                if isinstance(param_path, tuple):
-                    p, s = param_path
-                    if p in param_expr_dict:
-                        param_expr = param_expr_dict[p]
-                        param_expr[s] = param_value
             biophys_cell = biophys_cell_dict[gid]
             for update_operator, destination, source, sec_type, syn_name, param_path, param_value in params_tuples:
                 if isinstance(param_path, tuple):
@@ -514,9 +505,6 @@ def optimize_params(env, pop_name, param_type, param_config_name):
 
     synapse_config = env.celltypes[pop_name]['synapses']
     weights_dict = synapse_config.get('weights', {})
-    param_expr_dict = {}
-    if 'expr' in weights_dict:
-        param_expr_dict['weight'] = weights_dict['expr']
 
     if param_type == 'synaptic':
         if pop_name in env.netclamp_config.optimize_parameters['synaptic']:

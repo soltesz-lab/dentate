@@ -3,16 +3,18 @@
 Dentate Gyrus place field optimization script for optimization with nested.optimize
 """
 __author__ = 'See AUTHORS.md'
-import os, sys, logging
+import os, sys, logging, pprint
 import click
 import numpy as np
 from mpi4py import MPI
 import dentate
 from dentate import cells, synapses, spikedata, stimulus, utils, network_clamp
 from dentate.env import Env
+from dentate.neuron_utils import h, configure_hoc_env, make_rec
 import nested
 from nested.optimize_utils import *
 from nested.parallel import get_parallel_interface
+from neuroh5.io import read_cell_attribute_selection
 
 def mpi_excepthook(type, value, traceback):
     """
@@ -89,31 +91,35 @@ def contiguous_ranges(condition):
     # Reshape the result into two columns
     idx.shape = (-1,2)
 
-    ranges = [ range(*r) for r in idx ]
+    ranges = ( np.arange(*r) for r in idx )
     return ranges
 
 
-def read_target_rate_vector(context):
+def read_target_rate_vector(context, eps=1e-2):
     """
     """
 
-    target_rate_map_path = context.kwargs['target_rate_map_path']
-    target_rate_map_namespace = context.kwargs['target_rate_map_namespace']
-    target_rate_map_arena = context.kwargs['target_rate_map_arena']
-    target_rate_map_trajectory = context.kwargs['target_rate_map_trajectory']
+    target_rate_map_arena = context.init_params['target_rate_map_arena']
+    target_rate_map_trajectory = context.init_params['target_rate_map_trajectory']
+    target_rate_map_path = context.init_params['target_rate_map_path']
+    target_rate_map_namespace = context.init_params.get('target_rate_map_namespace', 'Input Spikes')
     trj_x, trj_y, trj_d, trj_t = stimulus.read_trajectory(target_rate_map_path, target_rate_map_arena, target_rate_map_trajectory)
 
-    time_range = (0., min(np.max(trj_t), context.kwargs['t_max']))
+    time_range = (0., min(np.max(trj_t), context.init_params['tstop']))
     time_step = context.env.stimulus_config['Temporal Resolution']
     context.time_bins = np.arange(time_range[0], time_range[1], time_step)
 
     input_namespace = '%s %s %s' % (target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory)
     it = read_cell_attribute_selection(target_rate_map_path, context.population, namespace=input_namespace,
-                                        selection=list(context.gid), mask=set(['Trajectory Rate Map']))
+                                        selection=[context.gid], mask=set(['Trajectory Rate Map']),
+                                        comm=context.comm)
     _, attr_dict = next(it)
     trj_rate_map = attr_dict['Trajectory Rate Map']
     target_rate_vector = np.interp(context.time_bins, trj_t, trj_rate_map)
 
+    target_rate_vector[np.abs(target_rate_vector) < eps] = 0.
+    
+    
     return target_rate_vector
     
 
@@ -124,11 +130,18 @@ def config_worker():
     """
     utils.config_logging(context.verbose)
     context.logger = utils.get_script_logger(os.path.basename(__file__))
+
+    context.init_params = context.kwargs
+    context.init_params['target_rate_map_arena'] = context.init_params['arena_id']
+    context.init_params['target_rate_map_trajectory'] = context.init_params['trajectory_id']
+    context.gid = int(context.init_params['gid'])
+    
     if 'results_file_id' not in context():
         context.results_file_id = 'DG_optimize_network_clamp_%s_%s' % \
                              (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M'))
     if 'env' not in context():
         try:
+            init_env()
             init_network_clamp()
         except Exception as err:
             context.logger.exception(err)
@@ -141,32 +154,35 @@ def config_worker():
     opt_targets = {}
 
     param_bounds, param_names, param_initial_dict, param_range_tuples = \
-        network_clamp.optimize_params(context.env, context.population, param_type, param_config_name)
+        network_clamp.optimize_params(context.env, context.population, 'synaptic',
+                                      context.param_config_name)
 
-    if (context.population in context.env.netclamp_config.optimize_parameters):
-        opt_params = context.env.netclamp_config.optimize_parameters[context.population]
+    if (context.population in context.env.netclamp_config.optimize_parameters['synaptic']):
+        opt_params = context.env.netclamp_config.optimize_parameters['synaptic'][context.population]
         param_ranges = opt_params['Parameter ranges']
     else:
         raise RuntimeError(
             "optimize_network_subworlds: population %s does not have optimization configuration" % context.population)
 
-    def from_param_dict(params_dict):
+    def from_param_vector(params):
         result = []
-        for param_pattern, (update_operator, population, source, sec_type, syn_name, param_name, param_range) in zip(param_names, param_range_tuples):
-            result.append((update_operator, population, source, sec_type, syn_name, param_name, params_dict[param_pattern]))
+        assert (len(params) == len(param_range_tuples))
+        for i, (param_pattern, (update_operator, population, source, sec_type, syn_name, param_name, param_range)) in enumerate(zip(param_names, param_range_tuples)):
+            result.append((update_operator, population, source, sec_type, syn_name, param_name, params[i]))
         return result
 
     context.param_names = param_names
     context.bounds = [ param_bounds[key] for key in param_names ]
     context.x0 = param_initial_dict
-    context.from_param_dict = from_param_dict
+    context.from_param_vector = from_param_vector
 
     target_rate_vector = read_target_rate_vector(context)
 
-    outfld_ranges = contiguous_ranges(target_rate_vector <= 0.)
-    context.outfld_idxs = np.r_[outfld_ranges].flat
-    infld_ranges = contiguous_ranges(target_rate_vector > 0.)
-    context.infld_idxs = np.r_[infld_ranges].flat
+    outfld_ranges = tuple(contiguous_ranges(target_rate_vector <= 0.))
+    context.outfld_idxs = np.r_[outfld_ranges]
+    infld_ranges = tuple(contiguous_ranges(target_rate_vector > 0.))
+    context.infld_idxs = np.r_[infld_ranges]
+
     
     context.target_val['%s in field firing rate vector' % context.population] = target_rate_vector[context.infld_idxs]
     context.target_val['%s out of field firing rate vector' % context.population] = target_rate_vector[context.outfld_idxs]
@@ -178,32 +194,27 @@ def config_controller():
     """
     utils.config_logging(context.verbose)
     context.logger = utils.get_script_logger(os.path.basename(__file__))
+
+    context.init_params = context.kwargs
+    context.init_params['target_rate_map_arena'] = context.init_params['arena_id']
+    context.init_params['target_rate_map_trajectory'] = context.init_params['trajectory_id']
+    context.gid = int(context.init_params['gid'])
+    context.target_val = {}
+    
     if 'results_file_id' not in context():
         context.results_file_id = 'DG_optimize_pf_%s_%s' % \
                              (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M'))
-    if 'env' not in context():
-        try:
-            init_env()
-        except Exception as err:
-            context.logger.exception(err)
-            raise err
     
-    target_rate_vector = read_target_rate_vector(context)
-
-    outfld_ranges = contiguous_ranges(np.isclose(target_rate_vector, 0.))
-    context.outfld_idxs = np.r_[outfld_ranges].flat
-    infld_ranges = contiguous_ranges(target_rate_vector > 0.)
-    context.infld_idxs = np.r_[infld_ranges].flat
     
-    context.target_val['%s in field firing rate vector' % context.population] = target_rate_vector[context.infld_idxs]
-    context.target_val['%s out of field firing rate vector' % context.population] = target_rate_vector[context.outfld_idxs]
-    
-        
 def init_env():
     """
 
     """
-    context.env = Env(comm=context.comm, results_file_id=context.results_file_id, **context.kwargs)
+    context.env = Env(comm=context.comm, results_file_id=context.results_file_id, **context.init_params)
+    configure_hoc_env(context.env)
+    context.gid = int(context.init_params['gid'])
+    context.population = context.init_params['population']
+    context.target_val = {}
 
     
 def init_network_clamp():
@@ -211,34 +222,38 @@ def init_network_clamp():
 
     """
     np.seterr(all='raise')
-    context.env = Env(comm=context.comm, results_file_id=context.results_file_id, **context.kwargs)
-    context.gid = context.kwargs['gid']
-    network_clamp.init(context.env,
-                       context.kwargs['population'],
-                       set([context.gid]),
-                       arena_id=context.kwargs['arena_id'],
-                       trajectory_id=context.kwargs['trajectory_id'],
-                       n_trials=context.kwargs['n_trials'],
-                       spike_events_path=context.kwargs['spike_events_path'],
-                       spike_events_namespace=context.kwargs['spike_events_namespace'], 
-                       spike_events_t=context.kwargs['spike_train_attr_name'],
-                       input_features_path=context.kwargs['input_features_path'],
-                       input_features_namespaces=context.kwargs['input_features_namespaces'],
-                       t_min=context.kwargs['t_min'],
-                       t_max=context.kwargs['t_max'])
-    
-    context.equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
-    
+    if context.env is None:
+        context.env = Env(comm=context.comm, results_file_id=context.results_file_id, **context.init_params)
+        configure_hoc_env(env)
 
-    context.recording_profile = { 'label': 'network_clamp.state.%s' % state_variable,
+    context.gid = int(context.init_params['gid'])
+    context.population = context.init_params['population']
+    context.target_val = {}
+    network_clamp.init(context.env,
+                       context.init_params['population'],
+                       set([context.gid]),
+                       arena_id=context.init_params['arena_id'],
+                       trajectory_id=context.init_params['trajectory_id'],
+                       n_trials=int(context.init_params['n_trials']),
+                       spike_events_path=context.init_params.get('spike_events_path', None),
+                       spike_events_namespace=context.init_params.get('spike_events_namespace', None),
+                       spike_train_attr_name=context.init_params.get('spike_train_attr_name', None),
+                       input_features_path=context.init_params.get('input_features_path', None),
+                       input_features_namespaces=context.init_params.get('input_features_namespaces', None),
+                       t_min=0., t_max=context.init_params['tstop'])
+    
+    context.equilibration_duration = float(context.env.stimulus_config['Equilibration Duration'])
+    
+    state_variable = 'v'
+    context.recording_profile = { 'label': 'optimize_network_clamp.state.%s' % state_variable,
                                   'dt': 0.1,
                                   'section quantity': {
                                       state_variable: { 'swc types': ['soma'] }
                                   }
                                 }    
     context.state_recs_dict = {}
-    context.state_recs_dict[gid] = cells.record_cell(context.env, context.population,
-                                                     context.gid, recording_profile=recording_profile)
+    context.state_recs_dict[context.gid] = cells.record_cell(context.env, context.population, context.gid,
+                                                             recording_profile=context.recording_profile)
 
 
 
@@ -253,50 +268,39 @@ def update_network_clamp(x, context=None):
 
     param_values = context.from_param_vector(x)
 
-    for destination, source, sec_type, syn_name, param_path, param_value in param_values:
-        if context.population != destination:
-            continue
-        conn_params = context.env.connection_config[context.population][source].mechanisms
-        sec_type_index = context.env.SWC_Types[sec_type]
-        if 'default' in conn_params:
-            mech_params = conn_params['default'][syn_name]
-        else:
-            mech_params = conn_params[sec_type_index][syn_name]
-        if isinstance(param_path, tuple):
-            p, s = param_path
-            mech_param = mech_params[p]
-            try:
-                mech_param[s] = param_value
-            except Exception as err:
-                context.logger.exception('source: %s sec type: %s syn name: %s param path: %s mech params: %s' %
-                                         (str(source), str(sec_type), str(syn_name), str(param_path), str(mech_params)))
-                context.logger.exception(err)
-                raise err
+    biophys_cell_dict = context.env.biophys_cells[context.population]
+    for gid, biophys_cell in viewitems(biophys_cell_dict):
+        for update_operator, destination, source, sec_type, syn_name, param_path, param_value in param_values:
+            if context.population != destination:
+                continue
 
-                
-        biophys_cell_dict = context.env.biophys_cells[context.population]
-        for gid, biophys_cell in viewitems(biophys_cell_dict):
-            for destination, source, sec_type, syn_name, param_path, param_value in param_values:
-                if context.population != destination:
-                    continue
-                
-                if isinstance(param_path, tuple):
-                    p, s = param_path
-                else:
-                    p = param_path
-                synapses.modify_syn_param(biophys_cell, context.env, sec_type, syn_name,
-                                          param_name=p, value=param_value,
-                                          filters={'sources': [source]},
-                                          origin='soma', update_targets=True)
+            if isinstance(param_path, tuple):
+                p, _ = param_path
+            else:
+                p = param_path
+
+            sources = None
+            if isinstance(source, tuple):
+                sources = list(source)
+            else:
+                if source is not None:
+                    sources = [source]
+
+            synapses.modify_syn_param(biophys_cell, context.env, sec_type, syn_name,
+                                      param_name=p, value=param_value,
+                                      filters={'sources': sources} if sources is not None else None,
+                                      update_operator=update_operator,
+                                      origin='soma', update_targets=True)
                 
     context.pop_spike_dict = network_clamp.run(context.env)
     
 
 
 
-def gid_firing_rate_vectors(population, gid, time_bins, spkdict):
+def gid_firing_rate_vector(population, gid, time_bins, n_trials, spkdict):
     rates_dict = defaultdict(list)
     mean_rates_dict = {}
+
     for i in range(n_trials):
         spkdict1 = {}
         if gid in spkdict[population]:
@@ -305,16 +309,17 @@ def gid_firing_rate_vectors(population, gid, time_bins, spkdict):
             spkdict1[gid] = np.asarray([], dtype=np.float32)
         spike_density_dict = spikedata.spike_density_estimate (population, spkdict1, time_bins)
         rates_dict[gid].append(spike_density_dict[gid]['rate'])
-        logger.info('firing rate objective: trial %d spike times of gid %i: %s' % (i, gid, str(spkdict[population][gid])))
-        logger.info('firing rate objective: trial %d firing rate of gid %i: %s' % (i, gid, str(spike_density_dict[gid])))
-        logger.info('firing rate objective: trial %d firing rate min/max of gid %i: %.02f / %.02f Hz' % (i, gid, np.min(rates_dict[gid]), np.max(rates_dict[gid])))
+        if gid in spkdict[population]:
+            context.logger.info('firing rate objective: trial %d spike times of gid %i: %s' % (i, gid, str(spkdict[population][gid])))
+        context.logger.info('firing rate objective: trial %d firing rate of gid %i: %s' % (i, gid, str(spike_density_dict[gid])))
+        context.logger.info('firing rate objective: trial %d firing rate min/max of gid %i: %.02f / %.02f Hz' % (i, gid, np.min(rates_dict[gid]), np.max(rates_dict[gid])))
             
-    mean_rate_vector_dict = np.mean(np.row_stack(rates_dict[gid]), axis=0)
+    mean_rate_vector = np.mean(np.row_stack(rates_dict[gid]), axis=0)
 
-    logger.info('firing rate objective: mean firing rate vector of gid %i: %s' % (gid, str(mean_rate_vector_dict[gid])))
-    logger.info('firing rate objective: mean firing rate min/max of gid %i: %.02f / %.02f Hz' % (gid, np.min(mean_rate_vector_dict[gid]), np.max(mean_rate_vector_dict[gid])))
+    context.logger.info('firing rate objective: mean firing rate vector of gid %i: %s' % (gid, str(mean_rate_vector)))
+    context.logger.info('firing rate objective: mean firing rate min/max of gid %i: %.02f / %.02f Hz' % (gid, np.min(mean_rate_vector), np.max(mean_rate_vector)))
         
-    return mean_rate_vector_dict
+    return mean_rate_vector
 
 def gid_state_values(t_offset, n_trials, t_rec, state_recs_dict):
     t_vec = np.asarray(t_rec.to_python(), dtype=np.float32)
@@ -336,7 +341,7 @@ def gid_state_values(t_offset, n_trials, t_rec, state_recs_dict):
                                             for t_inds in t_trial_inds ])
                 state_values.append(np.mean(data))
         m = np.mean(np.asarray(state_values))
-        logger.info('state value objective: mean value of %s of gid %i is %.2f' % (state_variable, gid, m))
+        context.logger.info('state value objective: mean value of %s of gid %i is %.2f' % (state_variable, gid, m))
         results_dict[gid] = m
     return results_dict
 
@@ -353,13 +358,18 @@ def compute_features_firing_rate_vector(x, export=False):
     context.env.results_file_id = '%s_%s' % \
         (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M%S'))
 
-    firing_rate_vectors_dict = gid_firing_rate_vectors(context.population, context.gid,
-                                                       context.time_bins, context.pop_spike_dict)
+    firing_rate_vector = gid_firing_rate_vector(context.population, context.gid,
+                                                context.time_bins, context.env.n_trials,
+                                                context.pop_spike_dict)
     
-    firing_rate_vector =  firing_rate_vectors_dict[gid]
+    infld_firing_rate = firing_rate_vector[context.infld_idxs]
+    outfld_firing_rate = firing_rate_vector[context.outfld_idxs]
     
-    results['%s in field firing rate vector' % context.population] = firing_rate_vector[context.infld_idxs]
-    results['%s out of field firing rate vector' % context.population] = firing_rate_vector[context.outfld_idxs]
+    context.logger.info("in field firing rate: %s" % str(infld_firing_rate))
+    context.logger.info("out of field firing rate: %s" % str(outfld_firing_rate))
+    
+    results['%s in field firing rate vector' % context.population] = infld_firing_rate
+    results['%s out of field firing rate vector' % context.population] = outfld_firing_rate
 
     return results
 
@@ -375,7 +385,7 @@ def get_objectives(features, export=False):
     objectives = dict()
     for feature_key in context.feature_names:
         objectives[feature_key] = np.square(np.subtract(features[feature_key],
-                                                        context.target_val[feature_key]).mean()
+                                                        context.target_val[feature_key])).mean()
 
     return features, objectives
 
