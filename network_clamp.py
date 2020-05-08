@@ -352,7 +352,7 @@ def init(env, pop_name, gid_set, arena_id=None, trajectory_id=None, n_trials=1,
         context.update(locals())
 
 
-def run(env, cvode=False):
+def run(env, cvode=False, pc_runworker=True):
     """
     Runs network clamp simulation. Assumes that procedure `init` has been
     called with the network configuration provided by the `env`
@@ -401,13 +401,14 @@ def run(env, cvode=False):
     if rank == 0:
         logger.info("Host %i  ran simulation in %g seconds" % (rank, comptime))
 
-    env.pc.runworker()
+    if pc_runworker:
+        env.pc.runworker()
     env.pc.done()
 
     return spikedata.get_env_spike_dict(env, include_artificial=None)
 
 
-def run_with(env, param_dict, cvode=False):
+def run_with(env, param_dict, cvode=False, pc_runworker=True):
     """
     Runs network clamp simulation with the specified parameters for the given gid(s).
     Assumes that procedure `init` has been called with
@@ -489,7 +490,8 @@ def run_with(env, param_dict, cvode=False):
     if rank == 0:
         logger.info("Host %i  ran simulation in %g seconds" % (rank, comptime))
 
-    env.pc.runworker()
+    if pc_runworker:
+        env.pc.runworker()
     env.pc.done()
     
     return spikedata.get_env_spike_dict(env, include_artificial=None)
