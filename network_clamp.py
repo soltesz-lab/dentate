@@ -426,17 +426,8 @@ def run_with(env, param_dict, cvode=False):
 
         synapse_config = env.celltypes[pop_name]['synapses']
         weights_dict = synapse_config.get('weights', {})
-        param_expr_dict = {}
-        if 'expr' in weights_dict:
-            param_expr_dict['weight'] = weights_dict['expr']
 
         for gid, params_tuples in viewitems(gid_param_dict):
-            for update_operator, destination, source, sec_type, syn_name, param_path, param_value in params_tuples:
-                if isinstance(param_path, tuple):
-                    p, s = param_path
-                    if p in param_expr_dict:
-                        param_expr = param_expr_dict[p]
-                        param_expr[s] = param_value
             biophys_cell = biophys_cell_dict[gid]
             for update_operator, destination, source, sec_type, syn_name, param_path, param_value in params_tuples:
                 if isinstance(param_path, tuple):
@@ -514,9 +505,6 @@ def optimize_params(env, pop_name, param_type, param_config_name):
 
     synapse_config = env.celltypes[pop_name]['synapses']
     weights_dict = synapse_config.get('weights', {})
-    param_expr_dict = {}
-    if 'expr' in weights_dict:
-        param_expr_dict['weight'] = weights_dict['expr']
 
     if param_type == 'synaptic':
         if pop_name in env.netclamp_config.optimize_parameters['synaptic']:
@@ -583,7 +571,7 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
             result.append((update_operator, population, source, sec_type, syn_name, param_name, params_dict[param_pattern]))
         return result
 
-    def gid_state_value(spkdict, cell_index_set, t_offset, n_trials, t_rec, state_recs_dict):
+    def gid_state_values(spkdict, t_offset, n_trials, t_rec, state_recs_dict):
         t_vec = np.asarray(t_rec.to_python(), dtype=np.float32)
         t_trial_inds = get_trial_time_indices(t_vec, n_trials, t_offset)
         results_dict = {}
@@ -619,12 +607,11 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
         state_recs_dict[gid] = record_cell(env, population, gid, recording_profile=recording_profile)
 
     def f(v, **kwargs): 
-        state_values_dict = gid_state_value(run_with(env, {population: {gid: from_param_dict(v[gid]) 
+        state_values_dict = gid_state_values(run_with(env, {population: {gid: from_param_dict(v[gid]) 
                                                                         for gid in cell_index_set}}), 
-                                            cell_index_set,
-                                            equilibration_duration, 
-                                            n_trials, env.t_rec, 
-                                            state_recs_dict)
+                                             equilibration_duration, 
+                                             n_trials, env.t_rec, 
+                                             state_recs_dict)
         return { gid: -abs(state_values_dict[gid] - target_value) for gid in cell_index_set }
 
     return f
@@ -695,7 +682,9 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
                           param_type, param_config_name, recording_profile,
                           target_rate_map_path, target_rate_map_namespace,
 			  target_rate_map_arena, target_rate_map_trajectory,  worker, **kwargs):
-
+    
+    rate_eps = 1e-2
+    
     params = dict(locals())
     env = Env(**params)
     env.results_file_path = None
@@ -723,7 +712,8 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
     time_bins = np.arange(time_range[0], time_range[1], time_step)
     target_rate_vector_dict = { gid: np.interp(time_bins, trj_t, trj_rate_maps[gid])
                                 for gid in trj_rate_maps }
-
+    for gid, target_rate_vector in viewitems(target_rate_vector_dict):
+        target_rate_vector[np.abs(target_rate_vector) < rate_eps] = 0.
     
     param_bounds, param_names, param_initial_dict, param_range_tuples = \
       optimize_params(env, population, param_type, param_config_name)

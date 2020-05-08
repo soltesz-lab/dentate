@@ -1,4 +1,4 @@
-import sys, os, time, gc, click, logging
+import sys, os, time, gc, click, logging, pprint
 from collections import defaultdict
 import numpy as np
 from mpi4py import MPI
@@ -46,9 +46,10 @@ sys.excepthook = mpi_excepthook
 @click.option("--connections-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--destination", '-d', type=str)
 @click.option("--sources", '-s', type=str, multiple=True)
+@click.option("--const-sources", '-n', type=str, multiple=True)
 @click.option("--arena-id", '-a', type=str, default='A')
-@click.option("--field-width-scale", type=float, default=1.2)
-@click.option("--max-delta-weight", type=float, default=4.)
+@click.option("--field-width-scale", type=float, default=1.33)
+@click.option("--max-delta-weight", type=float, default=5.)
 @click.option("--optimize-method", type=str, default='L-BFGS-B')
 @click.option("--optimize-tol", type=float, default=1e-4)
 @click.option("--optimize-grad", is_flag=True)
@@ -65,7 +66,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--plot", is_flag=True)
 @click.option("--show-fig", is_flag=True)
 @click.option("--save-fig", type=click.Path(exists=True, file_okay=False, dir_okay=True))
-def main(config, coordinates, field_width, gid, input_features_path, input_features_namespaces, initial_weights_path, output_features_namespace, output_features_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, arena_id, field_width_scale, max_delta_weight, optimize_method, optimize_tol, optimize_grad, peak_rate, reference_weights_are_delta, use_arena_margin, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot, show_fig, save_fig):
+def main(config, coordinates, field_width, gid, input_features_path, input_features_namespaces, initial_weights_path, output_features_namespace, output_features_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, const_sources, arena_id, field_width_scale, max_delta_weight, optimize_method, optimize_tol, optimize_grad, peak_rate, reference_weights_are_delta, use_arena_margin, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot, show_fig, save_fig):
     """
 
     :param config: str (path to .yaml file)
@@ -89,6 +90,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     utils.config_logging(verbose)
     logger = utils.get_script_logger(__file__)
 
+    
     comm = MPI.COMM_WORLD
     rank = comm.rank
     nranks = comm.size
@@ -102,7 +104,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
 
     if plot and (not save_fig) and (not show_fig):
         show_fig = True
-    
+
     if (not dry_run) and (rank==0):
         if not os.path.isfile(output_weights_path):
             if initial_weights_path is not None:
@@ -144,11 +146,14 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     target_gid_set = None
     if len(gid) > 0:
         target_gid_set = set(gid)
-    
-    connection_gen_list = [ NeuroH5ProjectionGen(connections_path, source, destination, namespaces=['Synapses'], comm=comm) \
-                               for source in sources ]
 
-    structured_weights_dict = {}
+    all_sources = sources + const_sources
+        
+    connection_gen_list = [ NeuroH5ProjectionGen(connections_path, source, destination, namespaces=['Synapses'], comm=comm) \
+                               for source in all_sources ]
+
+    output_features_dict = {}
+    output_weights_dict = {}
     for iter_count, attr_gen_package in enumerate(zip_longest(*connection_gen_list)):
         
         local_time = time.time()
@@ -192,12 +197,14 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             target_selectivity_features_dict[gid] = dst_input_features_attr_dict.get(gid, {})
             target_selectivity_features_dict[gid]['Selectivity Type'] = np.asarray([target_selectivity_type], dtype=np.uint8)
 
+            num_fields = target_selectivity_features_dict[gid]['Num Fields'][0]
+            
             if coordinates[0] is not None:
+                num_fields = 1
                 target_selectivity_features_dict[gid]['X Offset'] =  np.asarray([coordinates[0]], dtype=np.float32)
                 target_selectivity_features_dict[gid]['Y Offset'] =  np.asarray([coordinates[1]], dtype=np.float32)
-                target_selectivity_features_dict[gid]['Num Fields'] = np.asarray([1], dtype=np.uint8)
+                target_selectivity_features_dict[gid]['Num Fields'] = np.asarray([num_fields], dtype=np.uint8)
 
-            num_fields = target_selectivity_features_dict[gid]['Num Fields'][0]
             if field_width is not None:
                 target_selectivity_features_dict[gid]['Field Width'] = np.asarray([field_width]*num_fields, dtype=np.float32)
             else:
@@ -213,14 +220,14 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             if input_cell_config.num_fields > 0:
                 arena_margin = max(arena_margin, np.max(input_cell_config.field_width) / 2.) if use_arena_margin else 0.
                 target_field_width_dict[gid] = input_cell_config.field_width
-                input_cell_config.field_width *= field_width_scale
                 target_selectivity_config_dict[gid] = input_cell_config
                 has_structured_weights = True
 
         arena_x, arena_y = stimulus.get_2D_arena_spatial_mesh(arena, spatial_resolution,
                                                               margin=arena_margin)
         for gid, input_cell_config in viewitems(target_selectivity_config_dict):
-            target_map = np.asarray(input_cell_config.get_rate_map(arena_x, arena_y),
+            target_map = np.asarray(input_cell_config.get_rate_map(arena_x, arena_y,
+                                                                   scale=field_width_scale),
                                     dtype=np.float32)
             target_selectivity_features_dict[gid]['Arena Rate Map'] = target_map
 
@@ -229,6 +236,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             selection = []
                 
         initial_weights_by_syn_id_dict = defaultdict(lambda: dict())
+        initial_weights_by_source_gid_dict = defaultdict(lambda: dict())
 
         if initial_weights_path is not None:
             initial_weights_iter = \
@@ -249,6 +257,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                         (destination, initial_weights_gid_count))
             
         reference_weights_by_syn_id_dict = None
+        reference_weights_by_source_gid_dict = defaultdict(lambda: dict())
         if reference_weights_path is not None:
             reference_weights_by_syn_id_dict = defaultdict(lambda: dict())
             reference_weights_iter = \
@@ -273,21 +282,20 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
         structured_syn_id_count = 0
 
         if has_structured_weights:
-            for source, (destination_gid, (source_gid_array, conn_attr_dict)) in zip_longest(sources, attr_gen_package):
+            for source, (destination_gid, (source_gid_array, conn_attr_dict)) in zip_longest(all_sources, attr_gen_package):
                 syn_ids = conn_attr_dict['Synapses']['syn_id']
                 count = 0
                 this_initial_weights_by_syn_id_dict = None
+                this_initial_weights_by_source_gid_dict = None
                 this_reference_weights_by_syn_id_dict = None
+                this_reference_weights_by_source_gid_dict = None
                 if destination_gid is not None:
                     this_initial_weights_by_syn_id_dict = initial_weights_by_syn_id_dict[destination_gid]
+                    this_initial_weights_by_source_gid_dict = initial_weights_by_source_gid_dict[destination_gid]
                     if reference_weights_by_syn_id_dict is not None:
                         this_reference_weights_by_syn_id_dict = reference_weights_by_syn_id_dict[destination_gid]
-                    
-                this_initial_weights_by_source_gid_dict = dict()
+                        this_reference_weights_by_source_gid_dict = reference_weights_by_source_gid_dict[destination_gid]
 
-                this_reference_weights_by_source_gid_dict = None
-                if this_reference_weights_by_syn_id_dict is not None:
-                    this_reference_weights_by_source_gid_dict = dict()
 
                 for i in range(len(source_gid_array)):
                     this_source_gid = source_gid_array[i]
@@ -298,18 +306,20 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                     syn_count_by_source_gid_dict[this_source_gid] += 1
                     if this_source_gid not in this_initial_weights_by_source_gid_dict:
                         this_initial_weights_by_source_gid_dict[this_source_gid] = this_syn_wgt
-                    if this_reference_weights_by_source_gid_dict is not None:
+                    if this_reference_weights_by_syn_id_dict is not None:
                         this_reference_weights_by_source_gid_dict[this_source_gid] = \
-                         reference_weights_by_syn_id_dict[this_syn_id]
+                         this_reference_weights_by_syn_id_dict[this_syn_id]
 
                     count += 1
-                structured_syn_id_count += len(syn_ids)
+                if source not in const_sources:
+                    structured_syn_id_count += len(syn_ids)
                 logger.info('Rank %i; destination: %s; gid %i; %d edges from source population %s' %
                             (rank, destination, this_gid, count, source))
 
 
         input_rate_maps_by_source_gid_dict = {}
-        for source in sources:
+        const_input_rate_maps_by_source_gid_dict = {}
+        for source in all_sources:
             if has_structured_weights:
                 source_gids = list(source_gid_set_dict[source])
             else:
@@ -330,13 +340,14 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                                        selectivity_attr_dict=attr_dict)
                     this_arena_rate_map = np.asarray(input_cell_config.get_rate_map(arena_x, arena_y),
                                                      dtype=np.float32)
-                    input_rate_maps_by_source_gid_dict[gid] = this_arena_rate_map
+                    if source in const_sources:
+                        const_input_rate_maps_by_source_gid_dict[gid] = this_arena_rate_map
+                    else:
+                        input_rate_maps_by_source_gid_dict[gid] = this_arena_rate_map
                     count += 1
                 if rank == 0:
                     logger.info('Read %s feature data for %i cells in population %s' % (input_features_namespace, count, source))
 
-        output_features_dict = {}
-        output_weights_dict = {}
         if has_structured_weights:
 
             if is_interactive:
@@ -353,6 +364,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                 reference_weights_are_delta=reference_weights_are_delta,
                                                 reference_weights_namespace=reference_weights_namespace,
                                                 input_rate_map_dict=input_rate_maps_by_source_gid_dict,
+                                                const_input_rate_map_dict=const_input_rate_maps_by_source_gid_dict,
                                                 syn_count_dict=syn_count_by_source_gid_dict,
                                                 max_delta_weight=max_delta_weight, arena_x=arena_x, arena_y=arena_y,
                                                 optimize_method=optimize_method,

@@ -55,8 +55,11 @@ class InputSelectivityConfig(object):
         self.place_field_width_concentration_factor = stimulus_config['Field Width Concentration Factor']['place']
         self.place_module_field_widths = np.multiply(self.grid_module_spacing,
                                                      self.place_field_width_concentration_factor)
-        self.place_module_field_width_sigma = stimulus_config['Modular Place Field Width Variance'] / 6.
+        self.place_module_field_width_sigma = stimulus_config['Modular Place Field Width Variance'] / 6
+
+        
         self.non_modular_place_field_width_sigma = stimulus_config['Non-modular Place Field Width Variance'] / 6.
+        
 
     def get_module_probabilities(self, distance):
         p_modules = []
@@ -198,14 +201,14 @@ class GridInputCellConfig(object):
                     np.array([self.grid_field_width_concentration_factor], dtype=np.float32)
                 }
 
-    def get_rate_map(self, x, y):
+    def get_rate_map(self, x, y, scale=1.0):
         """
 
         :param x: array
         :param y: array
         :return: array
         """
-        return np.multiply(get_grid_rate_map(self.x0, self.y0, self.grid_spacing, self.grid_orientation, x, y,
+        return np.multiply(get_grid_rate_map(self.x0, self.y0, scale * self.grid_spacing, self.grid_orientation, x, y,
                                              a=self.grid_field_width_concentration_factor), self.peak_rate)
 
 
@@ -316,7 +319,7 @@ class PlaceInputCellConfig(object):
                 'Y Offset': np.asarray(self.y0, dtype=np.float32)
                 }
 
-    def get_rate_map(self, x, y):
+    def get_rate_map(self, x, y, scale=1.0):
         """
 
         :param x: array
@@ -325,7 +328,7 @@ class PlaceInputCellConfig(object):
         """
         rate_map = np.zeros_like(x, dtype=np.float32)
         for i in range(self.num_fields):
-            rate_map = np.maximum(rate_map, get_place_rate_map(self.x0[i], self.y0[i], self.field_width[i], x, y))
+            rate_map = np.maximum(rate_map, get_place_rate_map(self.x0[i], self.y0[i], self.field_width[i] * scale, x, y))
         return np.multiply(rate_map, self.peak_rate)
 
 
