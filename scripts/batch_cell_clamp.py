@@ -6,7 +6,7 @@ import numpy as np
 import dentate
 from dentate import cells, neuron_utils, synapses, utils, cell_clamp, io_utils
 from dentate.env import Env
-from dentate.neuron_utils import configure_hoc_env
+from dentate.neuron_utils import configure_hoc_env, load_cell_template
 from dentate.utils import *
 from neuroh5.io import NeuroH5TreeGen, append_cell_attributes, read_population_ranges, read_cell_attribute_selection, read_graph_selection
 import h5py
@@ -16,7 +16,7 @@ def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
-#sys.excepthook = mpi_excepthook
+sys.excepthook = mpi_excepthook
 
 
 # This logger will inherit its settings from the root logger, created in dentate.env

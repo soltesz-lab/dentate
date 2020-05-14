@@ -267,6 +267,7 @@ def update_network_clamp(x, context=None):
         raise RuntimeError('update_network: missing required Context object')
 
     param_values = context.from_param_vector(x)
+    context.logger.info("parameter values: %s" % str(param_values))
 
     biophys_cell_dict = context.env.biophys_cells[context.population]
     for gid, biophys_cell in viewitems(biophys_cell_dict):
@@ -346,7 +347,7 @@ def gid_state_values(t_offset, n_trials, t_rec, state_recs_dict):
     return results_dict
 
 
-def compute_features_firing_rate_vector(x, export=False):
+def compute_features_firing_rate_vector(x, n, export=False):
     """
 
     :param x: array
@@ -376,7 +377,7 @@ def compute_features_firing_rate_vector(x, export=False):
 
 
 
-def get_objectives(features, export=False):
+def get_objectives(features, n, export=False):
     """
 
     :param features: dict
