@@ -377,7 +377,7 @@ def compute_features_firing_rate_vector(x, n, export=False):
 
 
 
-def get_objectives(features, export=False):
+def get_objectives(features, n, export=False):
     """
 
     :param features: dict
