@@ -292,7 +292,7 @@ def update_network_clamp(x, context=None):
                                       update_operator=update_operator,
                                       origin='soma', update_targets=True)
                 
-    context.pop_spike_dict = network_clamp.run(context.env)
+    context.pop_spike_dict = network_clamp.run(context.env, pc_runworker=False)
     
 
 
@@ -357,6 +357,7 @@ def compute_features_firing_rate_vector(x, export=False):
     update_source_contexts(x, context)
     context.env.results_file_id = '%s_%s' % \
         (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M%S'))
+
 
     firing_rate_vector = gid_firing_rate_vector(context.population, context.gid,
                                                 context.time_bins, context.env.n_trials,
