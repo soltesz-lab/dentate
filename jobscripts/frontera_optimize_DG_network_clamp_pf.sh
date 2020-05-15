@@ -4,13 +4,13 @@
 #SBATCH -o ./results/optimize_DG_network_clamp_pf.o%j       # Name of stdout output file
 #SBATCH -e ./results/optimize_DG_network_clamp_pf.e%j       # Name of stderr error file
 #SBATCH -p normal      # Queue (partition) name
-#SBATCH -N 2             # Total # of nodes 
-#SBATCH --ntasks-per-node=56            # # of mpi tasks per node
+#SBATCH -N 1             # Total # of nodes 
+#SBATCH --ntasks-per-node=32            # # of mpi tasks per node
 #SBATCH -t 4:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
-module load intel/18.0.5
+module load intel
 module load python3
 module load phdf5
 
@@ -26,11 +26,17 @@ export DG_HOME=$MODEL_HOME/dentate
 export MPLBACKEND=SVG
 cd $SLURM_SUBMIT_DIR
 
-ibrun python3 -m nested.optimize  \
+export I_MPI_EXTRA_FILESYSTEM=enable
+export I_MPI_EXTRA_FILESYSTEM_LIST=lustre
+export I_MPI_ADJUST_ALLGATHER=4
+export I_MPI_ADJUST_ALLGATHERV=4
+export I_MPI_ADJUST_ALLTOALL=4
+
+ibrun -n 32 python3 -m nested.optimize  \
     --config-file-path=$DG_HOME/config/DG_optimize_netclamp_pf.yaml \
     --output-dir=$SCRATCH/dentate/results/netclamp \
-    --pop_size=112 \
-    --max_iter=2000 \
+    --pop_size=32 \
+    --max_iter=1000 \
     --path_length=1 \
     --framework=pc \
     --disp \

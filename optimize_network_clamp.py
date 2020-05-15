@@ -31,8 +31,8 @@ def mpi_excepthook(type, value, traceback):
         MPI.COMM_WORLD.Abort(1)
 
 
-sys_excepthook = sys.excepthook
-sys.excepthook = mpi_excepthook
+#sys_excepthook = sys.excepthook
+#sys.excepthook = mpi_excepthook
 
 
 context = Context()

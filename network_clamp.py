@@ -683,7 +683,7 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
                           target_rate_map_path, target_rate_map_namespace,
 			  target_rate_map_arena, target_rate_map_trajectory,  worker, **kwargs):
     
-    rate_eps = 1e-2
+    rate_eps = 1e-4
     
     params = dict(locals())
     env = Env(**params)
@@ -713,7 +713,8 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
     target_rate_vector_dict = { gid: np.interp(time_bins, trj_t, trj_rate_maps[gid])
                                 for gid in trj_rate_maps }
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
-        target_rate_vector[np.abs(target_rate_vector) < rate_eps] = 0.
+        idxs = np.where(np.abs(target_rate_vector) < rate_eps)[0]
+        target_rate_vector[idxs] = 0.
     
     param_bounds, param_names, param_initial_dict, param_range_tuples = \
       optimize_params(env, population, param_type, param_config_name)
@@ -736,7 +737,10 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
                     spkdict1[gid] = np.asarray([], dtype=np.float32)
             spike_density_dict = spikedata.spike_density_estimate (population, spkdict1, time_bins)
             for gid in cell_index_set:
-                rates_dict[gid].append(spike_density_dict[gid]['rate'])
+                rate_vector = spike_density_dict[gid]['rate']
+                idxs = np.where(np.abs(rate_vector) < rate_eps)[0]
+                rate_vector[idxs] = 0.
+                rates_dict[gid].append(rate_vector)
             for gid in spkdict[population]:
                 logger.info('firing rate objective: trial %d spike times of gid %i: %s' % (i, gid, str(spkdict[population][gid])))
                 logger.info('firing rate objective: trial %d firing rate of gid %i: %s' % (i, gid, str(spike_density_dict[gid])))
