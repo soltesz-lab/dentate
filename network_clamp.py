@@ -676,7 +676,7 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
     return f
 
 
-def init_selectivity_feature_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, n_trials,
+def init_selectivity_features_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, n_trials,
                                     generate_weights, t_max, t_min,
                                     opt_iter, template_paths, dataset_prefix, config_prefix, results_path,
                                     spike_events_path, spike_events_namespace, spike_events_t,
@@ -720,9 +720,9 @@ def init_selectivity_feature_objfun(config_file, population, cell_index_set, are
     target_spike_counts_dict = {}
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
         target_spike_counts = np.zeros((len(time_bins),))
-        for i in range(time_bins):
+        for i in range(len(time_bins)):
             if target_rate_vector[i] > 0.:
-                target_spike_counts[i] = target_rate_rate_vector[i] * time_step
+                target_spike_counts[i] = target_rate_vector[i] * 1e-3 * time_step
         target_spike_counts_dict[gid] = target_spike_counts
         
     param_bounds, param_names, param_initial_dict, param_range_tuples = \
@@ -742,40 +742,40 @@ def init_selectivity_feature_objfun(config_file, population, cell_index_set, are
             spike_bin_counts = {}
             for gid in cell_index_set:
                 if gid in spkdict[population]:
-                    spike_bin_counts = spike_bin_counts(spkdict[population][gid][i], time_bins)
+                    spike_bin_counts, _ = np.histogram(spkdict[population][gid][i], bins=time_bins)
                 else:
                     spike_bin_counts = [0.] * len(time_bins)
-            for gid in cell_index_set:
-                spike_counts_dict[gid].append(spike_bin_counts[gid])
+                spike_counts_dict[gid].append(spike_bin_counts)
             for gid in spkdict[population]:
-                logger.info('firing rate objective: trial %d spike times of gid %i: %s' % (i, gid, str(spkdict[population][gid])))
-                logger.info('firing rate objective: trial %d spike counts of gid %i: %s' % (i, gid, str(spike_counts_dict[gid])))
-                logger.info('firing rate objective: trial %d spike counts min/max of gid %i: %.02f / %.02f Hz' %
-                            (i, gid, np.min(spike_counts_dict[gid]), np.max(spike_counts_dict[gid])))
+                logger.info('selectivity features objective: trial %d spike times of gid %i: %s' % (i, gid, str(spkdict[population][gid])))
+                logger.info('selectivity features objective: trial %d spike counts of gid %i: %s' % (i, gid, str(spike_counts_dict[gid][i])))
+                logger.info('selectivity features objective: trial %d spike counts min/max of gid %i: %.02f / %.02f Hz' %
+                            (i, gid, np.min(spike_counts_dict[gid][i]), np.max(spike_counts_dict[gid][i])))
 
         mean_spike_counts_dict = { gid: np.mean(np.row_stack(spike_counts_dict[gid]), axis=0)
                                    for gid in cell_index_set }
         for gid in mean_spike_counts_dict:
-            logger.info('firing rate objective: mean spike count of gid %i: %s' % (gid, str(mean_spike_count_dict[gid])))
-            logger.info('firing rate objective: mean firing rate min/max of gid %i: %.02f / %.02f Hz' %
-                        (gid, np.min(mean_spike_count_dict[gid]), np.max(mean_spike_count_dict[gid])))
-        return mean_spike_count_dict
+            logger.info('selectivity features objective: mean spike count of gid %i: %s' % (gid, str(mean_spike_counts_dict[gid])))
+            logger.info('selectivity features objective: mean spike count min/max of gid %i: %.02f / %.02f' %
+                        (gid, np.min(mean_spike_counts_dict[gid]), np.max(mean_spike_counts_dict[gid])))
+        return mean_spike_counts_dict
 
     def f(v, **kwargs):
         mean_spike_counts_dict = gid_spike_counts(run_with(env, {population: {gid: from_param_dict(v[gid]) for gid in cell_index_set}}), cell_index_set)
         result = {}
         for gid in cell_index_set:
-            target_spike_counts = target_spike_counts_dict[gid])
+            target_spike_counts = target_spike_counts_dict[gid]
             mean_spike_counts = mean_spike_counts_dict[gid]
             residual = []
-            for i in range(len(time_bins)):
+            logger.info('selectivity features objective: target spike counts min/max of gid %i: %.02f / %.02f' % (gid, np.min(target_spike_counts), np.max(target_spike_counts)))
+            for i in range(len(time_bins)-1):
                 target_count = target_spike_counts[i]
                 mean_count = mean_spike_counts[i]
                 if np.isclose(target_count, 0.) and mean_count > 0.:
                     residual.append(10 * (mean_count - target_count))
                 else:
                     residual.append(mean_count - target_count)
-            result[gid] = -np.square(np.asarray(residual)).mean()
+            result[gid] = -(np.square(np.asarray(residual)).mean())
         return result
     
     return f
