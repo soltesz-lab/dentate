@@ -686,6 +686,8 @@ def init_selectivity_features_objfun(config_file, population, cell_index_set, ar
 			            target_rate_map_arena, target_rate_map_trajectory,  worker, **kwargs):
     
     rate_eps = kwargs.get('rate_eps', 1e-2)
+    penalty_oof = kwargs.get('penalty_oof', 10)
+    penalty_inf = kwargs.get('penalty_inf', 40)
     
     params = dict(locals())
     env = Env(**params)
@@ -749,7 +751,7 @@ def init_selectivity_features_objfun(config_file, population, cell_index_set, ar
             for gid in spkdict[population]:
                 logger.info('selectivity features objective: trial %d spike times of gid %i: %s' % (i, gid, str(spkdict[population][gid])))
                 logger.info('selectivity features objective: trial %d spike counts of gid %i: %s' % (i, gid, str(spike_counts_dict[gid][i])))
-                logger.info('selectivity features objective: trial %d spike counts min/max of gid %i: %.02f / %.02f Hz' %
+                logger.info('selectivity features objective: trial %d spike counts min/max of gid %i: %.02f / %.02f' %
                             (i, gid, np.min(spike_counts_dict[gid][i]), np.max(spike_counts_dict[gid][i])))
 
         mean_spike_counts_dict = { gid: np.mean(np.row_stack(spike_counts_dict[gid]), axis=0)
@@ -767,12 +769,13 @@ def init_selectivity_features_objfun(config_file, population, cell_index_set, ar
             target_spike_counts = target_spike_counts_dict[gid]
             mean_spike_counts = mean_spike_counts_dict[gid]
             residual = []
-            logger.info('selectivity features objective: target spike counts min/max of gid %i: %.02f / %.02f' % (gid, np.min(target_spike_counts), np.max(target_spike_counts)))
             for i in range(len(time_bins)-1):
                 target_count = target_spike_counts[i]
                 mean_count = mean_spike_counts[i]
                 if np.isclose(target_count, 0.) and mean_count > 0.:
-                    residual.append(10 * (mean_count - target_count))
+                    residual.append(penalty_oof * (mean_count - target_count))
+                elif np.isclose(mean_count, 0.) and target_count > 0.:
+                    residual.append(penalty_inf * (mean_count - target_count))
                 else:
                     residual.append(mean_count - target_count)
             result[gid] = -(np.square(np.asarray(residual)).mean())
@@ -870,7 +873,7 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
 
 
 def optimize_run(env, pop_name, param_config_name, init_objfun,
-                 opt_iter=10, solver_epsilon=1e-2, param_type='synaptic', init_params={}, 
+                 opt_iter=10, solver_epsilon=1e-5, param_type='synaptic', init_params={}, 
                  results_file=None, verbose=False):
     import distgfs
 
