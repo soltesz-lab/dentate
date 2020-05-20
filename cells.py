@@ -2387,6 +2387,9 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
 
 
     if load_edges:
+        if env.connectivity_file_path is None:
+            logger.error('get_biophys_cell: load_edges=True but connectivity file path is not specified ')
+            raise Exception
         if connection_graph is not None:
             (graph, a) = connection_graph
         elif os.path.isfile(env.connectivity_file_path):
