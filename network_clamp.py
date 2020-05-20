@@ -719,6 +719,11 @@ def init_selectivity_features_objfun(config_file, population, cell_index_set, ar
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
         target_rate_vector[np.abs(target_rate_vector) < rate_eps] = 0.
 
+    outfld_idxs_dict = { gid: np.r_[tuple(utils.contiguous_ranges(target_rate_vector <= 0.))]
+                         for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
+    infld_idxs_dict = { gid: np.r_[tuple(utils.contiguous_ranges(target_rate_vector > 0.))]
+                        for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
+
     target_spike_counts_dict = {}
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
         target_spike_counts = np.zeros((len(time_bins),))
@@ -729,7 +734,7 @@ def init_selectivity_features_objfun(config_file, population, cell_index_set, ar
         
     param_bounds, param_names, param_initial_dict, param_range_tuples = \
       optimize_params(env, population, param_type, param_config_name)
-    
+
     def from_param_dict(params_dict):
         result = []
         for param_pattern, (update_operator, population, source, sec_type, syn_name, param_name, param_range) in zip(param_names, param_range_tuples):
@@ -766,19 +771,22 @@ def init_selectivity_features_objfun(config_file, population, cell_index_set, ar
         mean_spike_counts_dict = gid_spike_counts(run_with(env, {population: {gid: from_param_dict(v[gid]) for gid in cell_index_set}}), cell_index_set)
         result = {}
         for gid in cell_index_set:
+            infld_idxs = infld_idxs_dict[gid]
+            outfld_idxs = outfld_idxs_dict[gid]
+            
             target_spike_counts = target_spike_counts_dict[gid]
             mean_spike_counts = mean_spike_counts_dict[gid]
-            residual = []
-            for i in range(len(time_bins)-1):
-                target_count = target_spike_counts[i]
-                mean_count = mean_spike_counts[i]
-                if np.isclose(target_count, 0.) and mean_count > 0.:
-                    residual.append(penalty_oof * (mean_count - target_count))
-                elif np.isclose(mean_count, 0.) and target_count > 0.:
-                    residual.append(penalty_inf * (mean_count - target_count))
-                else:
-                    residual.append(mean_count - target_count)
-            result[gid] = -(np.square(np.asarray(residual)).mean())
+
+            target_infld_spike_counts = target_spike_counts[infld_idxs]
+            target_outfld_spike_counts = target_spike_counts[outfld_idxs]
+            
+            mean_infld_spike_counts = mean_spike_counts[infld_idxs]
+            mean_outfld_spike_counts = mean_spike_counts[outfld_idxs]
+
+            residual = [np.sum(mean_infld_spike_counts) - np.sum(target_infld_spike_counts),
+                        np.sum(mean_outfld_spike_counts) - np.sum(target_outfld_spike_counts)]
+
+            result[gid] = -np.sum(np.square(np.asarray(residual)))
         return result
     
     return f
