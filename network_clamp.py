@@ -686,8 +686,6 @@ def init_selectivity_features_objfun(config_file, population, cell_index_set, ar
 			            target_rate_map_arena, target_rate_map_trajectory,  worker, **kwargs):
     
     rate_eps = kwargs.get('rate_eps', 1e-2)
-    penalty_oof = kwargs.get('penalty_oof', 10)
-    penalty_inf = kwargs.get('penalty_inf', 40)
     
     params = dict(locals())
     env = Env(**params)

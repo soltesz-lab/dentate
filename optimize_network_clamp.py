@@ -66,34 +66,6 @@ def main(optimize_config_file_path, output_dir, export, export_file_path, label,
                                 interface=interface)
 
 
-def contiguous_ranges(condition):
-    """Finds contiguous True regions of the boolean array "condition". Returns
-    a list of ranges with the start and end index of each region. Code based on:
-    https://stackoverflow.com/questions/4494404/find-large-number-of-consecutive-values-fulfilling-condition-in-a-numpy-array/4495197
-    """
-
-    # Find the indicies of changes in "condition"
-    d = np.diff(condition)
-    idx, = d.nonzero() 
-
-    # We need to start things after the change in "condition". Therefore, 
-    # we'll shift the index by 1 to the right.
-    idx += 1
-
-    if condition[0]:
-        # If the start of condition is True prepend a 0
-        idx = np.r_[0, idx]
-
-    if condition[-1]:
-        # If the end of condition is True, append the length of the array
-        idx = np.r_[idx, condition.size] # Edit
-
-    # Reshape the result into two columns
-    idx.shape = (-1,2)
-
-    ranges = ( np.arange(*r) for r in idx )
-    return ranges
-
 
 def read_target_rate_vector(context, eps=1e-2):
     """
@@ -178,9 +150,9 @@ def config_worker():
 
     target_rate_vector = read_target_rate_vector(context)
 
-    outfld_ranges = tuple(contiguous_ranges(target_rate_vector <= 0.))
+    outfld_ranges = tuple(utils.contiguous_ranges(target_rate_vector <= 0.))
     context.outfld_idxs = np.r_[outfld_ranges]
-    infld_ranges = tuple(contiguous_ranges(target_rate_vector > 0.))
+    infld_ranges = tuple(utils.contiguous_ranges(target_rate_vector > 0.))
     context.infld_idxs = np.r_[infld_ranges]
 
     
