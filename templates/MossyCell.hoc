@@ -49,9 +49,10 @@ proc init() { // arguments are id, gid
     gid = $1
     
     if (numarg() > 2) {
-        topol_from_python($o3,$o5,$o6,$o11)
-        shape_from_python($o3,$o7,$o8,$o9,$o10)
+        shape_from_python($o3,$o8,$o9,$o10,$o11)
+        topol_from_python($o3,$o5,$o6,$o7,$o12)
         layers_from_python($o3,$o4)
+                
     } else {
         ndends   = 4
         ndendsec = 4
@@ -298,12 +299,13 @@ proc biophys() { local ndends, ndendsec
     
 }
 
-proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vsrc, vdst, secnodes, swc_types
+proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vsrc, vdst, secnodes, swc_types, vloc
     
     secnodes  = $o1
     vsrc      = new Vector($o2)
     vdst      = new Vector($o3)
-    swc_types = new Vector($o4)
+    vloc      = new Vector($o4)
+    swc_types = new Vector($o5)
     
     nDends = 0
     nSoma  = 0
@@ -344,26 +346,20 @@ proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vsrc, vdst, sec
         }
     }
     
-    create sections[nDends+nSoma+nAxon]
     for p = 0, vsrc.size-1 {
         i = vsrc.x[p]
         j = vdst.x[p]
+        l = vloc.x[p]
         assert (i >= 0,  "compartment index in topology matrix is less than zero")
         assert (j >= 0,  "compartment index in topology matrix is less than zero")
         assert (i < nDends+nSoma+nAxon+1,  "compartment index in topology matrix is greater than the number of dendritic compartments")
         assert (j < nDends+nSoma+nAxon+1,  "compartment index in topology matrix is greater than the number of dendritic compartments")
-        if (i == 0) {
-            if (j == 1 || j == 2) {
-                connect sections[j](0),sections[i](1)
-            } else {
-                connect sections[j](0),sections[i](0)
-            }
-        } else {
-            connect sections[j](0),sections[i](1)
-        }
+        sections[i] loc = arc3d(l) / L
+        connect sections[j](0),sections[i](loc)
         
     }
     
+    vloc.resize(0)
     vsrc.resize(0)
     vdst.resize(0)
     
@@ -379,6 +375,7 @@ proc shape_from_python() { local i,j,k,s localobj secnodes, vx, vy, vz, vradius,
     vz = new Vector($o4)
     vradius = new Vector($o5)
     
+    create sections[secnodes.__len__()]
     for s=0, secnodes.__len__()-1 {
         idxs = secnodes.__getitem__(s)
         vidxs = new Vector()
@@ -391,14 +388,14 @@ proc shape_from_python() { local i,j,k,s localobj secnodes, vx, vy, vz, vradius,
             }
             pt3dconst(1)
         }
-        
-        
     }
     
+
     vx.resize(0)
     vy.resize(0)
     vz.resize(0)
     vradius.resize(0)
+    
 }
 
 

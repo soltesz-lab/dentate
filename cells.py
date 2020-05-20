@@ -1075,14 +1075,15 @@ def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0.,
     :param onset_delay: float
     :param loc: float
     """
-    if 'spike detector' in cell.mech_dict:
-        config = cell.mech_dict['spike detector']
-        node = getattr(cell, config['section'])[0]
-        loc = config['loc']
-        distance = config['distance']
-        threshold = config['threshold']
-        delay = config['delay']
-        onset_delay = config['onset delay']
+    if cell.mech_dict is not None:
+        if 'spike detector' in cell.mech_dict:
+            config = cell.mech_dict['spike detector']
+            node = getattr(cell, config['section'])[0]
+            loc = config['loc']
+            distance = config['distance']
+            threshold = config['threshold']
+            delay = config['delay']
+            onset_delay = config['onset delay']
 
     if node is None:
         if cell.axon:
