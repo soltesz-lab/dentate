@@ -11,7 +11,7 @@ from dentate.cells import h, make_input_cell, register_cell, record_cell, report
 from dentate.env import Env
 from dentate.neuron_utils import h, configure_hoc_env, make_rec
 from dentate.utils import is_interactive, Context, Closure, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger, config_logging
-from dentate.utils import get_trial_time_indices, get_trial_time_ranges, get_low_pass_filtered_trace
+from dentate.utils import get_trial_time_indices, get_trial_time_ranges, get_low_pass_filtered_trace, contiguous_ranges
 from dentate.cell_clamp import init_biophys_cell
 from neuroh5.io import read_cell_attribute_selection, read_cell_attribute_info
 
@@ -709,7 +709,7 @@ def init_selectivity_features_objfun(config_file, population, cell_index_set, ar
 
     trj_x, trj_y, trj_d, trj_t = stimulus.read_trajectory(target_rate_map_path, target_rate_map_arena, target_rate_map_trajectory)
 
-    time_range = (0., min(np.max(trj_t), t_max))
+    time_range = (0., min(np.max(trj_t), t_max)-time_step)
     
     time_bins = np.arange(time_range[0], time_range[1], time_step)
     target_rate_vector_dict = { gid: np.interp(time_bins, trj_t, trj_rate_maps[gid])
@@ -717,9 +717,13 @@ def init_selectivity_features_objfun(config_file, population, cell_index_set, ar
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
         target_rate_vector[np.abs(target_rate_vector) < rate_eps] = 0.
 
-    outfld_idxs_dict = { gid: np.r_[tuple(utils.contiguous_ranges(target_rate_vector <= 0.))]
+    def range_inds(rs):
+        a = np.concatenate(list(rs))
+        return a
+        
+    outfld_idxs_dict = { gid: range_inds(contiguous_ranges(target_rate_vector <= 0.))
                          for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
-    infld_idxs_dict = { gid: np.r_[tuple(utils.contiguous_ranges(target_rate_vector > 0.))]
+    infld_idxs_dict = { gid: range_inds(contiguous_ranges(target_rate_vector > 0))
                         for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
 
     target_spike_counts_dict = {}
@@ -780,6 +784,8 @@ def init_selectivity_features_objfun(config_file, population, cell_index_set, ar
             
             mean_infld_spike_counts = mean_spike_counts[infld_idxs]
             mean_outfld_spike_counts = mean_spike_counts[outfld_idxs]
+            logger.info('selectivity features objective: target in/out spike count of gid %i: %f %f' % (gid, np.sum(target_infld_spike_counts), np.sum(target_outfld_spike_counts)))
+            logger.info('selectivity features objective: mean in/out spike count of gid %i: %f %f' % (gid, np.sum(mean_infld_spike_counts), np.sum(mean_outfld_spike_counts)))
 
             residual = [np.sum(mean_infld_spike_counts) - np.sum(target_infld_spike_counts),
                         np.sum(mean_outfld_spike_counts) - np.sum(target_outfld_spike_counts)]
