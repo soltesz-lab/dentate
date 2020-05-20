@@ -709,9 +709,10 @@ def init_selectivity_features_objfun(config_file, population, cell_index_set, ar
 
     trj_x, trj_y, trj_d, trj_t = stimulus.read_trajectory(target_rate_map_path, target_rate_map_arena, target_rate_map_trajectory)
 
-    time_range = (0., min(np.max(trj_t), t_max)-time_step)
+    time_range = (0., min(np.max(trj_t), t_max))
     
     time_bins = np.arange(time_range[0], time_range[1], time_step)
+    logger.info("time_bins = %s" % str(time_bins))
     target_rate_vector_dict = { gid: np.interp(time_bins, trj_t, trj_rate_maps[gid])
                                 for gid in trj_rate_maps }
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
