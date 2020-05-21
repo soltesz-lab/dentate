@@ -800,7 +800,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             mean_outfld_rate_vector = mean_rate_vector[outfld_idxs]
 
             logger.info('selectivity rate objective: target in/out rate vector of gid %i: %.02f %.02f' % (gid, np.mean(target_infld_rate_vector), np.mean(target_outfld_rate_vector)))
-            logger.info('selectivity rate objective: mean in/out/total rate vector of gid %i: %.02f %.02f %.02f' % (gid, np.sum(mean_infld_rate_vector), np.sum(mean_outfld_rate_vector), np.sum(mean_rate_vector)))
+            logger.info('selectivity rate objective: mean in/out/total rate vector of gid %i: %.02f %.02f %.02f' % (gid, np.mean(mean_infld_rate_vector), np.mean(mean_outfld_rate_vector), np.mean(mean_rate_vector)))
 
             residual = [np.mean(mean_infld_rate_vector) - np.mean(target_infld_rate_vector),
                         np.mean(mean_outfld_rate_vector) - np.mean(target_outfld_rate_vector)]
