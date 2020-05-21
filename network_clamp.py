@@ -712,6 +712,7 @@ def init_selectivity_features_objfun(config_file, population, cell_index_set, ar
     time_range = (0., min(np.max(trj_t), t_max))
     
     time_bins = np.arange(time_range[0], time_range[1], time_step)
+    spk_time_bins = np.arange(time_range[0], time_range[1]+time_step, time_step)
     logger.info("time_bins = %s" % str(time_bins))
     target_rate_vector_dict = { gid: np.interp(time_bins, trj_t, trj_rate_maps[gid])
                                 for gid in trj_rate_maps }
@@ -748,26 +749,21 @@ def init_selectivity_features_objfun(config_file, population, cell_index_set, ar
         spike_counts_dict = defaultdict(list)
         mean_spike_counts_dict = {}
         for i in range(n_trials):
-            spkdict1 = {}
             spike_bin_counts = {}
             for gid in cell_index_set:
                 if gid in spkdict[population]:
-                    spike_bin_counts, _ = np.histogram(spkdict[population][gid][i], bins=time_bins)
+                    spike_bin_counts, _ = np.histogram(spkdict[population][gid][i], bins=spk_time_bins)
                 else:
-                    spike_bin_counts = [0.] * len(time_bins)
+                    spike_bin_counts = [0.] * len(spk_time_bins)
                 spike_counts_dict[gid].append(spike_bin_counts)
             for gid in spkdict[population]:
-                logger.info('selectivity features objective: trial %d spike times of gid %i: %s' % (i, gid, str(spkdict[population][gid])))
+                logger.info('selectivity features objective: trial %d spike times of gid %i: %s' % (i, gid, str(spkdict[population][gid][i])))
                 logger.info('selectivity features objective: trial %d spike counts of gid %i: %s' % (i, gid, str(spike_counts_dict[gid][i])))
-                logger.info('selectivity features objective: trial %d spike counts min/max of gid %i: %.02f / %.02f' %
-                            (i, gid, np.min(spike_counts_dict[gid][i]), np.max(spike_counts_dict[gid][i])))
+                logger.info('selectivity features objective: trial %d spike counts min/max/sum of gid %i: %.02f / %.02f / %.02f' %
+                            (i, gid, np.min(spike_counts_dict[gid][i]), np.max(spike_counts_dict[gid][i]), np.sum(spike_counts_dict[gid][i])))
 
         mean_spike_counts_dict = { gid: np.mean(np.row_stack(spike_counts_dict[gid]), axis=0)
                                    for gid in cell_index_set }
-        for gid in mean_spike_counts_dict:
-            logger.info('selectivity features objective: mean spike count of gid %i: %s' % (gid, str(mean_spike_counts_dict[gid])))
-            logger.info('selectivity features objective: mean spike count min/max of gid %i: %.02f / %.02f' %
-                        (gid, np.min(mean_spike_counts_dict[gid]), np.max(mean_spike_counts_dict[gid])))
         return mean_spike_counts_dict
 
     def f(v, **kwargs):
@@ -785,8 +781,8 @@ def init_selectivity_features_objfun(config_file, population, cell_index_set, ar
             
             mean_infld_spike_counts = mean_spike_counts[infld_idxs]
             mean_outfld_spike_counts = mean_spike_counts[outfld_idxs]
-            logger.info('selectivity features objective: target in/out spike count of gid %i: %f %f' % (gid, np.sum(target_infld_spike_counts), np.sum(target_outfld_spike_counts)))
-            logger.info('selectivity features objective: mean in/out spike count of gid %i: %f %f' % (gid, np.sum(mean_infld_spike_counts), np.sum(mean_outfld_spike_counts)))
+            logger.info('selectivity features objective: target in/out spike count of gid %i: %.02f %.02f' % (gid, np.sum(target_infld_spike_counts), np.sum(target_outfld_spike_counts)))
+            logger.info('selectivity features objective: mean in/out/total spike count of gid %i: %.02f %.02f %.02f' % (gid, np.sum(mean_infld_spike_counts), np.sum(mean_outfld_spike_counts), np.sum(mean_spike_counts)))
 
             residual = [np.sum(mean_infld_spike_counts) - np.sum(target_infld_spike_counts),
                         np.sum(mean_outfld_spike_counts) - np.sum(target_outfld_spike_counts)]
