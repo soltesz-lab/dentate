@@ -253,7 +253,10 @@ Synaptic Optimization:
               weight: [0.1, 2.0]
     Targets:
       state:
-        v: -70.0
+        v:
+          mean: -70.0
+          mean in field: -50
+          mean out field: -50
       firing rate: 0.75
       fraction active: 0.01
   MC:

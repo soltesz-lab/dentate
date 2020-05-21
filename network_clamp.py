@@ -741,9 +741,9 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
         a = np.concatenate(list(rs))
         return a
         
-    outfld_idxs_dict = { gid: range_inds(contiguous_ranges(target_rate_vector <= 0.))
+    outfld_idxs_dict = { gid: range_inds(contiguous_ranges(target_rate_vector <= 0., return_indices=True))
                          for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
-    infld_idxs_dict = { gid: range_inds(contiguous_ranges(target_rate_vector > 0))
+    infld_idxs_dict = { gid: range_inds(contiguous_ranges(target_rate_vector > 0, return_indices=True))
                         for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
 
         
@@ -818,7 +818,7 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
                                     input_features_path, input_features_namespaces,
                                     param_type, param_config_name, recording_profile,
                                     state_variable, state_filter, 
-                                    target_infld_value, target_outfld_value,
+                                    target_infld_state_value, target_outfld_state_value,
                                     target_rate_map_path, target_rate_map_namespace,
 			            target_rate_map_arena, target_rate_map_trajectory,  worker, **kwargs):
     
@@ -849,19 +849,16 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
     time_range = (0., min(np.max(trj_t), t_max))
     
     time_bins = np.arange(time_range[0], time_range[1], time_step)
-    state_time_bins = np.arange(time_range[0], time_range[1]+time_step, time_step)
     target_rate_vector_dict = { gid: np.interp(time_bins, trj_t, trj_rate_maps[gid])
                                 for gid in trj_rate_maps }
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
         target_rate_vector[np.abs(target_rate_vector) < rate_eps] = 0.
-
-    def range_inds(rs):
-        a = np.concatenate(list(rs))
-        return a
         
-    outfld_idxs_dict = { gid: range_inds(contiguous_ranges(target_rate_vector <= 0.))
+    outfld_ranges_dict = { gid: ( (time_bins[r[0]], time_bins[r[1]])
+                                  for r in contiguous_ranges(target_rate_vector <= 0.) )
                          for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
-    infld_idxs_dict = { gid: range_inds(contiguous_ranges(target_rate_vector > 0))
+    infld_ranges_dict = { gid: ( (time_bins[r[0]], time_bins[r[1]])
+                                 for r in contiguous_ranges(target_rate_vector > 0) )
                         for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
         
     param_bounds, param_names, param_initial_dict, param_range_tuples = \
@@ -873,49 +870,72 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
             result.append((update_operator, population, source, sec_type, syn_name, param_name, params_dict[param_pattern]))
         return result
 
-    def gid_spike_counts(spkdict, cell_index_set):
-        spike_counts_dict = defaultdict(list)
-        mean_spike_counts_dict = {}
-        for i in range(n_trials):
-            spike_bin_counts = {}
-            for gid in cell_index_set:
-                if gid in spkdict[population]:
-                    spike_bin_counts, _ = np.histogram(spkdict[population][gid][i], bins=spk_time_bins)
+    def gid_state_values(spkdict, t_offset, n_trials, t_rec, state_recs_dict):
+        t_vec = np.asarray(t_rec.to_python(), dtype=np.float32)
+        t_trial_inds = get_trial_time_indices(t_vec, n_trials, t_offset)
+        results_dict = {}
+        filter_fun = None
+        if state_filter == 'lowpass':
+            filter_fun = lambda x, t: get_low_pass_filtered_trace(x, t)
+        for gid in state_recs_dict:
+            state_values = []
+            state_recs = state_recs_dict[gid]
+            for rec in state_recs:
+                vec = np.asarray(rec['vec'].to_python(), dtype=np.float32)
+                if filter_fun is None:
+                    data = np.asarray([ np.mean(vec[t_inds])
+                                            for t_inds in t_trial_inds ])
                 else:
-                    spike_bin_counts = [0.] * len(spk_time_bins)
-                spike_counts_dict[gid].append(spike_bin_counts)
-            for gid in spkdict[population]:
-                logger.info('selectivity spikes objective: trial %d spike times of gid %i: %s' % (i, gid, str(spkdict[population][gid][i])))
-                logger.info('selectivity spikes objective: trial %d spike counts min/max/sum of gid %i: %.02f / %.02f / %.02f' %
-                            (i, gid, np.min(spike_counts_dict[gid][i]), np.max(spike_counts_dict[gid][i]), np.sum(spike_counts_dict[gid][i])))
+                    data = np.asarray([ np.mean(filter_fun(vec[t_inds], t_vec[t_inds]))
+                                            for t_inds in t_trial_inds ])
+                state_values.append(np.mean(data))
+            m = np.mean(np.asarray(state_values))
+            logger.info('selectivity state value objective: mean value of %s of gid %i is %.2f' % (state_variable, gid, m))
+            results_dict[gid] = m
+        return t_vec[t_trial_inds[0]], results_dict
 
-        mean_spike_counts_dict = { gid: np.mean(np.row_stack(spike_counts_dict[gid]), axis=0)
-                                   for gid in cell_index_set }
-        return mean_spike_counts_dict
+    recording_profile = { 'label': 'network_clamp.state.%s' % state_variable,
+                          'dt': 0.1,
+                          'section quantity': {
+                              state_variable: { 'swc types': ['soma'] }
+                            }
+                        }
+    env.recording_profile = recording_profile
+    state_recs_dict = {}
+    for gid in cell_index_set:
+        state_recs_dict[gid] = record_cell(env, population, gid, recording_profile=recording_profile)
 
-    def f(v, **kwargs):
-        mean_spike_counts_dict = gid_spike_counts(run_with(env, {population: {gid: from_param_dict(v[gid]) for gid in cell_index_set}}), cell_index_set)
+    def f(v, **kwargs): 
+        t_s, state_values_dict = gid_state_values(run_with(env, {population: {gid: from_param_dict(v[gid]) 
+                                                                              for gid in cell_index_set}}), 
+                                                  equilibration_duration, 
+                                                  n_trials, env.t_rec, 
+                                                  state_recs_dict)
+        
         result = {}
         for gid in cell_index_set:
-            infld_idxs = infld_idxs_dict[gid]
-            outfld_idxs = outfld_idxs_dict[gid]
-            
-            target_spike_counts = target_spike_counts_dict[gid]
-            mean_spike_counts = mean_spike_counts_dict[gid]
+            infld_ranges = infld_ranges_dict[gid]
+            outfld_ranges = outfld_ranges_dict[gid]
 
-            target_infld_spike_counts = target_spike_counts[infld_idxs]
-            target_outfld_spike_counts = target_spike_counts[outfld_idxs]
+            t_infld_idxs = np.concatenate([ np.where(np.logical_and(t_s >= r[0], t_s < r[1]))[0] for r in infld_ranges ])
+            t_outfld_idxs = np.concatenate([ np.where(np.logical_and(t_s >= r[0], t_s < r[1]))[0] for r in outfld_ranges ])
             
-            mean_infld_spike_counts = mean_spike_counts[infld_idxs]
-            mean_outfld_spike_counts = mean_spike_counts[outfld_idxs]
-            logger.info('selectivity spikes objective: target in/out spike count of gid %i: %.02f %.02f' % (gid, np.sum(target_infld_spike_counts), np.sum(target_outfld_spike_counts)))
-            logger.info('selectivity spikes objective: mean in/out/total spike count of gid %i: %.02f %.02f %.02f' % (gid, np.sum(mean_infld_spike_counts), np.sum(mean_outfld_spike_counts), np.sum(mean_spike_counts)))
+            mean_state_values = state_values_dict[gid]
 
-            residual = [np.sum(mean_infld_spike_counts) - np.sum(target_infld_spike_counts),
-                        np.sum(mean_outfld_spike_counts) - np.sum(target_outfld_spike_counts)]
+            mean_infld_state_value = np.mean(mean_state_values[t_infld_idxs])
+            mean_outfld_state_value = np.mean(mean_state_values[t_outfld_idxs])
+
+            logger.info('selectivity state value objective: target in/out state values of gid %i: %.02f %.02f' % (gid, target_infld_state_value, target_outfld_state_value))
+            logger.info('selectivity state value objective: mean in/out/total state values of gid %i: %.02f %.02f %.02f' % (gid, mean_infld_state_value, mean_outfld_state_value,
+                                                                                                                      np.mean(mean_state_values)))
+
+            residual = [mean_infld_state_value - target_infld_state_value,
+                        mean_outfld_state_value - target_outfld_state_value]
 
             result[gid] = -np.sum(np.square(np.asarray(residual)))
+
         return result
+
     
     return f
 
@@ -1421,11 +1441,17 @@ def optimize(config_file, population, gid, arena_id, trajectory_id, generate_wei
         init_params['target_rate_map_trajectory'] = trajectory_id
         init_objfun_name = 'init_selectivity_rate_objfun'
     elif target == 'selectivity_state':
+        opt_target_infld = opt_params['Targets']['state']['mean in field'][target_state_variable]
+        opt_target_outfld  = opt_params['Targets']['state']['mean out field'][target_state_variable]
         init_params['target_rate_map_arena'] = arena_id
         init_params['target_rate_map_trajectory'] = trajectory_id
+        init_params['target_infld_state_value'] = opt_target_infld
+        init_params['target_outfld_state_value'] = opt_target_outfld
+        init_params['state_variable'] = target_state_variable
+        init_params['state_filter'] = target_state_filter
         init_objfun_name = 'init_selectivity_state_objfun'
     elif target == 'state':
-        opt_target = opt_params['Targets']['state'][target_state_variable]
+        opt_target = opt_params['Targets']['state']['mean'][target_state_variable]
         init_params['target_value'] = opt_target
         init_params['state_variable'] = target_state_variable
         init_params['state_filter'] = target_state_filter

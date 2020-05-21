@@ -1127,30 +1127,33 @@ def get_trial_time_indices(time_vec, n_trials, t_offset=0.):
     return t_trial_inds
 
 
-def contiguous_ranges(condition):
+def contiguous_ranges(condition, return_indices=False):
     """Finds contiguous True regions of the boolean array "condition". Returns
     a list of ranges with the start and end index of each region. Code based on:
     https://stackoverflow.com/questions/4494404/find-large-number-of-consecutive-values-fulfilling-condition-in-a-numpy-array/4495197
     """
 
-    # Find the indicies of changes in "condition"
+    # Find the indices of changes in "condition"
     d = np.diff(condition)
-    idx, = d.nonzero() 
+    ranges, = d.nonzero() 
 
     # We need to start things after the change in "condition". Therefore, 
-    # we'll shift the index by 1 to the right.
-    idx += 1
+    # we'll shift the ranges by 1 to the right.
+    ranges += 1
 
     if condition[0]:
         # If the start of condition is True prepend a 0
-        idx = np.r_[0, idx]
+        ranges = np.r_[0, ranges]
 
     if condition[-1]:
         # If the end of condition is True, append the length of the array
-        idx = np.r_[idx, condition.size] # Edit
+        ranges = np.r_[ranges, condition.size] # Edit
 
     # Reshape the result into two columns
-    idx.shape = (-1,2)
+    ranges.shape = (-1,2)
 
-    ranges = ( np.arange(*r) for r in idx )
-    return ranges
+    if return_indices:
+        return ( np.arange(*r) for r in ranges )
+    else:
+        return ranges
+
