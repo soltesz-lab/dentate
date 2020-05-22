@@ -920,7 +920,6 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
             t_outfld_idxs = np.concatenate([ np.where(np.logical_and(t_s >= r[0], t_s < r[1]))[0] for r in outfld_ranges ])
             
             mean_state_values = state_values_dict[gid]
-
             mean_infld_state_value = np.mean(mean_state_values[t_infld_idxs])
             mean_outfld_state_value = np.mean(mean_state_values[t_outfld_idxs])
 
