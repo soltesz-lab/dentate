@@ -1153,7 +1153,9 @@ def contiguous_ranges(condition, return_indices=False):
     ranges.shape = (-1,2)
 
     if return_indices:
-        return ( np.arange(*r) for r in ranges )
+        result = ( np.arange(*r) for r in ranges )
     else:
-        return ranges
+        result = ranges
+
+    return result
 
