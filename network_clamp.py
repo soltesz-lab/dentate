@@ -877,17 +877,27 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
         if state_filter == 'lowpass':
             filter_fun = lambda x, t: get_low_pass_filtered_trace(x, t)
         for gid in state_recs_dict:
-            state_values = []
+            state_values = None
             state_recs = state_recs_dict[gid]
-            for rec in state_recs:
-                vec = np.asarray(rec['vec'].to_python(), dtype=np.float32)
-                if filter_fun is None:
-                    data = np.asarray([ vec[t_inds]
-                                        for t_inds in t_trial_inds ])
+            assert(len(state_recs) == 1)
+            rec = state_recs[0]
+            vec = np.asarray(rec['vec'].to_python(), dtype=np.float32)
+            if filter_fun is None:
+                data = np.asarray([ vec[t_inds] for t_inds in t_trial_inds ])
+            else:
+                data = np.asarray([ filter_fun(vec[t_inds], t_vec[t_inds])
+                                    for t_inds in t_trial_inds ])
+
+            state_values = []
+            max_len = np.max(np.asarray([len(a) for a in data]))
+            for state_value_array in data:
+                this_len = len(state_value_array)
+                if this_len < max_len:
+                    a = np.pad(state_value_array, (0, max_len-this_len), 'edge')
                 else:
-                    data = np.asarray([ filter_fun(vec[t_inds], t_vec[t_inds])
-                                        for t_inds in t_trial_inds ])
-                state_values.append(data)
+                    a = state_value_array
+                state_values.append(a)
+
             state_value_array = np.row_stack(state_values)
             m = np.mean(state_value_array, axis=0)
             results_dict[gid] = m
