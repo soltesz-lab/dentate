@@ -853,11 +853,11 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
         target_rate_vector[np.isclose(target_rate_vector, 0.)] = 0.
         
-    outfld_ranges_dict = { gid: ( (time_bins[r[0]], time_bins[r[1]])
-                                  for r in contiguous_ranges(target_rate_vector <= 0.) )
+    outfld_ranges_dict = { gid: tuple( ( (time_bins[r[0]], time_bins[r[1]])
+                                         for r in contiguous_ranges(target_rate_vector <= 0.) ) )
                          for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
-    infld_ranges_dict = { gid: ( (time_bins[r[0]], time_bins[r[1]])
-                                 for r in contiguous_ranges(target_rate_vector > 0) )
+    infld_ranges_dict = { gid: tuple( ( (time_bins[r[0]], time_bins[r[1]])
+                                        for r in contiguous_ranges(target_rate_vector > 0) ) )
                         for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
         
     param_bounds, param_names, param_initial_dict, param_range_tuples = \
