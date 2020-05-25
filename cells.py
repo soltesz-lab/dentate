@@ -1086,13 +1086,10 @@ def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0.,
             onset_delay = config['onset delay']
 
     if node is None:
-        logger.info("cell spike detector: cell.axon = %s" % (str(cell.axon)))
         if cell.axon:
             for node in cell.axon:
                 sec_seg_locs = [seg.x for seg in node.sec]
                 for loc in sec_seg_locs:
-                    logger.info("cell spike detector: loc = %s distance = %f" %
-                                    (str(loc), get_distance_to_node(cell, cell.tree.root, node, loc=loc)))
                     if get_distance_to_node(cell, cell.tree.root, node, loc=loc) >= distance:
                         break
                 else:
@@ -1108,11 +1105,8 @@ def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0.,
         else:
             raise RuntimeError('init_spike_detector: cell has neither soma nor axon compartment')
 
-    logger.info("cell spike detector: %s loc=%f"% (str(node), loc))
     cell.spike_detector = connect2target(cell, node.sec, loc=loc, delay=delay, threshold=threshold)
 
-
-    
     cell.onset_delay = onset_delay
             
     return cell.spike_detector
@@ -2371,7 +2365,6 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
         tree_attr_iter, _ = read_tree_selection(env.data_file_path, pop_name, [gid], comm=env.comm, topology=True)
         _, tree_dict = next(tree_attr_iter)
 
-    logger.info("tree_dict = %s" % str(tree_dict))
         
     hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict)
     cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env,
