@@ -2287,7 +2287,7 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
 
 
 def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid, include='eachPop',
-                       time_range=None, time_variable='t', intracellular_variable='v', labels='legend',
+                       time_range=None, time_variable='t', intracellular_variable='v', labels='overlay',
                        pop_rates=True, spike_hist_bin=5, lowpass_plot_type='overlay',
                        n_trials=-1, marker='.', **kwargs):
     """
