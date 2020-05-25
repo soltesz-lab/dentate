@@ -4,7 +4,7 @@ Dataset Name: Small_Scale
 Definitions: !include Definitions.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-Cell Data: MC_shortdend_20200423.h5 
+Cell Data: MC_shortdend_20200518.h5 
 #Connection Data: GC_MC_BC_trees_syns_connections_20181126.h5  # MC_BC_connections_20180905.h5
 Connection Generator: !include Small_Scale_Connections_tune_GC_synapses.yaml
 Recording: !include Recording.yaml
@@ -22,6 +22,7 @@ Cell Types:
   MC:
     template: MossyCell
     template file: MossyCell_minimal.hoc
+    mechanism file: 20191029_DG_MC_excitability_mech.yaml
     synapses:
       density: !include MC_synapse_density.yaml
   HC:
