@@ -256,7 +256,7 @@ Synaptic Optimization:
         v:
           mean: -70.0
           mean in field: -50
-          mean out field: -50
+          mean out field: -70
       firing rate: 0.75
       fraction active: 0.01
   MC:

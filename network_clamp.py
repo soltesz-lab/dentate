@@ -705,8 +705,6 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
                                     target_rate_map_path, target_rate_map_namespace,
 			            target_rate_map_arena, target_rate_map_trajectory,  worker, **kwargs):
     
-    rate_eps = kwargs.get('rate_eps', 1e-4)
-    
     params = dict(locals())
     env = Env(**params)
     env.results_file_path = None
@@ -732,15 +730,16 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
     time_range = (0., min(np.max(trj_t), t_max))
     
     time_bins = np.arange(time_range[0], time_range[1], time_step)
+    
     target_rate_vector_dict = { gid: np.interp(time_bins, trj_t, trj_rate_maps[gid])
                                 for gid in trj_rate_maps }
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
-        target_rate_vector[np.abs(target_rate_vector) < rate_eps] = 0.
+        target_rate_vector[np.isclose(target_rate_vector, 0.)] = 0.
 
     def range_inds(rs):
         a = np.concatenate(list(rs))
         return a
-        
+
     outfld_idxs_dict = { gid: range_inds(contiguous_ranges(target_rate_vector <= 0., return_indices=True))
                          for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
     infld_idxs_dict = { gid: range_inds(contiguous_ranges(target_rate_vector > 0, return_indices=True))
@@ -769,8 +768,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             spike_density_dict = spikedata.spike_density_estimate (population, spkdict1, time_bins)
             for gid in cell_index_set:
                 rate_vector = spike_density_dict[gid]['rate']
-                idxs = np.where(np.abs(rate_vector) < rate_eps)[0]
-                rate_vector[idxs] = 0.
+                rate_vector[np.isclose(rate_vector, 0.)] = 0.
                 rates_dict[gid].append(rate_vector)
             for gid in spkdict[population]:
                 logger.info('selectivity rate objective: trial %d spike times of gid %i: %s' % (i, gid, str(spkdict[population][gid])))
@@ -822,7 +820,6 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
                                     target_rate_map_path, target_rate_map_namespace,
 			            target_rate_map_arena, target_rate_map_trajectory,  worker, **kwargs):
     
-    rate_eps = kwargs.get('rate_eps', 1e-2)
     
     params = dict(locals())
     env = Env(**params)
@@ -837,6 +834,7 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
          t_min=t_min, t_max=t_max)
 
     time_step = env.stimulus_config['Temporal Resolution']
+    equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
 
     input_namespace = '%s %s %s' % (target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory)
     it = read_cell_attribute_selection(target_rate_map_path, population, namespace=input_namespace,
@@ -849,16 +847,17 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
     time_range = (0., min(np.max(trj_t), t_max))
     
     time_bins = np.arange(time_range[0], time_range[1], time_step)
-    target_rate_vector_dict = { gid: np.interp(time_bins, trj_t, trj_rate_maps[gid])
+    state_time_bins = np.arange(time_range[0], time_range[1], time_step)[:-1]
+    target_rate_vector_dict = { gid: np.interp(state_time_bins, trj_t, trj_rate_maps[gid])
                                 for gid in trj_rate_maps }
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
-        target_rate_vector[np.abs(target_rate_vector) < rate_eps] = 0.
+        target_rate_vector[np.isclose(target_rate_vector, 0.)] = 0.
         
-    outfld_ranges_dict = { gid: ( (time_bins[r[0]], time_bins[r[1]])
-                                  for r in contiguous_ranges(target_rate_vector <= 0.) )
+    outfld_ranges_dict = { gid: tuple( ( (time_bins[r[0]], time_bins[r[1]])
+                                         for r in contiguous_ranges(target_rate_vector <= 0.) ) )
                          for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
-    infld_ranges_dict = { gid: ( (time_bins[r[0]], time_bins[r[1]])
-                                 for r in contiguous_ranges(target_rate_vector > 0) )
+    infld_ranges_dict = { gid: tuple( ( (time_bins[r[0]], time_bins[r[1]])
+                                        for r in contiguous_ranges(target_rate_vector > 0) ) )
                         for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
         
     param_bounds, param_names, param_initial_dict, param_range_tuples = \
@@ -878,19 +877,29 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
         if state_filter == 'lowpass':
             filter_fun = lambda x, t: get_low_pass_filtered_trace(x, t)
         for gid in state_recs_dict:
-            state_values = []
+            state_values = None
             state_recs = state_recs_dict[gid]
-            for rec in state_recs:
-                vec = np.asarray(rec['vec'].to_python(), dtype=np.float32)
-                if filter_fun is None:
-                    data = np.asarray([ np.mean(vec[t_inds])
-                                            for t_inds in t_trial_inds ])
+            assert(len(state_recs) == 1)
+            rec = state_recs[0]
+            vec = np.asarray(rec['vec'].to_python(), dtype=np.float32)
+            if filter_fun is None:
+                data = np.asarray([ vec[t_inds] for t_inds in t_trial_inds ])
+            else:
+                data = np.asarray([ filter_fun(vec[t_inds], t_vec[t_inds])
+                                    for t_inds in t_trial_inds ])
+
+            state_values = []
+            max_len = np.max(np.asarray([len(a) for a in data]))
+            for state_value_array in data:
+                this_len = len(state_value_array)
+                if this_len < max_len:
+                    a = np.pad(state_value_array, (0, max_len-this_len), 'edge')
                 else:
-                    data = np.asarray([ np.mean(filter_fun(vec[t_inds], t_vec[t_inds]))
-                                            for t_inds in t_trial_inds ])
-                state_values.append(np.mean(data))
-            m = np.mean(np.asarray(state_values))
-            logger.info('selectivity state value objective: mean value of %s of gid %i is %.2f' % (state_variable, gid, m))
+                    a = state_value_array
+                state_values.append(a)
+
+            state_value_array = np.row_stack(state_values)
+            m = np.mean(state_value_array, axis=0)
             results_dict[gid] = m
         return t_vec[t_trial_inds[0]], results_dict
 
@@ -921,7 +930,6 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
             t_outfld_idxs = np.concatenate([ np.where(np.logical_and(t_s >= r[0], t_s < r[1]))[0] for r in outfld_ranges ])
             
             mean_state_values = state_values_dict[gid]
-
             mean_infld_state_value = np.mean(mean_state_values[t_infld_idxs])
             mean_outfld_state_value = np.mean(mean_state_values[t_outfld_idxs])
 
@@ -949,8 +957,6 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
                           param_type, param_config_name, recording_profile,
                           target_rate_map_path, target_rate_map_namespace,
 			  target_rate_map_arena, target_rate_map_trajectory,  worker, **kwargs):
-    
-    rate_eps = 1e-4
     
     params = dict(locals())
     env = Env(**params)
@@ -980,7 +986,7 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
     target_rate_vector_dict = { gid: np.interp(time_bins, trj_t, trj_rate_maps[gid])
                                 for gid in trj_rate_maps }
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
-        idxs = np.where(np.abs(target_rate_vector) < rate_eps)[0]
+        idxs = np.where(np.isclose(target_rate_vector, 0.))[0]
         target_rate_vector[idxs] = 0.
     
     param_bounds, param_names, param_initial_dict, param_range_tuples = \
@@ -1005,7 +1011,7 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
             spike_density_dict = spikedata.spike_density_estimate (population, spkdict1, time_bins)
             for gid in cell_index_set:
                 rate_vector = spike_density_dict[gid]['rate']
-                idxs = np.where(np.abs(rate_vector) < rate_eps)[0]
+                idxs = np.where(np.isclose(rate_vector, 0.))[0]
                 rate_vector[idxs] = 0.
                 rates_dict[gid].append(rate_vector)
             for gid in spkdict[population]:
@@ -1441,8 +1447,9 @@ def optimize(config_file, population, gid, arena_id, trajectory_id, generate_wei
         init_params['target_rate_map_trajectory'] = trajectory_id
         init_objfun_name = 'init_selectivity_rate_objfun'
     elif target == 'selectivity_state':
-        opt_target_infld = opt_params['Targets']['state']['mean in field'][target_state_variable]
-        opt_target_outfld  = opt_params['Targets']['state']['mean out field'][target_state_variable]
+        assert(target_state_variable is not None)
+        opt_target_infld = opt_params['Targets']['state'][target_state_variable]['mean in field']
+        opt_target_outfld  = opt_params['Targets']['state'][target_state_variable]['mean out field']
         init_params['target_rate_map_arena'] = arena_id
         init_params['target_rate_map_trajectory'] = trajectory_id
         init_params['target_infld_state_value'] = opt_target_infld
@@ -1451,7 +1458,8 @@ def optimize(config_file, population, gid, arena_id, trajectory_id, generate_wei
         init_params['state_filter'] = target_state_filter
         init_objfun_name = 'init_selectivity_state_objfun'
     elif target == 'state':
-        opt_target = opt_params['Targets']['state']['mean'][target_state_variable]
+        assert(target_state_variable is not None)
+        opt_target = opt_params['Targets']['state'][target_state_variable]['mean']
         init_params['target_value'] = opt_target
         init_params['state_variable'] = target_state_variable
         init_params['state_filter'] = target_state_filter

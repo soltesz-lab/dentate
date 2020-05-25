@@ -1,8 +1,6 @@
 optimization_title: DG_optimize_netclamp_pf
 param_gen: PopulationAnnealing
 feature_names:
-- GC in field firing rate vector
-- GC out of field firing rate vector
 objective_names:
 - GC in field firing rate vector
 - GC out of field firing rate vector
