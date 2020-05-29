@@ -1,3 +1,4 @@
+
 import sys, os, time, gc, click, logging, pprint
 from collections import defaultdict
 import numpy as np
@@ -48,8 +49,8 @@ sys.excepthook = mpi_excepthook
 @click.option("--sources", '-s', type=str, multiple=True)
 @click.option("--const-sources", '-n', type=str, multiple=True)
 @click.option("--arena-id", '-a', type=str, default='A')
-@click.option("--field-width-scale", type=float, default=1.33)
-@click.option("--max-delta-weight", type=float, default=5.)
+@click.option("--field-width-scale", type=float, default=1.25)
+@click.option("--max-delta-weight", type=float, default=4.)
 @click.option("--optimize-method", type=str, default='L-BFGS-B')
 @click.option("--optimize-tol", type=float, default=1e-4)
 @click.option("--optimize-grad", is_flag=True)
@@ -318,7 +319,10 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
 
 
         input_rate_maps_by_source_gid_dict = {}
-        const_input_rate_maps_by_source_gid_dict = {}
+        if len(const_sources) > 0:
+            const_input_rate_maps_by_source_gid_dict = {}
+        else:
+            const_input_rate_maps_by_source_gid_dict = None
         for source in all_sources:
             if has_structured_weights:
                 source_gids = list(source_gid_set_dict[source])
