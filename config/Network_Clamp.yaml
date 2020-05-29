@@ -283,6 +283,7 @@ Synaptic Optimization:
       state:
         v:
           mean: -70.0
+          max in field: -50
           mean in field: -50
           mean out field: -70
       firing rate: 0.75

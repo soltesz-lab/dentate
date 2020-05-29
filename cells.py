@@ -2127,6 +2127,9 @@ def normalize_tree_topology(neurotree_dict, swc_type_defs):
     sec_src = copy.deepcopy(neurotree_dict['src'])
     sec_dst = copy.deepcopy(neurotree_dict['dst'])
     soma_pts = np.where(pt_swc_types == swc_type_defs['soma'])[0]
+    hillock_pts = np.where(pt_swc_types == swc_type_defs['hillock'])[0]
+    ais_pts = np.where(pt_swc_types == swc_type_defs['ais'])[0]
+    axon_pts = np.where(pt_swc_types == swc_type_defs['axon'])[0]
     section_swc_types = []
     section_pt_dict = {}
     pt_section_dict = {}
@@ -2138,44 +2141,70 @@ def normalize_tree_topology(neurotree_dict, swc_type_defs):
         num_points = pt_sections[i]
         i += 1
         section_pt_dict[section_idx] = []
-        this_section_swc_type = pt_swc_types[pt_sections[i]]
-        section_swc_types.append(this_section_swc_type)
         if (pt_sections[i] == soma_pts[0]) and (pt_sections[i+1] == soma_pts[1]):
             soma_section_idx = section_idx
         for ip in range(num_points):
             p = pt_sections[i]
             section_pt_dict[section_idx].append(p)
-            pt_section_dict[p] = section_idx
+            if p not in pt_section_dict:
+                pt_section_dict[p] = section_idx
             i += 1
+        this_section_swc_type = pt_swc_types[pt_sections[i-1]]
+        section_swc_types.append(this_section_swc_type)
         section_idx += 1
 
     sec_parents_dict = {}
     for src, dst in zip(sec_src, sec_dst):
         sec_parents_dict[dst] = src
 
-    soma_edges = []
+    extra_edges = []
     for section_idx in sorted(section_pt_dict.keys()):
         section_pts = section_pt_dict[section_idx]
         section_swc_type = section_swc_types[section_idx]
         section_parent = sec_parents_dict.get(section_idx, None)
-        ## Detect dendritic sections without parent and connect them to soma
+        ## Detect sections without parent where first point is part of the parent section
+        if section_parent is None:
+            candidate_parent = pt_section_dict[section_pts[0]]
+            if candidate_parent != section_idx:
+                section_parent = candidate_parent
+                sec_parents_dict[section_idx] = section_parent
+                extra_edges.append((section_parent, section_idx))
+        ## Detect sections without parent and connect them
         if section_parent is None:
             if (section_swc_type == swc_type_defs['apical']) or (section_swc_type == swc_type_defs['basal']):
                 pt_parents[section_pts[0]] = soma_pts[-1]
-                soma_edges.append((soma_section_idx, section_idx))
+                extra_edges.append((soma_section_idx, section_idx))
                 sec_parents_dict[section_idx] = soma_section_idx
-
+            elif section_swc_type == swc_type_defs['hillock']:
+                pt_parents[section_pts[0]] = soma_pts[0]
+                extra_edges.append((soma_section_idx, section_idx))
+                sec_parents_dict[section_idx] = soma_section_idx
+            elif section_swc_type == swc_type_defs['ais']:
+                pt_parents[section_pts[0]] = hillock_pts[-1]
+                hillock_section_idx = pt_section_dict[hillock_pts[-1]]
+                extra_edges.append((hillock_section_idx, section_idx))
+                sec_parents_dict[section_idx] = hillock_section_idx
+            elif section_swc_type == swc_type_defs['axon']:
+                pt_parents[section_pts[0]] = ais_pts[-1]
+                ais_section_idx = pt_section_dict[ais_pts[-1]]
+                extra_edges.append((ais_section_idx, section_idx))
+                sec_parents_dict[section_idx] = ais_section_idx
+            elif section_swc_type == swc_type_defs['soma']:
+                pass
+            else:
+                raise RuntimeError("normalize_tree_topology: section %d: unsupported section type %d without parent" % (section_idx, section_swc_type))
 
     sec_graph = nx.DiGraph()
     for i, j in zip(sec_src, sec_dst):
         sec_graph.add_edge(i, j)
-    for i, j in soma_edges:
+    for i, j in extra_edges:
         sec_graph.add_edge(i, j)
 
     sec_graph_roots = [n for n,d in sec_graph.in_degree() if d==0]
     if len(sec_graph_roots) != 1:
         raise RuntimeError("normalize_tree_topology: section graph must be a rooted tree")
-        
+
+    
     edges_in_order = nx.dfs_edges(sec_graph, source=sec_graph_roots[0])
     
     for src, dst in edges_in_order:
@@ -2202,7 +2231,21 @@ def normalize_tree_topology(neurotree_dict, swc_type_defs):
         if parent_pt > -1:
             parent_section_idx = pt_section_dict[parent_pt]
             sec_graph.add_edge(parent_section_idx, section_idx)
+        else:
+            candidate_parent = pt_section_dict[pts[0]]
+            if candidate_parent != section_idx:
+                parent_section_idx = candidate_parent
+                sec_graph.add_edge(parent_section_idx, section_idx)
 
+    sec_nodes = [n for n in sec_graph.nodes]
+    sec_nodes.sort()
+    if len(sec_nodes) != len(section_pt_dict.keys()):
+        raise RuntimeError("normalize_tree_topology: normalized section graph has fewer nodes (%d) than initial section graph (%d)" % (len(sec_nodes), len(section_pt_dict.keys())))
+        
+    soma_descendants = list(nx.descendants(sec_graph, source=soma_section_idx))
+    if len(soma_descendants) < (len(sec_nodes) - 1):
+        raise RuntimeError("normalize_tree_topology: not all nodes are reachable from soma in section graph")
+            
     edges_in_order = list(nx.dfs_edges(sec_graph, source=sec_graph_roots[0]))
     sec_src = np.asarray([i for (i,j) in edges_in_order], dtype=np.uint16)
     sec_dst = np.asarray([j for (i,j) in edges_in_order], dtype=np.uint16)
@@ -2317,13 +2360,12 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     :return: :class:'BiophysCell'
     """
     load_cell_template(env, pop_name)
-    logger.info("env.data_file_path = %s" % env.data_file_path)
-    logger.info("gid = %d" % gid)
 
     if tree_dict is None:
         tree_attr_iter, _ = read_tree_selection(env.data_file_path, pop_name, [gid], comm=env.comm, topology=True)
         _, tree_dict = next(tree_attr_iter)
 
+        
     hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict)
     cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env,
                        mech_file_path=mech_file_path, mech_dict=mech_dict)
