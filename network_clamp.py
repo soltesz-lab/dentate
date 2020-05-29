@@ -777,7 +777,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
         mean_rate_vector_dict = { gid: np.mean(np.row_stack(rates_dict[gid]), axis=0)
                                   for gid in cell_index_set }
         for gid in mean_rate_vector_dict:
-            logger.info('firing rate objective: mean firing rate min/max of gid %i: %.02f / %.02f Hz' % (gid, np.min(mean_rate_vector_dict[gid]), np.max(mean_rate_vector_dict[gid])))
+            logger.info('selectivity rate objective: mean firing rate min/max of gid %i: %.02f / %.02f Hz' % (gid, np.min(mean_rate_vector_dict[gid]), np.max(mean_rate_vector_dict[gid])))
         return mean_rate_vector_dict
 
 
@@ -800,8 +800,11 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             logger.info('selectivity rate objective: target in/out rate vector of gid %i: %.02f %.02f' % (gid, np.mean(target_infld_rate_vector), np.mean(target_outfld_rate_vector)))
             logger.info('selectivity rate objective: mean in/out/total rate vector of gid %i: %.02f %.02f %.02f' % (gid, np.mean(mean_infld_rate_vector), np.mean(mean_outfld_rate_vector), np.mean(mean_rate_vector)))
 
-            residual = [np.mean(mean_infld_rate_vector) - np.mean(target_infld_rate_vector),
-                        np.mean(mean_outfld_rate_vector) - np.mean(target_outfld_rate_vector)]
+            residual_infld = np.clip(np.mean(mean_infld_rate_vector) - 
+                                     np.mean(target_infld_rate_vector),
+                                     None, 0.)
+            residual_outfld = np.mean(mean_outfld_rate_vector) - np.mean(target_outfld_rate_vector)
+            residual = [residual_infld, residual_outfld]
 
             result[gid] = -np.sum(np.square(np.asarray(residual)))
         return result
