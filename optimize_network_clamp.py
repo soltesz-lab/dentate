@@ -31,8 +31,8 @@ def mpi_excepthook(type, value, traceback):
         MPI.COMM_WORLD.Abort(1)
 
 
-#sys_excepthook = sys.excepthook
-#sys.excepthook = mpi_excepthook
+sys_excepthook = sys.excepthook
+sys.excepthook = mpi_excepthook
 
 
 context = Context()
@@ -123,7 +123,6 @@ def config_worker():
     param_names = []
     param_initial_dict = {}
     param_range_tuples = []
-    opt_targets = {}
 
     param_bounds, param_names, param_initial_dict, param_range_tuples = \
         network_clamp.optimize_params(context.env, context.population, 'synaptic',
@@ -148,16 +147,29 @@ def config_worker():
     context.x0 = param_initial_dict
     context.from_param_vector = from_param_vector
 
+    def range_inds(rs):
+        a = np.concatenate(list(rs))
+        return a
+
     target_rate_vector = read_target_rate_vector(context)
 
-    outfld_ranges = tuple(utils.contiguous_ranges(target_rate_vector <= 0.))
-    context.outfld_idxs = np.r_[outfld_ranges]
-    infld_ranges = tuple(utils.contiguous_ranges(target_rate_vector > 0.))
-    context.infld_idxs = np.r_[infld_ranges]
-
+    if 'state_filter' not in context:
+        context.state_filter = None
     
-    context.target_val['%s in field firing rate vector' % context.population] = target_rate_vector[context.infld_idxs]
-    context.target_val['%s out of field firing rate vector' % context.population] = target_rate_vector[context.outfld_idxs]
+    context.outfld_idxs = range_inds(contiguous_ranges(target_rate_vector <= 0., return_indices=True))
+    context.infld_idxs = range_inds(contiguous_ranges(target_rate_vector > 0, return_indices=True))
+
+    context.t_outfld_ranges = tuple( ( (time_bins[r[0]], time_bins[r[1]])
+                                       for r in contiguous_ranges(target_rate_vector <= 0.) ) )
+    context.t_infld_ranges = tuple( ( (time_bins[r[0]], time_bins[r[1]])
+                                      for r in contiguous_ranges(target_rate_vector > 0) ) )
+
+    target_state_variable = context.target_state_variable
+    context.target_val['%s in field max state value' % context.population] = opt_params['Targets']['state'][target_state_variable]['max in field']
+    context.target_val['%s out of field mean state value' % context.population] = opt_params['Targets']['state'][target_state_variable]['mean out field']
+
+    context.target_val['%s in field max firing rate' % context.population] = np.max(target_rate_vector[context.infld_idxs])
+    context.target_val['%s out of field mean firing rate' % context.population] = np.mean(target_rate_vector[context.outfld_idxs])
 
     
 def config_controller():
@@ -294,32 +306,47 @@ def gid_firing_rate_vector(population, gid, time_bins, n_trials, spkdict):
         
     return mean_rate_vector
 
-def gid_state_values(t_offset, n_trials, t_rec, state_recs_dict):
+
+def gid_state_values(population, gid, t_offset, n_trials, t_rec, state_recs_dict):
+
+    state_filter = context.state_filter
+    
     t_vec = np.asarray(t_rec.to_python(), dtype=np.float32)
     t_trial_inds = get_trial_time_indices(t_vec, n_trials, t_offset)
     results_dict = {}
     filter_fun = None
+    
     if state_filter == 'lowpass':
         filter_fun = lambda x, t: get_low_pass_filtered_trace(x, t)
-    for gid in state_recs_dict:
-        state_values = []
-        state_recs = state_recs_dict[gid]
-        for rec in state_recs:
-            vec = np.asarray(rec['vec'].to_python(), dtype=np.float32)
-            if filter_fun is None:
-                data = np.asarray([ np.mean(vec[t_inds])
+        
+    state_values = None
+    state_recs = state_recs_dict[gid]
+    assert(len(state_recs) == 1)
+    rec = state_recs[0]
+    vec = np.asarray(rec['vec'].to_python(), dtype=np.float32)
+    if filter_fun is None:
+        data = np.asarray([ vec[t_inds] for t_inds in t_trial_inds ])
+    else:
+        data = np.asarray([ filter_fun(vec[t_inds], t_vec[t_inds])
                                     for t_inds in t_trial_inds ])
-            else:
-                data = np.asarray([ np.mean(filter_fun(vec[t_inds], t_vec[t_inds]))
-                                            for t_inds in t_trial_inds ])
-                state_values.append(np.mean(data))
-        m = np.mean(np.asarray(state_values))
-        context.logger.info('state value objective: mean value of %s of gid %i is %.2f' % (state_variable, gid, m))
-        results_dict[gid] = m
-    return results_dict
+        
+    state_values = []
+    max_len = np.max(np.asarray([len(a) for a in data]))
+    for state_value_array in data:
+        this_len = len(state_value_array)
+        if this_len < max_len:
+            a = np.pad(state_value_array, (0, max_len-this_len), 'edge')
+        else:
+            a = state_value_array
+        state_values.append(a)
+
+    state_value_array = np.row_stack(state_values)
+    m = np.mean(state_value_array, axis=0)
+        
+    return t_vec[t_trial_inds[0]], m
 
 
-def compute_features_firing_rate_vector(x, n, export=False):
+def compute_features(x, n, export=False):
     """
 
     :param x: array
@@ -336,14 +363,34 @@ def compute_features_firing_rate_vector(x, n, export=False):
                                                 context.time_bins, context.env.n_trials,
                                                 context.pop_spike_dict)
     
-    infld_firing_rate = firing_rate_vector[context.infld_idxs]
-    outfld_firing_rate = firing_rate_vector[context.outfld_idxs]
+    max_infld_firing_rate = np.max(firing_rate_vector[context.infld_idxs])
+    mean_outfld_firing_rate = np.mean(firing_rate_vector[context.outfld_idxs])
     
     context.logger.info("in field firing rate: %s" % str(infld_firing_rate))
     context.logger.info("out of field firing rate: %s" % str(outfld_firing_rate))
+
+    t_s, mean_state_values = gid_state_values(context.population, context.gid,
+                                              context.equilibration_duration, 
+                                              context.env.n_trials, context.env.t_rec, 
+                                              context.state_recs_dict)
     
-    results['%s in field firing rate vector' % context.population] = infld_firing_rate
-    results['%s out of field firing rate vector' % context.population] = outfld_firing_rate
+    t_infld_ranges = context.t_infld_ranges
+    t_outfld_ranges = context.t_outfld_ranges
+
+    t_infld_idxs = np.concatenate([ np.where(np.logical_and(t_s >= r[0], t_s < r[1]))[0] for r in t_infld_ranges ])
+    t_outfld_idxs = np.concatenate([ np.where(np.logical_and(t_s >= r[0], t_s < r[1]))[0] for r in t_outfld_ranges ])
+
+            
+    max_infld_state_value = np.max(mean_state_values[t_infld_idxs])
+    mean_outfld_state_value = np.mean(mean_state_values[t_outfld_idxs])
+
+    context.logger.info("max in field state value: %.02f" % max_infld_state_value)
+    context.logger.info("mean out of field state value: %.02f" % mean_outfld_state_value)
+    
+    results['%s in field max state value' % context.population] = max_infld_state_value
+    results['%s out of field mean state value' % context.population] = mean_outfld_state_value
+    results['%s in field firing rate' % context.population] = max_infld_firing_rate
+    results['%s out of field firing rate' % context.population] = mean_outfld_firing_rate
 
     return results
 
