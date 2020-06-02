@@ -50,7 +50,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--const-sources", '-n', type=str, multiple=True)
 @click.option("--arena-id", '-a', type=str, default='A')
 @click.option("--field-width-scale", type=float, default=1.25)
-@click.option("--max-delta-weight", type=float, default=4.)
+@click.option("--max-weight", type=float, default=4.)
 @click.option("--optimize-method", type=str, default='L-BFGS-B')
 @click.option("--optimize-tol", type=float, default=1e-4)
 @click.option("--optimize-grad", is_flag=True)
@@ -67,7 +67,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--plot", is_flag=True)
 @click.option("--show-fig", is_flag=True)
 @click.option("--save-fig", type=click.Path(exists=True, file_okay=False, dir_okay=True))
-def main(config, coordinates, field_width, gid, input_features_path, input_features_namespaces, initial_weights_path, output_features_namespace, output_features_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, const_sources, arena_id, field_width_scale, max_delta_weight, optimize_method, optimize_tol, optimize_grad, peak_rate, reference_weights_are_delta, use_arena_margin, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot, show_fig, save_fig):
+def main(config, coordinates, field_width, gid, input_features_path, input_features_namespaces, initial_weights_path, output_features_namespace, output_features_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, const_sources, arena_id, field_width_scale, max_weight, optimize_method, optimize_tol, optimize_grad, peak_rate, reference_weights_are_delta, use_arena_margin, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot, show_fig, save_fig):
     """
 
     :param config: str (path to .yaml file)
@@ -370,7 +370,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                 input_rate_map_dict=input_rate_maps_by_source_gid_dict,
                                                 const_input_rate_map_dict=const_input_rate_maps_by_source_gid_dict,
                                                 syn_count_dict=syn_count_by_source_gid_dict,
-                                                max_delta_weight=max_delta_weight, arena_x=arena_x, arena_y=arena_y,
+                                                max_weight=max_weight, arena_x=arena_x, arena_y=arena_y,
                                                 optimize_method=optimize_method,
                                                 optimize_tol=optimize_tol,
                                                 optimize_grad=optimize_grad,
@@ -378,6 +378,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                 save_fig=save_fig_path,
                                                 fig_kwargs={'gid': this_gid,
                                                             'field_width': target_field_width_dict[this_gid]})
+            gc.collect()
 
             this_selectivity_dict = target_selectivity_features_dict[this_gid]
             output_features_dict[this_gid] = { fld: this_selectivity_dict[fld]
@@ -403,7 +404,6 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             gid_count += 1
 
         if iter_count % write_size == 0:
-            gc.collect()
             if not dry_run:
                 append_cell_attributes(output_weights_path, destination, output_weights_dict,
                                        namespace=this_output_weights_namespace, comm=env.comm, io_size=env.io_size,
