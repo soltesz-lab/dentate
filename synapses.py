@@ -2360,7 +2360,7 @@ def plot_callback_structured_weights(**kwargs):
     
     min_delta_weight, max_delta_weight = bounds
     
-    num_bins = 20
+    num_bins = 40
     edges = np.linspace(-1., max_weight + 1., num_bins + 1)
 
     min_vals = [np.min(flat_scaled_target_map),
@@ -2443,18 +2443,19 @@ def plot_callback_structured_weights(**kwargs):
     ax.set_title('Initial weights')
     #ax.set_xlim(-mean_initial_weight, max_delta_weight + 2. * mean_initial_weight)
     ax.set_ylabel('Log probability')
-    hist, edges2 = np.histogram(np.add(lsqr_delta_weights, mean_initial_weight), bins=2 * num_bins, density=True)
+    hist, edges2 = np.histogram(np.add(lsqr_delta_weights, initial_weight_array), bins=2 * num_bins, density=True)
     ax = fig.add_subplot(inner_grid[1])
     ax.semilogy(edges2[:-1], hist, label='Least squares')
     ax.set_title('Least squares')
-    hist, _ = np.histogram(np.add(initial_LS_delta_weights, mean_initial_weight), bins=edges, density=True)
+    logger.info("np.min(np.add(initial_LS_delta_weights, initial_weight_array)) = %f" % np.min(np.add(initial_LS_delta_weights, initial_weight_array)))
+    hist, edges3 = np.histogram(np.add(initial_LS_delta_weights, initial_weight_array), bins=edges, density=True)
     ax = fig.add_subplot(inner_grid[2])
-    ax.semilogy(edges[:-1], hist, label='Truncated least squares')
+    ax.semilogy(edges3[:-1], hist, label='Truncated least squares')
     ax.set_xlabel('Synaptic weight')
     ax.set_title('Truncated least squares')
-    hist, _ = np.histogram(scaled_LS_weights, bins=edges, density=True)
+    hist, edges4 = np.histogram(np.add(scaled_LS_weights, initial_weight_array), bins=edges, density=True)
     ax = fig.add_subplot(inner_grid[3])
-    ax.semilogy(edges[:-1], hist, label=optimize_method)
+    ax.semilogy(edges4[:-1], hist, label=optimize_method)
     ax.set_title(optimize_method)
     if reference_weight_array is not None:
         hist, _ = np.histogram(reference_weights, bins=edges, density=True)
