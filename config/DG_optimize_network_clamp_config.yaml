@@ -1,6 +1,10 @@
 optimization_title: DG_optimize_network_clamp
 param_gen: PopulationAnnealing
 feature_names:
+- GC in field max firing rate
+- GC out of field mean firing rate
+- GC in field max state value
+- GC out of field mean state value
 objective_names:
 - GC in field max firing rate
 - GC out of field mean firing rate
@@ -8,7 +12,7 @@ objective_names:
 - GC out of field mean state value
 update_context:
 - - optimize_network_clamp
-  - update_network
+  - update_network_clamp
 get_features_stages:
 - source: optimize_network_clamp
   compute_features: compute_features

@@ -80,6 +80,7 @@ def read_target_rate_vector(context, eps=1e-2):
     time_range = (0., min(np.max(trj_t), context.init_params['tstop']))
     time_step = context.env.stimulus_config['Temporal Resolution']
     context.time_bins = np.arange(time_range[0], time_range[1], time_step)
+    context.state_time_bins = np.arange(time_range[0], time_range[1], time_step)[:-1]
 
     input_namespace = '%s %s %s' % (target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory)
     it = read_cell_attribute_selection(target_rate_map_path, context.population, namespace=input_namespace,
@@ -87,7 +88,7 @@ def read_target_rate_vector(context, eps=1e-2):
                                         comm=context.comm)
     _, attr_dict = next(it)
     trj_rate_map = attr_dict['Trajectory Rate Map']
-    target_rate_vector = np.interp(context.time_bins, trj_t, trj_rate_map)
+    target_rate_vector = np.interp(context.state_time_bins, trj_t, trj_rate_map)
 
     target_rate_vector[np.abs(target_rate_vector) < eps] = 0.
     
@@ -153,16 +154,16 @@ def config_worker():
 
     target_rate_vector = read_target_rate_vector(context)
 
-    if 'state_filter' not in context:
+    if 'state_filter' not in context():
         context.state_filter = None
     
-    context.outfld_idxs = range_inds(contiguous_ranges(target_rate_vector <= 0., return_indices=True))
-    context.infld_idxs = range_inds(contiguous_ranges(target_rate_vector > 0, return_indices=True))
+    context.outfld_idxs = range_inds(utils.contiguous_ranges(target_rate_vector <= 0., return_indices=True))
+    context.infld_idxs = range_inds(utils.contiguous_ranges(target_rate_vector > 0, return_indices=True))
 
-    context.t_outfld_ranges = tuple( ( (time_bins[r[0]], time_bins[r[1]])
-                                       for r in contiguous_ranges(target_rate_vector <= 0.) ) )
-    context.t_infld_ranges = tuple( ( (time_bins[r[0]], time_bins[r[1]])
-                                      for r in contiguous_ranges(target_rate_vector > 0) ) )
+    context.t_outfld_ranges = tuple( ( (context.time_bins[r[0]], context.time_bins[r[1]])
+                                       for r in utils.contiguous_ranges(target_rate_vector <= 0.) ) )
+    context.t_infld_ranges = tuple( ( (context.time_bins[r[0]], context.time_bins[r[1]])
+                                      for r in utils.contiguous_ranges(target_rate_vector > 0) ) )
 
     target_state_variable = context.target_state_variable
     context.target_val['%s in field max state value' % context.population] = opt_params['Targets']['state'][target_state_variable]['max in field']
@@ -312,12 +313,12 @@ def gid_state_values(population, gid, t_offset, n_trials, t_rec, state_recs_dict
     state_filter = context.state_filter
     
     t_vec = np.asarray(t_rec.to_python(), dtype=np.float32)
-    t_trial_inds = get_trial_time_indices(t_vec, n_trials, t_offset)
+    t_trial_inds = utils.get_trial_time_indices(t_vec, n_trials, t_offset)
     results_dict = {}
     filter_fun = None
     
     if state_filter == 'lowpass':
-        filter_fun = lambda x, t: get_low_pass_filtered_trace(x, t)
+        filter_fun = lambda x, t: utils.get_low_pass_filtered_trace(x, t)
         
     state_values = None
     state_recs = state_recs_dict[gid]
@@ -366,8 +367,8 @@ def compute_features(x, n, export=False):
     max_infld_firing_rate = np.max(firing_rate_vector[context.infld_idxs])
     mean_outfld_firing_rate = np.mean(firing_rate_vector[context.outfld_idxs])
     
-    context.logger.info("in field firing rate: %s" % str(infld_firing_rate))
-    context.logger.info("out of field firing rate: %s" % str(outfld_firing_rate))
+    context.logger.info("in field max firing rate: %s" % str(max_infld_firing_rate))
+    context.logger.info("out of field mean firing rate: %s" % str(mean_outfld_firing_rate))
 
     t_s, mean_state_values = gid_state_values(context.population, context.gid,
                                               context.equilibration_duration, 
@@ -389,8 +390,8 @@ def compute_features(x, n, export=False):
     
     results['%s in field max state value' % context.population] = max_infld_state_value
     results['%s out of field mean state value' % context.population] = mean_outfld_state_value
-    results['%s in field firing rate' % context.population] = max_infld_firing_rate
-    results['%s out of field firing rate' % context.population] = mean_outfld_firing_rate
+    results['%s in field max firing rate' % context.population] = max_infld_firing_rate
+    results['%s out of field mean firing rate' % context.population] = mean_outfld_firing_rate
 
     return results
 
