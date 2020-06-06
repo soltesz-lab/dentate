@@ -29,6 +29,20 @@ Intracellular:
       i:
         syn types:
           - inhibitory
+  Network clamp exc synaptic:
+    dt: 0.1
+    reduce: True
+    section quantity:
+      v:
+        swc types:
+          - soma
+          - hillock
+          - apical
+          - basal
+    synaptic quantity:
+      i:
+        syn types:
+          - excitatory
   Network clamp all synaptic:
     dt: 0.1
     reduce: True
