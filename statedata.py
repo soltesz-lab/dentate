@@ -34,7 +34,7 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', st
         comm = MPI.COMM_WORLD
     pop_state_dict = {}
 
-    logger.info('Reading state data from populations %s, namespace %s...' % (str(population_names), namespace_id))
+    logger.info('Reading state data from populations %s, namespace %s gid = %s...' % (str(population_names), namespace_id, str(gid)))
 
     attr_info_dict = read_cell_attribute_info(input_file, populations=population_names, read_cell_index=True)
 
@@ -45,6 +45,8 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', st
             if state_variable == attr_name:
                 cell_index = attr_cell_index
 
+        if cell_index is None:
+            raise RuntimeError('read_state: Unable to find recordings for state variable %s in population %s namespace %s' % (state_variable, pop_name, str(namespace_id)))
         cell_set = set(cell_index)
 
         # Limit to max_units
