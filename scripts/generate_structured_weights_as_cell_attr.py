@@ -361,7 +361,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             if save_fig is not None:
                 save_fig_path = '%s/Structured Weights %s %d.png' % (save_fig, destination, this_gid)
                 
-            normalized_delta_weights_dict, arena_LS_map = \
+            scaled_LS_delta_weights_dict, arena_LS_map = \
               synapses.generate_structured_weights(target_map=target_selectivity_features_dict[this_gid]['Arena Rate Map'],
                                                 initial_weight_dict=this_initial_weights_by_source_gid_dict,
                                                 reference_weight_dict=this_reference_weights_by_source_gid_dict,
@@ -392,7 +392,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             output_syn_ids = np.empty(structured_syn_id_count, dtype='uint32')
             output_weights = np.empty(structured_syn_id_count, dtype='float32')
             i = 0
-            for source_gid, this_weight in viewitems(normalized_delta_weights_dict):
+            for source_gid, this_weight in viewitems(scaled_LS_delta_weights_dict):
                 for syn_id in syn_ids_by_source_gid_dict[source_gid]:
                     output_syn_ids[i] = syn_id
                     output_weights[i] = this_weight
