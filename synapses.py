@@ -2502,7 +2502,8 @@ def plot_callback_structured_weights(**kwargs):
 
     
 def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_dict, syn_count_dict,
-                                max_weight=10., target_amplitude=3., initial_weight_decay_fraction = 1.,
+                                max_weight=10., target_amplitude=3.,
+                                initial_weight_decay_fraction = 1.,
                                 arena_x=None, arena_y=None,
                                 const_input_rate_map_dict=None, 
                                 reference_weight_dict=None, reference_weights_are_delta=False,
@@ -2607,9 +2608,9 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
 
     lb = -(initial_weight_decay_fraction * initial_min)
     ub = max_weight - np.max(initial_weight_array)
-    bounds = (lb, ub)
+    initial_LS_bounds = (lb, ub)
     
-    initial_LS_delta_weights = np.clip(lsqr_delta_weights, bounds[0], bounds[1])
+    initial_LS_delta_weights = np.clip(lsqr_delta_weights, initial_LS_bounds[0], initial_LS_bounds[1])
 
     def activation_map_residual(weights, input_matrix, target_map):
         a = np.dot(np.asarray(input_matrix, dtype=np.float32),
@@ -2704,7 +2705,7 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
         plot_callback_structured_weights(optimize_method = optimize_method,
                                          arena_x = arena_x,
                                          arena_y = arena_y,
-                                         bounds = bounds,
+                                         bounds = initial_LS_bounds,
                                          max_weight = max_weight,
                                          scaled_const_input_map = scaled_const_input_map,
                                          lsqr_delta_weights = lsqr_delta_weights,
