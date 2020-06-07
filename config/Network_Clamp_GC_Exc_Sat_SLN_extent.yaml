@@ -5,8 +5,8 @@ Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-Cell Data: dentatenet_Full_Scale_GC_Exc_Sat_DD_S_extent_20200605.h5
-Connection Data: dentatenet_Full_Scale_GC_Exc_Sat_DD_S_extent_20200605.h5
+Cell Data: dentatenet_Full_Scale_GC_Exc_Sat_DD_S_extent_20200606.h5
+Connection Data: dentatenet_Full_Scale_GC_Exc_Sat_DD_S_extent_20200606.h5
 Connection Generator: !include Network_Clamp_Connections_GC_Exc_Sat_S_extent.yaml
 Recording: !include Recording.yaml
 Stimulus: !include Input_Configuration.yaml
@@ -20,12 +20,11 @@ Cell Types:
     mechanism file: 20200219_DG_GC_excitability_synint_combined_gid_0_mech.yaml
     synapses:
       correct_for_spines: True
-      weights: True
       weights:
         # weights namespaces: ['Structured Weights A', 'Log-Normal Weights']
         namespace: ['Structured Weights A', 'Log-Normal Weights']
-        expr: a*(sw + b)
-        parameter: [sw]
+        expr: a*(sw + lnw)
+        parameter: [sw, lnw]
         const:
           a: 1.0
           b: 1.0
@@ -36,8 +35,13 @@ Cell Types:
     mechanism file: 20191029_DG_MC_excitability_mech.yaml
     synapses:
       density: !include MC_synapse_density.yaml
-      weights: True
-      weights namespaces: ['Structured Weights A', 'Log-Normal Weights']
+      weights:
+        namespace: ['Structured Weights A', 'Log-Normal Weights']
+        expr: a*(sw + lnw)
+        parameter: [sw, lnw]
+        const:
+          a: 1.0
+        
   HC:
     template: HIPPCell
     synapses:

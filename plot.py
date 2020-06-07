@@ -1701,9 +1701,9 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
         for population in state_info.keys():
             for namespace in namespace_ids:
                 if namespace in state_info[population]:
-                    state_pop_name = population
-                    if state_variable in state_info[population][namespace]:
-                        gid_set = list(dict(state_info[population][namespace])[state_variable][0])
+                    ns_state_info_dict = dict(state_info[population][namespace])
+                    if state_variable in ns_state_info_dict:
+                        gid_set = list(ns_state_info_dict[state_variable])
                         break
                     else:
                         raise RuntimeError('unable to find recording for state variable %s population %s namespace %s' % (state_variable, population, namespace))
