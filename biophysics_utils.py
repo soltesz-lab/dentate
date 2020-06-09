@@ -39,7 +39,11 @@ class QuickSim(object):
         self.tstop = tstop
         h.load_file('stdrun.hoc')
         h.celsius = 35.0
-        h.cao0_ca_ion = 1.3
+        try:
+            h.cao0_ca_ion = 1.3
+        except:
+            if verbose:
+                print('QuickSim: no density mechanisms are using the calcium ion.')
         self.cvode_atol = 0.01  # 0.001
         self.daspk = daspk
         self._cvode = cvode
