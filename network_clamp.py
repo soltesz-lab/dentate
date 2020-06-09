@@ -182,10 +182,11 @@ def init_inputs_from_features(env, presyn_sources, time_range,
     input_source_dict = {}
     for population in sorted(presyn_sources):
         selection = list(presyn_sources[population])
-        logger.info("generating spike trains for %d inputs from presynaptic population %s..." % (len(selection), population))
+        logger.info("generating spike trains in time range %s for %d inputs from presynaptic population %s..." % (str(time_range), len(selection), population))
         pop_index = int(env.Populations[population])
         spikes_attr_dict = {}
         for input_features_namespace in this_input_features_namespaces:
+            logger.info("reading input features namespace %s..." % (input_features_namespace))
             input_features_iter = read_cell_attribute_selection(input_features_path, population,
                                                                 selection=selection,
                                                                 namespace=input_features_namespace,
@@ -774,39 +775,41 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
                 logger.info('selectivity rate objective: trial %d spike times of gid %i: %s' % (i, gid, str(spkdict[population][gid])))
                 logger.info('selectivity rate objective: trial %d firing rate min/max of gid %i: %.02f / %.02f Hz' % (i, gid, np.min(rates_dict[gid]), np.max(rates_dict[gid])))
 
-        mean_rate_vector_dict = { gid: np.mean(np.row_stack(rates_dict[gid]), axis=0)
-                                  for gid in cell_index_set }
-        for gid in mean_rate_vector_dict:
-            logger.info('selectivity rate objective: mean firing rate min/max of gid %i: %.02f / %.02f Hz' % (gid, np.min(mean_rate_vector_dict[gid]), np.max(mean_rate_vector_dict[gid])))
-        return mean_rate_vector_dict
+        return rates_dict
 
 
     def f(v, **kwargs):
-        mean_rate_vector_dict = gid_firing_rate_vectors(run_with(env, {population: {gid: from_param_dict(v[gid]) for gid in cell_index_set}}), cell_index_set)
+        rates_dict = gid_firing_rate_vectors(run_with(env, {population: {gid: from_param_dict(v[gid]) for gid in cell_index_set}}), cell_index_set)
         result = {}
         for gid in cell_index_set:
             infld_idxs = infld_idxs_dict[gid]
             outfld_idxs = outfld_idxs_dict[gid]
             
             target_rate_vector = target_rate_vector_dict[gid]
-            mean_rate_vector = mean_rate_vector_dict[gid]
+            rate_vectors = rates_dict[gid]
 
             target_infld_rate_vector = target_rate_vector[infld_idxs]
             target_outfld_rate_vector = target_rate_vector[outfld_idxs]
+
             
-            mean_infld_rate_vector = mean_rate_vector[infld_idxs]
-            mean_outfld_rate_vector = mean_rate_vector[outfld_idxs]
+            mean_rate_vector = np.mean(np.row_stack(rate_vectors), axis=0)
+            mean_infld_rate_vector = np.mean(np.row_stack([ rate_vector[infld_idxs] 
+                                                            for rate_vector in rate_vectors ]),
+                                             axis=0)
+            mean_outfld_rate = np.mean(np.asarray([ np.mean(rate_vector[outfld_idxs])
+                                                    for rate_vector in rate_vectors ]))
 
-            logger.info('selectivity rate objective: target in/out rate vector of gid %i: %.02f %.02f' % (gid, np.mean(target_infld_rate_vector), np.mean(target_outfld_rate_vector)))
-            logger.info('selectivity rate objective: mean in/out/total rate vector of gid %i: %.02f %.02f %.02f' % (gid, np.mean(mean_infld_rate_vector), np.mean(mean_outfld_rate_vector), np.mean(mean_rate_vector)))
+            logger.info('selectivity rate objective: target max in/mean out rate of gid %i: %.02f %.02f' % (gid, np.max(target_infld_rate_vector), np.mean(target_outfld_rate_vector)))
+            logger.info('selectivity rate objective: max in/mean out/mean total rate of gid %i: %.02f %.02f %.02f' % (gid, np.max(mean_infld_rate_vector), mean_outfld_rate, np.mean(mean_rate_vector)))
 
-            residual_infld = np.clip(np.mean(mean_infld_rate_vector) - 
-                                     np.mean(target_infld_rate_vector),
+            residual_infld = np.clip(np.max(mean_infld_rate_vector) - 
+                                     np.max(target_infld_rate_vector),
                                      None, 0.)
-            residual_outfld = np.mean(mean_outfld_rate_vector) - np.mean(target_outfld_rate_vector)
+            residual_outfld = mean_outfld_rate - np.mean(target_outfld_rate_vector)
             residual = [residual_infld, residual_outfld]
+            logger.info('selectivity rate objective: residual of gid %i: %s' % (gid, str(residual)))
 
-            result[gid] = -np.sum(np.square(np.asarray(residual)))
+            result[gid] = -np.sum(np.power(np.asarray(residual), np.asarray([2.0, 3.0])))
         return result
     
     return f
@@ -940,10 +943,10 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
             logger.info('selectivity state value objective: mean in/out/total state values of gid %i: %.02f %.02f %.02f' % (gid, mean_infld_state_value, mean_outfld_state_value,
                                                                                                                       np.mean(mean_state_values)))
 
-            residual = [mean_infld_state_value - target_infld_state_value,
+            residual = [np.clip(mean_infld_state_value - target_infld_state_value, None, 0.),
                         mean_outfld_state_value - target_outfld_state_value]
-
-            result[gid] = -np.sum(np.square(np.asarray(residual)))
+            
+            result[gid] = -np.sum(np.power(np.asarray(residual), np.asarray([2.0, 4.0])))
 
         return result
 
