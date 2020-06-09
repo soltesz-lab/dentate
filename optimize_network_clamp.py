@@ -166,7 +166,7 @@ def config_worker():
                                       for r in utils.contiguous_ranges(target_rate_vector > 0) ) )
 
     target_state_variable = context.target_state_variable
-    context.target_val['%s in field max state value' % context.population] = opt_params['Targets']['state'][target_state_variable]['max in field']
+    context.target_val['%s in field mean state value' % context.population] = opt_params['Targets']['state'][target_state_variable]['mean in field']
     context.target_val['%s out of field mean state value' % context.population] = opt_params['Targets']['state'][target_state_variable]['mean out field']
 
     context.target_val['%s in field max firing rate' % context.population] = np.max(target_rate_vector[context.infld_idxs])
@@ -271,6 +271,8 @@ def update_network_clamp(x, context=None):
             else:
                 if source is not None:
                     sources = [source]
+
+            context.logger.info("gid %d: updating parameter %s with value %s" % (gid, str(p), str(param_value)))
 
             synapses.modify_syn_param(biophys_cell, context.env, sec_type, syn_name,
                                       param_name=p, value=param_value,
@@ -382,13 +384,13 @@ def compute_features(x, n, export=False):
     t_outfld_idxs = np.concatenate([ np.where(np.logical_and(t_s >= r[0], t_s < r[1]))[0] for r in t_outfld_ranges ])
 
             
-    max_infld_state_value = np.max(mean_state_values[t_infld_idxs])
+    mean_infld_state_value = np.mean(mean_state_values[t_infld_idxs])
     mean_outfld_state_value = np.mean(mean_state_values[t_outfld_idxs])
 
-    context.logger.info("max in field state value: %.02f" % max_infld_state_value)
+    context.logger.info("mean in field state value: %.02f" % mean_infld_state_value)
     context.logger.info("mean out of field state value: %.02f" % mean_outfld_state_value)
     
-    results['%s in field max state value' % context.population] = max_infld_state_value
+    results['%s in field mean state value' % context.population] = mean_infld_state_value
     results['%s out of field mean state value' % context.population] = mean_outfld_state_value
     results['%s in field max firing rate' % context.population] = max_infld_firing_rate
     results['%s out of field mean firing rate' % context.population] = mean_outfld_firing_rate

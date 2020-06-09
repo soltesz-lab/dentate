@@ -46,8 +46,8 @@ class ExprClosure(object):
             formals = [self.sympy.Symbol(p) for p in self.formals]
         self.feval = self.sympy.lambdify(formals, fexpr, "numpy")
 
-    def __call__(self, x):
-        return self.feval(x)
+    def __call__(self, *x):
+        return self.feval(*x)
 
     def __repr__(self):
         return f'ExprClosure(expr: {self.expr} parameter: {self.parameters} consts: {self.consts})'

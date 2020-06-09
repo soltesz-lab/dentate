@@ -182,10 +182,11 @@ def init_inputs_from_features(env, presyn_sources, time_range,
     input_source_dict = {}
     for population in sorted(presyn_sources):
         selection = list(presyn_sources[population])
-        logger.info("generating spike trains for %d inputs from presynaptic population %s..." % (len(selection), population))
+        logger.info("generating spike trains in time range %s for %d inputs from presynaptic population %s..." % (str(time_range), len(selection), population))
         pop_index = int(env.Populations[population])
         spikes_attr_dict = {}
         for input_features_namespace in this_input_features_namespaces:
+            logger.info("reading input features namespace %s..." % (input_features_namespace))
             input_features_iter = read_cell_attribute_selection(input_features_path, population,
                                                                 selection=selection,
                                                                 namespace=input_features_namespace,
@@ -942,10 +943,8 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
             logger.info('selectivity state value objective: mean in/out/total state values of gid %i: %.02f %.02f %.02f' % (gid, mean_infld_state_value, mean_outfld_state_value,
                                                                                                                       np.mean(mean_state_values)))
 
-            residual = [mean_infld_state_value - target_infld_state_value,
+            residual = [np.clip(mean_infld_state_value - target_infld_state_value, None, 0.),
                         mean_outfld_state_value - target_outfld_state_value]
-
-            
             
             result[gid] = -np.sum(np.power(np.asarray(residual), np.asarray([2.0, 4.0])))
 
