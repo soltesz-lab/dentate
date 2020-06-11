@@ -141,71 +141,105 @@ Synaptic Optimization:
           apical:
             AMPA:
               weight:
-                a: [1.0, 5.0]
+                a: [1.0, 10.0]
         BC:
           apical:
             GABA_A:
-              weight: [0.01, 1.0]
+              weight: [0.01, 2.0]
           soma:
             GABA_A:
-              weight: [0.01, 1.0]
+              weight: [0.01, 2.0]
         AAC:
           ais:
             GABA_A:
-              weight: [0.01, 1.0]
+              weight: [0.01, 2.0]
         !!python/tuple [HC, HCC]:
           apical:
             GABA_A:
-              weight: [0.01, 1.0]
+              weight: [0.01, 2.0]
         !!python/tuple [NGFC, MOPP]:
           apical:
             GABA_A:
-              weight: [0.01, 1.0]
+              weight: [0.01, 2.0]
             GABA_B:
-              weight: [0.01, 1.0]
+              weight: [0.01, 2.0]
+      Weight no MC:
+        !!python/tuple [MPP, LPP]:
+          apical:
+            AMPA:
+              weight:
+                a: [1.0, 10.0]
+        BC:
+          apical:
+            GABA_A:
+              weight: [0.01, 2.0]
+          soma:
+            GABA_A:
+              weight: [0.01, 2.0]
+        AAC:
+          ais:
+            GABA_A:
+              weight: [0.01, 2.0]
+        HC:
+          apical:
+            GABA_A:
+              weight: [0.01, 2.0]
+        HCC:
+          apical:
+            GABA_A:
+              weight: [0.01, 2.0]
+        NGFC:
+          apical:
+            GABA_A:
+              weight: [0.01, 2.0]
+            GABA_B:
+              weight: [0.01, 2.0]
+        MOPP:  
+          apical:
+            GABA_A:
+              weight: [0.01, 2.0]
       Weight all inh soma dend:
         !!python/tuple [MPP, LPP]:
           apical:
             AMPA:
               weight:
-                a: [1.0, 5.0]
-                b: [0.1, 2.0]
+                a: [1.0, 25.0]
         MC:
           apical:
             AMPA:
-              weight: [0.1, 2.0]
+              weight: [0.1, 4.0]
         !!python/tuple [AAC, BC]:
           soma:
             GABA_A:
-              weight: [0.01, 1.0]
+              weight: [0.01, 4.0]
           ais:
             GABA_A:
-              weight: [0.01, 1.0]
+              weight: [0.01, 4.0]
         !!python/tuple [BC, HC, HCC, NGFC, MOPP]:
           apical:
             GABA_A:
-              weight: [0.01, 1.0]
+              weight: [0.01, 4.0]
             GABA_B:
-              weight: [0.01, 1.0]
+              weight: [0.01, 4.0]
       Weight all no MC inh soma dend:
         !!python/tuple [MPP, LPP]:
           apical:
             AMPA:
               weight:
-                a: [1.0, 5.0]
+                a: [1.0, 10.0]
         !!python/tuple [AAC, BC]:
           soma:
             GABA_A:
-              weight: [0.01, 1.0]
+              weight: [0.01, 2.0]
           ais:
             GABA_A:
-              weight: [0.01, 1.0]
+              weight: [0.01, 2.0]
         !!python/tuple [BC, HC, HCC, NGFC, MOPP]:
           apical:
             GABA_A:
-              weight: [0.01, 1.0]
+              weight: [0.01, 2.0]
             GABA_B:
-              weight: [0.01, 1.0]
+              weight: [0.01, 2.0]
       Weight inhibitory grp:
         BC:
           apical:
@@ -300,9 +334,8 @@ Synaptic Optimization:
       state:
         v:
           mean: -70.0
-          max in field: -50
-          mean in field: -50
-          mean out field: -70
+          mean in field: -54
+          mean out field: -67
       firing rate: 0.75
       fraction active: 0.01
   MC:
