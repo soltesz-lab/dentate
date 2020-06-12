@@ -2632,6 +2632,8 @@ def get_spike_shape(vm, spike_times, equilibrate=0., dt=0.025, th_dvdt=10.):
     ADP_min_start_len = min(window_end - th_x, int(ADP_min_start / dt))
     ADP_window_end = min(window_end, th_x + int(ADP_window_dur / dt))
 
+    if window_end - th_x <= 0:
+        return None
     x_peak = np.argmax(vm[th_x:window_end]) + th_x
     v_peak = vm[x_peak]
 
