@@ -1,6 +1,7 @@
 import collections, os, sys, traceback, copy, datetime, math, itertools, pprint
 import numpy as np
-from dentate.neuron_utils import h, d_lambda, default_hoc_sec_lists, default_ordered_sec_types, freq, make_rec, load_cell_template
+from dentate.neuron_utils import h, d_lambda, default_hoc_sec_lists, default_ordered_sec_types, freq, make_rec, \
+    load_cell_template, IzhiCellAttrs, default_izhi_cell_attrs_dict
 from dentate.utils import get_module_logger, map, range, zip, zip_longest, viewitems, read_from_yaml, write_to_yaml
 from neuroh5.io import read_cell_attribute_selection, read_graph_selection, read_tree_selection
 
@@ -571,6 +572,122 @@ class STree2(object):
 
     def __str__(self):
         return "STree2 (" + str(len(self.get_nodes())) + " nodes)"
+
+
+class IzhiCell(object):
+    """
+    An implementation of an Izhikevich adaptive integrate-and-fire-type cell model for simulation in NEURON.
+    Conforms to the same API as BiophysCell.
+    """
+    def __init__(self, gid, pop_name, env=None, cell_type='RS', cell_attrs=None, **kwargs):
+        """
+
+        :param gid: int
+        :param pop_name: str
+        :param env: :class:'Env'
+        :param cell_type: str
+        :param cell_attrs: :namedtuple:'IzhiCellAttrs'
+        """
+        self._gid = gid
+        self._pop_name = pop_name
+        self.tree = STree2()  # Builds a simple tree to store nodes of type 'SHocNode'
+        self.count = 0  # Keep track of number of nodes
+        if env is not None:
+            for sec_type in env.SWC_Types:
+                if sec_type not in default_ordered_sec_types:
+                    raise AttributeError('Warning! unexpected SWC Type definitions found in Env')
+        self.nodes = {key: [] for key in default_ordered_sec_types}
+        self.mech_file_path = None
+        self.init_mech_dict = None
+        self.mech_dict = None
+        self.random = np.random.RandomState()
+        self.random.seed(self.gid)
+        self.spike_detector = None
+        self.spike_onset_delay = 0.
+        self.hoc_cell = None
+
+        if cell_attrs is not None:
+            if not isinstance(cell_attrs, IzhiCellAttrs):
+                raise RuntimeError('IzhiCell: provided cell_attrs must be of type IzhiCellAttrs')
+            cell_type = 'custom'
+        elif cell_type not in default_izhi_cell_attrs_dict:
+            raise RuntimeError('IzhiCell: unknown izhi cell_type: %s' % cell_type)
+        else:
+            cell_attrs = default_izhi_cell_attrs_dict[cell_type]
+        self.cell_type = cell_type
+
+        append_section(self, 'soma')
+        sec = self.tree.root.sec
+        sec.L, sec.diam = 10., 10.
+        self.izh = h.Izhi2019(.5, sec=sec)
+        self.base_cm = 31.831  # Produces membrane time constant of 8 ms for a RS cell with izh.C = 1. and izi.k = 0.7
+
+        for attr_name, attr_val in cell_attrs._asdict().items():
+            setattr(self.izh, attr_name, attr_val)
+        sec.cm = self.base_cm * self.izh.C
+
+        init_spike_detector(self, self.tree.root, loc=0.5, threshold=self.izh.vpeak - 1.)
+
+    def update_cell_attrs(self, **kwargs):
+        for attr_name, attr_val in kwargs.items():
+            if attr_name in IzhiCellAttrs._fields:
+                setattr(self.izh, attr_name, attr_val)
+            if attr_name == 'C':
+                self.tree.root.sec.cm = self.base_cm * attr_val
+            elif attr_name == 'vpeak':
+                self.spike_detector.threshold = attr_val - 1.
+
+    @property
+    def gid(self):
+        return self._gid
+
+    @property
+    def pop_name(self):
+        return self._pop_name
+
+    @property
+    def soma(self):
+        return self.nodes['soma']
+
+    @property
+    def axon(self):
+        return self.nodes['axon']
+
+    @property
+    def basal(self):
+        return self.nodes['basal']
+
+    @property
+    def apical(self):
+        return self.nodes['apical']
+
+    @property
+    def trunk(self):
+        return self.nodes['trunk']
+
+    @property
+    def tuft(self):
+        return self.nodes['tuft']
+
+    @property
+    def spine(self):
+        return self.nodes['spine_head']
+
+    @property
+    def spine_head(self):
+        return self.nodes['spine_head']
+
+    @property
+    def spine_neck(self):
+        return self.nodes['spine_neck']
+
+    @property
+    def ais(self):
+        return self.nodes['ais']
+
+    @property
+    def hillock(self):
+        return self.nodes['hillock']
 
 
 class BiophysCell(object):
