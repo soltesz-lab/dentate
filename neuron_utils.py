@@ -16,6 +16,16 @@ default_ordered_sec_types = ['soma', 'hillock', 'ais', 'axon', 'basal', 'trunk',
                              'spine_head']
 default_hoc_sec_lists = {'soma': 'somaidx', 'hillock': 'hilidx', 'ais': 'aisidx', 'axon': 'axonidx',
                          'basal': 'basalidx', 'apical': 'apicalidx', 'trunk': 'trunkidx', 'tuft': 'tuftidx'}
+IzhiCellAttrs = namedtuple('IzhiCellAttrs', ['C', 'k', 'vr', 'vt', 'vpeak', 'a', 'b', 'c', 'd', 'celltype'])
+default_izhi_cell_attrs_dict = {
+    'RS': IzhiCellAttrs(C=1., k=0.7, vr=-65., vt=-50., vpeak=35., a=0.03, b=-2., c=-55., d=100., celltype=1),
+    'IB': IzhiCellAttrs(C=1.5, k=1.2, vr=-75., vt=-45., vpeak=50., a=0.01, b=5., c=-56., d=130., celltype=2),
+    'CH': IzhiCellAttrs(C=0.5, k=1.5, vr=-60., vt=-40., vpeak=25., a=0.03, b=1., c=-40., d=150., celltype=3),
+    'LTS': IzhiCellAttrs(C=1.0, k=1.0, vr=-56., vt=-42., vpeak=40., a=0.03, b=8., c=-53., d=20., celltype=4),
+    'FS': IzhiCellAttrs(C=0.2, k=1., vr=-55., vt=-40., vpeak=25., a=0.2, b=-2., c=-45., d=-55., celltype=5),
+    'TC': IzhiCellAttrs(C=2.0, k=1.6, vr=-60., vt=-50., vpeak=35., a=0.01, b=15., c=-60., d=10., celltype=6),
+    'RTN': IzhiCellAttrs(C=0.4, k=0.25, vr=-65., vt=-45., vpeak=0., a=0.015, b=10., c=-55., d=50., celltype=7)
+}
 
 
 def hoc_results_to_python(hoc_results):
