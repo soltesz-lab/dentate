@@ -120,7 +120,8 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             output_file.close()
     env.comm.barrier()
 
-    this_output_weights_namespace = '%s %s' % (output_weights_namespace, arena_id)
+    LTD_output_weights_namespace = 'LTD %s %s' % (output_weights_namespace, arena_id)
+    LTP_output_weights_namespace = 'LTP %s %s' % (output_weights_namespace, arena_id)
     this_input_features_namespaces = ['%s %s' % (input_features_namespace, arena_id) for input_features_namespace in input_features_namespaces]
 
     selectivity_type_index = { i: n for n, i in viewitems(env.selectivity_types) }
@@ -154,7 +155,8 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                for source in all_sources ]
 
     output_features_dict = {}
-    output_weights_dict = {}
+    LTP_output_weights_dict = {}
+    LTD_output_weights_dict = {}
     for iter_count, attr_gen_package in enumerate(zip_longest(*connection_gen_list)):
         
         local_time = time.time()
@@ -361,7 +363,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             if save_fig is not None:
                 save_fig_path = '%s/Structured Weights %s %d.png' % (save_fig, destination, this_gid)
                 
-            scaled_LS_delta_weights_dict, arena_LS_map = \
+            normalized_LTP_delta_weights_dict, LTD_delta_weights_dict, arena_LS_map = \
               synapses.generate_structured_weights(target_map=target_selectivity_features_dict[this_gid]['Arena Rate Map'],
                                                 initial_weight_dict=this_initial_weights_by_source_gid_dict,
                                                 reference_weight_dict=this_reference_weights_by_source_gid_dict,
@@ -390,14 +392,17 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                            'Y Offset'] }
             output_features_dict[this_gid]['Arena State Map'] = np.asarray(arena_LS_map.ravel(), dtype=np.float32)
             output_syn_ids = np.empty(structured_syn_id_count, dtype='uint32')
-            output_weights = np.empty(structured_syn_id_count, dtype='float32')
+            LTD_output_weights = np.empty(structured_syn_id_count, dtype='float32')
+            LTP_output_weights = np.empty(structured_syn_id_count, dtype='float32')
             i = 0
-            for source_gid, this_weight in viewitems(scaled_LS_delta_weights_dict):
+            for source_gid in normalized_LTP_delta_weights_dict:
                 for syn_id in syn_ids_by_source_gid_dict[source_gid]:
                     output_syn_ids[i] = syn_id
-                    output_weights[i] = this_weight
+                    LTP_output_weights[i] = normalized_LTP_delta_weights_dict[syn_id]
+                    LTD_output_weights[i] = LTD_delta_weights_dict[syn_id]
                     i += 1
-            output_weights_dict[this_gid] = {'syn_id': output_syn_ids, synapse_name: output_weights}
+            LTP_output_weights_dict[this_gid] = {'syn_id': output_syn_ids, synapse_name: LTP_output_weights}
+            LTD_output_weights_dict[this_gid] = {'syn_id': output_syn_ids, synapse_name: LTD_output_weights}
 
             logger.info('Rank %i; destination: %s; gid %i; generated structured weights for %i inputs in %.2f '
                         's' % (rank, destination, this_gid, len(output_syn_ids), time.time() - local_time))
@@ -405,8 +410,11 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
 
         if iter_count % write_size == 0:
             if not dry_run:
-                append_cell_attributes(output_weights_path, destination, output_weights_dict,
-                                       namespace=this_output_weights_namespace, comm=env.comm, io_size=env.io_size,
+                append_cell_attributes(output_weights_path, destination, LTD_output_weights_dict,
+                                       namespace=LTD_output_weights_namespace, comm=env.comm, io_size=env.io_size,
+                                       chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+                append_cell_attributes(output_weights_path, destination, LTP_output_weights_dict,
+                                       namespace=LTP_output_weights_namespace, comm=env.comm, io_size=env.io_size,
                                        chunk_size=chunk_size, value_chunk_size=value_chunk_size)
                 count = comm.reduce(len(output_weights_dict), op=MPI.SUM, root=0)
                 if rank == 0:
@@ -429,8 +437,11 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
         env.comm.barrier()
 
     if not dry_run:
-        append_cell_attributes(output_weights_path, destination, output_weights_dict,
-                               namespace=this_output_weights_namespace, comm=env.comm, io_size=env.io_size,
+        append_cell_attributes(output_weights_path, destination, LTD_output_weights_dict,
+                               namespace=LTD_output_weights_namespace, comm=env.comm, io_size=env.io_size,
+                               chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+        append_cell_attributes(output_weights_path, destination, LTP_output_weights_dict,
+                               namespace=LTP_output_weights_namespace, comm=env.comm, io_size=env.io_size,
                                chunk_size=chunk_size, value_chunk_size=value_chunk_size)
         count = comm.reduce(len(output_weights_dict), op=MPI.SUM, root=0)
         if rank == 0:
