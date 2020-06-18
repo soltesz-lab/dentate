@@ -172,32 +172,32 @@ Synaptic Optimization:
         BC:
           apical:
             GABA_A:
-              weight: [0.01, 2.0]
+              weight: [0.01, 4.0]
           soma:
             GABA_A:
-              weight: [0.01, 2.0]
+              weight: [0.01, 4.0]
         AAC:
           ais:
             GABA_A:
-              weight: [0.01, 2.0]
+              weight: [0.01, 4.0]
         HC:
           apical:
             GABA_A:
-              weight: [0.01, 2.0]
+              weight: [0.01, 4.0]
         HCC:
           apical:
             GABA_A:
-              weight: [0.01, 2.0]
+              weight: [0.01, 4.0]
         NGFC:
           apical:
             GABA_A:
-              weight: [0.01, 2.0]
+              weight: [0.01, 4.0]
             GABA_B:
-              weight: [0.01, 2.0]
+              weight: [0.01, 4.0]
         MOPP:  
           apical:
             GABA_A:
-              weight: [0.01, 2.0]
+              weight: [0.01, 4.0]
       Weight all inh soma dend:
         !!python/tuple [MPP, LPP]:
           apical:
@@ -334,7 +334,7 @@ Synaptic Optimization:
       state:
         v:
           mean: -70.0
-          mean in field: -54
+          mean in field: -57
           mean out field: -67
       firing rate: 0.75
       fraction active: 0.01

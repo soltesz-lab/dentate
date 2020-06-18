@@ -802,14 +802,12 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             logger.info('selectivity rate objective: target max in/mean out rate of gid %i: %.02f %.02f' % (gid, np.max(target_infld_rate_vector), np.mean(target_outfld_rate_vector)))
             logger.info('selectivity rate objective: max in/mean out/mean total rate of gid %i: %.02f %.02f %.02f' % (gid, np.max(mean_infld_rate_vector), mean_outfld_rate, np.mean(mean_rate_vector)))
 
-            residual_infld = np.clip(np.max(mean_infld_rate_vector) - 
-                                     np.max(target_infld_rate_vector),
-                                     None, 0.)
-            residual_outfld = mean_outfld_rate - np.mean(target_outfld_rate_vector)
-            residual = [residual_infld, residual_outfld]
+            residual_infld = np.max(mean_infld_rate_vector)
+            residual_outfld = mean_outfld_rate
+            residual = residual_infld - residual_outfld**2.
             logger.info('selectivity rate objective: residual of gid %i: %s' % (gid, str(residual)))
 
-            result[gid] = -np.sum(np.power(np.asarray(residual), np.asarray([2.0, 3.0])))
+            result[gid] = residual
         return result
     
     return f
@@ -943,7 +941,7 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
             logger.info('selectivity state value objective: mean in/out/total state values of gid %i: %.02f %.02f %.02f' % (gid, mean_infld_state_value, mean_outfld_state_value,
                                                                                                                       np.mean(mean_state_values)))
 
-            residual = [np.clip(mean_infld_state_value - target_infld_state_value, None, 0.),
+            residual = [mean_infld_state_value - target_infld_state_value,
                         mean_outfld_state_value - target_outfld_state_value]
             
             result[gid] = -np.sum(np.power(np.asarray(residual), np.asarray([2.0, 4.0])))
