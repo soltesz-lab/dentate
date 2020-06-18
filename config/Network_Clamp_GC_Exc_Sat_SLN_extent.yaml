@@ -9,8 +9,8 @@ Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-Cell Data: dentatenet_Full_Scale_GC_Exc_Sat_DD_SLN_extent_20200609.h5
-Connection Data: dentatenet_Full_Scale_GC_Exc_Sat_DD_SLN_extent_20200609.h5
+Cell Data: dentatenet_Full_Scale_GC_Exc_Sat_DD_SLN_extent_20200617.h5
+Connection Data: dentatenet_Full_Scale_GC_Exc_Sat_DD_SLN_extent_20200617.h5
 #Gap Junction Data: DG_gapjunctions_20191112.h5
 Connection Generator: !include Network_Clamp_Connections_GC_Exc_Sat_S_extent.yaml
 Recording: !include Recording.yaml
@@ -25,9 +25,9 @@ Cell Types:
     synapses:
       correct_for_spines: True
       weights:
-        namespace: ['Structured Weights A', 'Log-Normal Weights']
-        expr: a*(sw + lnw)
-        parameter: [sw, lnw]
+        namespace: ['LTP Structured Weights A', 'LTD Structured Weights A', 'Log-Normal Weights']
+        expr: a*ltp + (ltd + lnw)
+        parameter: [ltp, ltd, lnw]
         const:
           a: 1.0
       density: !include GC_synapse_density.yaml
