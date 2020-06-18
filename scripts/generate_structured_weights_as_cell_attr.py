@@ -56,6 +56,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--optimize-grad", is_flag=True)
 @click.option("--peak-rate", type=float)
 @click.option("--reference-weights-are-delta", type=bool, default=False)
+@click.option("--target-amplitude", type=float, default=3.)
 @click.option("--use-arena-margin", is_flag=True)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
@@ -67,7 +68,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--plot", is_flag=True)
 @click.option("--show-fig", is_flag=True)
 @click.option("--save-fig", type=click.Path(exists=True, file_okay=False, dir_okay=True))
-def main(config, coordinates, field_width, gid, input_features_path, input_features_namespaces, initial_weights_path, output_features_namespace, output_features_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, const_sources, arena_id, field_width_scale, max_delta_weight, optimize_method, optimize_tol, optimize_grad, peak_rate, reference_weights_are_delta, use_arena_margin, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot, show_fig, save_fig):
+def main(config, coordinates, field_width, gid, input_features_path, input_features_namespaces, initial_weights_path, output_features_namespace, output_features_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, const_sources, arena_id, field_width_scale, max_delta_weight, optimize_method, optimize_tol, optimize_grad, peak_rate, reference_weights_are_delta, use_arena_margin, target_amplitude, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot, show_fig, save_fig):
     """
 
     :param config: str (path to .yaml file)
@@ -120,7 +121,8 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             output_file.close()
     env.comm.barrier()
 
-    this_output_weights_namespace = '%s %s' % (output_weights_namespace, arena_id)
+    LTD_output_weights_namespace = 'LTD %s %s' % (output_weights_namespace, arena_id)
+    LTP_output_weights_namespace = 'LTP %s %s' % (output_weights_namespace, arena_id)
     this_input_features_namespaces = ['%s %s' % (input_features_namespace, arena_id) for input_features_namespace in input_features_namespaces]
 
     selectivity_type_index = { i: n for n, i in viewitems(env.selectivity_types) }
@@ -154,7 +156,8 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                for source in all_sources ]
 
     output_features_dict = {}
-    output_weights_dict = {}
+    LTP_output_weights_dict = {}
+    LTD_output_weights_dict = {}
     for iter_count, attr_gen_package in enumerate(zip_longest(*connection_gen_list)):
         
         local_time = time.time()
@@ -361,7 +364,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             if save_fig is not None:
                 save_fig_path = '%s/Structured Weights %s %d.png' % (save_fig, destination, this_gid)
                 
-            normalized_delta_weights_dict, arena_LS_map = \
+            normalized_LTP_delta_weights_dict, LTD_delta_weights_dict, arena_LS_map = \
               synapses.generate_structured_weights(target_map=target_selectivity_features_dict[this_gid]['Arena Rate Map'],
                                                 initial_weight_dict=this_initial_weights_by_source_gid_dict,
                                                 reference_weight_dict=this_reference_weights_by_source_gid_dict,
@@ -370,7 +373,9 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                 input_rate_map_dict=input_rate_maps_by_source_gid_dict,
                                                 const_input_rate_map_dict=const_input_rate_maps_by_source_gid_dict,
                                                 syn_count_dict=syn_count_by_source_gid_dict,
-                                                max_delta_weight=max_delta_weight, arena_x=arena_x, arena_y=arena_y,
+                                                max_delta_weight=max_delta_weight,
+                                                target_amplitude=target_amplitude,
+                                                arena_x=arena_x, arena_y=arena_y,
                                                 optimize_method=optimize_method,
                                                 optimize_tol=optimize_tol,
                                                 optimize_grad=optimize_grad,
@@ -378,6 +383,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                 save_fig=save_fig_path,
                                                 fig_kwargs={'gid': this_gid,
                                                             'field_width': target_field_width_dict[this_gid]})
+            gc.collect()
 
             this_selectivity_dict = target_selectivity_features_dict[this_gid]
             output_features_dict[this_gid] = { fld: this_selectivity_dict[fld]
@@ -389,26 +395,31 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                            'Y Offset'] }
             output_features_dict[this_gid]['Arena State Map'] = np.asarray(arena_LS_map.ravel(), dtype=np.float32)
             output_syn_ids = np.empty(structured_syn_id_count, dtype='uint32')
-            output_weights = np.empty(structured_syn_id_count, dtype='float32')
+            LTD_output_weights = np.empty(structured_syn_id_count, dtype='float32')
+            LTP_output_weights = np.empty(structured_syn_id_count, dtype='float32')
             i = 0
-            for source_gid, this_weight in viewitems(normalized_delta_weights_dict):
+            for source_gid in normalized_LTP_delta_weights_dict:
                 for syn_id in syn_ids_by_source_gid_dict[source_gid]:
                     output_syn_ids[i] = syn_id
-                    output_weights[i] = this_weight
+                    LTP_output_weights[i] = normalized_LTP_delta_weights_dict[source_gid]
+                    LTD_output_weights[i] = LTD_delta_weights_dict[source_gid]
                     i += 1
-            output_weights_dict[this_gid] = {'syn_id': output_syn_ids, synapse_name: output_weights}
+            LTP_output_weights_dict[this_gid] = {'syn_id': output_syn_ids, synapse_name: LTP_output_weights}
+            LTD_output_weights_dict[this_gid] = {'syn_id': output_syn_ids, synapse_name: LTD_output_weights}
 
             logger.info('Rank %i; destination: %s; gid %i; generated structured weights for %i inputs in %.2f '
                         's' % (rank, destination, this_gid, len(output_syn_ids), time.time() - local_time))
             gid_count += 1
 
         if iter_count % write_size == 0:
-            gc.collect()
             if not dry_run:
-                append_cell_attributes(output_weights_path, destination, output_weights_dict,
-                                       namespace=this_output_weights_namespace, comm=env.comm, io_size=env.io_size,
+                append_cell_attributes(output_weights_path, destination, LTD_output_weights_dict,
+                                       namespace=LTD_output_weights_namespace, comm=env.comm, io_size=env.io_size,
                                        chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-                count = comm.reduce(len(output_weights_dict), op=MPI.SUM, root=0)
+                append_cell_attributes(output_weights_path, destination, LTP_output_weights_dict,
+                                       namespace=LTP_output_weights_namespace, comm=env.comm, io_size=env.io_size,
+                                       chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+                count = comm.reduce(len(LTP_output_weights_dict), op=MPI.SUM, root=0)
                 if rank == 0:
                     logger.info('Destination: %s; appended weights for %i cells' % (destination, count))
                 if output_features_path is not None:
@@ -422,17 +433,21 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                     if rank == 0:
                         logger.info('Destination: %s; appended selectivity features for %i cells' % (destination, count))
 
-            output_weights_dict.clear()
+            LTP_output_weights_dict.clear()
+            LTD_output_weights_dict.clear()
             output_features_dict.clear()
             gc.collect()
 
         env.comm.barrier()
 
     if not dry_run:
-        append_cell_attributes(output_weights_path, destination, output_weights_dict,
-                               namespace=this_output_weights_namespace, comm=env.comm, io_size=env.io_size,
+        append_cell_attributes(output_weights_path, destination, LTD_output_weights_dict,
+                               namespace=LTD_output_weights_namespace, comm=env.comm, io_size=env.io_size,
                                chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-        count = comm.reduce(len(output_weights_dict), op=MPI.SUM, root=0)
+        append_cell_attributes(output_weights_path, destination, LTP_output_weights_dict,
+                               namespace=LTP_output_weights_namespace, comm=env.comm, io_size=env.io_size,
+                               chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+        count = comm.reduce(len(LTP_output_weights_dict), op=MPI.SUM, root=0)
         if rank == 0:
             logger.info('Destination: %s; appended weights for %i cells' % (destination, count))
         if output_features_path is not None:

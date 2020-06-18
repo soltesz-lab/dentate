@@ -1,5 +1,9 @@
 Network Clamp:  !include Network_Clamp.yaml
+<<<<<<< HEAD
 Model Name: Single_GC_Exc_Sat_S_extent
+=======
+Model Name: Single_GC_Exc_Sat_SLN_extent
+>>>>>>> feature/netclamp
 Dataset Name: Slice
 Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml

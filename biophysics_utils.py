@@ -39,7 +39,11 @@ class QuickSim(object):
         self.tstop = tstop
         h.load_file('stdrun.hoc')
         h.celsius = 35.0
-        h.cao0_ca_ion = 1.3
+        try:
+            h.cao0_ca_ion = 1.3
+        except:
+            if verbose:
+                print('QuickSim: no density mechanisms are using the calcium ion.')
         self.cvode_atol = 0.01  # 0.001
         self.daspk = daspk
         self._cvode = cvode
@@ -464,7 +468,8 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     """
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
-    env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, verbose=verbose)
+    env = Env(comm=comm, config_file=config_file, template_paths=template_paths, hoc_lib_path=hoc_lib_path,
+              dataset_prefix=dataset_prefix, config_prefix=config_prefix, verbose=verbose)
     configure_hoc_env(env)
 
     mech_file_path = config_prefix + '/' + mech_file

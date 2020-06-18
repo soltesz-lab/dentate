@@ -1672,7 +1672,7 @@ def plot_lfp_spectrogram(config, input_path, time_range = None, window_size=4096
 ## Plot intracellular state trace 
 def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], time_range = None,
                               time_variable='t', state_variable='v', max_units = 1, gid_set = None,
-                              labels = None,  reduce = False, **kwargs): 
+                              n_trials = 1, labels = None,  reduce = False, **kwargs): 
     ''' 
     Line plot of intracellular state variable (default: v). Returns the figure handle.
 
@@ -1699,10 +1699,14 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
 
     if gid_set is None:
         for population in state_info.keys():
-            if intracellular_namespace in state_info[population]:
-                state_pop_name = population
-                gid_set = list(dict(state_info[population][intracellular_namespace])[intracellular_variable][0])
-                break
+            for namespace in namespace_ids:
+                if namespace in state_info[population]:
+                    ns_state_info_dict = dict(state_info[population][namespace])
+                    if state_variable in ns_state_info_dict:
+                        gid_set = list(ns_state_info_dict[state_variable])
+                        break
+                    else:
+                        raise RuntimeError('unable to find recording for state variable %s population %s namespace %s' % (state_variable, population, namespace))
 
     # Replace 'eachPop' with list of populations
     if 'eachPop' in include: 
@@ -1727,7 +1731,8 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
             for (gid, cell_state_dict) in viewitems(pop_states):
                 cell_state_items = list(sorted(viewitems(cell_state_dict)))
                 cell_state_x = cell_state_items[0][1][0]
-                cell_state_mat = np.matrix([cell_state_item[1][1] for cell_state_item in cell_state_items], dtype=np.float32)
+                cell_state_mat = np.matrix([np.mean(np.row_stack(cell_state_item[1][1]), axis=0)
+                                           for cell_state_item in cell_state_items], dtype=np.float32)
                 cell_state_distances = [cell_state_item[1][2] for cell_state_item in cell_state_items]
                 cell_state_labels = [cell_state_item[0] for cell_state_item in cell_state_items]
                 pop_state_mat_dict[pop_name][gid] = (cell_state_x, cell_state_mat, cell_state_labels, cell_state_distances)
@@ -1740,19 +1745,19 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
         
         for (gid, cell_state_mat) in viewitems(pop_states):
             
-            n = cell_state_mat[0].shape[0]
-            m = cell_state_mat[1].shape[0]
+            m, n = cell_state_mat[1].shape
+
             if reduce:
                 cell_state = np.asarray(cell_state_mat[1][0,:]).reshape((n,))
                 for i in range(1,m):
                     cell_state += np.asarray(cell_state_mat[1][i,:]).reshape((n,))
-                line, = ax.plot(cell_state_mat[0], cell_state)
+                line, = ax.plot(cell_state_mat[0][0].reshape((n,)), cell_state)
                 stplots.append(line)
                 logger.info('plot_state: mean value is %.02f' % np.mean(cell_state))
             else:
                 for i in range(m):
                     cell_state = np.asarray(cell_state_mat[1][i,:]).reshape((n,))
-                    line, = ax.plot(cell_state_mat[0], cell_state,
+                    line, = ax.plot(cell_state_mat[0][0].reshape((n,)), cell_state,
                                     label='%s (%s um)' % (cell_state_mat[2][i], cell_state_mat[3][i]))
                     stplots.append(line)
                     logger.info('plot_state: mean value is of state %d is %.02f' % (i, np.mean(cell_state)))

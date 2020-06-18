@@ -50,7 +50,7 @@ class ExprClosure(object):
         return self.feval(*x)
 
     def __repr__(self):
-        return f'ExprClosure(expr: {self.expr} parameter: {self.parameters} consts: {self.consts})'
+        return f'ExprClosure(expr: {self.expr} formals: {self.formals} parameters: {self.parameters} consts: {self.consts})'
 
     
 class Closure(object):
