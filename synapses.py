@@ -2684,7 +2684,6 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
         scaled_LS_delta_map += np.dot(scaled_const_input_matrix, const_weight_array)
 
     assert(np.min(scaled_LS_weights) >= 0.)
-    assert(np.max(scaled_LS_weights) <= max_weight)
     LS_map = np.dot(scaled_input_matrix, scaled_LS_weights) - 1
     if scaled_const_input_map is not None:
        LS_map += scaled_const_input_map
@@ -2711,11 +2710,11 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
                                          arena_x = arena_x,
                                          arena_y = arena_y,
                                          bounds = initial_LS_bounds,
-                                         max_weight = max_weight,
+                                         max_weight = np.max(scaled_LS_weights),
                                          scaled_const_input_map = scaled_const_input_map,
                                          lsqr_delta_weights = lsqr_delta_weights,
                                          initial_LS_delta_weights = initial_LS_delta_weights,
-                                         scaled_LS_delta_weights = scaled_LS_delta_weights,
+                                         scaled_LS_delta_weights = scaled_LS_weights,
                                          initial_weight_array = initial_weight_array,
                                          scaled_target_map = scaled_target_map,
                                          lsqr_map = lsqr_map,
