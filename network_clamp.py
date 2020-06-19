@@ -787,25 +787,24 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             
             target_rate_vector = target_rate_vector_dict[gid]
             rate_vectors = rates_dict[gid]
+            logger.info('selectivity rate objective: max rates of gid %i: %s' % (gid, str([np.max(rate_vector) for rate_vector in rate_vectors])))
 
             target_infld_rate_vector = target_rate_vector[infld_idxs]
             target_outfld_rate_vector = target_rate_vector[outfld_idxs]
-
             
-            mean_rate_vector = np.mean(np.row_stack(rate_vectors), axis=0)
             mean_infld_rate_vector = np.mean(np.row_stack([ rate_vector[infld_idxs] 
                                                             for rate_vector in rate_vectors ]),
                                              axis=0)
-            mean_outfld_rate = np.mean(np.asarray([ np.mean(rate_vector[outfld_idxs])
-                                                    for rate_vector in rate_vectors ]))
+            mean_outfld_rate_vector = np.mean(np.row_stack([ rate_vector[outfld_idxs] 
+                                                            for rate_vector in rate_vectors ]),
+                                             axis=0)
 
-            logger.info('selectivity rate objective: target max in/mean out rate of gid %i: %.02f %.02f' % (gid, np.max(target_infld_rate_vector), np.mean(target_outfld_rate_vector)))
-            logger.info('selectivity rate objective: max in/mean out/mean total rate of gid %i: %.02f %.02f %.02f' % (gid, np.max(mean_infld_rate_vector), mean_outfld_rate, np.mean(mean_rate_vector)))
+            logger.info('selectivity rate objective: target max in/mean out rate of gid %i: %.02f %.02f' % (gid, np.mean(target_infld_rate_vector), np.mean(target_outfld_rate_vector)))
 
-            residual_infld = np.max(mean_infld_rate_vector)
-            residual_outfld = mean_outfld_rate
-            residual = residual_infld - residual_outfld**2.
-            logger.info('selectivity rate objective: residual of gid %i: %s' % (gid, str(residual)))
+            max_infld = np.max(mean_infld_rate_vector)
+            mean_outfld = np.mean(mean_outfld_rate_vector)
+            residual = (np.clip(max_infld - mean_outfld, 0., None) ** 2.)  / (max(mean_outfld, 1.0) ** 2.)
+            logger.info('selectivity rate objective: max in/mean out/residual rate of gid %i: %.02f %.02f %.04f' % (gid, max_infld, mean_outfld, residual))
 
             result[gid] = residual
         return result
@@ -819,8 +818,7 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
                                     spike_events_path, spike_events_namespace, spike_events_t,
                                     input_features_path, input_features_namespaces,
                                     param_type, param_config_name, recording_profile,
-                                    state_variable, state_filter, 
-                                    target_infld_state_value, target_outfld_state_value,
+                                    state_variable, state_filter, state_baseline,
                                     target_rate_map_path, target_rate_map_namespace,
 			            target_rate_map_arena, target_rate_map_trajectory,  worker, **kwargs):
     
@@ -934,17 +932,13 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
             t_outfld_idxs = np.concatenate([ np.where(np.logical_and(t_s >= r[0], t_s < r[1]))[0] for r in outfld_ranges ])
             
             mean_state_values = state_values_dict[gid]
-            mean_infld_state_value = np.mean(mean_state_values[t_infld_idxs])
-            mean_outfld_state_value = np.mean(mean_state_values[t_outfld_idxs])
+            max_infld = np.max(mean_state_values[t_infld_idxs])
+            mean_outfld = np.mean(mean_state_values[t_outfld_idxs])
 
-            logger.info('selectivity state value objective: target in/out state values of gid %i: %.02f %.02f' % (gid, target_infld_state_value, target_outfld_state_value))
-            logger.info('selectivity state value objective: mean in/out/total state values of gid %i: %.02f %.02f %.02f' % (gid, mean_infld_state_value, mean_outfld_state_value,
-                                                                                                                      np.mean(mean_state_values)))
-
-            residual = [mean_infld_state_value - target_infld_state_value,
-                        mean_outfld_state_value - target_outfld_state_value]
+            residual = (np.clip(max_infld - mean_outfld, 0., None) ** 2.) - (np.clip(mean_outfld - state_baseline, 0., None) ** 2.)
+            logger.info('selectivity state value objective: state values of gid %i: max in/mean out: %.02f / %.02f residual: %.04f' % (gid, max_infld, mean_outfld, residual))
             
-            result[gid] = -np.sum(np.power(np.asarray(residual), np.asarray([2.0, 4.0])))
+            result[gid] = residual
 
         return result
 
@@ -1452,12 +1446,10 @@ def optimize(config_file, population, gid, arena_id, trajectory_id, generate_wei
         init_objfun_name = 'init_selectivity_rate_objfun'
     elif target == 'selectivity_state':
         assert(target_state_variable is not None)
-        opt_target_infld = opt_params['Targets']['state'][target_state_variable]['mean in field']
-        opt_target_outfld  = opt_params['Targets']['state'][target_state_variable]['mean out field']
+        opt_baseline = opt_params['Targets']['state'][target_state_variable]['mean']
         init_params['target_rate_map_arena'] = arena_id
         init_params['target_rate_map_trajectory'] = trajectory_id
-        init_params['target_infld_state_value'] = opt_target_infld
-        init_params['target_outfld_state_value'] = opt_target_outfld
+        init_params['state_baseline'] = opt_baseline
         init_params['state_variable'] = target_state_variable
         init_params['state_filter'] = target_state_filter
         init_objfun_name = 'init_selectivity_state_objfun'
