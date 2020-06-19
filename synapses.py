@@ -2674,7 +2674,7 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
 
     LTD_delta_weights_array = np.minimum(LS_delta_weights, 0.)
     LTP_delta_weights_array = np.maximum(LS_delta_weights, 0.)
-    normalized_LTP_delta_weights_array = np.asarray(LS_delta_weights / np.max(LS_delta_weights),
+    normalized_LTP_delta_weights_array = np.asarray(LTP_delta_weights_array / np.max(LTP_delta_weights_array),
                                                     dtype=np.float32)
     scaled_LTP_delta_weights = LTP_delta_weights_array * target_amplitude / np.max(LS_delta_map)
     

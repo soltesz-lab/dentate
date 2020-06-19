@@ -2540,8 +2540,8 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
                         zip_longest(weights_syn_ids, map(lambda x: {'weight': x}, weights_values)),
                         multiple=multiple_weights, append=True)
                     if first_gid == gid:
-                        logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights' %
-                                    (gid, len(cell_weights_dict[syn_name]), syn_name))
+                        logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights in namespace %s' %
+                                    (gid, len(cell_weights_dict[syn_name]), syn_name, weights_namespace))
                         logger.info('weight_values min/max/mean: %.02f / %.02f / %.02f' %
                                         (np.min(weights_values), np.max(weights_values),
                                          np.mean(weights_values)))

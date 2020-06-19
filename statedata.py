@@ -18,6 +18,7 @@ def query_state(input_file, population_names, namespace_ids=None):
 
     attr_info_dict = read_cell_attribute_info(input_file, populations=population_names, read_cell_index=True)
 
+    namespace_id_lst = []
     for pop_name in attr_info_dict:
         cell_index = None
         pop_state_dict[pop_name] = {}

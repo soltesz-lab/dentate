@@ -222,7 +222,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                                selectivity_type_index,
                                                                selectivity_attr_dict=target_selectivity_features_dict[gid])
             if input_cell_config.num_fields > 0:
-                arena_margin = max(arena_margin, np.max(input_cell_config.field_width) / 2.) if use_arena_margin else 0.
+                arena_margin = max(arena_margin, np.max(input_cell_config.field_width) * 0.33) if use_arena_margin else 0.
                 target_field_width_dict[gid] = input_cell_config.field_width
                 target_selectivity_config_dict[gid] = input_cell_config
                 has_structured_weights = True
