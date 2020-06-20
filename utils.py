@@ -23,7 +23,10 @@ class ExprClosure(object):
         self.sympy_abc = importlib.import_module('sympy.abc')
         self.parameters = parameters
         self.formals = formals
-        self.expr = self.sympy_parser.parse_expr(expr)
+        if isinstance(expr, str):
+            self.expr = self.sympy_parser.parse_expr(expr)
+        else:
+            self.expr = expr
         self.consts = {} if consts is None else consts
         self.feval = None
         self.__init_feval__()
@@ -52,29 +55,31 @@ class ExprClosure(object):
     def __repr__(self):
         return f'ExprClosure(expr: {self.expr} formals: {self.formals} parameters: {self.parameters} consts: {self.consts})'
 
-    
-class Closure(object):
-    """
-    Representation of a function with a local environment.
-    """
-    def __init__(self, func, **items):
-        self.env = Struct(**items)
-        self.func = func
-        
-    def __call__(self, *args):
-        return self.func(self.env, *args)
+    def __deepcopy__(self, memo):
+        cls = self.__class__
+        result = cls.__new__(cls)
+        deepcopy_fields = ['parameters', 'formals', 'consts', 'expr']
+        for k in deepcopy_fields:
+            v = self.__dict__[k]
+            setattr(result, k, copy.deepcopy(v, memo))
+        for k, v in self.__dict__.items():
+            if k not in deepcopy_fields:
+                setattr(result, k, v)
+        result.__init_feval__()
+        memo[id(self)] = result
+        return result
 
+class Promise(object):
+    """
+    An object that represents a closure and unapplied arguments.
+    """
+    def __init__(self, clos, args):
+        self.clos = clos
+        self.args = args
     def __repr__(self):
-        return f'Closure(env: {self.env} func: {self.func})'
-
-    def __str__(self):
-        return f'<Closure>'
-
+        return f'Promise(clos: {self.clos} args: {self.args})'
     
 class Struct(object):
-    """
-    Mapping that works like both a dict and a mutable object. 
-    """
     def __init__(self, **items):
         self.__dict__.update(items)
 
