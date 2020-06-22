@@ -745,7 +745,11 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
         target_rate_vector[np.isclose(target_rate_vector, 0.)] = 0.
 
     def range_inds(rs):
-        a = np.concatenate(list(rs))
+        l = list(rs)
+        if len(l) > 0:
+            a = np.concatenate(l)
+        else:
+            a = None
         return a
 
     outfld_idxs_dict = { gid: range_inds(contiguous_ranges(target_rate_vector <= 0., return_indices=True))
@@ -797,21 +801,27 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             logger.info('selectivity rate objective: max rates of gid %i: %s' % (gid, str([np.max(rate_vector) for rate_vector in rate_vectors])))
 
             target_infld_rate_vector = target_rate_vector[infld_idxs]
-            target_outfld_rate_vector = target_rate_vector[outfld_idxs]
+            if outfld_idxs is not None:
+                target_outfld_rate_vector = target_rate_vector[outfld_idxs]
+            else:
+                target_outfld_rate_vector = None
             
             mean_infld_rate_vector = np.mean(np.row_stack([ rate_vector[infld_idxs] 
                                                             for rate_vector in rate_vectors ]),
                                              axis=0)
-            mean_outfld_rate_vector = np.mean(np.row_stack([ rate_vector[outfld_idxs] 
-                                                            for rate_vector in rate_vectors ]),
-                                             axis=0)
+            if outfld_idxs is not None:
+                mean_outfld_rate_vector = np.mean(np.row_stack([ rate_vector[outfld_idxs] 
+                                                                 for rate_vector in rate_vectors ]),
+                                                  axis=0)
+            else:
+                mean_outfld_rate_vector = None
 
-            logger.info('selectivity rate objective: target max in/mean out rate of gid %i: %.02f %.02f' % (gid, np.mean(target_infld_rate_vector), np.mean(target_outfld_rate_vector)))
+            logger.info('selectivity rate objective: target max in/mean out rate of gid %i: %.02f %.02f' % (gid, np.mean(target_infld_rate_vector), np.mean(target_outfld_rate_vector) if target_outfld_rate_vector is not None else 0.))
 
-            max_infld = np.max(mean_infld_rate_vector)
-            mean_outfld = np.mean(mean_outfld_rate_vector)
-            residual = (np.clip(max_infld - mean_outfld, 0., None) ** 2.)  / (max(mean_outfld, 1.0) ** 2.)
-            logger.info('selectivity rate objective: max in/mean out/residual rate of gid %i: %.02f %.02f %.04f' % (gid, max_infld, mean_outfld, residual))
+            mean_infld = np.mean(mean_infld_rate_vector)
+            mean_outfld = np.mean(mean_outfld_rate_vector) if mean_outfld_rate_vector is not None else 0.
+            residual = (np.clip(mean_infld - mean_outfld, 0., None) ** 2.)  / (max(2. * mean_outfld, 1.0) ** 2.)
+            logger.info('selectivity rate objective: mean in/mean out/residual rate of gid %i: %.02f %.02f %.04f' % (gid, mean_infld, mean_outfld, residual))
 
             result[gid] = residual
         return result
@@ -861,13 +871,16 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
                                 for gid in trj_rate_maps }
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
         target_rate_vector[np.isclose(target_rate_vector, 0.)] = 0.
+
+    def time_ranges(rs):
+        if len(rs) > 0:
+            a = tuple( ( (time_bins[r[0]], time_bins[r[1]]) for r in rs ) )
+        else:
+            a = None
+        return a
         
-    outfld_ranges_dict = { gid: tuple( ( (time_bins[r[0]], time_bins[r[1]])
-                                         for r in contiguous_ranges(target_rate_vector <= 0.) ) )
-                         for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
-    infld_ranges_dict = { gid: tuple( ( (time_bins[r[0]], time_bins[r[1]])
-                                        for r in contiguous_ranges(target_rate_vector > 0) ) )
-                        for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
+    outfld_ranges_dict = { gid: time_ranges(contiguous_ranges(target_rate_vector <= 0.) ) }
+    infld_ranges_dict = { gid: time_ranges(contiguous_ranges(target_rate_vector > 0) ) }
         
     param_bounds, param_names, param_initial_dict, param_range_tuples = \
       optimize_params(env, population, param_type, param_config_name)
@@ -936,14 +949,22 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
             outfld_ranges = outfld_ranges_dict[gid]
 
             t_infld_idxs = np.concatenate([ np.where(np.logical_and(t_s >= r[0], t_s < r[1]))[0] for r in infld_ranges ])
-            t_outfld_idxs = np.concatenate([ np.where(np.logical_and(t_s >= r[0], t_s < r[1]))[0] for r in outfld_ranges ])
+            if outfld_ranges is not None:
+                t_outfld_idxs = np.concatenate([ np.where(np.logical_and(t_s >= r[0], t_s < r[1]))[0] for r in outfld_ranges ])
+            else:
+                t_outfld_idxs = None
             
             mean_state_values = state_values_dict[gid]
             max_infld = np.max(mean_state_values[t_infld_idxs])
-            mean_outfld = np.mean(mean_state_values[t_outfld_idxs])
+            min_infld = np.min(mean_state_values[t_infld_idxs])
 
-            residual = (np.clip(max_infld - mean_outfld, 0., None) ** 2.) - (np.clip(mean_outfld - state_baseline, 0., None) ** 2.)
-            logger.info('selectivity state value objective: state values of gid %i: max in/mean out: %.02f / %.02f residual: %.04f' % (gid, max_infld, mean_outfld, residual))
+            if t_outfld_idxs is not None:
+                mean_outfld = np.mean(mean_state_values[t_outfld_idxs])
+            else:
+                mean_outfld = state_baseline
+
+            residual = (np.clip(max_infld - min_infld, 0., None) ** 2.) - ((mean_outfld - state_baseline) ** 2.)
+            logger.info('selectivity state value objective: state values of gid %i: max in/min in/mean out: %.02f / %.02f / %.02f residual: %.04f' % (gid, max_infld, min_infld, mean_outfld, residual))
             
             result[gid] = residual
 
