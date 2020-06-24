@@ -818,15 +818,17 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
 
             logger.info('selectivity rate objective: target max in/mean out rate of gid %i: %.02f %.02f' % (gid, np.mean(target_infld_rate_vector), np.mean(target_outfld_rate_vector) if target_outfld_rate_vector is not None else 0.))
 
+            min_infld = np.min(mean_infld_rate_vector)
             max_infld = np.max(mean_infld_rate_vector)
             mean_infld = np.mean(mean_infld_rate_vector)
             mean_outfld = np.mean(mean_outfld_rate_vector) if mean_outfld_rate_vector is not None else None
             if mean_outfld is None:
-                residual = np.clip(max_infld - mean_infld, 0., None) ** 2.
+                residual = np.clip(max_infld - mean_infld, 0., None) ** 2. / (max(2. * min_infld, 1.0) ** 2.)
             else:
-                residual = (np.clip(mean_infld - mean_outfld, 0., None) ** 2.)  / (max(2. * mean_outfld, 1.0) ** 2.)
+                residual = (np.clip(max_infld - mean_outfld, 0., None) ** 2.)  / (max(2. * mean_outfld, 1.0) ** 2.)
 
-            logger.info('selectivity rate objective: mean in/mean out/residual rate of gid %i: %.02f %.02f %.04f' % (gid, mean_infld, mean_outfld, residual))
+            
+            logger.info('selectivity rate objective: max in/mean out/residual rate of gid %i: %.02f %.02f %.04f' % (gid, max_infld, mean_outfld if mean_outfld is not None else mean_infld, residual))
 
             result[gid] = residual
         return result
@@ -969,7 +971,7 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
                 mean_outfld = state_baseline
 
             residual = (np.clip(max_infld - mean_infld, 0., None) ** 2.) - ((mean_outfld - state_baseline) ** 2.)
-            logger.info('selectivity state value objective: state values of gid %i: max in/min in/mean out: %.02f / %.02f / %.02f residual: %.04f' % (gid, max_infld, min_infld, mean_outfld, residual))
+            logger.info('selectivity state value objective: state values of gid %i: max in/mean in/mean out: %.02f / %.02f / %.02f residual: %.04f' % (gid, max_infld, mean_infld, mean_outfld, residual))
             
             result[gid] = residual
 
