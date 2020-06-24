@@ -141,7 +141,7 @@ Synaptic Optimization:
           apical:
             AMPA:
               weight:
-                a: [1.0, 150.0]
+                a: [1.0, 100.0]
         BC:
           apical:
             GABA_A:
