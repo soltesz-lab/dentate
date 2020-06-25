@@ -818,12 +818,16 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
 
             logger.info('selectivity rate objective: target max in/mean out rate of gid %i: %.02f %.02f' % (gid, np.mean(target_infld_rate_vector), np.mean(target_outfld_rate_vector) if target_outfld_rate_vector is not None else 0.))
 
+            target_min_infld = np.min(target_infld_rate_vector)
+            target_max_infld = np.max(target_infld_rate_vector)
             min_infld = np.min(mean_infld_rate_vector)
             max_infld = np.max(mean_infld_rate_vector)
             mean_infld = np.mean(mean_infld_rate_vector)
             mean_outfld = np.mean(mean_outfld_rate_vector) if mean_outfld_rate_vector is not None else None
-            if mean_outfld is None:
-                residual = np.clip(max_infld - mean_infld, 0., None) ** 2. / (max(2. * min_infld, 1.0) ** 2.)
+            if max_infld > target_max_infld:
+                residual = 0.
+            elif mean_outfld is None:
+                residual = np.clip(max_infld - mean_infld, 0., None) ** 2. / ((max(min_infld - target_min_infld, 1.0)) ** 2.)
             else:
                 residual = (np.clip(max_infld - mean_outfld, 0., None) ** 2.)  / (max(2. * mean_outfld, 1.0) ** 2.)
 
