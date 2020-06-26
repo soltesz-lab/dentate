@@ -338,8 +338,8 @@ FUNCTION exptrap(loc,x) {
 }
 
 VERBATIM
-#if !NRNBBCORE
 static void bbcore_write(double* x, int* d, int* xx, int *offset, _threadargsproto_) {
+#if !NRNBBCORE
 	/* error if using the legacy normrand */
 	if (!_p_donotuse) {
 		fprintf(stderr, "Gfluct3: cannot use the legacy normrand generator for the random stream.\n");
@@ -361,8 +361,8 @@ static void bbcore_write(double* x, int* d, int* xx, int *offset, _threadargspro
 		/*printf("Gfluct3 bbcore_write %d %d %d\n", di[0], di[1], di[3]);*/
 	}
 	*offset += 3;
-}
 #endif
+}
 
 static void bbcore_read(double* x, int* d, int* xx, int* offset, _threadargsproto_) {
 	assert(!_p_donotuse);
