@@ -61,7 +61,7 @@ ENDVERBATIM
 VERBATIM
 #include <stdint.h>
 #if NRNBBCORE
-#include "coreneuron/nrniv/ivocvect.h"
+#include "coreneuron/utils/ivocvect.hpp"
 #endif
 ENDVERBATIM
 
@@ -107,8 +107,8 @@ ENDVERBATIM
 }
 
 VERBATIM
-#if !NRNBBCORE
 static void bbcore_write(double* dArray, int* iArray, int* doffset, int* ioffset, _threadargsproto_) {
+#if !NRNBBCORE
         uint32_t dsize = 0;
         if (_p_ptr) {
           dsize = (uint32_t)vector_capacity(_p_ptr);
@@ -130,8 +130,8 @@ static void bbcore_write(double* dArray, int* iArray, int* doffset, int* ioffset
         }
         *ioffset += 1;
         *doffset += dsize;
-}
 #endif
+}
 
 static void bbcore_read(double* dArray, int* iArray, int* doffset, int* ioffset, _threadargsproto_) {
         assert(!_p_ptr);
