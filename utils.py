@@ -52,6 +52,11 @@ class ExprClosure(object):
     def __repr__(self):
         return f'ExprClosure(expr: {self.expr} formals: {self.formals} parameters: {self.parameters} consts: {self.consts})'
 
+    def __deepcopy__(self, memo):
+        cls = self.__class__
+        result = cls.__new__(cls, self.parameters, self.expr, self.consts, self.formals)
+        memo[id(self)] = result
+        return result
     
 class Closure(object):
     """
