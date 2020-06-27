@@ -8,7 +8,7 @@ from dentate.cells import get_distance_to_node, get_donor, get_mech_rules_dict, 
     import_mech_dict_from_file, make_section_graph, custom_filter_if_terminal, \
     custom_filter_modify_slope_if_terminal, custom_filter_by_branch_order
 from dentate.neuron_utils import h, default_ordered_sec_types, mknetcon, mknetcon_vecstim
-from dentate.utils import ExprClosure, NamedTupleWithDocstring, get_module_logger, generator_ifempty, map, range, str, \
+from dentate.utils import ExprClosure, Promise, NamedTupleWithDocstring, get_module_logger, generator_ifempty, map, range, str, \
      viewitems, viewkeys, zip, zip_longest, partitionn, rejection_sampling
 from neuroh5.io import write_cell_attributes
 
@@ -473,8 +473,7 @@ class SynapseAttributes(object):
         """
         self.add_mech_attrs_from_iter(gid, syn_name, iter({syn_id: params}), multiple='error', append=append)
         
-    def modify_mech_attrs(self, pop_name, gid, syn_id, syn_name, params,
-                          update_operator=None):
+    def modify_mech_attrs(self, pop_name, gid, syn_id, syn_name, params):
         """
         Modifies mechanism attributes for the given cell id/synapse id/mechanism name. 
 
@@ -483,7 +482,6 @@ class SynapseAttributes(object):
         :param syn_id: synapse id
         :param syn_name: synapse mechanism name
         :param params: dict
-        :param update: lambda (old, new)
         """
         rules = self.syn_param_rules
         syn_index = self.syn_name_index_dict[syn_name]
@@ -495,9 +493,6 @@ class SynapseAttributes(object):
             connection_syn_params = self.env.connection_config[pop_name][presyn_name].mechanisms
         else:
             connection_syn_params = None
-
-        if update_operator is None:
-            update_operator=lambda gid, syn_id, old, new: new
 
         mech_params = {}
         if connection_syn_params is not None:
@@ -521,7 +516,13 @@ class SynapseAttributes(object):
                     new_val = v
                 assert(new_val is not None)
                 old_val = attr_dict.get(k, mech_param)
-                attr_dict[k] = update_operator(gid, syn_id, old_val, new_val)
+                if isinstance(new_val, ExprClosure):
+                    if isinstance(old_val, Promise):
+                        old_val.clos = new_val
+                    else:
+                        attr_dict[k] = Promise(new_val, old_val)
+                else:
+                    attr_dict[k] = new_val
             elif k in rules[mech_name]['netcon_params']:
                 mech_param = mech_params.get(k, None)
                 if isinstance(mech_param, ExprClosure):
@@ -533,10 +534,16 @@ class SynapseAttributes(object):
                                            mech_param.parameters)
                 else:
                     new_val = v
-
                 assert(new_val is not None)
                 old_val = attr_dict.get(k, mech_param)
-                attr_dict[k] = update_operator(gid, syn_id, old_val, new_val)
+                if isinstance(new_val, ExprClosure):
+                    if isinstance(old_val, Promise):
+                        old_val.clos = new_val
+                    else:
+                        attr_dict[k] = Promise(new_val, old_val)
+                else:
+                    attr_dict[k] = new_val
+                logger.debug("modify %s.%s.%s: old_val: %s new val: %s" % (pop_name, syn_name, k, str(old_val), str(new_val)))
                 
             else:
                 raise RuntimeError('modify_mech_attrs: unknown type of parameter %s' % k)
@@ -1013,12 +1020,14 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
                         if param_val is None:
                             raise RuntimeError('config_hoc_cell_syns: insert: cell gid %i synapse %i presyn source %s does not have a '
                                                'value set for parameter %s' % (gid, syn_id, presyn_name, param_name))
-                        if param_name in param_expr_dict and isinstance(param_val, list):
+                        if isinstance(param_val, Promise):
+                            new_param_val = param_val.clos(*param_val.args)
+                        elif param_name in param_expr_dict and isinstance(param_val, list):
                             new_param_val = param_expr_dict[param_name](*param_val)
                         else:
                             new_param_val = param_val
                         upd_params[param_name] = new_param_val
-
+                        
                     (mech_set, nc_set) = config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
                                                     mech_names=syn_attrs.syn_mech_names, syn=this_pps,
                                                     nc=this_netcon, **upd_params)
@@ -1279,7 +1288,7 @@ def validate_syn_mech_param(env, syn_name, param_name):
 
 def modify_syn_param(cell, env, sec_type, syn_name, param_name=None, value=None, origin=None, slope=None, tau=None,
                      xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None, custom=None,
-                     append=False, filters=None, origin_filters=None, update_targets=False, update_operator=None, verbose=False):
+                     append=False, filters=None, origin_filters=None, update_targets=False, verbose=False):
     """Modifies a cell's mechanism dictionary to specify attributes of a
     synaptic mechanism by sec_type. This method is meant to be called
     manually during initial model specification, or during parameter
@@ -1367,7 +1376,7 @@ def modify_syn_param(cell, env, sec_type, syn_name, param_name=None, value=None,
         cell.mech_dict[sec_type]['synapses'][syn_name][param_name] = rules
 
     try:
-        update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, update_targets, update_operator, verbose)
+        update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, update_targets, verbose)
     except Exception as e:
         cell.mech_dict = copy.deepcopy(backup_mech_dict)
         traceback.print_exc(file=sys.stdout)
@@ -1376,7 +1385,7 @@ def modify_syn_param(cell, env, sec_type, syn_name, param_name=None, value=None,
         raise e
 
 
-def update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, update_targets=False, update_operator=None, verbose=False):
+def update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, update_targets=False, verbose=False):
     """For the provided sec_type and synaptic mechanism, this method
     loops through the parameters specified in the mechanism
     dictionary, interprets the rules, and sets placeholder values in
@@ -1401,11 +1410,11 @@ def update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, upd
                                'specified properly' % (syn_name, param_name))
         for param_content_entry in mech_param_contents:
             update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, param_content_entry,
-                                              update_targets, update_operator, verbose)
+                                              update_targets, verbose)
 
 
 def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, rules, update_targets=False,
-                                      update_operator=None, verbose=False):
+                                      verbose=False):
     """For the provided synaptic mechanism and parameter, this method
     loops through nodes of the provided sec_type, interprets the
     provided rules, and sets placeholder values in the
@@ -1436,11 +1445,11 @@ def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name,
     if sec_type in cell.nodes:
         for node in cell.nodes[sec_type]:
             update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, new_rules, filters, origin_filters,
-                                          update_targets, update_operator, verbose)
+                                          update_targets, verbose)
 
 
 def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, filters=None, origin_filters=None,
-                                  update_targets=False, update_operator=None, verbose=False):
+                                  update_targets=False, verbose=False):
     """For the provided synaptic mechanism and parameter, this method
     first determines the set of placeholder synapses in the provided
     node that match any provided filters. Then calls
@@ -1471,11 +1480,11 @@ def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, 
     if len(filtered_syns) > 0:
         syn_ids = list(filtered_syns.keys())
         apply_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, origin_filters,
-                             update_targets=update_targets, update_operator=update_operator, verbose=verbose)
+                             update_targets=update_targets, verbose=verbose)
 
 
 def apply_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, origin_filters=None, donor=None,
-                         update_targets=False, update_operator=None, verbose=False):
+                         update_targets=False, verbose=False):
     """Provided a synaptic mechanism, a parameter, a node, a list of
     syn_ids, and a dict of rules. Interprets the provided rules,
     including complex gradient and inheritance rules. Gradients can be
@@ -1519,10 +1528,10 @@ def apply_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, 
     if baseline is not None:
         if 'custom' in rules:
             apply_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor,
-                                        update_targets, update_operator, verbose)
+                                        update_targets, verbose)
         else:
             set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor,
-                               update_targets, update_operator, verbose)
+                               update_targets, verbose)
 
 
 def inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filters=None):
@@ -1568,7 +1577,7 @@ def inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filter
 
 
 def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor=None,
-                       update_targets=False, update_operator=None, verbose=False):
+                       update_targets=False, param_expr_dict=None, verbose=False):
     """Provided a synaptic mechanism, a parameter, a node, a list of
     syn_ids, and a dict of rules. Sets placeholder values for each
     provided syn_id in the syn_mech_attr_dict of a SynapseAttributes
@@ -1595,7 +1604,7 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline,
     if not ('min_loc' in rules or 'max_loc' in rules or 'slope' in rules):
         for syn_id in syn_ids:
             syn_attrs.modify_mech_attrs(cell.pop_name, cell.gid, syn_id, syn_name, 
-                                        {param_name: baseline}, update_operator=update_operator)
+                                        {param_name: baseline})
     elif donor is None:
         raise RuntimeError('set_syn_mech_param: cannot set value of synaptic mechanism: %s parameter: %s in '
                            'sec_type: %s without a provided donor node' % (syn_name, param_name, node.type))
@@ -1622,14 +1631,14 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline,
                 
             if value is not None:
                 syn_attrs.modify_mech_attrs(cell.pop_name, cell.gid, syn_id, syn_name, 
-                                            {param_name: value}, update_operator=update_operator)
+                                            {param_name: value})
 
     if update_targets:
         config_biophys_cell_syns(env, cell.gid, cell.pop_name, syn_ids=syn_ids, insert=False, verbose=verbose)
 
 
 def apply_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor,
-                                update_targets=False, update_operator=None, verbose=False):
+                                update_targets=False, verbose=False):
     """If the provided node meets custom criteria, rules are modified and
     passed back to parse_mech_rules with the 'custom' item
     removed. Avoids having to determine baseline and donor over again.
@@ -1664,7 +1673,7 @@ def apply_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, 
     new_rules = func(cell, node, baseline, new_rules, donor, **custom)
     if new_rules:
         apply_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, new_rules, donor=donor,
-                             update_targets=update_targets, update_operator=update_operator, verbose=verbose)
+                             update_targets=update_targets, verbose=verbose)
 
 
 def init_syn_mech_attrs(cell, env=None, reset_mech_dict=False, update_targets=False):
@@ -2345,11 +2354,11 @@ def plot_callback_structured_weights(**kwargs):
     lsqr_delta_weights = kwargs['lsqr_delta_weights']
     initial_LS_delta_weights = kwargs['initial_LS_delta_weights']
     scaled_LS_delta_weights = kwargs['scaled_LS_delta_weights']
-    flat_scaled_target_map = kwargs['flat_scaled_target_map']
-    flat_lsqr_map = kwargs['flat_lsqr_map']
-    flat_LS_map = kwargs['flat_LS_map']
-    flat_LS_delta_map = kwargs['flat_LS_delta_map']
-    flat_initial_LS_map = kwargs['flat_initial_LS_map']
+    scaled_target_map = kwargs['scaled_target_map']
+    lsqr_map = kwargs['lsqr_map']
+    LS_map = kwargs['LS_map']
+    LS_delta_map = kwargs['LS_delta_map']
+    initial_LS_map = kwargs['initial_LS_map']
     initial_background_map = kwargs['initial_background_map']
     initial_weight_array = kwargs['initial_weight_array']
     mean_initial_weight = np.mean(initial_weight_array)
@@ -2362,21 +2371,21 @@ def plot_callback_structured_weights(**kwargs):
     
     num_bins = 20
 
-    min_vals = [np.min(flat_scaled_target_map),
-                np.min(flat_lsqr_map),
-                np.min(flat_LS_map),
+    min_vals = [np.min(scaled_target_map),
+                np.min(lsqr_map),
+                np.min(LS_map),
                 np.min(initial_background_map)]
-    max_vals1 = [np.max(flat_scaled_target_map), np.max(flat_lsqr_map)]
-    max_vals2 = [np.max(flat_LS_map), np.max(initial_background_map)]
+    max_vals1 = [np.max(scaled_target_map), np.max(lsqr_map)]
+    max_vals2 = [np.max(LS_map), np.max(initial_background_map)]
     if reference_weight_array is not None:
         if reference_weights_are_delta:
             reference_weights = reference_weight_array / np.max(reference_weight_array) * max_delta_weight + \
               mean_initial_weight
         else:
             reference_weights = reference_weight_array
-            flat_reference_map = reference_weights.dot(scaled_input_matrix) - 1.
-            min_vals.append(np.min(flat_reference_map))
-            max_vals2.append(np.max(flat_reference_map))
+            reference_map = reference_weights.dot(scaled_input_matrix) - 1.
+            min_vals.append(np.min(reference_map))
+            max_vals2.append(np.max(reference_map))
 
     vmin = min(min_vals)
     vmax1 = max(max_vals1)
@@ -2389,12 +2398,12 @@ def plot_callback_structured_weights(**kwargs):
     inner_grid = gs[row, 0].subgridspec(1, 2)
 
     ax = fig.add_subplot(inner_grid[0, 0])
-    ax.plot(range(len(flat_scaled_target_map)), initial_background_map,
+    ax.plot(range(len(scaled_target_map)), initial_background_map,
                 label='Initial', alpha=0.5, color='C0')
     if reference_weight_array is not None:
-        ax.plot(range(len(flat_scaled_target_map)), flat_reference_map, label='Reference',
+        ax.plot(range(len(scaled_target_map)), reference_map, label='Reference',
                 alpha=0.5, color='C5')
-    ax.plot(range(len(flat_scaled_target_map)), flat_scaled_target_map, label='Target',
+    ax.plot(range(len(scaled_target_map)), scaled_target_map, label='Target',
             alpha=0.5, color='C1')
     ax.set_ylabel('Normalized activity')
     ax.set_xlabel('Arena spatial bin')
@@ -2402,11 +2411,11 @@ def plot_callback_structured_weights(**kwargs):
               frameon=False, framealpha=0.5, fontsize=8)
 
     ax = fig.add_subplot(inner_grid[0, 1])
-    ax.plot(range(len(flat_scaled_target_map)), flat_scaled_target_map, label='Target',
+    ax.plot(range(len(scaled_target_map)), scaled_target_map, label='Target',
             alpha=0.5, color='C1')
-    ax.plot(range(len(flat_scaled_target_map)), flat_lsqr_map, label='Least squares',
+    ax.plot(range(len(scaled_target_map)), lsqr_map, label='Least squares',
             alpha=0.5, color='C2')
-    ax.plot(range(len(flat_scaled_target_map)), flat_LS_map, label=optimize_method,
+    ax.plot(range(len(scaled_target_map)), LS_map, label=optimize_method,
             alpha=0.75, color='C3')
     #ax.set_ylabel('Normalized activity')
     ax.set_xlabel('Arena spatial bin')
@@ -2415,7 +2424,7 @@ def plot_callback_structured_weights(**kwargs):
     
     if reference_weight_array is None:
         ax = fig.add_subplot(gs[row, 1])
-        p = ax.pcolormesh(arena_x, arena_y, flat_LS_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
+        p = ax.pcolormesh(arena_x, arena_y, LS_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
         ax.set_xlabel('Arena location (x)')
         ax.set_ylabel('Arena location (y)')
         ax.set_title(optimize_method, fontsize=default_font_size)
@@ -2424,13 +2433,13 @@ def plot_callback_structured_weights(**kwargs):
         inner_grid = gs[row, 1].subgridspec(2, 1)
         
         ax = fig.add_subplot(inner_grid[0])
-        p = ax.pcolormesh(arena_x, arena_y, flat_LS_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
+        p = ax.pcolormesh(arena_x, arena_y, LS_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
         ax.set_title(optimize_method, fontsize=default_font_size)
         ax.set_xlabel('Arena location (x)')
         fig.colorbar(p, ax=ax)
         
         ax = fig.add_subplot(inner_grid[1])
-        ax.pcolormesh(arena_x, arena_y, flat_reference_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
+        ax.pcolormesh(arena_x, arena_y, reference_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
         ax.set_title('Reference', fontsize=default_font_size)
         ax.set_xlabel('Arena location (x)')
     row += 1
@@ -2470,7 +2479,7 @@ def plot_callback_structured_weights(**kwargs):
 
     inner_grid = gs[row, 1].subgridspec(2, 2)
     ax = fig.add_subplot(inner_grid[0])
-    p = ax.pcolormesh(arena_x, arena_y, flat_scaled_target_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax1)
+    p = ax.pcolormesh(arena_x, arena_y, scaled_target_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax1)
     ax.set_title('Target', fontsize=default_font_size)
     ax.set_ylabel('Y position [cm]')
     fig.colorbar(p, ax=ax)
@@ -2481,13 +2490,13 @@ def plot_callback_structured_weights(**kwargs):
     fig.colorbar(p, ax=ax)
 
     ax = fig.add_subplot(inner_grid[2])
-    p = ax.pcolormesh(arena_x, arena_y, flat_lsqr_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax1)
+    p = ax.pcolormesh(arena_x, arena_y, lsqr_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax1)
     ax.set_title('Least squares', fontsize=default_font_size)
     ax.set_xlabel('X position [cm]')
     fig.colorbar(p, ax=ax)
 
     ax = fig.add_subplot(inner_grid[3])
-    p = ax.pcolormesh(arena_x, arena_y, flat_initial_LS_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax1)
+    p = ax.pcolormesh(arena_x, arena_y, initial_LS_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax1)
     ax.set_title('Truncated least squares', fontsize=default_font_size)
     fig.colorbar(p, ax=ax)
     row += 1
@@ -2502,7 +2511,7 @@ def plot_callback_structured_weights(**kwargs):
 
     
 def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_dict, syn_count_dict,
-                                max_weight=10., target_amplitude=3.,
+                                max_delta_weight=10., target_amplitude=3.,
                                 initial_weight_decay_fraction = 1.,
                                 arena_x=None, arena_y=None,
                                 const_input_rate_map_dict=None, 
@@ -2517,7 +2526,7 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
     :param initial_weight_dict: dict: {int: float}
     :param input_rate_map_dict: dict: {int: array}
     :param syn_count_dict: dict: {int: int}
-    :param max_weight: float
+    :param max_delta_weight: float
     :param max_opt_iter: int
     :param target_amplitude: float
     :param arena_x: 2D array
@@ -2530,8 +2539,6 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
     :param plot: bool
     :return: dict: {int: float}
     """
-    assert(max_weight >= 1.)
-
     input_matrix = np.empty((target_map.size, len(input_rate_map_dict)),
                             dtype=np.float32)
     source_gid_array = np.empty(len(input_rate_map_dict), dtype=np.uint32)
@@ -2567,7 +2574,7 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
     if np.max(scaled_target_map) > 0.:
         target_map_scaling_factor = target_amplitude / np.max(scaled_target_map)
         scaled_target_map = scaled_target_map.flat * target_map_scaling_factor
-    flat_scaled_target_map = scaled_target_map.ravel()
+    scaled_target_map = scaled_target_map.ravel()
 
     mean_initial_weight = np.mean(initial_weight_array)
     initial_background_map = np.dot(input_matrix, initial_weight_array)
@@ -2594,7 +2601,7 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
     #beta = np.mean(s)  # Previously, beta was provided by user, but should depend on scale if data is not normalized
     #D[np.where(np.eye(*D.shape))] = s / (s ** 2. + beta ** 2.)
     #input_matrix_pinv = V.dot(D.conj().T).dot(U.conj().T)
-    #SVD_delta_weights = np.dot(input_matrix_pinv, flat_scaled_target_map)
+    #SVD_delta_weights = np.dot(input_matrix_pinv, scaled_target_map)
 
 
     lsqr_target_map = np.asarray(np.copy(scaled_target_map) - scaled_background_map, dtype=np.float32)
@@ -2603,11 +2610,9 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
                                    atol=optimize_tol, btol=optimize_tol,
                                    damp=0.1, show=True)
     lsqr_delta_weights = np.asarray(res[0], dtype=np.float32)
-    
-    initial_min = np.min(initial_weight_array)
 
-    lb = -(initial_weight_decay_fraction * initial_min)
-    ub = max_weight - np.max(initial_weight_array)
+    lb = 0.
+    ub = max_delta_weight + np.max(initial_weight_array)
     initial_LS_bounds = (lb, ub)
     
     initial_LS_delta_weights = np.clip(lsqr_delta_weights, initial_LS_bounds[0], initial_LS_bounds[1])
@@ -2629,11 +2634,13 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
         return np.asarray(grad, dtype=np.float64)
 
     
+    opt_bounds = [ (-(initial_weight_decay_fraction * x), max_delta_weight)
+                   for x in initial_weight_array ]
     if optimize_method == 'dogbox':
         result = opt.least_squares(activation_map_residual, initial_LS_delta_weights,
                                    jac=activation_map_residual_grad if optimize_grad else None,
-                                   args=(scaled_input_matrix, flat_scaled_target_map),
-                                   bounds=bounds, method='dogbox', ftol=optimize_tol, loss='soft_l1', 
+                                   args=(scaled_input_matrix, scaled_target_map),
+                                   bounds=opt_bounds, method='dogbox', ftol=optimize_tol, loss='soft_l1', 
                                    verbose=2 if verbose else 0, max_nfev=max_opt_iter)
         LS_delta_weights = np.array(result.x)
     elif optimize_method == 'oja':
@@ -2644,7 +2651,7 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
         tol = optimize_tol
         learning_rate = 1e-4
         it = 0
-        while activation_map_residual(w, input_matrix, flat_scaled_target_map) > tol and it < max_opt_iter:
+        while activation_map_residual(w, input_matrix, scaled_target_map) > tol and it < max_opt_iter:
             y = np.dot(input_matrix, w)
             u = np.dot(y, w.T)
             e = input_matrix - u
@@ -2662,61 +2669,67 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
                               jac=activation_map_residual_grad if optimize_grad else None,
                               args=(scaled_input_matrix, lsqr_target_map),
                               method=optimize_method,
-                              bounds=[ (-(initial_weight_decay_fraction * x), max_weight - x)
-                                       for x in initial_weight_array ],
+                              bounds=opt_bounds,
                               tol=optimize_tol,
                               options=method_options)
         LS_delta_weights = np.array(result.x)
 
-        
-    #normalized_delta_weights_array = np.asarray(LS_delta_weights / np.max(LS_delta_weights),
-    #                                            dtype=np.float32)
-    #scaled_LS_delta_weights = np.clip(normalized_delta_weights_array * bounds[1], bounds[0], None)
-    scaled_LS_delta_weights = LS_delta_weights
-    scaled_LS_delta_weights_dict = dict(zip(source_gid_array, scaled_LS_delta_weights))
-
-    scaled_LS_weights = np.asarray(scaled_LS_delta_weights + initial_weight_array, dtype=np.float32)
-    assert(np.min(scaled_LS_weights) >= 0.)
-    assert(np.max(scaled_LS_weights) <= max_weight)
-    flat_LS_map = np.dot(scaled_input_matrix, scaled_LS_weights) - 1
-    if scaled_const_input_map is not None:
-       flat_LS_map += scaled_const_input_map
     
+    LS_delta_map = np.dot(scaled_input_matrix,
+                          np.asarray(LS_delta_weights + initial_weight_array,
+                                     dtype=np.float32)) - 1
+    if scaled_const_input_map is not None:
+        LS_delta_map += scaled_const_input_map
+
+    LTD_delta_weights_array = np.minimum(LS_delta_weights, 0.)
+    LTP_delta_weights_array = np.maximum(LS_delta_weights, 0.)
+    normalized_LTP_delta_weights_array = np.asarray(LTP_delta_weights_array / np.max(LTP_delta_weights_array),
+                                                    dtype=np.float32)
+    scaled_LTP_delta_weights = LTP_delta_weights_array * target_amplitude / np.max(LS_delta_map)
+    
+    scaled_LS_weights = scaled_LTP_delta_weights + LTD_delta_weights_array + initial_weight_array
+    scaled_LS_delta_map = np.dot(scaled_input_matrix, scaled_LS_weights) - 1
+    if scaled_const_input_matrix is not None:
+        scaled_LS_delta_map += np.dot(scaled_const_input_matrix, const_weight_array)
+
+    assert(np.min(scaled_LS_weights) >= 0.)
+    LS_map = np.dot(scaled_input_matrix, scaled_LS_weights) - 1
+    if scaled_const_input_map is not None:
+       LS_map += scaled_const_input_map
+
+    normalized_LTP_delta_weights_dict = dict(zip(source_gid_array, normalized_LTP_delta_weights_array))
+    LTD_delta_weights_dict = dict(zip(source_gid_array, LTD_delta_weights_array))
+       
     if plot:
-        flat_lsqr_map = np.dot(scaled_input_matrix,
+        lsqr_map = np.dot(scaled_input_matrix,
                                np.asarray(lsqr_delta_weights + initial_weight_array,
                                           dtype=np.float32)) - 1
         if scaled_const_input_map is not None:
-            flat_lsqr_map += scaled_const_input_map
+            lsqr_map += scaled_const_input_map
             
-        flat_initial_LS_map = np.dot(scaled_input_matrix,
+        initial_LS_map = np.dot(scaled_input_matrix,
                                      np.asarray(initial_LS_delta_weights + initial_weight_array,
                                                 dtype=np.float32)) - 1
         if scaled_const_input_map is not None:
-            flat_initial_LS_map += scaled_const_input_map
+            initial_LS_map += scaled_const_input_map
 
-        flat_LS_delta_map = np.dot(scaled_input_matrix,
-                                   np.asarray(LS_delta_weights + initial_weight_array,
-                                              dtype=np.float32)) - 1
-        if scaled_const_input_map is not None:
-            flat_LS_delta_map += scaled_const_input_map
             
 
         plot_callback_structured_weights(optimize_method = optimize_method,
                                          arena_x = arena_x,
                                          arena_y = arena_y,
                                          bounds = initial_LS_bounds,
-                                         max_weight = max_weight,
+                                         max_weight = np.max(scaled_LS_weights),
                                          scaled_const_input_map = scaled_const_input_map,
                                          lsqr_delta_weights = lsqr_delta_weights,
                                          initial_LS_delta_weights = initial_LS_delta_weights,
-                                         scaled_LS_delta_weights = scaled_LS_delta_weights,
+                                         scaled_LS_delta_weights = scaled_LS_weights,
                                          initial_weight_array = initial_weight_array,
-                                         flat_scaled_target_map = flat_scaled_target_map,
-                                         flat_lsqr_map = flat_lsqr_map,
-                                         flat_initial_LS_map = flat_initial_LS_map,
-                                         flat_LS_delta_map = flat_LS_delta_map,
-                                         flat_LS_map = flat_LS_map,
+                                         scaled_target_map = scaled_target_map,
+                                         lsqr_map = lsqr_map,
+                                         initial_LS_map = initial_LS_map,
+                                         LS_delta_map = LS_delta_map,
+                                         LS_map = LS_map,
                                          initial_background_map = scaled_background_map,
                                          reference_weight_array = reference_weight_array,
                                          reference_weights_are_delta = reference_weights_are_delta,
@@ -2724,4 +2737,5 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
                                          **fig_kwargs)
 
 
-    return scaled_LS_delta_weights_dict, flat_LS_map
+    return normalized_LTP_delta_weights_dict, LTD_delta_weights_dict, LS_map
+

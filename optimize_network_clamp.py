@@ -139,8 +139,8 @@ def config_worker():
     def from_param_vector(params):
         result = []
         assert (len(params) == len(param_range_tuples))
-        for i, (param_pattern, (update_operator, population, source, sec_type, syn_name, param_name, param_range)) in enumerate(zip(param_names, param_range_tuples)):
-            result.append((update_operator, population, source, sec_type, syn_name, param_name, params[i]))
+        for i, (param_pattern, (population, source, sec_type, syn_name, param_name, param_range)) in enumerate(zip(param_names, param_range_tuples)):
+            result.append((population, source, sec_type, syn_name, param_name, params[i]))
         return result
 
     context.param_names = param_names
@@ -256,7 +256,7 @@ def update_network_clamp(x, context=None):
 
     biophys_cell_dict = context.env.biophys_cells[context.population]
     for gid, biophys_cell in viewitems(biophys_cell_dict):
-        for update_operator, destination, source, sec_type, syn_name, param_path, param_value in param_values:
+        for destination, source, sec_type, syn_name, param_path, param_value in param_values:
             if context.population != destination:
                 continue
 

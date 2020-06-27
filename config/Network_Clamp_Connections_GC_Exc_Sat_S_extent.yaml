@@ -124,7 +124,7 @@ Synapses:
       mechanisms:
         GABA_A:
           dur_onset: 0.5
-          tau_offset: 7.0
+          tau_offset: 4.0
           e: -75
           g_unit: 0.001
           weight: 0.931
@@ -138,14 +138,14 @@ Synapses:
         apical:
           GABA_A:
             dur_onset: 0.5
-            tau_offset: 7.0
+            tau_offset: 4.0
             e: -75
             g_unit: 0.001
             weight: 0.1
         soma:
           GABA_A:
             dur_onset: 0.5
-            tau_offset: 7.0
+            tau_offset: 4.0
             e: -75
             g_unit: 0.001
             weight: 0.335

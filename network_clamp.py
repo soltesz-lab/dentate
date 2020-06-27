@@ -10,7 +10,7 @@ from dentate import io_utils, spikedata, synapses, stimulus, cell_clamp
 from dentate.cells import h, make_input_cell, register_cell, record_cell, report_topology, is_cell_registered
 from dentate.env import Env
 from dentate.neuron_utils import h, configure_hoc_env, make_rec
-from dentate.utils import is_interactive, Context, Closure, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger, config_logging
+from dentate.utils import is_interactive, Context, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger, config_logging
 from dentate.utils import get_trial_time_indices, get_trial_time_ranges, get_low_pass_filtered_trace, contiguous_ranges
 from dentate.cell_clamp import init_biophys_cell
 from neuroh5.io import read_cell_attribute_selection, read_cell_attribute_info
@@ -409,6 +409,43 @@ def run(env, cvode=False, pc_runworker=True):
     return spikedata.get_env_spike_dict(env, include_artificial=None)
 
 
+def update_network_params(env, param_dict):
+    
+    for pop_name, gid_param_dict in viewitems(param_dict):
+        biophys_cell_dict = env.biophys_cells[pop_name]
+
+        synapse_config = env.celltypes[pop_name]['synapses']
+        weights_dict = synapse_config.get('weights', {})
+
+        param_expr_dict = {}
+        if 'expr' in weights_dict:
+            weights_expr = weights_dict['expr']
+            param_expr_dict['weight'] = copy.deepcopy(weights_expr)
+
+        for gid, params_tuples in viewitems(gid_param_dict):
+            biophys_cell = biophys_cell_dict[gid]
+            for destination, source, sec_type, syn_name, param_path, param_value in params_tuples:
+                if isinstance(param_path, tuple):
+                    p, s = param_path
+                    if p in param_expr_dict:
+                        param_expr_dict[p][s] = param_value
+                else:
+                    p, s = param_path, None
+
+                sources = None
+                if isinstance(source, tuple):
+                    sources = list(source)
+                else:
+                    if source is not None:
+                        sources = [source]
+                synapses.modify_syn_param(biophys_cell, env, sec_type, syn_name,
+                                          param_name=p, 
+                                          value=param_expr_dict[p] if (p in param_expr_dict) and (s is not None) else param_value,
+                                          filters={'sources': sources} if sources is not None else None,
+                                          origin='soma', update_targets=True)
+            cell = env.pc.gid2cell(gid)
+    
+
 def run_with(env, param_dict, cvode=False, pc_runworker=True):
     """
     Runs network clamp simulation with the specified parameters for the given gid(s).
@@ -423,32 +460,7 @@ def run_with(env, param_dict, cvode=False, pc_runworker=True):
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
-    for pop_name, gid_param_dict in viewitems(param_dict):
-        biophys_cell_dict = env.biophys_cells[pop_name]
-
-        synapse_config = env.celltypes[pop_name]['synapses']
-        weights_dict = synapse_config.get('weights', {})
-
-        for gid, params_tuples in viewitems(gid_param_dict):
-            biophys_cell = biophys_cell_dict[gid]
-            for update_operator, destination, source, sec_type, syn_name, param_path, param_value in params_tuples:
-                if isinstance(param_path, tuple):
-                    p, s = param_path
-                else:
-                    p, s = param_path, None
-
-                sources = None
-                if isinstance(source, tuple):
-                    sources = list(source)
-                else:
-                    if source is not None:
-                        sources = [source]
-                synapses.modify_syn_param(biophys_cell, env, sec_type, syn_name,
-                                          param_name=p, value=param_value,
-                                          filters={'sources': sources} if sources is not None else None,
-                                          update_operator=update_operator,
-                                          origin='soma', update_targets=True)
-            cell = env.pc.gid2cell(gid)
+    update_network_params(env, param_dict)
 
     rec_dt = 0.1
     if env.recording_profile is not None:
@@ -506,9 +518,6 @@ def optimize_params(env, pop_name, param_type, param_config_name):
     param_initial_dict = {}
     param_range_tuples = []
 
-    synapse_config = env.celltypes[pop_name]['synapses']
-    weights_dict = synapse_config.get('weights', {})
-
     if param_type == 'synaptic':
         if pop_name in env.netclamp_config.optimize_parameters['synaptic']:
             opt_params = env.netclamp_config.optimize_parameters['synaptic'][pop_name]
@@ -522,20 +531,18 @@ def optimize_params(env, pop_name, param_type, param_config_name):
                 for syn_name, syn_mech_dict in sorted(viewitems(sec_type_dict), key=keyfun):
                     for param_fst, param_rst in sorted(viewitems(syn_mech_dict), key=keyfun):
                         if isinstance(param_rst, dict):
-                            update_operator = lambda gid, syn_id, old, new: old
                             for const_name, const_range in sorted(viewitems(param_rst)):
                                 param_path = (param_fst, const_name)
-                                param_range_tuples.append((update_operator, pop_name, source, sec_type, syn_name, param_path, const_range))
+                                param_range_tuples.append((pop_name, source, sec_type, syn_name, param_path, const_range))
                                 param_key = '%s.%s.%s.%s.%s.%s' % (pop_name, str(source), sec_type, syn_name, param_fst, const_name)
                                 param_initial_value = (const_range[1] - const_range[0]) / 2.0
                                 param_initial_dict[param_key] = param_initial_value
                                 param_bounds[param_key] = const_range
                                 param_names.append(param_key)
                         else:
-                            update_operator = None
                             param_name = param_fst
                             param_range = param_rst
-                            param_range_tuples.append((update_operator, pop_name, source, sec_type, syn_name, param_name, param_range))
+                            param_range_tuples.append((pop_name, source, sec_type, syn_name, param_name, param_range))
                             param_key = '%s.%s.%s.%s.%s' % (pop_name, source, sec_type, syn_name, param_name)
                             param_initial_value = (param_range[1] - param_range[0]) / 2.0
                             param_initial_dict[param_key] = param_initial_value
@@ -570,8 +577,8 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
     
     def from_param_dict(params_dict):
         result = []
-        for param_pattern, (update_operator, population, source, sec_type, syn_name, param_name, param_range) in zip(param_names, param_range_tuples):
-            result.append((update_operator, population, source, sec_type, syn_name, param_name, params_dict[param_pattern]))
+        for param_pattern, (population, source, sec_type, syn_name, param_name, param_range) in zip(param_names, param_range_tuples):
+            result.append((population, source, sec_type, syn_name, param_name, params_dict[param_pattern]))
         return result
 
     def gid_state_values(spkdict, t_offset, n_trials, t_rec, state_recs_dict):
@@ -640,8 +647,8 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
     
     def from_param_dict(params_dict):
         result = []
-        for param_pattern, (update_operator, population, source, sec_type, syn_name, param_name, param_range) in zip(param_names, param_range_tuples):
-            result.append((update_operator, population, source, sec_type, syn_name, param_name, params_dict[param_pattern]))
+        for param_pattern, (population, source, sec_type, syn_name, param_name, param_range) in zip(param_names, param_range_tuples):
+            result.append((population, source, sec_type, syn_name, param_name, params_dict[param_pattern]))
         return result
 
     def gid_firing_rate(spkdict, cell_index_set):
@@ -752,8 +759,8 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
 
     def from_param_dict(params_dict):
         result = []
-        for param_pattern, (update_operator, population, source, sec_type, syn_name, param_name, param_range) in zip(param_names, param_range_tuples):
-            result.append((update_operator, population, source, sec_type, syn_name, param_name, params_dict[param_pattern]))
+        for param_pattern, (population, source, sec_type, syn_name, param_name, param_range) in zip(param_names, param_range_tuples):
+            result.append((population, source, sec_type, syn_name, param_name, params_dict[param_pattern]))
         return result
 
     def gid_firing_rate_vectors(spkdict, cell_index_set):
@@ -787,29 +794,26 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             
             target_rate_vector = target_rate_vector_dict[gid]
             rate_vectors = rates_dict[gid]
+            logger.info('selectivity rate objective: max rates of gid %i: %s' % (gid, str([np.max(rate_vector) for rate_vector in rate_vectors])))
 
             target_infld_rate_vector = target_rate_vector[infld_idxs]
             target_outfld_rate_vector = target_rate_vector[outfld_idxs]
-
             
-            mean_rate_vector = np.mean(np.row_stack(rate_vectors), axis=0)
             mean_infld_rate_vector = np.mean(np.row_stack([ rate_vector[infld_idxs] 
                                                             for rate_vector in rate_vectors ]),
                                              axis=0)
-            mean_outfld_rate = np.mean(np.asarray([ np.mean(rate_vector[outfld_idxs])
-                                                    for rate_vector in rate_vectors ]))
+            mean_outfld_rate_vector = np.mean(np.row_stack([ rate_vector[outfld_idxs] 
+                                                            for rate_vector in rate_vectors ]),
+                                             axis=0)
 
-            logger.info('selectivity rate objective: target max in/mean out rate of gid %i: %.02f %.02f' % (gid, np.max(target_infld_rate_vector), np.mean(target_outfld_rate_vector)))
-            logger.info('selectivity rate objective: max in/mean out/mean total rate of gid %i: %.02f %.02f %.02f' % (gid, np.max(mean_infld_rate_vector), mean_outfld_rate, np.mean(mean_rate_vector)))
+            logger.info('selectivity rate objective: target max in/mean out rate of gid %i: %.02f %.02f' % (gid, np.mean(target_infld_rate_vector), np.mean(target_outfld_rate_vector)))
 
-            residual_infld = np.clip(np.max(mean_infld_rate_vector) - 
-                                     np.max(target_infld_rate_vector),
-                                     None, 0.)
-            residual_outfld = mean_outfld_rate - np.mean(target_outfld_rate_vector)
-            residual = [residual_infld, residual_outfld]
-            logger.info('selectivity rate objective: residual of gid %i: %s' % (gid, str(residual)))
+            max_infld = np.max(mean_infld_rate_vector)
+            mean_outfld = np.mean(mean_outfld_rate_vector)
+            residual = (np.clip(max_infld - mean_outfld, 0., None) ** 2.)  / (max(mean_outfld, 1.0) ** 2.)
+            logger.info('selectivity rate objective: max in/mean out/residual rate of gid %i: %.02f %.02f %.04f' % (gid, max_infld, mean_outfld, residual))
 
-            result[gid] = -np.sum(np.power(np.asarray(residual), np.asarray([2.0, 3.0])))
+            result[gid] = residual
         return result
     
     return f
@@ -821,8 +825,7 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
                                     spike_events_path, spike_events_namespace, spike_events_t,
                                     input_features_path, input_features_namespaces,
                                     param_type, param_config_name, recording_profile,
-                                    state_variable, state_filter, 
-                                    target_infld_state_value, target_outfld_state_value,
+                                    state_variable, state_filter, state_baseline,
                                     target_rate_map_path, target_rate_map_namespace,
 			            target_rate_map_arena, target_rate_map_trajectory,  worker, **kwargs):
     
@@ -871,8 +874,8 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
 
     def from_param_dict(params_dict):
         result = []
-        for param_pattern, (update_operator, population, source, sec_type, syn_name, param_name, param_range) in zip(param_names, param_range_tuples):
-            result.append((update_operator, population, source, sec_type, syn_name, param_name, params_dict[param_pattern]))
+        for param_pattern, (population, source, sec_type, syn_name, param_name, param_range) in zip(param_names, param_range_tuples):
+            result.append((population, source, sec_type, syn_name, param_name, params_dict[param_pattern]))
         return result
 
     def gid_state_values(spkdict, t_offset, n_trials, t_rec, state_recs_dict):
@@ -936,17 +939,13 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
             t_outfld_idxs = np.concatenate([ np.where(np.logical_and(t_s >= r[0], t_s < r[1]))[0] for r in outfld_ranges ])
             
             mean_state_values = state_values_dict[gid]
-            mean_infld_state_value = np.mean(mean_state_values[t_infld_idxs])
-            mean_outfld_state_value = np.mean(mean_state_values[t_outfld_idxs])
+            max_infld = np.max(mean_state_values[t_infld_idxs])
+            mean_outfld = np.mean(mean_state_values[t_outfld_idxs])
 
-            logger.info('selectivity state value objective: target in/out state values of gid %i: %.02f %.02f' % (gid, target_infld_state_value, target_outfld_state_value))
-            logger.info('selectivity state value objective: mean in/out/total state values of gid %i: %.02f %.02f %.02f' % (gid, mean_infld_state_value, mean_outfld_state_value,
-                                                                                                                      np.mean(mean_state_values)))
-
-            residual = [np.clip(mean_infld_state_value - target_infld_state_value, None, 0.),
-                        mean_outfld_state_value - target_outfld_state_value]
+            residual = (np.clip(max_infld - mean_outfld, 0., None) ** 2.) - (np.clip(mean_outfld - state_baseline, 0., None) ** 2.)
+            logger.info('selectivity state value objective: state values of gid %i: max in/mean out: %.02f / %.02f residual: %.04f' % (gid, max_infld, mean_outfld, residual))
             
-            result[gid] = -np.sum(np.power(np.asarray(residual), np.asarray([2.0, 4.0])))
+            result[gid] = residual
 
         return result
 
@@ -1000,8 +999,8 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
     
     def from_param_dict(params_dict):
         result = []
-        for param_pattern, (update_operator, population, source, sec_type, syn_name, param_name, param_range) in zip(param_names, param_range_tuples):
-            result.append((update_operator, population, source, sec_type, syn_name, param_name, params_dict[param_pattern]))
+        for param_pattern, (population, source, sec_type, syn_name, param_name, param_range) in zip(param_names, param_range_tuples):
+            result.append((population, source, sec_type, syn_name, param_name, params_dict[param_pattern]))
         return result
 
     def gid_firing_rate_vectors(spkdict, cell_index_set):
@@ -1050,7 +1049,7 @@ def optimize_run(env, pop_name, param_config_name, init_objfun,
       optimize_params(env, pop_name, param_type, param_config_name)
     
     hyperprm_space = { param_pattern: [param_range[0], param_range[1]]
-                       for param_pattern, (update_operator, pop_name, source, sec_type, syn_name, _, param_range) in
+                       for param_pattern, (pop_name, source, sec_type, syn_name, _, param_range) in
                            zip(param_names, param_range_tuples) }
 
     if results_file is None:
@@ -1454,12 +1453,10 @@ def optimize(config_file, population, gid, arena_id, trajectory_id, generate_wei
         init_objfun_name = 'init_selectivity_rate_objfun'
     elif target == 'selectivity_state':
         assert(target_state_variable is not None)
-        opt_target_infld = opt_params['Targets']['state'][target_state_variable]['mean in field']
-        opt_target_outfld  = opt_params['Targets']['state'][target_state_variable]['mean out field']
+        opt_baseline = opt_params['Targets']['state'][target_state_variable]['mean']
         init_params['target_rate_map_arena'] = arena_id
         init_params['target_rate_map_trajectory'] = trajectory_id
-        init_params['target_infld_state_value'] = opt_target_infld
-        init_params['target_outfld_state_value'] = opt_target_outfld
+        init_params['state_baseline'] = opt_baseline
         init_params['state_variable'] = target_state_variable
         init_params['state_filter'] = target_state_filter
         init_objfun_name = 'init_selectivity_state_objfun'
