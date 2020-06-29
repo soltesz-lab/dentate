@@ -40,6 +40,7 @@ NEURON {
 	SUFFIX CavLcck
 	USEION ca READ cai, cao, eca WRITE ica VALENCE 2 
         RANGE gmax, cai, ica, eca, g, minf, mtau
+    THREADSAFE
 }
 
 STATE {
@@ -59,6 +60,9 @@ INITIAL {
 	rate(v)
 	m = minf
 	VERBATIM
+    #if NRNBBCORE
+    double * _nt_data = _nt->_data;
+    #endif
 	cai=_ion_cai;
 	ENDVERBATIM
 }
