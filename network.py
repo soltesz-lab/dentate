@@ -8,7 +8,7 @@ import numpy as np
 from mpi4py import MPI
 
 from dentate import cells, io_utils, lfp, lpt, simtime, synapses
-from dentate.neuron_utils import h, configure_hoc_env, cx, make_rec, mkgap
+from dentate.neuron_utils import h, configure_hoc_env, cx, make_rec, mkgap, load_cell_template
 from dentate.utils import compose_iter, imapreduce, get_module_logger, profile_memory
 from dentate.utils import range, str, viewitems, viewkeys, zip, zip_longest
 from neuroh5.io import bcast_graph, read_cell_attribute_selection, read_graph_selection, read_tree_selection, \
@@ -918,8 +918,11 @@ def init_input_cells(env, input_sources=None):
                 trial_index_attr_index = vecstim_attr_info.get(trial_index_attr, None)
                 trial_dur_attr_index = vecstim_attr_info.get(trial_dur_attr, None)
                 for (gid, vecstim_tuple) in vecstim_iter:
+                    if not (env.pc.gid_exists(gid)):
+                        continue
+
                     spiketrain = vecstim_tuple[vecstim_attr_index]
-                    if trial_attr_index is None:
+                    if trial_index_attr_index is None:
                         trial_index = None
                     else:
                         trial_index = vecstim_tuple[trial_index_attr_index]
@@ -940,7 +943,6 @@ def init_input_cells(env, input_sources=None):
                                     (pop_name, gid, len(spiketrain)))
 
                     spiketrain += env.stimulus_onset
-                    assert(env.pc.gid_exists(gid))
                     cell = env.pc.gid2cell(gid)
                     cell.play(h.Vector(spiketrain))
 
@@ -1005,6 +1007,9 @@ def init_input_cells(env, input_sources=None):
                         raise RuntimeError("init_input_cells: unable to determine spike train attribute in for gid %d in spike input file %s; namespace %s; attr keys %s" % (gid, env.spike_input_path, env.spike_input_ns, str(list(cell_spikes_attr_info.keys()))))
                         
                     for gid, cell_spikes_tuple in cell_spikes_iter:
+                        if not (env.pc.gid_exists(gid)):
+                            continue
+
                         spiketrain = cell_spikes_tuple[spike_train_attr_index]
                         
                         if len(spiketrain) > 0:
@@ -1018,7 +1023,6 @@ def init_input_cells(env, input_sources=None):
                             logger.info("*** Spike train for %s input source gid %i is of length %i" %
                                         (pop_name, gid, len(spiketrain)))
 
-                        assert(env.pc.gid_exists(gid))
                         input_cell = env.pc.gid2cell(gid)
                         if input_cell.is_art() == 1:
                             input_cell.play(h.Vector(spiketrain))
@@ -1147,9 +1151,10 @@ def run(env, output=True, shutdown=True):
     if rank == 0:
         logger.info("*** Running simulation")
 
+    rec_dt = 0.1
     if env.recording_profile is not None:
         rec_dt = env.recording_profile.get('dt', 0.1) 
-        env.t_rec.record(h._ref_t, rec_dt)
+    env.t_rec.record(h._ref_t, rec_dt)
 
     env.t_rec.resize(0)
     env.t_vec.resize(0)
