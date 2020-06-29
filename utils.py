@@ -69,6 +69,7 @@ class ExprClosure(object):
         memo[id(self)] = result
         return result
 
+    
 class Promise(object):
     """
     An object that represents a closure and unapplied arguments.
