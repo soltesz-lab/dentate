@@ -586,7 +586,7 @@ class SynapseAttributes(object):
                 if v is None:
                     raise RuntimeError('add_mech_attrs_from_iter: gid %i synapse id %i mechanism %s parameter %s has no value' % (gid, syn_id, syn_name, str(k)))
                 if append:
-                    attr_dict[k] = attr_dict.get(k, [])+[v]
+                    attr_dict[k] = attr_dict.get(k, []).append(v)
                 else:
                     attr_dict[k] = v
 
@@ -949,9 +949,9 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
 
     synapse_config = env.celltypes[postsyn_name]['synapses']
     weights_dict = synapse_config.get('weights', {})
-    param_expr_dict = {}
-    if 'expr' in weights_dict:
-        param_expr_dict['weight'] = weights_dict['expr']
+    param_closure_dict = {}
+    if 'closure' in weights_dict:
+        param_closure_dict['weight'] = weights_dict['closure']
     
     if unique is None:
         if 'unique' in synapse_config:
@@ -1022,8 +1022,8 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
                                                'value set for parameter %s' % (gid, syn_id, presyn_name, param_name))
                         if isinstance(param_val, Promise):
                             new_param_val = param_val.clos(*param_val.args)
-                        elif param_name in param_expr_dict and isinstance(param_val, list):
-                            new_param_val = param_expr_dict[param_name](*param_val)
+                        elif param_name in param_closure_dict and isinstance(param_val, list):
+                            new_param_val = param_closure_dict[param_name](*param_val)
                         else:
                             new_param_val = param_val
                         upd_params[param_name] = new_param_val
@@ -1577,7 +1577,7 @@ def inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filter
 
 
 def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor=None,
-                       update_targets=False, param_expr_dict=None, verbose=False):
+                       update_targets=False, verbose=False):
     """Provided a synaptic mechanism, a parameter, a node, a list of
     syn_ids, and a dict of rules. Sets placeholder values for each
     provided syn_id in the syn_mech_attr_dict of a SynapseAttributes

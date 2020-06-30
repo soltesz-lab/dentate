@@ -748,13 +748,18 @@ class Env(object):
                 if 'synapses' in celltypes[k]:
                     synapses_dict = celltypes[k]['synapses']
                     if 'weights' in synapses_dict:
-                        weights_dict = synapses_dict['weights']
-                        if 'expr' in weights_dict:
-                            expr = weights_dict['expr']
-                            parameter = weights_dict['parameter']
-                            const = weights_dict.get('const', {})
-                            clos = ExprClosure(parameter, expr, const)
-                            weights_dict['expr'] = clos
+                        weights_entry = synapses_dict['weights']
+                        if isinstance(weights_entry, list):
+                            weights_dicts =  weights_entry
+                        else:
+                            weights_dicts =  [weights_entry]
+                        for weights_dict in weights_dicts:
+                            if 'expr' in weights_dict:
+                                expr = weights_dict['expr']
+                                parameter = weights_dict['parameter']
+                                const = weights_dict.get('const', {})
+                                clos = ExprClosure(parameter, expr, const)
+                                weights_dict['closure'] = clos
                     
         population_names = read_population_names(self.data_file_path, self.comm)
         if rank == 0:

@@ -21,11 +21,12 @@ Cell Types:
     synapses:
       correct_for_spines: True
       weights:
-        namespace: ['LTP Structured Weights A', 'LTD Structured Weights A', 'Log-Normal Weights']
-        expr: a*ltp + (ltd + lnw)
-        parameter: [ltp, ltd, lnw]
-        const:
-          a: 1.0
+        - namespace: ['LTP Structured Weights A', 'LTD Structured Weights A', 'Log-Normal Weights']
+          expr: a*ltp + (ltd + lnw)
+          parameter: [ltp, ltd, lnw]
+          const:
+            a: 1.0
+        - namespace: ['Normal Weights']
       density: !include GC_synapse_density.yaml
   MC:
     template: MossyCell

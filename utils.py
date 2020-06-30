@@ -79,6 +79,8 @@ class Promise(object):
         self.args = args
     def __repr__(self):
         return f'Promise(clos: {self.clos} args: {self.args})'
+    def append(self, arg):
+        self.args.append(arg)
     
 class Struct(object):
     def __init__(self, **items):

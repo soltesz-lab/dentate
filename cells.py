@@ -2461,7 +2461,7 @@ def make_input_cell(env, gid, pop_id, input_source_dict, spike_train_attr_name='
 
 def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, load_synapses=True,
                      load_edges=True, connection_graph=None,
-                     load_weights=False, weight_dict=None, weights_scales=None, weights_offset=None,
+                     load_weights=False, weight_dicts=None, 
                      set_edge_delays=True, mech_file_path=None, mech_dict=None):
     """
     :param env: :class:'Env'
@@ -2469,6 +2469,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     :param gid: int
     :param tree_dict: dict
     :param synapses_dict: dict
+    :param weight_dicts: list of dict
     :param load_synapses: bool
     :param load_edges: bool
     :param load_weights: bool
@@ -2489,18 +2490,13 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     syn_attrs = env.synapse_attributes
     synapse_config = env.celltypes[pop_name]['synapses']
 
-    weights_namespaces = []
-    if 'weights' in synapse_config:
+    weight_dicts = []
+    has_weights = False
+    if weight_dicts is not None:
         has_weights = True
-        weights_dict = synapse_config['weights']
-        weights_namespaces.extend(weights_dict['namespace'])
-    else:
-        has_weights = False
-
-    if weights_scales is None:
-        weights_scales = synapse_config.get('weights scale', {})
-    if weights_offset is None:
-        weights_offsets = synapse_config.get('weights offset', {})
+    elif 'weights' in synapse_config:
+        has_weights = True
+        weight_dicts = synapse_config['weights']
         
     if load_synapses:
         if synapses_dict is not None:
@@ -2514,38 +2510,38 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
             logger.error('get_biophys_cell: synapse attributes not found for %s: gid: %i' % (pop_name, gid))
             raise Exception
 
-        cell_ns_weights_iter = []
-        if load_weights:
-            if weight_dict is not None:
-                cell_ns_weights_iter = viewitems(weight_dict)
-            elif (weight_dict is None) and has_weights:
+        if load_weights and has_weights:
+
+            for weight_dict in weight_dicts:
+
+                expr_closure = weight_dict.get('closure', None)
+                weights_namespaces = weight_dict['namespace']
                 cell_weights_iters = [read_cell_attribute_selection(env.data_file_path, pop_name, [gid],
                                                                     weights_namespace, comm=env.comm)
-                                          for weights_namespace in weights_namespaces]
+                                      for weights_namespace in weights_namespaces]
                 cell_ns_weights_iter = zip_longest(weights_namespaces, cell_weights_iters)
 
-        multiple_weights = 'error'
-        for weights_namespace, cell_weights_iter in cell_ns_weights_iter:
-            first_gid = None
-            weights_scale = weights_scales.get(weights_namespace, 1.0)
-            weights_offset = weights_offsets.get(weights_namespace, 0.0)
-            for gid, cell_weights_dict in cell_weights_iter:
-                if first_gid is None:
-                    first_gid = gid
-                weights_syn_ids = cell_weights_dict['syn_id']
-                for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
-                    weights_values = cell_weights_dict[syn_name]
-                    syn_attrs.add_mech_attrs_from_iter(
-                        gid, syn_name,
-                        zip_longest(weights_syn_ids, map(lambda x: {'weight': x}, weights_values)),
-                        multiple=multiple_weights, append=True)
-                    if first_gid == gid:
-                        logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights in namespace %s' %
-                                    (gid, len(cell_weights_dict[syn_name]), syn_name, weights_namespace))
-                        logger.info('weight_values min/max/mean: %.02f / %.02f / %.02f' %
-                                        (np.min(weights_values), np.max(weights_values),
-                                         np.mean(weights_values)))
-            multiple_weights='overwrite'
+                multiple_weights = 'error'
+                for weights_namespace, cell_weights_iter in cell_ns_weights_iter:
+                    first_gid = None
+                    for gid, cell_weights_dict in cell_weights_iter:
+                        if first_gid is None:
+                            first_gid = gid
+                        weights_syn_ids = cell_weights_dict['syn_id']
+                        for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
+                            weights_values = cell_weights_dict[syn_name]
+                            syn_attrs.add_mech_attrs_from_iter(gid, syn_name,
+                                                               zip_longest(weights_syn_ids,
+                                                                           [{'weight': Promise(expr_closure, [x])} for x in weights_values]
+                                                                           if expr_closure else [{'weight': x} for x in weights_values]),
+                                                               multiple=multiple_weights, append=True)
+                            if first_gid == gid:
+                                logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights in namespace %s' %
+                                            (gid, len(cell_weights_dict[syn_name]), syn_name, weights_namespace))
+                                logger.info('weight_values min/max/mean: %.02f / %.02f / %.02f' %
+                                            (np.min(weights_values), np.max(weights_values), np.mean(weights_values)))
+                    expr_closure = None
+                    multiple_weights='overwrite'
 
 
     if load_edges:
