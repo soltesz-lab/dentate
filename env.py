@@ -760,7 +760,8 @@ class Env(object):
                                 const = weights_dict.get('const', {})
                                 clos = ExprClosure(parameter, expr, const)
                                 weights_dict['closure'] = clos
-                    
+                        synapses_dict['weights'] = weights_dicts
+                        
         population_names = read_population_names(self.data_file_path, self.comm)
         if rank == 0:
             self.logger.info('population_names = %s' % str(population_names))
