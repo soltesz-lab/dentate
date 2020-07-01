@@ -521,6 +521,16 @@ class SynapseAttributes(object):
                         old_val.clos = new_val
                     else:
                         attr_dict[k] = Promise(new_val, old_val)
+                elif isinstance(new_val, dict):
+                    if isinstance(old_val, Promise):
+                        for sk, sv in viewitems(new_val):
+                            old_val.clos[sk] = sv
+                    elif isinstance(old_val, ExprClosure):
+                        for sk, sv in viewitems(new_val):
+                            old_val[sk] = sv
+                    else:
+                        raise RuntimeError('modify_mech_attrs: dictionary value provided to a non-expression parameter %s' %
+                                           k)
                 else:
                     attr_dict[k] = new_val
             elif k in rules[mech_name]['netcon_params']:
@@ -541,6 +551,16 @@ class SynapseAttributes(object):
                         old_val.clos = new_val
                     else:
                         attr_dict[k] = Promise(new_val, old_val)
+                elif isinstance(new_val, dict):
+                    if isinstance(old_val, Promise):
+                        for sk, sv in viewitems(new_val):
+                            old_val.clos[sk] = sv
+                    elif isinstance(old_val, ExprClosure):
+                        for sk, sv in viewitems(new_val):
+                            old_val[sk] = sv
+                    else:
+                        raise RuntimeError('modify_mech_attrs: dictionary value provided to a non-expression parameter %s' %
+                                           k)
                 else:
                     attr_dict[k] = new_val
                 logger.debug("modify %s.%s.%s: old_val: %s new val: %s" % (pop_name, syn_name, k, str(old_val), str(new_val)))

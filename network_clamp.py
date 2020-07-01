@@ -417,18 +417,11 @@ def update_network_params(env, param_dict):
         synapse_config = env.celltypes[pop_name]['synapses']
         weights_dict = synapse_config.get('weights', {})
 
-        param_expr_dict = {}
-        if 'expr' in weights_dict:
-            weights_expr = weights_dict['expr']
-            param_expr_dict['weight'] = copy.deepcopy(weights_expr)
-
         for gid, params_tuples in viewitems(gid_param_dict):
             biophys_cell = biophys_cell_dict[gid]
             for destination, source, sec_type, syn_name, param_path, param_value in params_tuples:
                 if isinstance(param_path, tuple):
                     p, s = param_path
-                    if p in param_expr_dict:
-                        param_expr_dict[p][s] = param_value
                 else:
                     p, s = param_path, None
 
@@ -440,7 +433,7 @@ def update_network_params(env, param_dict):
                         sources = [source]
                 synapses.modify_syn_param(biophys_cell, env, sec_type, syn_name,
                                           param_name=p, 
-                                          value=param_expr_dict[p] if (p in param_expr_dict) and (s is not None) else param_value,
+                                          value={s: param_value} if (s is not None) else param_value,
                                           filters={'sources': sources} if sources is not None else None,
                                           origin='soma', update_targets=True)
             cell = env.pc.gid2cell(gid)
@@ -816,7 +809,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             else:
                 mean_outfld_rate_vector = None
 
-            logger.info('selectivity rate objective: target max in/mean out rate of gid %i: %.02f %.02f' % (gid, np.mean(target_infld_rate_vector), np.mean(target_outfld_rate_vector) if target_outfld_rate_vector is not None else 0.))
+            logger.info('selectivity rate objective: target max in/mean out rate of gid %i: %.02f %.02f' % (gid, np.max(target_infld_rate_vector), np.mean(target_outfld_rate_vector) if target_outfld_rate_vector is not None else 0.))
 
             target_min_infld = np.min(target_infld_rate_vector)
             target_max_infld = np.max(target_infld_rate_vector)
