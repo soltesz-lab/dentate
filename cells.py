@@ -2,7 +2,7 @@ import collections, os, sys, traceback, copy, datetime, math, itertools, pprint
 import numpy as np
 from dentate.neuron_utils import h, d_lambda, default_hoc_sec_lists, default_ordered_sec_types, freq, make_rec, \
     load_cell_template, IzhiCellAttrs, default_izhi_cell_attrs_dict
-from dentate.utils import get_module_logger, map, range, zip, zip_longest, viewitems, read_from_yaml, write_to_yaml
+from dentate.utils import get_module_logger, map, range, zip, zip_longest, viewitems, read_from_yaml, write_to_yaml, Promise
 from neuroh5.io import read_cell_attribute_selection, read_graph_selection, read_tree_selection
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -520,7 +520,7 @@ class STree2(object):
             H = np.sqrt(np.sum((n.xyz - p.xyz) ** 2))
             surf = 2 * np.pi * p.radius * H
             total_surf = total_surf + surf
-        print("found 'multiple cylinder soma' w/ total soma surface=*.3f" % total_surf)
+        logger.error("found 'multiple cylinder soma' w/ total soma surface=*.3f" % total_surf)
 
         # define apropriate radius
         radius = np.sqrt(total_surf / (4 * np.pi))
@@ -1138,7 +1138,7 @@ def import_morphology_from_hoc(cell, hoc_cell):
     try:
         root_node = append_section(cell, 'soma', root_index, root_sec)
     except Exception as e:
-        print('import_morphology_from_hoc: problem locating soma section to act as root')
+        logger.error('import_morphology_from_hoc: problem locating soma section to act as root')
         raise e
     append_child_sections(cell, root_node, root_sec.children(), sec_type_map)
 
@@ -1723,10 +1723,10 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
         cell.mech_dict = copy.deepcopy(backup_mech_dict)
         traceback.print_exc(file=sys.stdout)
         if param_name is not None:
-            print('modify_mech_param: problem modifying mechanism: %s parameter: %s in node: %s' %
-                  (mech_name, param_name, node.name))
+            logger.error('modify_mech_param: problem modifying mechanism: %s parameter: %s in node: %s' %
+                    (mech_name, param_name, node.name))
         else:
-            print('modify_mech_param: problem modifying mechanism: %s in node: %s' % (mech_name, node.name))
+            logger.error('modify_mech_param: problem modifying mechanism: %s in node: %s' % (mech_name, node.name))
         sys.stdout.flush()
         raise e
 
@@ -1845,7 +1845,7 @@ def inherit_mech_param(donor, mech_name, param_name):
         else:
             return getattr(getattr(donor.sec(loc), mech_name), param_name)
     except Exception as e:
-        print('inherit_mech_param: problem inheriting mechanism: %s parameter: %s from sec_type: %s' %
+        logger.error('inherit_mech_param: problem inheriting mechanism: %s parameter: %s from sec_type: %s' %
               (mech_name, param_name, donor.type))
         raise e
 
@@ -2490,13 +2490,14 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     syn_attrs = env.synapse_attributes
     synapse_config = env.celltypes[pop_name]['synapses']
 
-    weight_dicts = []
     has_weights = False
     if weight_dicts is not None:
         has_weights = True
     elif 'weights' in synapse_config:
         has_weights = True
         weight_dicts = synapse_config['weights']
+    else: 
+        weight_dicts = []
         
     if load_synapses:
         if synapses_dict is not None:
@@ -2522,6 +2523,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
                 cell_ns_weights_iter = zip_longest(weights_namespaces, cell_weights_iters)
 
                 multiple_weights = 'error'
+                append_weights = False
                 for weights_namespace, cell_weights_iter in cell_ns_weights_iter:
                     first_gid = None
                     for gid, cell_weights_dict in cell_weights_iter:
@@ -2534,13 +2536,14 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
                                                                zip_longest(weights_syn_ids,
                                                                            [{'weight': Promise(expr_closure, [x])} for x in weights_values]
                                                                            if expr_closure else [{'weight': x} for x in weights_values]),
-                                                               multiple=multiple_weights, append=True)
+                                                               multiple=multiple_weights, append=append_weights)
                             if first_gid == gid:
                                 logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights in namespace %s' %
                                             (gid, len(cell_weights_dict[syn_name]), syn_name, weights_namespace))
                                 logger.info('weight_values min/max/mean: %.02f / %.02f / %.02f' %
                                             (np.min(weights_values), np.max(weights_values), np.mean(weights_values)))
                     expr_closure = None
+                    append_weights = True
                     multiple_weights='overwrite'
 
 

@@ -47,10 +47,13 @@ sys.excepthook = mpi_excepthook
 @click.option("--connections-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--destination", '-d', type=str)
 @click.option("--sources", '-s', type=str, multiple=True)
-@click.option("--const-sources", '-n', type=str, multiple=True)
+@click.option("--non-structured-sources", '-n', type=str, multiple=True)
+@click.option("--non-structured-weights-namespace", type=str, default='Weights')
+@click.option("--non-structured-weights-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--arena-id", '-a', type=str, default='A')
 @click.option("--field-width-scale", type=float, default=1.25)
 @click.option("--max-delta-weight", type=float, default=4.)
+@click.option("--max-weight-decay-fraction", type=float, default=1.)
 @click.option("--optimize-method", type=str, default='L-BFGS-B')
 @click.option("--optimize-tol", type=float, default=1e-4)
 @click.option("--optimize-grad", is_flag=True)
@@ -68,7 +71,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--plot", is_flag=True)
 @click.option("--show-fig", is_flag=True)
 @click.option("--save-fig", type=click.Path(exists=True, file_okay=False, dir_okay=True))
-def main(config, coordinates, field_width, gid, input_features_path, input_features_namespaces, initial_weights_path, output_features_namespace, output_features_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, const_sources, arena_id, field_width_scale, max_delta_weight, optimize_method, optimize_tol, optimize_grad, peak_rate, reference_weights_are_delta, use_arena_margin, target_amplitude, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot, show_fig, save_fig):
+def main(config, coordinates, field_width, gid, input_features_path, input_features_namespaces, initial_weights_path, output_features_namespace, output_features_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, non_structured_sources, non_structured_weights_namespace, non_structured_weights_path, arena_id, field_width_scale, max_delta_weight, max_weight_decay_fraction, optimize_method, optimize_tol, optimize_grad, peak_rate, reference_weights_are_delta, use_arena_margin, target_amplitude, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot, show_fig, save_fig):
     """
 
     :param config: str (path to .yaml file)
@@ -150,7 +153,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     if len(gid) > 0:
         target_gid_set = set(gid)
 
-    all_sources = sources + const_sources
+    all_sources = sources + non_structured_sources
         
     connection_gen_list = [ NeuroH5ProjectionGen(connections_path, source, destination, namespaces=['Synapses'], comm=comm) \
                                for source in all_sources ]
@@ -249,6 +252,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                             selection=selection)
 
             initial_weights_gid_count = 0
+            initial_weights_syn_count = 0
             for this_gid, syn_weight_attr_dict in initial_weights_iter:
                 syn_ids = syn_weight_attr_dict['syn_id']
                 weights = syn_weight_attr_dict[synapse_name]
@@ -256,9 +260,36 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                 for (syn_id, weight) in zip(syn_ids, weights):
                     initial_weights_by_syn_id_dict[this_gid][int(syn_id)] = float(weight)
                 initial_weights_gid_count += 1
+                initial_weights_syn_count += len(syn_ids)
 
-            logger.info('destination: %s; read initial synaptic weights for %i gids' %
-                        (destination, initial_weights_gid_count))
+            logger.info('destination: %s; read initial synaptic weights for %i gids and %i syns' %
+                        (destination, initial_weights_gid_count, initial_weights_syn_count))
+
+        if len(non_structured_sources) > 0:
+            non_structured_weights_by_syn_id_dict = defaultdict(lambda: dict())
+            non_structured_weights_by_source_gid_dict = defaultdict(lambda: dict())
+        else:
+            non_structured_weights_by_syn_id_dict = None
+            
+        if non_structured_weights_path is not None:
+            non_structured_weights_iter = \
+                read_cell_attribute_selection(initial_weights_path, destination,
+                                              namespace=non_structured_weights_namespace,
+                                              selection=selection)
+
+            non_structured_weights_gid_count = 0
+            non_structured_weights_syn_count = 0
+            for this_gid, syn_weight_attr_dict in non_structured_weights_iter:
+                syn_ids = syn_weight_attr_dict['syn_id']
+                weights = syn_weight_attr_dict[synapse_name]
+
+                for (syn_id, weight) in zip(syn_ids, weights):
+                    non_structured_weights_by_syn_id_dict[this_gid][int(syn_id)] = float(weight)
+                non_structured_weights_gid_count += 1
+                non_structured_weights_syn_count += len(syn_ids)
+
+            logger.info('destination: %s; read non-structured synaptic weights for %i gids and %i syns' %
+                        (destination, non_structured_weights_gid_count, non_structured_weights_syn_count, ))
             
         reference_weights_by_syn_id_dict = None
         reference_weights_by_source_gid_dict = defaultdict(lambda: dict())
@@ -293,39 +324,47 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                 this_initial_weights_by_source_gid_dict = None
                 this_reference_weights_by_syn_id_dict = None
                 this_reference_weights_by_source_gid_dict = None
+                this_non_structured_weights_by_syn_id_dict = None
+                this_non_structured_weights_by_source_gid_dict = None
                 if destination_gid is not None:
                     this_initial_weights_by_syn_id_dict = initial_weights_by_syn_id_dict[destination_gid]
                     this_initial_weights_by_source_gid_dict = initial_weights_by_source_gid_dict[destination_gid]
                     if reference_weights_by_syn_id_dict is not None:
                         this_reference_weights_by_syn_id_dict = reference_weights_by_syn_id_dict[destination_gid]
                         this_reference_weights_by_source_gid_dict = reference_weights_by_source_gid_dict[destination_gid]
-
+                    this_non_structured_weights_by_syn_id_dict = non_structured_weights_by_syn_id_dict[destination_gid]
+                    this_non_structured_weights_by_source_gid_dict = non_structured_weights_by_source_gid_dict[destination_gid]
 
                 for i in range(len(source_gid_array)):
                     this_source_gid = source_gid_array[i]
                     this_syn_id = syn_ids[i]
-                    this_syn_wgt = this_initial_weights_by_syn_id_dict.get(this_syn_id, 1.0)
+                    if this_syn_id in this_initial_weights_by_syn_id_dict:
+                        this_syn_wgt = this_initial_weights_by_syn_id_dict[this_syn_id]
+                        if this_source_gid not in this_initial_weights_by_source_gid_dict:
+                            this_initial_weights_by_source_gid_dict[this_source_gid] = this_syn_wgt
+                        if this_reference_weights_by_syn_id_dict is not None:
+                            this_reference_weights_by_source_gid_dict[this_source_gid] = \
+                              this_reference_weights_by_syn_id_dict[this_syn_id]
+                    elif this_syn_id in this_non_structured_weights_by_syn_id_dict:
+                        this_syn_wgt = this_non_structured_weights_by_syn_id_dict[this_syn_id]
+                        if this_source_gid not in this_non_structured_weights_by_source_gid_dict:
+                            this_non_structured_weights_by_source_gid_dict[this_source_gid] = this_syn_wgt
                     source_gid_set_dict[source].add(this_source_gid)
                     syn_ids_by_source_gid_dict[this_source_gid].append(this_syn_id)
                     syn_count_by_source_gid_dict[this_source_gid] += 1
-                    if this_source_gid not in this_initial_weights_by_source_gid_dict:
-                        this_initial_weights_by_source_gid_dict[this_source_gid] = this_syn_wgt
-                    if this_reference_weights_by_syn_id_dict is not None:
-                        this_reference_weights_by_source_gid_dict[this_source_gid] = \
-                         this_reference_weights_by_syn_id_dict[this_syn_id]
-
+                        
                     count += 1
-                if source not in const_sources:
+                if source not in non_structured_sources:
                     structured_syn_id_count += len(syn_ids)
                 logger.info('Rank %i; destination: %s; gid %i; %d edges from source population %s' %
                             (rank, destination, this_gid, count, source))
 
 
         input_rate_maps_by_source_gid_dict = {}
-        if len(const_sources) > 0:
-            const_input_rate_maps_by_source_gid_dict = {}
+        if len(non_structured_sources) > 0:
+            non_structured_input_rate_maps_by_source_gid_dict = {}
         else:
-            const_input_rate_maps_by_source_gid_dict = None
+            non_structured_input_rate_maps_by_source_gid_dict = None
         for source in all_sources:
             if has_structured_weights:
                 source_gids = list(source_gid_set_dict[source])
@@ -347,8 +386,8 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                                        selectivity_attr_dict=attr_dict)
                     this_arena_rate_map = np.asarray(input_cell_config.get_rate_map(arena_x, arena_y),
                                                      dtype=np.float32)
-                    if source in const_sources:
-                        const_input_rate_maps_by_source_gid_dict[gid] = this_arena_rate_map
+                    if source in non_structured_sources:
+                        non_structured_input_rate_maps_by_source_gid_dict[gid] = this_arena_rate_map
                     else:
                         input_rate_maps_by_source_gid_dict[gid] = this_arena_rate_map
                     count += 1
@@ -371,9 +410,11 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                 reference_weights_are_delta=reference_weights_are_delta,
                                                 reference_weights_namespace=reference_weights_namespace,
                                                 input_rate_map_dict=input_rate_maps_by_source_gid_dict,
-                                                const_input_rate_map_dict=const_input_rate_maps_by_source_gid_dict,
+                                                non_structured_input_rate_map_dict=non_structured_input_rate_maps_by_source_gid_dict,
+                                                non_structured_weights_dict=this_non_structured_weights_by_source_gid_dict,
                                                 syn_count_dict=syn_count_by_source_gid_dict,
                                                 max_delta_weight=max_delta_weight,
+                                                max_weight_decay_fraction=max_weight_decay_fraction,
                                                 target_amplitude=target_amplitude,
                                                 arena_x=arena_x, arena_y=arena_y,
                                                 optimize_method=optimize_method,

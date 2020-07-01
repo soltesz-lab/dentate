@@ -748,11 +748,11 @@ class Env(object):
                 if 'synapses' in celltypes[k]:
                     synapses_dict = celltypes[k]['synapses']
                     if 'weights' in synapses_dict:
-                        weights_entry = synapses_dict['weights']
-                        if isinstance(weights_entry, list):
-                            weights_dicts =  weights_entry
+                        weights_config = synapses_dict['weights']
+                        if isinstance(weights_config, list):
+                            weights_dicts =  weights_config
                         else:
-                            weights_dicts =  [weights_entry]
+                            weights_dicts =  [weights_config]
                         for weights_dict in weights_dicts:
                             if 'expr' in weights_dict:
                                 expr = weights_dict['expr']

@@ -109,9 +109,7 @@ def connect_cells(env):
             
         weight_dicts = []
         has_weights = False
-        if weight_dicts is not None:
-            has_weights = True
-        elif 'weights' in synapse_config:
+        if 'weights' in synapse_config:
             has_weights = True
             weight_dicts = synapse_config['weights']
 
@@ -136,15 +134,16 @@ def connect_cells(env):
         syn_attrs.init_syn_id_attrs_from_iter(syn_attrs_iter, attr_type='tuple', attr_tuple_index=syn_attrs_info, debug=(rank == 0))
         del cell_attributes_dict
 
+        weight_attr_mask = list(syn_attrs.syn_mech_names)
+        weight_attr_mask.append('syn_id')
+        
         if has_weights:
             
-            weight_attr_mask = list(syn_attrs.syn_mech_names)
-            weight_attr_mask.append('syn_id')
             for weight_dict in weight_dicts:
 
                 expr_closure = weight_dict.get('closure', None)
                 weights_namespaces = weight_dict['namespace']
-
+a
                 if rank == 0:
                     logger.info('*** Reading synaptic weights of population %s from namespaces %s' % (postsyn_name, str(weights_namespaces)))
 
@@ -161,13 +160,12 @@ def connect_cells(env):
                                                                     comm=env.comm, node_rank_map=env.node_ranks,
                                                                     io_size=env.io_size, return_type='tuple')
                 
+                append_weights = False
                 multiple_weights = 'error'
                 for weights_namespace in weights_namespaces:
 
                     syn_weights_iter, weight_attr_info = weight_attr_dict[weights_namespace]
                     first_gid = None
-                    weights_scale = weights_scales.get(weights_namespace, 1.0)
-                    weights_offset = weights_offsets.get(weights_namespace, 0.0)
                     syn_id_index = weight_attr_info.get('syn_id', None)
                     syn_name_inds = [(syn_name, attr_index) for syn_name, attr_index in sorted(viewitems(weight_attr_info)) if syn_name != 'syn_id']
                     for gid, cell_weights_tuple in syn_weights_iter:
@@ -186,12 +184,13 @@ def connect_cells(env):
                                                                    zip_longest(weights_syn_ids,
                                                                                [{'weight': Promise(expr_closure, [x])} for x in weights_values]
                                                                                if expr_closure else [{'weight': x} for x in weights_values]),
-                                                                   multiple=multiple_weights, append=True)
+                                                                   multiple=multiple_weights, append=append_weights)
                                 if rank == 0 and gid == first_gid:
                                     logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
                                                 (postsyn_name, gid, len(weights_values), syn_name, weights_namespace))
                     expr_closure = None
-                    multiple_weights='skip'
+                    append_weights = True
+                    multiple_weights='overwrite'
                     del weight_attr_dict[weights_namespace]
 
 
@@ -344,15 +343,11 @@ def connect_cell_selection(env):
         else:
             unique = False
 
+        weight_dicts = []
+        has_weights = False
         if 'weights' in synapse_config:
-            has_weights = synapse_config['weights']
-        else:
-            has_weights = False
-
-        weights_namespaces = []
-        if has_weights:
-            weights_dict = synapse_config['weights']
-            weights_namespaces.extend(weights_dict['namespace'])
+            has_weights = True
+            weight_dicts = synapse_config['weights']
 
         if 'mech file_path' in env.celltypes[postsyn_name]:
             mech_file_path = env.celltypes[postsyn_name]['mech_file_path']
@@ -369,43 +364,57 @@ def connect_cell_selection(env):
         syn_attrs.init_syn_id_attrs_from_iter(syn_attrs_iter, attr_type='tuple', attr_tuple_index=syn_attrs_info)
         del (syn_attrs_iter)
 
+        weight_attr_mask = list(syn_attrs.syn_mech_names)
+        weight_attr_mask.append('syn_id')
+
         if has_weights:
-            if rank == 0:
-                logger.info('*** Reading synaptic weights of population %s from namespaces %s' % (postsyn_name, str(weights_namespaces)))
-            weight_attr_mask = list(syn_attrs.syn_mech_names)
-            weight_attr_mask.append('syn_id')
-            multiple_weights='error'
-            for weights_namespace in weights_namespaces:
-                syn_weights_iter, weight_attr_info = read_cell_attribute_selection(forest_file_path, postsyn_name,
+
+            for weight_dict in weight_dicts:
+
+                expr_closure = weight_dict.get('closure', None)
+                weights_namespaces = weight_dict['namespace']
+
+                if rank == 0:
+                    logger.info('*** Reading synaptic weights of population %s from namespaces %s' % (postsyn_name, str(weights_namespaces)))
+                    
+                append_weights = False
+                multiple_weights='error'
+
+                for weights_namespace in weights_namespaces:
+                
+                    syn_weights_iter, weight_attr_info = read_cell_attribute_selection(forest_file_path, postsyn_name,
                                                                                    selection=gid_range, 
                                                                                    mask=set(weight_attr_mask),
                                                                                    namespace=weights_namespace, 
                                                                                    comm=env.comm, return_type='tuple')
 
-                first_gid = None
-                syn_id_index = weight_attr_info.get('syn_id', None)
-                syn_name_inds = [(syn_name, attr_index) for syn_name, attr_index in sorted(viewitems(weight_attr_info)) if syn_name != 'syn_id']
+                    first_gid = None
+                    syn_id_index = weight_attr_info.get('syn_id', None)
+                    syn_name_inds = [(syn_name, attr_index) for syn_name, attr_index in sorted(viewitems(weight_attr_info)) if syn_name != 'syn_id']
 
-                for gid, cell_weights_tuple in syn_weights_iter:
-                    if first_gid is None:
-                        first_gid = gid
-                    weights_syn_ids = cell_weights_tuple[syn_id_index]
-                    for syn_name, syn_name_index in syn_name_inds:
-                        if syn_name not in syn_attrs.syn_mech_names:
-                            if rank == 0 and first_gid == gid:
-                                logger.warning('*** connect_cells: population: %s; gid: %i; syn_name: %s '
-                                               'not found in network configuration' %
-                                               (postsyn_name, gid, syn_name))
-                        else:
-                            weights_values = cell_weights_tuple[syn_name_index]
-                            syn_attrs.add_mech_attrs_from_iter(gid, syn_name, \
-                                                               zip_longest(weights_syn_ids, \
-                                                                           [{'weight': x} for x in weights_values]),
-                                                               multiple=multiple_weights)
-                            if rank == 0 and gid == first_gid:
-                                logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
+                    for gid, cell_weights_tuple in syn_weights_iter:
+                        if first_gid is None:
+                            first_gid = gid
+                        weights_syn_ids = cell_weights_tuple[syn_id_index]
+                        for syn_name, syn_name_index in syn_name_inds:
+                            if syn_name not in syn_attrs.syn_mech_names:
+                                if rank == 0 and first_gid == gid:
+                                    logger.warning('*** connect_cells: population: %s; gid: %i; syn_name: %s '
+                                                'not found in network configuration' %
+                                                (postsyn_name, gid, syn_name))
+                            else:
+                                weights_values = cell_weights_tuple[syn_name_index]
+                                syn_attrs.add_mech_attrs_from_iter(gid, syn_name,
+                                                                   zip_longest(weights_syn_ids,
+                                                                               [{'weight': Promise(expr_closure, [x])} for x in weights_values]
+                                                                               if expr_closure else [{'weight': x} for x in weights_values]),
+                                                                   multiple=multiple_weights, append=append_weights)
+
+                                if rank == 0 and gid == first_gid:
+                                    logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
                                             (postsyn_name, gid, len(weights_values), syn_name, weights_namespace))
-                multiple_weights='skip'
+                multiple_weights='overwrite'
+                append_weights=True
                 del syn_weights_iter
 
                 

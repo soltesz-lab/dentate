@@ -18,7 +18,7 @@ context = Context()
 def load_biophys_cell(env, pop_name, gid, mech_file_path=None, mech_dict=None, correct_for_spines=False,
                       tree_dict=None, load_synapses=True, synapses_dict=None,
                       load_connections=True, connection_graph=None,
-                      load_weights=True, weight_dict=None):
+                      load_weights=True, weight_dicts=None):
     """
     Instantiates the mechanisms of a single BiophysCell instance.
 
@@ -40,7 +40,7 @@ def load_biophys_cell(env, pop_name, gid, mech_file_path=None, mech_dict=None, c
                                   load_synapses=load_synapses,
                                   synapses_dict=synapses_dict,
                                   load_weights=load_weights,
-                                  weight_dict=weight_dict,
+                                  weight_dicts=weight_dicts,
                                   load_edges=load_connections,
                                   connection_graph=connection_graph,
                                   mech_file_path=mech_file_path,
@@ -91,7 +91,7 @@ def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=T
                              tree_dict=cell_dict.get('morph', None),
                              synapses_dict=cell_dict.get('synapse', None),
                              connection_graph=cell_dict.get('connectivity', None),
-                             weight_dict=cell_dict.get('weight', None))
+                             weight_dicts=cell_dict.get('weight', None))
                              
     if register_cell:
         cells.register_cell(env, pop_name, gid, cell)

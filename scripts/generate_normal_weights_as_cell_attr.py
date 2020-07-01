@@ -1,22 +1,14 @@
-import gc
+import os, sys, time, gc
 import logging
-import os
-import sys
-import time
 from collections import defaultdict
-
+from mpi4py import MPI
 import h5py
 import numpy as np
-
 import click
 import dentate.synapses as synapses
 from dentate import utils
 from dentate.env import Env
-from dentate.utils import *
-from mpi4py import MPI
-from neuroh5.io import NeuroH5ProjectionGen
-from neuroh5.io import append_cell_attributes
-from neuroh5.io import read_population_ranges
+from neuroh5.io import NeuroH5ProjectionGen, append_cell_attributes, read_population_ranges
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
