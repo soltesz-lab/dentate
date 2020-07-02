@@ -10,7 +10,6 @@ from dentate.cells import get_distance_to_node, get_donor, get_mech_rules_dict, 
 from dentate.neuron_utils import h, default_ordered_sec_types, mknetcon, mknetcon_vecstim
 from dentate.utils import ExprClosure, Promise, NamedTupleWithDocstring, get_module_logger, generator_ifempty, map, range, str, \
      viewitems, viewkeys, zip, zip_longest, partitionn, rejection_sampling
-from dentate.plot import plot_callback_structured_weights
 from neuroh5.io import write_cell_attributes
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -2593,3 +2592,180 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
 
     return normalized_LTP_delta_weights_dict, LTD_delta_weights_dict, LS_map
 
+
+def plot_callback_structured_weights(**kwargs):
+    import matplotlib as mpl
+    import matplotlib.cm as cm
+    import matplotlib.lines as mlines
+    import matplotlib.pyplot as plt
+    
+    gid = kwargs['gid']
+    font_size = kwargs.get('font_size', mpl.rcParams['font.size'])
+    field_width = kwargs['field_width']
+    show_fig = kwargs.get('show_fig', False)
+    save_fig = kwargs.get('save_fig', None)
+    arena_x = kwargs['arena_x']
+    arena_y = kwargs['arena_y']
+    bounds = kwargs['bounds']
+    max_weight = kwargs['max_weight']
+    optimize_method = kwargs['optimize_method']
+    lsqr_delta_weights = kwargs['lsqr_delta_weights']
+    initial_LS_delta_weights = kwargs['initial_LS_delta_weights']
+    scaled_LTP_delta_weights = kwargs['scaled_LTP_delta_weights']
+    LTD_delta_weights = kwargs['LTD_delta_weights']
+    scaled_target_map = kwargs['scaled_target_map']
+    lsqr_map = kwargs['lsqr_map']
+    LS_map = kwargs['LS_map']
+    LS_delta_map = kwargs['LS_delta_map']
+    initial_LS_map = kwargs['initial_LS_map']
+    initial_background_map = kwargs['initial_background_map']
+    initial_weight_array = kwargs['initial_weight_array']
+    mean_initial_weight = np.mean(initial_weight_array)
+    reference_weight_array = kwargs.get('reference_weight_array', None)
+    reference_weights_are_delta = kwargs.get('reference_weights_are_delta', False)
+    scaled_non_structured_input_map = kwargs.get('scaled_non_structured_input_map', None)
+    
+    
+    min_delta_weight, max_delta_weight = bounds
+    
+    num_bins = 20
+
+    min_vals = [np.min(scaled_target_map),
+                np.min(lsqr_map),
+                np.min(LS_map),
+                np.min(initial_background_map)]
+    max_vals1 = [np.max(scaled_target_map), np.max(lsqr_map)]
+    max_vals2 = [np.max(LS_map), np.max(initial_background_map)]
+    if reference_weight_array is not None:
+        if reference_weights_are_delta:
+            reference_weights = reference_weight_array / np.max(reference_weight_array) * max_delta_weight + \
+              mean_initial_weight
+        else:
+            reference_weights = reference_weight_array
+            reference_map = reference_weights.dot(scaled_input_matrix) - 1.
+            min_vals.append(np.min(reference_map))
+            max_vals2.append(np.max(reference_map))
+
+    vmin = min(min_vals)
+    vmax1 = max(max_vals1)
+    vmax2 = max(max_vals2)
+
+    fig = plt.figure(figsize=(15,8), constrained_layout=True)
+    gs = fig.add_gridspec(2, 2)
+
+    row = 0
+    inner_grid = gs[row, 0].subgridspec(1, 2)
+
+    ax = fig.add_subplot(inner_grid[0, 0])
+    ax.plot(range(len(scaled_target_map)), initial_background_map,
+                label='Initial', alpha=0.5, color='C0')
+    if reference_weight_array is not None:
+        ax.plot(range(len(scaled_target_map)), reference_map, label='Reference',
+                alpha=0.5, color='C5')
+    ax.plot(range(len(scaled_target_map)), scaled_target_map, label='Target',
+            alpha=0.5, color='C1')
+    ax.set_ylabel('Normalized activity')
+    ax.set_xlabel('Arena spatial bin')
+    ax.legend(loc='upper right', #bbox_to_anchor=(0.6, 0.5), 
+              frameon=False, framealpha=0.5, fontsize=8)
+
+    ax = fig.add_subplot(inner_grid[0, 1])
+    ax.plot(range(len(scaled_target_map)), scaled_target_map, label='Target',
+            alpha=0.5, color='C1')
+    ax.plot(range(len(scaled_target_map)), lsqr_map, label='Least squares',
+            alpha=0.5, color='C2')
+    ax.plot(range(len(scaled_target_map)), LS_map, label=optimize_method,
+            alpha=0.75, color='C3')
+    #ax.set_ylabel('Normalized activity')
+    ax.set_xlabel('Arena spatial bin')
+    ax.legend(loc='upper right', #bbox_to_anchor=(0.6, 0.5), 
+              frameon=False, framealpha=0.5, fontsize=8)
+    
+    if reference_weight_array is None:
+        ax = fig.add_subplot(gs[row, 1])
+        p = ax.pcolormesh(arena_x, arena_y, LS_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
+        ax.set_xlabel('Arena location (x)')
+        ax.set_ylabel('Arena location (y)')
+        ax.set_title(optimize_method, fontsize=default_font_size)
+        fig.colorbar(p, ax=ax)
+    else:
+        inner_grid = gs[row, 1].subgridspec(2, 1)
+        
+        ax = fig.add_subplot(inner_grid[0])
+        p = ax.pcolormesh(arena_x, arena_y, LS_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
+        ax.set_title(optimize_method, fontsize=default_font_size)
+        ax.set_xlabel('Arena location (x)')
+        fig.colorbar(p, ax=ax)
+        
+        ax = fig.add_subplot(inner_grid[1])
+        ax.pcolormesh(arena_x, arena_y, reference_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
+        ax.set_title('Reference', fontsize=default_font_size)
+        ax.set_xlabel('Arena location (x)')
+    row += 1
+    
+    inner_grid = gs[row, 0].subgridspec(2, 2)
+    hist, edges = np.histogram(initial_weight_array, bins=num_bins, density=True)
+    ax = fig.add_subplot(inner_grid[0])
+    if (np.max(initial_weight_array) - np.min(initial_weight_array)) > 0.:
+        ax.fill_between(edges[:-1], hist, label='Initial weights')
+        ax.set_yscale('log', nonposy='clip')
+    else:
+        ax.semilogy(edges[:-1], hist, label='Initial weights')
+    ax.set_title('Initial weights')
+    #ax.set_xlim(-mean_initial_weight, max_delta_weight + 2. * mean_initial_weight)
+    ax.set_ylabel('Log probability')
+    hist, edges2 = np.histogram(np.add(lsqr_delta_weights, initial_weight_array), bins=2 * num_bins, density=True)
+    ax = fig.add_subplot(inner_grid[1])
+    ax.fill_between(edges2[:-1], hist, label='Least squares')
+    ax.set_yscale('log', nonposy='clip')
+    ax.set_title('Least squares')
+    hist, edges3 = np.histogram(np.add(initial_LS_delta_weights, initial_weight_array), bins=num_bins, density=True)
+    ax = fig.add_subplot(inner_grid[2])
+    ax.fill_between(edges3[:-1], hist, label='Truncated least squares')
+    ax.set_yscale('log', nonposy='clip')
+    ax.set_xlabel('Synaptic weight')
+    ax.set_title('Truncated least squares')
+    scaled_structured_weights = scaled_LTP_delta_weights + LTD_delta_weights + initial_weight_array
+    hist, edges4 = np.histogram(scaled_structured_weights, bins=num_bins, density=True)
+    ax = fig.add_subplot(inner_grid[3])
+    ax.fill_between(edges4[:-1], hist, label=optimize_method)
+    ax.set_yscale('log', nonposy='clip')
+    ax.set_title(optimize_method)
+    if reference_weight_array is not None:
+        hist, edges5 = np.histogram(reference_weights, bins=num_bins, density=True)
+        ax.fill_between(edges5[:-1], hist, label='Reference')
+        ax.set_yscale('log', nonposy='clip')
+
+    inner_grid = gs[row, 1].subgridspec(2, 2)
+    ax = fig.add_subplot(inner_grid[0])
+    p = ax.pcolormesh(arena_x, arena_y, scaled_target_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax1)
+    ax.set_title('Target', fontsize=default_font_size)
+    ax.set_ylabel('Y position [cm]')
+    fig.colorbar(p, ax=ax)
+
+    ax = fig.add_subplot(inner_grid[1])
+    p = ax.pcolormesh(arena_x, arena_y, initial_background_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
+    ax.set_title('Initial', fontsize=default_font_size)
+    fig.colorbar(p, ax=ax)
+
+    ax = fig.add_subplot(inner_grid[2])
+    p = ax.pcolormesh(arena_x, arena_y, lsqr_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax1)
+    ax.set_title('Least squares', fontsize=default_font_size)
+    ax.set_xlabel('X position [cm]')
+    fig.colorbar(p, ax=ax)
+
+    ax = fig.add_subplot(inner_grid[3])
+    p = ax.pcolormesh(arena_x, arena_y, initial_LS_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax1)
+    ax.set_title('Truncated least squares', fontsize=default_font_size)
+    fig.colorbar(p, ax=ax)
+    row += 1
+
+    fig.suptitle('gid %s; field width is %.02f cm' % (gid, field_width[0]))
+
+    if save_fig is not None:
+        plt.savefig(save_fig)
+        
+    if show_fig:
+        plt.show()
+
+    return fig

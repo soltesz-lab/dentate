@@ -4,6 +4,7 @@ from collections import defaultdict, namedtuple
 import numpy as np
 from mpi4py import MPI
 import yaml
+import dentate
 from dentate.synapses import SynapseAttributes, get_syn_filter_dict
 from dentate.utils import IncludeLoader, ExprClosure, config_logging, get_root_logger, str, viewitems, zip, read_from_yaml
 from neuroh5.io import read_cell_attribute_info, read_population_names, read_population_ranges, read_projection_names
