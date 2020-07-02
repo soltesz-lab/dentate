@@ -417,18 +417,11 @@ def update_network_params(env, param_dict):
         synapse_config = env.celltypes[pop_name]['synapses']
         weights_dict = synapse_config.get('weights', {})
 
-        param_expr_dict = {}
-        if 'expr' in weights_dict:
-            weights_expr = weights_dict['expr']
-            param_expr_dict['weight'] = copy.deepcopy(weights_expr)
-
         for gid, params_tuples in viewitems(gid_param_dict):
             biophys_cell = biophys_cell_dict[gid]
             for destination, source, sec_type, syn_name, param_path, param_value in params_tuples:
                 if isinstance(param_path, tuple):
                     p, s = param_path
-                    if p in param_expr_dict:
-                        param_expr_dict[p][s] = param_value
                 else:
                     p, s = param_path, None
 
@@ -440,7 +433,7 @@ def update_network_params(env, param_dict):
                         sources = [source]
                 synapses.modify_syn_param(biophys_cell, env, sec_type, syn_name,
                                           param_name=p, 
-                                          value=param_expr_dict[p] if (p in param_expr_dict) and (s is not None) else param_value,
+                                          value={s: param_value} if (s is not None) else param_value,
                                           filters={'sources': sources} if sources is not None else None,
                                           origin='soma', update_targets=True)
             cell = env.pc.gid2cell(gid)
@@ -742,7 +735,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
     target_rate_vector_dict = { gid: np.interp(time_bins, trj_t, trj_rate_maps[gid])
                                 for gid in trj_rate_maps }
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
-        target_rate_vector[np.isclose(target_rate_vector, 0.)] = 0.
+        target_rate_vector[np.isclose(target_rate_vector, 0., atol=1e-4, rtol=1e-4)] = 0.
 
     def range_inds(rs):
         l = list(rs)
@@ -757,6 +750,17 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
     infld_idxs_dict = { gid: range_inds(contiguous_ranges(target_rate_vector > 0, return_indices=True))
                         for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
 
+    for gid in cell_index_set:
+        infld_idxs = infld_idxs_dict[gid]
+        outfld_idxs = outfld_idxs_dict[gid]
+
+        if outfld_idxs is not None:
+            target_outfld_rate_vector = target_rate_vector[outfld_idxs]
+        else:
+            target_outfld_rate_vector = None
+        target_infld_rate_vector = target_rate_vector[infld_idxs]
+
+        logger.info('selectivity rate objective: target max in/mean out rate of gid %i: %.02f %.02f' % (gid, np.max(target_infld_rate_vector), np.mean(target_outfld_rate_vector) if target_outfld_rate_vector is not None else 0.))
         
     param_bounds, param_names, param_initial_dict, param_range_tuples = \
       optimize_params(env, population, param_type, param_config_name)
@@ -780,7 +784,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             spike_density_dict = spikedata.spike_density_estimate (population, spkdict1, time_bins)
             for gid in cell_index_set:
                 rate_vector = spike_density_dict[gid]['rate']
-                rate_vector[np.isclose(rate_vector, 0.)] = 0.
+                rate_vector[np.isclose(rate_vector, 0., atol=1e-4, rtol=1e-4)] = 0.
                 rates_dict[gid].append(rate_vector)
             for gid in spkdict[population]:
                 logger.info('selectivity rate objective: trial %d spike times of gid %i: %s' % (i, gid, str(spkdict[population][gid])))
@@ -801,6 +805,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             logger.info('selectivity rate objective: max rates of gid %i: %s' % (gid, str([np.max(rate_vector) for rate_vector in rate_vectors])))
 
             target_infld_rate_vector = target_rate_vector[infld_idxs]
+
             if outfld_idxs is not None:
                 target_outfld_rate_vector = target_rate_vector[outfld_idxs]
             else:
@@ -816,7 +821,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             else:
                 mean_outfld_rate_vector = None
 
-            logger.info('selectivity rate objective: target max in/mean out rate of gid %i: %.02f %.02f' % (gid, np.mean(target_infld_rate_vector), np.mean(target_outfld_rate_vector) if target_outfld_rate_vector is not None else 0.))
+            logger.info('selectivity rate objective: target max in/mean out rate of gid %i: %.02f %.02f' % (gid, np.max(target_infld_rate_vector), np.mean(target_outfld_rate_vector) if target_outfld_rate_vector is not None else 0.))
 
             target_min_infld = np.min(target_infld_rate_vector)
             target_max_infld = np.max(target_infld_rate_vector)
@@ -881,7 +886,7 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
     target_rate_vector_dict = { gid: np.interp(state_time_bins, trj_t, trj_rate_maps[gid])
                                 for gid in trj_rate_maps }
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
-        target_rate_vector[np.isclose(target_rate_vector, 0.)] = 0.
+        target_rate_vector[np.isclose(target_rate_vector, 0., atol=1e-4, rtol=1e-4)] = 0.
 
     def time_ranges(rs):
         if len(rs) > 0:
@@ -890,8 +895,24 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
             a = None
         return a
         
-    outfld_ranges_dict = { gid: time_ranges(contiguous_ranges(target_rate_vector <= 0.) ) }
-    infld_ranges_dict = { gid: time_ranges(contiguous_ranges(target_rate_vector > 0) ) }
+    outfld_ranges_dict = { gid: time_ranges(contiguous_ranges(target_rate_vector <= 0.) ) 
+                           for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
+    infld_ranges_dict = { gid: time_ranges(contiguous_ranges(target_rate_vector > 0) ) 
+                          for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
+    
+    infld_idxs_dict = { gid: np.where(target_rate_vector > 0.)[0] 
+                        for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
+    peak_pctile_dict = { gid: np.percentile(target_rate_vector_dict[gid][infld_idxs], 80)
+                         for gid, infld_idxs in viewitems(infld_idxs_dict) }
+    trough_pctile_dict = { gid: np.percentile(target_rate_vector_dict[gid][infld_idxs], 20)
+                           for gid, infld_idxs in viewitems(infld_idxs_dict) }
+
+    peak_ranges_dict = { gid: time_ranges(contiguous_ranges(target_rate_vector >= peak_pctile_dict[gid]))
+                         for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
+
+    trough_ranges_dict = { gid: time_ranges(contiguous_ranges(np.logical_and(target_rate_vector > 0., target_rate_vector <= trough_pctile_dict[gid])))
+                         for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
+
         
     param_bounds, param_names, param_initial_dict, param_range_tuples = \
       optimize_params(env, population, param_type, param_config_name)
@@ -956,26 +977,34 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
         
         result = {}
         for gid in cell_index_set:
+            peak_ranges = peak_ranges_dict[gid]
+            trough_ranges = trough_ranges_dict[gid]
             infld_ranges = infld_ranges_dict[gid]
             outfld_ranges = outfld_ranges_dict[gid]
 
+            t_peak_idxs = np.concatenate([ np.where(np.logical_and(t_s >= r[0], t_s < r[1]))[0] for r in peak_ranges ])
+            t_trough_idxs = np.concatenate([ np.where(np.logical_and(t_s >= r[0], t_s < r[1]))[0] for r in trough_ranges ])
             t_infld_idxs = np.concatenate([ np.where(np.logical_and(t_s >= r[0], t_s < r[1]))[0] for r in infld_ranges ])
             if outfld_ranges is not None:
                 t_outfld_idxs = np.concatenate([ np.where(np.logical_and(t_s >= r[0], t_s < r[1]))[0] for r in outfld_ranges ])
             else:
                 t_outfld_idxs = None
             
+            logger.info('selectivity state value objective: gid %i: t_peak_idxs/t_trough_idxs: %s / %s' % (gid, str(t_peak_idxs), str(t_trough_idxs)))
+
             mean_state_values = state_values_dict[gid]
-            max_infld = np.max(mean_state_values[t_infld_idxs])
+            peak_infld = np.max(mean_state_values[t_peak_idxs])
+            min_infld = np.mean(mean_state_values[t_trough_idxs])
             mean_infld = np.mean(mean_state_values[t_infld_idxs])
 
             if t_outfld_idxs is not None:
                 mean_outfld = np.mean(mean_state_values[t_outfld_idxs])
+                residual = (np.clip(peak_infld - mean_outfld, 0., None) ** 2.) - ((mean_outfld - state_baseline) ** 2.)
+                logger.info('selectivity state value objective: state values of gid %i: max in/mean in/mean out: %.02f / %.02f / %.02f residual: %.04f' % (gid, peak_infld, mean_infld, mean_outfld, residual))
             else:
-                mean_outfld = state_baseline
+                residual = np.clip(peak_infld - min_infld, 0., None) ** 2.
+                logger.info('selectivity state value objective: state values of gid %i: max/min/mean in: %.02f / %.02f / %.02f residual: %.04f' % (gid, peak_infld, min_infld, mean_infld, residual))
 
-            residual = (np.clip(max_infld - mean_infld, 0., None) ** 2.) - ((mean_outfld - state_baseline) ** 2.)
-            logger.info('selectivity state value objective: state values of gid %i: max in/mean in/mean out: %.02f / %.02f / %.02f residual: %.04f' % (gid, max_infld, mean_infld, mean_outfld, residual))
             
             result[gid] = residual
 
@@ -1023,9 +1052,10 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
     target_rate_vector_dict = { gid: np.interp(time_bins, trj_t, trj_rate_maps[gid])
                                 for gid in trj_rate_maps }
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
-        idxs = np.where(np.isclose(target_rate_vector, 0.))[0]
+        idxs = np.where(np.isclose(target_rate_vector, 0., atol=1e-4, rtol=1e-4))[0]
         target_rate_vector[idxs] = 0.
     
+
     param_bounds, param_names, param_initial_dict, param_range_tuples = \
       optimize_params(env, population, param_type, param_config_name)
     
@@ -1048,7 +1078,7 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
             spike_density_dict = spikedata.spike_density_estimate (population, spkdict1, time_bins)
             for gid in cell_index_set:
                 rate_vector = spike_density_dict[gid]['rate']
-                idxs = np.where(np.isclose(rate_vector, 0.))[0]
+                idxs = np.where(np.isclose(rate_vector, 0., atol=1e-4, rtol=1e-4))[0]
                 rate_vector[idxs] = 0.
                 rates_dict[gid].append(rate_vector)
             for gid in spkdict[population]:
