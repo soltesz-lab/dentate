@@ -734,6 +734,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
     
     target_rate_vector_dict = { gid: np.interp(time_bins, trj_t, trj_rate_maps[gid])
                                 for gid in trj_rate_maps }
+    logger.info("target_rate_vector_dict: %s" % str(target_rate_vector_dict))
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
         target_rate_vector[np.isclose(target_rate_vector, 0., atol=1e-4, rtol=1e-4)] = 0.
 
@@ -760,7 +761,10 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             target_outfld_rate_vector = None
         target_infld_rate_vector = target_rate_vector[infld_idxs]
 
-        logger.info('selectivity rate objective: target max in/mean out rate of gid %i: %.02f %.02f' % (gid, np.max(target_infld_rate_vector), np.mean(target_outfld_rate_vector) if target_outfld_rate_vector is not None else 0.))
+        if target_outfld_rate_vector is not None:
+            logger.info('selectivity rate objective: target max in/mean out rate of gid %i: %.02f %.02f' % (gid, np.max(target_infld_rate_vector), np.mean(target_outfld_rate_vector)))
+        else:
+            logger.info('selectivity rate objective: target max in/min in rate of gid %i: %.02f %.02f' % (gid, np.max(target_infld_rate_vector), np.min(target_infld_rate_vector)))
         
     param_bounds, param_names, param_initial_dict, param_range_tuples = \
       optimize_params(env, population, param_type, param_config_name)
@@ -821,8 +825,6 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             else:
                 mean_outfld_rate_vector = None
 
-            logger.info('selectivity rate objective: target max in/mean out rate of gid %i: %.02f %.02f' % (gid, np.max(target_infld_rate_vector), np.mean(target_outfld_rate_vector) if target_outfld_rate_vector is not None else 0.))
-
             target_min_infld = np.min(target_infld_rate_vector)
             target_max_infld = np.max(target_infld_rate_vector)
             min_infld = np.min(mean_infld_rate_vector)
@@ -835,9 +837,8 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
                 residual = ((max_infld - min_infld) ** 2.) / ((max(min_infld - target_min_infld, 1.0)) ** 2.)
             else:
                 residual = (np.clip(max_infld - mean_outfld, 0., None) ** 2.)  / (max(2. * mean_outfld, 1.0) ** 2.)
-
             
-            logger.info('selectivity rate objective: max in/mean out/residual rate of gid %i: %.02f %.02f %.04f' % (gid, max_infld, mean_outfld if mean_outfld is not None else mean_infld, residual))
+            logger.info('selectivity rate objective: max in/min in/mean out/residual rate of gid %i: %.02f %.02f %.02f %.04f' % (gid, max_infld, min_infld, mean_outfld if mean_outfld is not None else mean_infld, residual))
 
             result[gid] = residual
         return result
