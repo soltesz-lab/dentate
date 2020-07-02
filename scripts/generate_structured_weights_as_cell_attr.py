@@ -9,7 +9,7 @@ from neuroh5.io import append_cell_attributes, read_population_ranges, bcast_cel
 import dentate
 from dentate.env import Env
 from dentate import utils, stimulus, synapses
-from dentate.utils import *
+from dentate.utils import Context, is_interactive, viewitems, zip_longest
 import h5py
 
 context = Context()
