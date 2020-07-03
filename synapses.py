@@ -2535,14 +2535,12 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
 
     LTD_delta_weights_array = np.minimum(LS_delta_weights, 0.)
     LTP_delta_weights_array = np.maximum(LS_delta_weights, 0.)
-    scaled_LTP_delta_weights = LTP_delta_weights_array * target_amplitude / np.max(LS_delta_map)
+    LTP_scale = target_amplitude / np.max(LS_delta_map)
+    scaled_LTP_delta_weights = LTP_delta_weights_array * LTP_scale
     normalized_LTP_delta_weights_array = np.asarray(scaled_LTP_delta_weights / np.max(scaled_LTP_delta_weights),
                                                     dtype=np.float32)
     
     scaled_LS_weights = scaled_LTP_delta_weights + LTD_delta_weights_array + initial_weight_array
-    scaled_LS_delta_map = np.dot(scaled_input_matrix, scaled_LS_weights) - 1
-    if scaled_non_structured_input_matrix is not None:
-        scaled_LS_delta_map += np.dot(scaled_non_structured_input_matrix, non_structured_weight_array)
 
     assert(np.min(scaled_LS_weights) >= 0.)
     LS_map = np.dot(scaled_input_matrix, scaled_LS_weights) - 1
@@ -2686,20 +2684,20 @@ def plot_callback_structured_weights(**kwargs):
         p = ax.pcolormesh(arena_x, arena_y, LS_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
         ax.set_xlabel('Arena location (x)')
         ax.set_ylabel('Arena location (y)')
-        ax.set_title(optimize_method, fontsize=default_font_size)
+        ax.set_title(optimize_method, fontsize=font_size)
         fig.colorbar(p, ax=ax)
     else:
         inner_grid = gs[row, 1].subgridspec(2, 1)
         
         ax = fig.add_subplot(inner_grid[0])
         p = ax.pcolormesh(arena_x, arena_y, LS_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
-        ax.set_title(optimize_method, fontsize=default_font_size)
+        ax.set_title(optimize_method, fontsize=font_size)
         ax.set_xlabel('Arena location (x)')
         fig.colorbar(p, ax=ax)
         
         ax = fig.add_subplot(inner_grid[1])
         ax.pcolormesh(arena_x, arena_y, reference_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
-        ax.set_title('Reference', fontsize=default_font_size)
+        ax.set_title('Reference', fontsize=font_size)
         ax.set_xlabel('Arena location (x)')
     row += 1
     
@@ -2739,24 +2737,24 @@ def plot_callback_structured_weights(**kwargs):
     inner_grid = gs[row, 1].subgridspec(2, 2)
     ax = fig.add_subplot(inner_grid[0])
     p = ax.pcolormesh(arena_x, arena_y, scaled_target_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax1)
-    ax.set_title('Target', fontsize=default_font_size)
+    ax.set_title('Target', fontsize=font_size)
     ax.set_ylabel('Y position [cm]')
     fig.colorbar(p, ax=ax)
 
     ax = fig.add_subplot(inner_grid[1])
     p = ax.pcolormesh(arena_x, arena_y, initial_background_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
-    ax.set_title('Initial', fontsize=default_font_size)
+    ax.set_title('Initial', fontsize=font_size)
     fig.colorbar(p, ax=ax)
 
     ax = fig.add_subplot(inner_grid[2])
     p = ax.pcolormesh(arena_x, arena_y, lsqr_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax1)
-    ax.set_title('Least squares', fontsize=default_font_size)
+    ax.set_title('Least squares', fontsize=font_size)
     ax.set_xlabel('X position [cm]')
     fig.colorbar(p, ax=ax)
 
     ax = fig.add_subplot(inner_grid[3])
     p = ax.pcolormesh(arena_x, arena_y, initial_LS_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax1)
-    ax.set_title('Truncated least squares', fontsize=default_font_size)
+    ax.set_title('Truncated least squares', fontsize=font_size)
     fig.colorbar(p, ax=ax)
     row += 1
 

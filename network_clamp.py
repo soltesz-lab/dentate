@@ -734,7 +734,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
     
     target_rate_vector_dict = { gid: np.interp(time_bins, trj_t, trj_rate_maps[gid])
                                 for gid in trj_rate_maps }
-    logger.info("target_rate_vector_dict: %s" % str(target_rate_vector_dict))
+
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
         target_rate_vector[np.isclose(target_rate_vector, 0., atol=1e-4, rtol=1e-4)] = 0.
 
@@ -834,7 +834,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             if max_infld > target_max_infld:
                 residual = 0.
             elif mean_outfld is None:
-                residual = ((max_infld - min_infld) ** 2.) / ((max(min_infld - target_min_infld, 1.0)) ** 2.)
+                residual = (max_infld - target_max_infld) ** 2. + (min_infld - target_min_infld) ** 2.
             else:
                 residual = (np.clip(max_infld - mean_outfld, 0., None) ** 2.)  / (max(2. * mean_outfld, 1.0) ** 2.)
             

@@ -53,6 +53,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--arena-id", '-a', type=str, default='A')
 @click.option("--field-width-scale", type=float, default=1.25)
 @click.option("--max-delta-weight", type=float, default=4.)
+@click.option("--max-opt-iter", type=int, default=1000)
 @click.option("--max-weight-decay-fraction", type=float, default=1.)
 @click.option("--optimize-method", type=str, default='L-BFGS-B')
 @click.option("--optimize-tol", type=float, default=1e-4)
@@ -60,7 +61,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--peak-rate", type=float)
 @click.option("--reference-weights-are-delta", type=bool, default=False)
 @click.option("--target-amplitude", type=float, default=3.)
-@click.option("--use-arena-margin", is_flag=True)
+@click.option("--arena-margin", type=float, default=0.)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
@@ -71,7 +72,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--plot", is_flag=True)
 @click.option("--show-fig", is_flag=True)
 @click.option("--save-fig", type=click.Path(exists=True, file_okay=False, dir_okay=True))
-def main(config, coordinates, field_width, gid, input_features_path, input_features_namespaces, initial_weights_path, output_features_namespace, output_features_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, non_structured_sources, non_structured_weights_namespace, non_structured_weights_path, arena_id, field_width_scale, max_delta_weight, max_weight_decay_fraction, optimize_method, optimize_tol, optimize_grad, peak_rate, reference_weights_are_delta, use_arena_margin, target_amplitude, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot, show_fig, save_fig):
+def main(config, coordinates, field_width, gid, input_features_path, input_features_namespaces, initial_weights_path, output_features_namespace, output_features_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, non_structured_sources, non_structured_weights_namespace, non_structured_weights_path, arena_id, field_width_scale, max_delta_weight, max_opt_iter, max_weight_decay_fraction, optimize_method, optimize_tol, optimize_grad, peak_rate, reference_weights_are_delta, arena_margin, target_amplitude, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot, show_fig, save_fig):
     """
 
     :param config: str (path to .yaml file)
@@ -196,7 +197,8 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             if rank == 0:
                 logger.info('Read %s feature data for %i cells in population %s' % (input_features_namespace, count, destination))
 
-        arena_margin = 0.
+        arena_margin_size = 0.
+        arena_margin = max(arena_margin, 0.)
         target_selectivity_features_dict = {}
         target_selectivity_config_dict = {}
         target_field_width_dict = {}
@@ -225,13 +227,13 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                                selectivity_type_index,
                                                                selectivity_attr_dict=target_selectivity_features_dict[gid])
             if input_cell_config.num_fields > 0:
-                arena_margin = max(arena_margin, np.max(input_cell_config.field_width) * 0.33) if use_arena_margin else 0.
+                arena_margin_size = max(arena_margin_size, np.max(input_cell_config.field_width) * arena_margin)
                 target_field_width_dict[gid] = input_cell_config.field_width
                 target_selectivity_config_dict[gid] = input_cell_config
                 has_structured_weights = True
 
         arena_x, arena_y = stimulus.get_2D_arena_spatial_mesh(arena, spatial_resolution,
-                                                              margin=arena_margin)
+                                                              margin=arena_margin_size)
         for gid, input_cell_config in viewitems(target_selectivity_config_dict):
             target_map = np.asarray(input_cell_config.get_rate_map(arena_x, arena_y,
                                                                    scale=field_width_scale),
@@ -414,6 +416,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                 non_structured_weights_dict=this_non_structured_weights_by_source_gid_dict,
                                                 syn_count_dict=syn_count_by_source_gid_dict,
                                                 max_delta_weight=max_delta_weight,
+                                                max_opt_iter=max_opt_iter,
                                                 max_weight_decay_fraction=max_weight_decay_fraction,
                                                 target_amplitude=target_amplitude,
                                                 arena_x=arena_x, arena_y=arena_y,
