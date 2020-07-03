@@ -834,7 +834,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             if max_infld > target_max_infld:
                 residual = 0.
             elif mean_outfld is None:
-                residual = (max_infld - target_max_infld) ** 2. + (min_infld - target_min_infld) ** 2.
+                residual = ((max_infld - min_infld) ** 2.) / ((max(min_infld - target_min_infld, 1.0)) ** 2.)
             else:
                 residual = (np.clip(max_infld - mean_outfld, 0., None) ** 2.)  / (max(2. * mean_outfld, 1.0) ** 2.)
             
