@@ -1175,21 +1175,26 @@ def optimize_run(env, pop_name, param_config_name, init_objfun,
 
     gid_results_dict = distgfs.run(distgfs_params, verbose=verbose,
                                    spawn_workers=True, nprocs_per_worker=1)
-    gid_results_config_dict = {}
-    for gid, params_dict in viewitems(gid_results_dict):
-        results_config_tuples = []
-        for param_pattern, param_tuple in zip(param_names, param_tuples):
-            results_config_tuples.append((param_tuple.population,
-                                          param_tuple.source,
-                                          param_tuple.sec_type,
-                                          param_tuple.syn_name,
-                                          param_tuple.param_name,
-                                          params_dict[param_pattern]))
-        gid_results_config_dict[gid] = results_config_tuples
+    if gid_results_dict is not None:
+        gid_results_config_dict = {}
+        for gid, opt_result in viewitems(gid_results_dict):
+            params_dict = dict(opt_result[0])
+            results_config_tuples = []
+            for param_pattern, param_tuple in zip(param_names, param_tuples):
+                results_config_tuples.append((param_tuple.population,
+                                            param_tuple.source,
+                                            param_tuple.sec_type,
+                                            param_tuple.syn_name,
+                                            param_tuple.param_name,
+                                            params_dict[param_pattern]))
+            gid_results_config_dict[gid] = results_config_tuples
 
-    logger.info('Optimized parameters and objective function: %s' % pprint.pformat(gid_results_config_dict))
+        logger.info('Optimized parameters and objective function: %s' % pprint.pformat(gid_results_config_dict))
 
-    return {pop_name: gid_results_config_dict}
+        return {pop_name: gid_results_config_dict}
+    else:
+        return None
+    
 
     
 def dist_ctrl(controller, init_params, cell_index_set):
@@ -1437,8 +1442,8 @@ def go(config_file, population, gid, arena_id, trajectory_id, generate_weights, 
                  t_min=t_min, t_max=t_max,
                  plot_cell=plot_cell, write_cell=write_cell)
             if params_path is not None:
-                param_dict = read_from_yaml(params_path)
-                run_with(env, param_dict)
+                params_dict = read_from_yaml(params_path)
+                run_with(env, params_dict)
             else:
                 run(env)
             write_output(env)
@@ -1593,11 +1598,11 @@ def optimize(config_file, population, gid, arena_id, trajectory_id, generate_wei
                                         init_params=init_params, results_file=results_file,
                                         verbose=verbose)
 
-    if results_path is not None:
-        for pop_name, gid_results_config_dict in viewitems(results_config_dict):
-            for gid, results_config_tuples in viewitems(gid_result_config_dict):
-                file_path = '%s/netclamp.opt.%s.%d.yaml' % (results_path, pop_name, gid)
-                write_to_yaml(file_path, results_config_tuples)
+    if results_config_dict is not None:
+        if results_path is not None:
+            file_path = '%s/network_clamp.optimize.%s.yaml' % (results_path, str(results_file_id))
+            write_to_yaml(file_path, results_config_dict)
+    comm.barrier()
 
 
 cli.add_command(show)
