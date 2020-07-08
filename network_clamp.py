@@ -2,7 +2,7 @@
 Routines for Network Clamp simulation.
 """
 import os, sys, copy, uuid, pprint
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from mpi4py import MPI
 import numpy as np
 import click
@@ -11,7 +11,7 @@ from dentate.cells import h, make_input_cell, register_cell, record_cell, report
 from dentate.env import Env
 from dentate.neuron_utils import h, configure_hoc_env, make_rec
 from dentate.utils import is_interactive, Context, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger, config_logging
-from dentate.utils import get_trial_time_indices, get_trial_time_ranges, get_low_pass_filtered_trace, contiguous_ranges
+from dentate.utils import write_to_yaml, read_from_yaml, get_trial_time_indices, get_trial_time_ranges, get_low_pass_filtered_trace, contiguous_ranges
 from dentate.cell_clamp import init_biophys_cell
 from neuroh5.io import read_cell_attribute_selection, read_cell_attribute_info
 
@@ -37,6 +37,15 @@ def mpi_excepthook(type, value, traceback):
 
 sys_excepthook = sys.excepthook
 sys.excepthook = mpi_excepthook
+
+
+SynParam = namedtuple('SynParam',
+                      ['population',
+                       'source',
+                       'sec_type',
+                       'syn_name',
+                       'param_name',
+                       'param_range'])
 
 
 def distgfs_reduce_fun(xs):
@@ -409,15 +418,15 @@ def run(env, cvode=False, pc_runworker=True):
     return spikedata.get_env_spike_dict(env, include_artificial=None)
 
 
-def update_network_params(env, param_dict):
+def update_network_params(env, param_config_dict):
     
-    for pop_name, gid_param_dict in viewitems(param_dict):
+    for pop_name, gid_param_config_dict in viewitems(param_config_dict):
         biophys_cell_dict = env.biophys_cells[pop_name]
 
         synapse_config = env.celltypes[pop_name]['synapses']
         weights_dict = synapse_config.get('weights', {})
 
-        for gid, params_tuples in viewitems(gid_param_dict):
+        for gid, params_tuples in viewitems(gid_param_config_dict):
             biophys_cell = biophys_cell_dict[gid]
             for destination, source, sec_type, syn_name, param_path, param_value in params_tuples:
                 if isinstance(param_path, tuple):
@@ -509,7 +518,7 @@ def optimize_params(env, pop_name, param_type, param_config_name):
     param_bounds = {}
     param_names = []
     param_initial_dict = {}
-    param_range_tuples = []
+    param_tuples = []
 
     if param_type == 'synaptic':
         if pop_name in env.netclamp_config.optimize_parameters['synaptic']:
@@ -526,7 +535,7 @@ def optimize_params(env, pop_name, param_type, param_config_name):
                         if isinstance(param_rst, dict):
                             for const_name, const_range in sorted(viewitems(param_rst)):
                                 param_path = (param_fst, const_name)
-                                param_range_tuples.append((pop_name, source, sec_type, syn_name, param_path, const_range))
+                                param_tuples.append(SynParam(pop_name, source, sec_type, syn_name, param_path, const_range))
                                 param_key = '%s.%s.%s.%s.%s.%s' % (pop_name, str(source), sec_type, syn_name, param_fst, const_name)
                                 param_initial_value = (const_range[1] - const_range[0]) / 2.0
                                 param_initial_dict[param_key] = param_initial_value
@@ -535,7 +544,7 @@ def optimize_params(env, pop_name, param_type, param_config_name):
                         else:
                             param_name = param_fst
                             param_range = param_rst
-                            param_range_tuples.append((pop_name, source, sec_type, syn_name, param_name, param_range))
+                            param_tuples.append(SynParam(pop_name, source, sec_type, syn_name, param_name, param_range))
                             param_key = '%s.%s.%s.%s.%s' % (pop_name, source, sec_type, syn_name, param_name)
                             param_initial_value = (param_range[1] - param_range[0]) / 2.0
                             param_initial_dict[param_key] = param_initial_value
@@ -545,7 +554,7 @@ def optimize_params(env, pop_name, param_type, param_config_name):
     else:
         raise RuntimeError("network_clamp.optimize_params: unknown parameter type %s" % param_type)
 
-    return param_bounds, param_names, param_initial_dict, param_range_tuples
+    return param_bounds, param_names, param_initial_dict, param_tuples
 
 
 def init_state_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, n_trials, param_type, param_config_name, recording_profile, state_variable, state_filter, target_value, worker, **kwargs):
@@ -565,13 +574,18 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
     time_step = env.stimulus_config['Temporal Resolution']
     equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
     
-    param_bounds, param_names, param_initial_dict, param_range_tuples = \
+    param_bounds, param_names, param_initial_dict, param_tuples = \
       optimize_params(env, population, param_type, param_config_name)
     
     def from_param_dict(params_dict):
         result = []
-        for param_pattern, (population, source, sec_type, syn_name, param_name, param_range) in zip(param_names, param_range_tuples):
-            result.append((population, source, sec_type, syn_name, param_name, params_dict[param_pattern]))
+        for param_pattern, param_tuple in zip(param_names, param_tuples):
+            result.append((param_tuple.population,
+                           param_tuple.source,
+                           param_tuple.sec_type,
+                           param_tuple.syn_name,
+                           param_tuple.param_name,
+                           params_dict[param_pattern]))
         return result
 
     def gid_state_values(spkdict, t_offset, n_trials, t_rec, state_recs_dict):
@@ -635,13 +649,18 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
          t_min=t_min, t_max=t_max)
 
     time_step = env.stimulus_config['Temporal Resolution']
-    param_bounds, param_names, param_initial_dict, param_range_tuples = \
+    param_bounds, param_names, param_initial_dict, param_tuples = \
       optimize_params(env, population, param_type, param_config_name)
     
     def from_param_dict(params_dict):
         result = []
-        for param_pattern, (population, source, sec_type, syn_name, param_name, param_range) in zip(param_names, param_range_tuples):
-            result.append((population, source, sec_type, syn_name, param_name, params_dict[param_pattern]))
+        for param_pattern, param_tuple in zip(param_names, param_tuples):
+            result.append((param_tuple.population,
+                           param_tuple.source,
+                           param_tuple.sec_type,
+                           param_tuple.syn_name,
+                           param_tuple.param_name,
+                           params_dict[param_pattern]))
         return result
 
     def gid_firing_rate(spkdict, cell_index_set):
@@ -766,13 +785,19 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
         else:
             logger.info('selectivity rate objective: target max in/min in rate of gid %i: %.02f %.02f' % (gid, np.max(target_infld_rate_vector), np.min(target_infld_rate_vector)))
         
-    param_bounds, param_names, param_initial_dict, param_range_tuples = \
+    param_bounds, param_names, param_initial_dict, param_tuples = \
       optimize_params(env, population, param_type, param_config_name)
 
     def from_param_dict(params_dict):
         result = []
-        for param_pattern, (population, source, sec_type, syn_name, param_name, param_range) in zip(param_names, param_range_tuples):
-            result.append((population, source, sec_type, syn_name, param_name, params_dict[param_pattern]))
+        for param_pattern, param_tuple in zip(param_names, param_tuples):
+            result.append((param_tuple.population,
+                           param_tuple.source,
+                           param_tuple.sec_type,
+                           param_tuple.syn_name,
+                           param_tuple.param_name,
+                           params_dict[param_pattern]))
+
         return result
 
     def gid_firing_rate_vectors(spkdict, cell_index_set):
@@ -915,13 +940,19 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
                          for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
 
         
-    param_bounds, param_names, param_initial_dict, param_range_tuples = \
+    param_bounds, param_names, param_initial_dict, param_tuples = \
       optimize_params(env, population, param_type, param_config_name)
 
     def from_param_dict(params_dict):
         result = []
-        for param_pattern, (population, source, sec_type, syn_name, param_name, param_range) in zip(param_names, param_range_tuples):
-            result.append((population, source, sec_type, syn_name, param_name, params_dict[param_pattern]))
+        for param_pattern, param_tuple in zip(param_names, param_tuples):
+            result.append((param_tuple.population,
+                           param_tuple.source,
+                           param_tuple.sec_type,
+                           param_tuple.syn_name,
+                           param_tuple.param_name,
+                           params_dict[param_pattern]))
+
         return result
 
     def gid_state_values(spkdict, t_offset, n_trials, t_rec, state_recs_dict):
@@ -1057,13 +1088,19 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
         target_rate_vector[idxs] = 0.
     
 
-    param_bounds, param_names, param_initial_dict, param_range_tuples = \
+    param_bounds, param_names, param_initial_dict, param_tuples = \
       optimize_params(env, population, param_type, param_config_name)
     
     def from_param_dict(params_dict):
         result = []
-        for param_pattern, (population, source, sec_type, syn_name, param_name, param_range) in zip(param_names, param_range_tuples):
-            result.append((population, source, sec_type, syn_name, param_name, params_dict[param_pattern]))
+        for param_pattern, param_tuple in zip(param_names, param_tuples):
+            result.append((param_tuple.population,
+                           param_tuple.source,
+                           param_tuple.sec_type,
+                           param_tuple.syn_name,
+                           param_tuple.param_name,
+                           params_dict[param_pattern]))
+
         return result
 
     def gid_firing_rate_vectors(spkdict, cell_index_set):
@@ -1108,12 +1145,12 @@ def optimize_run(env, pop_name, param_config_name, init_objfun,
                  results_file=None, verbose=False):
     import distgfs
 
-    param_bounds, param_names, param_initial_dict, param_range_tuples = \
+    param_bounds, param_names, param_initial_dict, param_tuples = \
       optimize_params(env, pop_name, param_type, param_config_name)
     
-    hyperprm_space = { param_pattern: [param_range[0], param_range[1]]
-                       for param_pattern, (pop_name, source, sec_type, syn_name, _, param_range) in
-                           zip(param_names, param_range_tuples) }
+    hyperprm_space = { param_pattern: [param_tuple.param_range[0], param_tuple.param_range[1]]
+                       for param_pattern, param_tuple in 
+                           zip(param_names, param_tuples) }
 
     if results_file is None:
         if env.results_path is not None:
@@ -1136,11 +1173,23 @@ def optimize_run(env, pop_name, param_config_name, init_objfun,
                       'n_iter': opt_iter,
                       'solver_epsilon': solver_epsilon }
 
-    results_dict = distgfs.run(distgfs_params, verbose=verbose,
-                               spawn_workers=True, nprocs_per_worker=1)
-    logger.info('Optimized parameters and objective function: %s' % pprint.pformat(results_dict))
+    gid_results_dict = distgfs.run(distgfs_params, verbose=verbose,
+                                   spawn_workers=True, nprocs_per_worker=1)
+    gid_results_config_dict = {}
+    for gid, params_dict in viewitems(gid_results_dict):
+        results_config_tuples = []
+        for param_pattern, param_tuple in zip(param_names, param_tuples):
+            results_config_tuples.append((param_tuple.population,
+                                          param_tuple.source,
+                                          param_tuple.sec_type,
+                                          param_tuple.syn_name,
+                                          param_tuple.param_name,
+                                          params_dict[param_pattern]))
+        gid_results_config_dict[gid] = results_config_tuples
 
-    return results_dict
+    logger.info('Optimized parameters and objective function: %s' % pprint.pformat(gid_results_config_dict))
+
+    return {pop_name: gid_results_config_dict}
 
     
 def dist_ctrl(controller, init_params, cell_index_set):
@@ -1314,6 +1363,8 @@ def show(config_file, population, gid, arena_id, trajectory_id, template_paths, 
               help='namespace containing input selectivity features')
 @click.option("--n-trials", required=False, type=int, default=1,
               help='number of trials for input stimulus')
+@click.option("--params-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False), \
+              help='optional path to parameters generated by optimize')
 @click.option("--results-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), \
               help='path to directory where output files will be written')
 @click.option("--results-file-id", type=str, required=False, default=None, \
@@ -1328,7 +1379,7 @@ def show(config_file, population, gid, arena_id, trajectory_id, template_paths, 
 def go(config_file, population, gid, arena_id, trajectory_id, generate_weights, t_max, t_min,
        template_paths, dataset_prefix, config_prefix,
        spike_events_path, spike_events_namespace, spike_events_t,
-       input_features_path, input_features_namespaces, n_trials, 
+       input_features_path, input_features_namespaces, n_trials, params_path,
        results_path, results_file_id, results_namespace_id, plot_cell, write_cell,
        profile_memory, recording_profile):
 
@@ -1385,7 +1436,11 @@ def go(config_file, population, gid, arena_id, trajectory_id, generate_weights, 
                  generate_weights_pops=set(generate_weights),
                  t_min=t_min, t_max=t_max,
                  plot_cell=plot_cell, write_cell=write_cell)
-            run(env)
+            if params_path is not None:
+                param_dict = read_from_yaml(params_path)
+                run_with(env, param_dict)
+            else:
+                run(env)
             write_output(env)
         if env.profile_memory:
             profile_memory(logger)
@@ -1533,10 +1588,16 @@ def optimize(config_file, population, gid, arena_id, trajectory_id, generate_wei
     else:
         raise RuntimeError('network_clamp.optimize: unknown optimization target %s' % target) 
         
-    optimize_run(env, population, param_config_name, init_objfun_name,
-                 opt_iter=opt_iter, param_type=param_type,
-                 init_params=init_params, results_file=results_file,
-                 verbose=verbose)
+    results_config_dict =  optimize_run(env, population, param_config_name, init_objfun_name,
+                                        opt_iter=opt_iter, param_type=param_type,
+                                        init_params=init_params, results_file=results_file,
+                                        verbose=verbose)
+
+    if results_path is not None:
+        for pop_name, gid_results_config_dict in viewitems(results_config_dict):
+            for gid, results_config_tuples in viewitems(gid_result_config_dict):
+                file_path = '%s/netclamp.opt.%s.%d.yaml' % (results_path, pop_name, gid)
+                write_to_yaml(file_path, results_config_tuples)
 
 
 cli.add_command(show)
