@@ -1,5 +1,5 @@
 ## Model configuration of dentate gyrus network
-Model Name: dentatenet
+Model Name: Single_MC_SLN
 Dataset Name: Full_Scale_Control
 Definitions: !include Definitions.yaml
 Geometry: !include Geometry.yaml
@@ -26,8 +26,12 @@ Cell Types:
     template file: MossyCell_minimal.hoc
     mechanism file: 20200511_0641_DG_MC_leak_spiking_mech.yaml
     weights:
-        - namespace: ['Normal Weights']
-        - namespace: ['Log-Normal Weights']
+      - namespace: ['LTP Structured Weights A', 'LTD Structured Weights A', 'Log-Normal Weights']
+        expr: a*ltp + (ltd + lnw)
+        parameter: [ltp, ltd, lnw]
+        const:
+          a: 50.0
+      - namespace: ['Normal Weights']
     synapses:
       density: !include MC_synapse_density.yaml
   HC:
