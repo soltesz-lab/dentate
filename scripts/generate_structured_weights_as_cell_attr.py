@@ -4,8 +4,8 @@ from collections import defaultdict
 import numpy as np
 from mpi4py import MPI
 import neuroh5
-from neuroh5.io import append_cell_attributes, read_population_ranges, bcast_cell_attributes, \
-    scatter_read_cell_attributes, read_cell_attribute_selection, NeuroH5ProjectionGen
+from neuroh5.io import append_cell_attributes, read_population_ranges, \
+    read_cell_attribute_selection, NeuroH5ProjectionGen
 import dentate
 from dentate.env import Env
 from dentate import utils, stimulus, synapses

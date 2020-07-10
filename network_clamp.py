@@ -861,7 +861,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             elif mean_outfld is None:
                 residual = ((max_infld - min_infld) ** 2.) / ((max(min_infld - target_min_infld, 1.0)) ** 2.)
             else:
-                residual = (np.clip(max_infld - mean_outfld, 0., None) ** 2.)  / (max(2. * mean_outfld, 1.0) ** 2.)
+                residual = (np.clip(max_infld - mean_outfld, 0., None) ** 2.)  / (max(10. * mean_outfld, 1.0) ** 2.)
             
             logger.info('selectivity rate objective: max in/min in/mean out/residual rate of gid %i: %.02f %.02f %.02f %.04f' % (gid, max_infld, min_infld, mean_outfld if mean_outfld is not None else mean_infld, residual))
 
@@ -1029,14 +1029,13 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
             min_infld = np.mean(mean_state_values[t_trough_idxs])
             mean_infld = np.mean(mean_state_values[t_infld_idxs])
 
-            if t_outfld_idxs is not None:
+            if t_outfld_idxs is None:
+                residual = np.clip(peak_infld - min_infld, 0., None) ** 2.
+                logger.info('selectivity state value objective: state values of gid %i: max/min/mean in: %.02f / %.02f / %.02f residual: %.04f' % (gid, peak_infld, min_infld, mean_infld, residual))
+            else:
                 mean_outfld = np.mean(mean_state_values[t_outfld_idxs])
                 residual = (np.clip(peak_infld - mean_outfld, 0., None) ** 2.) - ((mean_outfld - state_baseline) ** 2.)
                 logger.info('selectivity state value objective: state values of gid %i: max in/mean in/mean out: %.02f / %.02f / %.02f residual: %.04f' % (gid, peak_infld, mean_infld, mean_outfld, residual))
-            else:
-                residual = np.clip(peak_infld - min_infld, 0., None) ** 2.
-                logger.info('selectivity state value objective: state values of gid %i: max/min/mean in: %.02f / %.02f / %.02f residual: %.04f' % (gid, peak_infld, min_infld, mean_infld, residual))
-
             
             result[gid] = residual
 
