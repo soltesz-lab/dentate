@@ -21,24 +21,26 @@ Cell Types:
     synapses:
       correct_for_spines: True
       weights:
-        namespace: ['LTP Structured Weights A', 'LTD Structured Weights A', 'Log-Normal Weights']
-        expr: a*ltp + (ltd + lnw)
-        parameter: [ltp, ltd, lnw]
-        const:
-          a: 1.0
+        - namespace: ['LTP Structured Weights A', 'LTD Structured Weights A', 'Log-Normal Weights']
+          expr: a*ltp + (ltd + lnw)
+          parameter: [ltp, ltd, lnw]
+          const:
+            a: 1.0
+        - namespace: ['Normal Weights']
       density: !include GC_synapse_density.yaml
   MC:
     template: MossyCell
     template file: MossyCell_minimal.hoc
     mechanism file: 20191029_DG_MC_excitability_mech.yaml
     synapses:
+      weights:
+        - namespace: ['LTP Structured Weights A', 'LTD Structured Weights A', 'Log-Normal Weights']
+          expr: a*ltp + (ltd + lnw)
+          parameter: [ltp, ltd, lnw]
+          const:
+            a: 1.0
+        - namespace: ['Normal Weights']
       density: !include MC_synapse_density.yaml
-      weights: 
-        namespace: ['Structured Weights A', 'Log-Normal Weights']
-        expr: a*sw + lnw
-        parameter: [sw, lnw]
-        const:
-          a: 1.0
   HC:
     template: HIPPCell
     synapses:
