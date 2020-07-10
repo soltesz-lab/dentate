@@ -1,40 +1,43 @@
-Network Clamp:  !include Network_Clamp.yaml
-Model Name: dentatenet_Full_Scale_GC_Exc_Sat_DD_SLN_slice_100
-Dataset Name: Slice
+## Model configuration of dentate gyrus network
+Model Name: dentatenet
+Dataset Name: Full_Scale_Control
 Definitions: !include Definitions.yaml
-Global Parameters: !include Global.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-Cell Data: dentatenet_Full_Scale_GC_Exc_Sat_DD_SLN_slice_10um_compressed.h5
-Connection Data: dentatenet_Full_Scale_GC_Exc_Sat_DD_SLN_slice_10um_compressed.h5
-#Gap Junction Data: DG_gapjunctions_20190717.h5
-Connection Generator: !include Full_Scale_Connections_GC_Exc_Sat_DD.yaml
+Cell Data: DG_MC_forest_syn_wgts_20200708.h5 
+Connection Data: DG_MC_connections_20200708_compressed.h5
+Connection Generator: !include Network_Clamp_Connections_GC_Exc_Sat_S_extent.yaml
 Recording: !include Recording.yaml
 Stimulus: !include Input_Configuration.yaml
 Analysis: !include Analysis_Configuration.yaml
 ## Cell types for dentate gyrus model
-Cell Types:
+Cell Types: 
   GC:
     template: DGC
     template file: DGC_Template_minimal.hoc
     mechanism file: 20181205_DG_GC_excitability_mech.yaml
     synapses:
       correct_for_spines: True
-      weights: True
-      weights namespace: 'Structured Weights A'
+      weights: 
+        namespace: Log-Normal Weights
       density: !include GC_synapse_density.yaml
   MC:
     template: MossyCell
+    template file: MossyCell_minimal.hoc
+    mechanism file: 20200511_0641_DG_MC_leak_spiking_mech.yaml
+    weights:
+        - namespace: ['Normal Weights']
+        - namespace: ['Log-Normal Weights']
     synapses:
       density: !include MC_synapse_density.yaml
-      weights: True
-      weights namespaces: ['Log-Normal Weights']
   HC:
     template: HIPPCell
     synapses:
       density: !include HC_synapse_density.yaml
   BC:
     template: BasketCell
+    template file: BasketCell_minimal.hoc
+    mech_file: 20180831_BC_mech.yaml
     synapses:
       density: !include BC_synapse_density.yaml
   AAC:
@@ -43,8 +46,7 @@ Cell Types:
       density: !include AAC_synapse_density.yaml
   HCC:
     template: HICAPCell
-    synapses:
-      density: !include HCC_synapse_density.yaml
+    synapses: !include HCC_synapse_density.yaml
   NGFC:
     template: NGFCell
     synapses:
@@ -59,17 +61,8 @@ Cell Types:
       density: !include IS_synapse_density.yaml
   MPP:
     template: MPPCell
-    spike train:
-      namespace: Input Spikes
-      attribute: Spike Train
+    Vector Stimulus: Vector Stimulus 0
   LPP:
     template: LPPCell
-    spike train:
-      namespace: Input Spikes
-      attribute: Spike Train
-  CA3c:
-    template: CA3Cell
-    spike train:
-      namespace: Input Spikes
-      attribute: Spike Train
+    Vector Stimulus: Vector Stimulus 0
 
