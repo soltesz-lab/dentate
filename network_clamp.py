@@ -108,7 +108,7 @@ def generate_weights(env, weight_source_rules, this_syn_attrs):
 def init_inputs_from_spikes(env, presyn_sources, time_range,
                             spike_events_path, spike_events_namespace,
                             arena_id, trajectory_id, spike_train_attr_name='t', n_trials=1):
-
+    """Initializes presynaptic spike sources from a file with spikes times."""
     populations = list(presyn_sources.keys())
     
     equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
@@ -152,6 +152,7 @@ def init_inputs_from_spikes(env, presyn_sources, time_range,
 def init_inputs_from_features(env, presyn_sources, time_range,
                               input_features_path, input_features_namespaces,
                               arena_id, trajectory_id, spike_train_attr_name='t', n_trials=1):
+    """Initializes presynaptic spike sources from a file with input selectivity features represented as firing rates."""
 
     if time_range is not None:
         if time_range[0] is None:
@@ -514,7 +515,8 @@ def run_with(env, param_dict, cvode=False, pc_runworker=True):
 
 
 def optimize_params(env, pop_name, param_type, param_config_name):
-                        
+    """Constructs a flat list representation of synaptic optimization parameters based on network clamp optimization configuration."""
+    
     param_bounds = {}
     param_names = []
     param_initial_dict = {}
@@ -769,11 +771,22 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
                          for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
     infld_idxs_dict = { gid: range_inds(contiguous_ranges(target_rate_vector > 0, return_indices=True))
                         for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
+    
+    peak_pctile_dict = { gid: np.percentile(target_rate_vector_dict[gid][infld_idxs], 80)
+                         for gid, infld_idxs in viewitems(infld_idxs_dict) }
+    trough_pctile_dict = { gid: np.percentile(target_rate_vector_dict[gid][infld_idxs], 20)
+                           for gid, infld_idxs in viewitems(infld_idxs_dict) }
+
+    peak_idxs_dict = { gid: range_inds(contiguous_ranges(target_rate_vector >= peak_pctile_dict[gid], return_indices=True)) 
+                       for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
+    trough_idxs_dict = { gid: range_inds(contiguous_ranges(np.logical_and(target_rate_vector > 0., target_rate_vector <= trough_pctile_dict[gid]), return_indices=True))
+                         for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
+
 
     for gid in cell_index_set:
         infld_idxs = infld_idxs_dict[gid]
         outfld_idxs = outfld_idxs_dict[gid]
-
+        
         if outfld_idxs is not None:
             target_outfld_rate_vector = target_rate_vector[outfld_idxs]
         else:
@@ -808,6 +821,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             for gid in cell_index_set:
                 if gid in spkdict[population]:
                     spkdict1[gid] = spkdict[population][gid][i]
+                    logger.info('selectivity rate objective: trial %d spike times of gid %i: %s' % (i, gid, str(spkdict[population][gid][i])))
                 else:
                     spkdict1[gid] = np.asarray([], dtype=np.float32)
             spike_density_dict = spikedata.spike_density_estimate (population, spkdict1, time_bins)
@@ -815,8 +829,6 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
                 rate_vector = spike_density_dict[gid]['rate']
                 rate_vector[np.isclose(rate_vector, 0., atol=1e-4, rtol=1e-4)] = 0.
                 rates_dict[gid].append(rate_vector)
-            for gid in spkdict[population]:
-                logger.info('selectivity rate objective: trial %d spike times of gid %i: %s' % (i, gid, str(spkdict[population][gid])))
                 logger.info('selectivity rate objective: trial %d firing rate min/max of gid %i: %.02f / %.02f Hz' % (i, gid, np.min(rates_dict[gid]), np.max(rates_dict[gid])))
 
         return rates_dict
@@ -828,6 +840,8 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
         for gid in cell_index_set:
             infld_idxs = infld_idxs_dict[gid]
             outfld_idxs = outfld_idxs_dict[gid]
+            peak_idxs = peak_idxs_dict[gid]
+            trough_idxs = trough_idxs_dict[gid]
             
             target_rate_vector = target_rate_vector_dict[gid]
             rate_vectors = rates_dict[gid]
@@ -839,7 +853,13 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
                 target_outfld_rate_vector = target_rate_vector[outfld_idxs]
             else:
                 target_outfld_rate_vector = None
-            
+
+            mean_peak_rate_vector = np.mean(np.row_stack([ rate_vector[peak_idxs] 
+                                                            for rate_vector in rate_vectors ]),
+                                             axis=0)
+            mean_trough_rate_vector = np.mean(np.row_stack([ rate_vector[trough_idxs] 
+                                                             for rate_vector in rate_vectors ]),
+                                             axis=0)
             mean_infld_rate_vector = np.mean(np.row_stack([ rate_vector[infld_idxs] 
                                                             for rate_vector in rate_vectors ]),
                                              axis=0)
@@ -852,6 +872,9 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
 
             target_min_infld = np.min(target_infld_rate_vector)
             target_max_infld = np.max(target_infld_rate_vector)
+
+            max_peak = np.max(mean_peak_rate_vector)
+            min_trough = np.min(mean_trough_rate_vector)
             min_infld = np.min(mean_infld_rate_vector)
             max_infld = np.max(mean_infld_rate_vector)
             mean_infld = np.mean(mean_infld_rate_vector)
@@ -859,11 +882,11 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             if max_infld > target_max_infld:
                 residual = 0.
             elif mean_outfld is None:
-                residual = ((max_infld - min_infld) ** 2.) / ((max(min_infld - target_min_infld, 1.0)) ** 2.)
+                residual = ((max_peak - min_trough) ** 2.) / ((max(min_trough - target_min_infld, 1.0)) ** 2.)
+                logger.info('selectivity rate objective: max peak/min trough/residual rate of gid %i: %.02f %.02f %.04f' % (gid, max_peak, min_trough, residual))
             else:
                 residual = (np.clip(max_infld - mean_outfld, 0., None) ** 2.)  / (max(10. * mean_outfld, 1.0) ** 2.)
-            
-            logger.info('selectivity rate objective: max in/min in/mean out/residual rate of gid %i: %.02f %.02f %.02f %.04f' % (gid, max_infld, min_infld, mean_outfld if mean_outfld is not None else mean_infld, residual))
+                logger.info('selectivity rate objective: max in/min in/mean out/residual rate of gid %i: %.02f %.02f %.02f %.04f' % (gid, max_infld, min_infld, mean_outfld, residual))
 
             result[gid] = residual
         return result
@@ -935,7 +958,6 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
 
     peak_ranges_dict = { gid: time_ranges(contiguous_ranges(target_rate_vector >= peak_pctile_dict[gid]))
                          for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
-
     trough_ranges_dict = { gid: time_ranges(contiguous_ranges(np.logical_and(target_rate_vector > 0., target_rate_vector <= trough_pctile_dict[gid])))
                          for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
 
@@ -1026,7 +1048,7 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
 
             mean_state_values = state_values_dict[gid]
             peak_infld = np.max(mean_state_values[t_peak_idxs])
-            min_infld = np.mean(mean_state_values[t_trough_idxs])
+            min_infld = np.min(mean_state_values[t_trough_idxs])
             mean_infld = np.mean(mean_state_values[t_infld_idxs])
 
             if t_outfld_idxs is None:
