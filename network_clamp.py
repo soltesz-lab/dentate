@@ -821,6 +821,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             for gid in cell_index_set:
                 if gid in spkdict[population]:
                     spkdict1[gid] = spkdict[population][gid][i]
+                    logger.info('selectivity rate objective: trial %d spike times of gid %i: %s' % (i, gid, str(spkdict[population][gid][i])))
                 else:
                     spkdict1[gid] = np.asarray([], dtype=np.float32)
             spike_density_dict = spikedata.spike_density_estimate (population, spkdict1, time_bins)
@@ -828,8 +829,6 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
                 rate_vector = spike_density_dict[gid]['rate']
                 rate_vector[np.isclose(rate_vector, 0., atol=1e-4, rtol=1e-4)] = 0.
                 rates_dict[gid].append(rate_vector)
-            for gid in spkdict[population]:
-                logger.info('selectivity rate objective: trial %d spike times of gid %i: %s' % (i, gid, str(spkdict[population][gid])))
                 logger.info('selectivity rate objective: trial %d firing rate min/max of gid %i: %.02f / %.02f Hz' % (i, gid, np.min(rates_dict[gid]), np.max(rates_dict[gid])))
 
         return rates_dict
