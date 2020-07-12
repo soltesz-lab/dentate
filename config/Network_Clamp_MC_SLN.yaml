@@ -1,0 +1,72 @@
+Network Clamp:  !include Network_Clamp.yaml
+Model Name: Single_MC_SLN
+Dataset Name: Full_Scale_Control
+Definitions: !include Definitions.yaml
+Geometry: !include Geometry.yaml
+Random Seeds: !include Random.yaml
+Cell Data: DG_MC_forest_syn_wgts_20200708.h5 
+Connection Data: DG_MC_connections_20200708_compressed.h5
+Connection Generator: !include Network_Clamp_Connections_GC_Exc_Sat_S_extent.yaml
+Recording: !include Recording.yaml
+Stimulus: !include Input_Configuration.yaml
+Analysis: !include Analysis_Configuration.yaml
+## Cell types for dentate gyrus model
+Cell Types: 
+  GC:
+    template: DGC
+    template file: DGC_Template_minimal.hoc
+    mechanism file: 20181205_DG_GC_excitability_mech.yaml
+    synapses:
+      correct_for_spines: True
+      weights: 
+        namespace: Log-Normal Weights
+      density: !include GC_synapse_density.yaml
+  MC:
+    template: MossyCell
+    template file: MossyCell_minimal.hoc
+    mechanism file: 20200511_0641_DG_MC_leak_spiking_mech.yaml
+    synapses:
+      weights:
+      - namespace: ['LTP Structured Weights A', 'LTD Structured Weights A', 'Log-Normal Weights']
+        expr: a*ltp + (ltd + lnw)
+        parameter: [ltp, ltd, lnw]
+        const:
+          a: 1.0
+      - namespace: ['Normal Weights']
+      density: !include MC_synapse_density.yaml
+  HC:
+    template: HIPPCell
+    synapses:
+      density: !include HC_synapse_density.yaml
+  BC:
+    template: BasketCell
+    template file: BasketCell_minimal.hoc
+    mech_file: 20180831_BC_mech.yaml
+    synapses:
+      density: !include BC_synapse_density.yaml
+  AAC:
+    template: AxoAxonicCell
+    synapses:
+      density: !include AAC_synapse_density.yaml
+  HCC:
+    template: HICAPCell
+    synapses: !include HCC_synapse_density.yaml
+  NGFC:
+    template: NGFCell
+    synapses:
+      density: !include NGFC_synapse_density.yaml
+  MOPP:
+    template: MOPPCell
+    synapses:
+      density: !include NGFC_synapse_density.yaml
+  IS:
+    template: ISCell
+    synapses:
+      density: !include IS_synapse_density.yaml
+  MPP:
+    template: MPPCell
+  LPP:
+    template: LPPCell
+  CA3c:
+    template: CA3Cell
+
