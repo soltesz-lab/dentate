@@ -723,7 +723,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
                                     opt_iter, template_paths, dataset_prefix, config_prefix, results_path,
                                     spike_events_path, spike_events_namespace, spike_events_t,
                                     input_features_path, input_features_namespaces,
-                                    param_type, param_config_name, recording_profile,
+                                    param_type, param_config_name, recording_profile, rate_baseline,
                                     target_rate_map_path, target_rate_map_namespace,
 			            target_rate_map_arena, target_rate_map_trajectory,  worker, **kwargs):
     
@@ -815,7 +815,6 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
 
     def gid_firing_rate_vectors(spkdict, cell_index_set):
         rates_dict = defaultdict(list)
-        mean_rates_dict = {}
         for i in range(n_trials):
             spkdict1 = {}
             for gid in cell_index_set:
@@ -873,8 +872,8 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             target_min_infld = np.min(target_infld_rate_vector)
             target_max_infld = np.max(target_infld_rate_vector)
 
-            max_peak = np.max(mean_peak_rate_vector)
-            min_trough = np.min(mean_trough_rate_vector)
+            mean_peak = np.mean(mean_peak_rate_vector)
+            mean_trough = np.mean(mean_trough_rate_vector)
             min_infld = np.min(mean_infld_rate_vector)
             max_infld = np.max(mean_infld_rate_vector)
             mean_infld = np.mean(mean_infld_rate_vector)
@@ -882,10 +881,10 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             if max_infld > target_max_infld:
                 residual = 0.
             elif mean_outfld is None:
-                residual = ((max_peak - min_trough) ** 2.) / ((max(min_trough - target_min_infld, 1.0)) ** 2.)
-                logger.info('selectivity rate objective: max peak/min trough/residual rate of gid %i: %.02f %.02f %.04f' % (gid, max_peak, min_trough, residual))
+                residual = ((mean_peak - mean_trough) ** 2.) / ((max(mean_trough - target_min_infld, 1.0)) ** 2.)
+                logger.info('selectivity rate objective: mean peak/mean trough/residual rate of gid %i: %.02f %.02f %.04f' % (gid, mean_peak, mean_trough, residual))
             else:
-                residual = (np.clip(max_infld - mean_outfld, 0., None) ** 2.)  / (max(10. * mean_outfld, 1.0) ** 2.)
+                residual = (np.clip(max_infld - mean_outfld, 0., None) ** 2.)  / (max(mean_outfld/rate_baseline, 1.0) ** 2.)
                 logger.info('selectivity rate objective: max in/min in/mean out/residual rate of gid %i: %.02f %.02f %.02f %.04f' % (gid, max_infld, min_infld, mean_outfld, residual))
 
             result[gid] = residual
@@ -1126,7 +1125,6 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
 
     def gid_firing_rate_vectors(spkdict, cell_index_set):
         rates_dict = defaultdict(list)
-        mean_rates_dict = {}
         for i in range(n_trials):
             spkdict1 = {}
             for gid in cell_index_set:
@@ -1592,6 +1590,8 @@ def optimize(config_file, population, gid, arena_id, trajectory_id, generate_wei
         init_params['target_rate_map_trajectory'] = trajectory_id
         init_objfun_name = 'init_rate_dist_objfun'
     elif target == 'selectivity_rate':
+        opt_baseline = float(opt_params['Targets']['baseline firing rate'])
+        init_params['rate_baseline'] = opt_baseline
         init_params['target_rate_map_arena'] = arena_id
         init_params['target_rate_map_trajectory'] = trajectory_id
         init_objfun_name = 'init_selectivity_rate_objfun'

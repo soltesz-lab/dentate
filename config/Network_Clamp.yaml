@@ -334,7 +334,8 @@ Synaptic Optimization:
       state:
         v:
           mean: -68.0
-      firing rate: 0.75
+      firing rate: 1.0
+      baseline firing rate: 0.1
       fraction active: 0.01
   MC:
     Parameter ranges:
@@ -368,6 +369,7 @@ Synaptic Optimization:
         v:
           mean: -68.0
       firing rate: 1.5
+      baseline firing rate: 1.0
       fraction active: 0.3
   BC:
     Targets:
