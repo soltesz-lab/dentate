@@ -1596,7 +1596,7 @@ def optimize(config_file, population, gid, arena_id, trajectory_id, generate_wei
     if results_path is not None:
         for pop_name, gid_results_config_dict in viewitems(results_config_dict):
             for gid, results_config_tuples in viewitems(gid_result_config_dict):
-                file_path = '%s/netclamp.opt.%s.%d.yaml' % (results_path, pop_name, gid)
+                file_path = '%s/network_clamp.optimize.%s.%d.yaml' % (results_path, pop_name, gid)
                 write_to_yaml(file_path, results_config_tuples)
 
 
