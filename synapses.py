@@ -559,8 +559,8 @@ class SynapseAttributes(object):
                         for sk, sv in viewitems(new_val):
                             old_val[sk] = sv
                     else:
-                        raise RuntimeError('modify_mech_attrs: dictionary value provided to a non-expression parameter %s' %
-                                           k)
+                        raise RuntimeError('modify_mech_attrs: dictionary value provided to a non-expression parameter %s mechanism: %s presynaptic: %s' %
+                                           (k, mech_name, presyn_name))
                 else:
                     attr_dict[k] = new_val
                 logger.debug("modify %s.%s.%s: old_val: %s new val: %s" % (pop_name, syn_name, k, str(old_val), str(new_val)))

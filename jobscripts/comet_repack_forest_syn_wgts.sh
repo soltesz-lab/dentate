@@ -14,14 +14,10 @@ module load hdf5
 
 set -x
 export prefix=/oasis/scratch/comet/iraikov/temp_project/dentate/Full_Scale_Control/
-export input=$prefix/DG_GC_syn_weights_SLN_20190824.h5
-export output=$prefix/DG_GC_syn_weights_SLN_20190824_compressed.h5
-#export input=$prefix/DG_IN_syn_weights_LN_20190503.h5
-#export output=$prefix/DG_IN_syn_weights_LN_20190503_compressed.h5
-#export input=$prefix/DG_IN_syn_weights_N_20190503.h5
-#export output=$prefix/DG_IN_syn_weights_N_20190503_compressed.h5
+export input=$prefix/DG_GC_syn_weights_SLN_20200708.h5
+export output=$prefix/DG_GC_syn_weights_SLN_20200708_compressed.h5
 
-h5repack -L -v -f SHUF -f GZIP=9 -i $input -o $output
+h5repack -v -f SHUF -f GZIP=9 -i $input -o $output
 
 
 

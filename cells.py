@@ -1644,9 +1644,7 @@ def get_mech_rules_dict(cell, **rules):
     return rules_dict
 
 
-def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, origin=None, slope=None, tau=None,
-                      xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None, custom=None,
-                      append=False, verbose=False):
+def modify_mech_param(cell, sec_type, mech_name, param_name=None, append=False, verbose=False, **kwargs):
     """
     Modifies or inserts new membrane mechanisms into hoc sections of type sec_type. First updates the mechanism
     dictionary, then sets the corresponding hoc parameters. This method is meant to be called manually during
@@ -1657,17 +1655,6 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
     :param sec_type: str
     :param mech_name: str
     :param param_name: str
-    :param value: float
-    :param origin: str (sec_type)
-    :param slope: float
-    :param tau: float
-    :param xhalf: float
-    :param min: float
-    :param max: float
-    :param min_loc: float
-    :param max_loc: float
-    :param outside: float
-    :param custom: dict
     :param append: bool
     :param verbose: bool
     """
@@ -1682,8 +1669,7 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
         if value is None and origin is None:
             raise ValueError('modify_mech_param: mechanism: %s; parameter: %s; missing origin or value for '
                              'sec_type: %s' % (mech_name, param_name, sec_type))
-        rules = get_mech_rules_dict(cell, value=value, origin=origin, slope=slope, tau=tau, xhalf=xhalf, min=min,
-                                    max=max, min_loc=min_loc, max_loc=max_loc, outside=outside, custom=custom)
+        rules = get_mech_rules_dict(cell, **kwargs)
         mech_content = {param_name: rules}
 
     backup_mech_dict = copy.deepcopy(cell.mech_dict)
@@ -1721,13 +1707,13 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, or
 
     except Exception as e:
         cell.mech_dict = copy.deepcopy(backup_mech_dict)
-        traceback.print_exc(file=sys.stdout)
+        traceback.print_exc(file=sys.stderr)
         if param_name is not None:
             logger.error('modify_mech_param: problem modifying mechanism: %s parameter: %s in node: %s' %
                     (mech_name, param_name, node.name))
         else:
             logger.error('modify_mech_param: problem modifying mechanism: %s in node: %s' % (mech_name, node.name))
-        sys.stdout.flush()
+        sys.stderr.flush()
         raise e
 
 
@@ -1874,14 +1860,14 @@ def set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor=Non
         raise RuntimeError('set_mech_param: cannot set value of mechanism: %s parameter: %s in sec_type: %s '
                            'without a provided origin' % (mech_name, param_name, node.type))
     else:
-        min_distance = rules['min_loc'] if 'min_loc' in rules else 0.
-        max_distance = rules['max_loc'] if 'max_loc' in rules else None
-        min_val = rules['min'] if 'min' in rules else None
-        max_val = rules['max'] if 'max' in rules else None
-        slope = rules['slope'] if 'slope' in rules else None
-        tau = rules['tau'] if 'tau' in rules else None
-        xhalf = rules['xhalf'] if 'xhalf' in rules else None
-        outside = rules['outside'] if 'outside' in rules else None
+        min_distance = rules.get('min_loc', 0.)
+        max_distance = rules.get('max_loc', None)
+        min_val = rules.get('min', None)
+        max_val = rules.get('max', None)
+        slope = rules.get('slope', None)
+        tau = rules.get('tau', None)
+        xhalf = rules.get('xhalf', None)
+        outside = rules.get('outside', None)
 
         # No need to insert the mechanism into the section if no segment matches location constraints
         min_seg_distance = get_distance_to_node(cell, donor, node, 0.5 / node.sec.nseg)

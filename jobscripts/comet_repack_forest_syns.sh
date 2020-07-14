@@ -14,10 +14,10 @@ module load hdf5
 
 set -x
 export prefix=/oasis/scratch/comet/iraikov/temp_project/dentate/Full_Scale_Control/
-export input=$prefix/DGC_forest_syns_20200203.h5
-export output=$prefix/DGC_forest_syns_20200203_compressed.h5
+export input=$prefix/DGC_forest_syns_20200628.h5
+export output=$prefix/DGC_forest_syns_20200628_compressed.h5
 
-h5repack -L -v -f SHUF -f GZIP=9 -i $input -o $output
+h5repack -v -f SHUF -f GZIP=9 -i $input -o $output
 
 
 

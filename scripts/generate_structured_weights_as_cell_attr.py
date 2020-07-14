@@ -4,8 +4,8 @@ from collections import defaultdict
 import numpy as np
 from mpi4py import MPI
 import neuroh5
-from neuroh5.io import append_cell_attributes, read_population_ranges, bcast_cell_attributes, \
-    scatter_read_cell_attributes, read_cell_attribute_selection, NeuroH5ProjectionGen
+from neuroh5.io import append_cell_attributes, read_population_ranges, \
+    read_cell_attribute_selection, NeuroH5ProjectionGen
 import dentate
 from dentate.env import Env
 from dentate import utils, stimulus, synapses
@@ -28,7 +28,7 @@ sys.excepthook = mpi_excepthook
 
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--coordinates", '-c', type=(float, float), default=(None, None))
+@click.option("--coordinates", '-c', type=(float, float), multiple=True)
 @click.option("--field-width", type=float)
 @click.option("--gid", '-g', type=int, multiple=True)
 @click.option("--input-features-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -208,10 +208,12 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
 
             num_fields = target_selectivity_features_dict[gid]['Num Fields'][0]
             
-            if coordinates[0] is not None:
-                num_fields = 1
-                target_selectivity_features_dict[gid]['X Offset'] =  np.asarray([coordinates[0]], dtype=np.float32)
-                target_selectivity_features_dict[gid]['Y Offset'] =  np.asarray([coordinates[1]], dtype=np.float32)
+            if len(coordinates) > 0:
+                num_fields = len(coordinates)
+                target_selectivity_features_dict[gid]['X Offset'] =  np.asarray([x[0] for x in coordinates],
+                                                                                dtype=np.float32)
+                target_selectivity_features_dict[gid]['Y Offset'] =  np.asarray([x[1] for x in coordinates],
+                                                                                dtype=np.float32)
                 target_selectivity_features_dict[gid]['Num Fields'] = np.asarray([num_fields], dtype=np.uint8)
 
             if field_width is not None:
