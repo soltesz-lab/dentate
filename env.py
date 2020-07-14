@@ -747,13 +747,13 @@ class Env(object):
         size = self.comm.Get_size()
         celltypes = self.celltypes
         typenames = sorted(celltypes.keys())
-        comm0 = self.comm.Split(color, 0)
+
         if rank == 0:
             color = 1
         else:
             color = 0
         ## comm0 includes only rank 0
-        comm0 = comm.Split(color, 0)
+        comm0 = self.comm.Split(color, 0)
 
         if rank == 0:
             self.logger.info('env.data_file_path = %s' % str(self.data_file_path))
