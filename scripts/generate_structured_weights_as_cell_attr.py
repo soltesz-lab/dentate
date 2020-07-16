@@ -5,7 +5,7 @@ import numpy as np
 from mpi4py import MPI
 import neuroh5
 from neuroh5.io import append_cell_attributes, read_population_ranges, \
-    read_cell_attribute_selection, NeuroH5ProjectionGen
+    scatter_read_cell_attribute_selection, NeuroH5ProjectionGen
 import dentate
 from dentate.env import Env
 from dentate import utils, stimulus, synapses
@@ -184,12 +184,15 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
 
         has_structured_weights = False
 
+        logger.info('Rank %d: selection = %s' % (rank, str(selection)))
+
         dst_input_features_attr_dict = {}
         for input_features_namespace in this_input_features_namespaces:
-            input_features_iter = read_cell_attribute_selection(input_features_path, destination, 
-                                                                namespace=input_features_namespace,
-                                                                mask=set(target_features_attr_names), 
-                                                                comm=env.comm, selection=selection)
+            input_features_iter = scatter_read_cell_attribute_selection(input_features_path, destination, 
+                                                                        namespace=input_features_namespace,
+                                                                        mask=set(target_features_attr_names), 
+                                                                        selection=selection,
+                                                                        io_size=env.io_size, comm=env.comm)
             count = 0
             for gid, attr_dict in input_features_iter:
                 dst_input_features_attr_dict[gid] = attr_dict
@@ -205,9 +208,6 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
         for gid in selection:
             target_selectivity_features_dict[gid] = dst_input_features_attr_dict.get(gid, {})
             target_selectivity_features_dict[gid]['Selectivity Type'] = np.asarray([target_selectivity_type], dtype=np.uint8)
-
-            num_fields = target_selectivity_features_dict[gid]['Num Fields'][0]
-            
             if len(coordinates) > 0:
                 num_fields = len(coordinates)
                 target_selectivity_features_dict[gid]['X Offset'] =  np.asarray([x[0] for x in coordinates],
@@ -215,20 +215,26 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                 target_selectivity_features_dict[gid]['Y Offset'] =  np.asarray([x[1] for x in coordinates],
                                                                                 dtype=np.float32)
                 target_selectivity_features_dict[gid]['Num Fields'] = np.asarray([num_fields], dtype=np.uint8)
+            elif 'Num Fields' in target_selectivity_features_dict[gid]:
+                num_fields = target_selectivity_features_dict[gid]['Num Fields'][0]
+            else:
+                num_fields = 0
 
             if field_width is not None:
                 target_selectivity_features_dict[gid]['Field Width'] = np.asarray([field_width]*num_fields, dtype=np.float32)
-            else:
+            elif 'Field Width' in target_selectivity_features_dict[gid]:
                 this_field_width = target_selectivity_features_dict[gid]['Field Width']
                 target_selectivity_features_dict[gid]['Field Width'] = this_field_width[:num_fields]
-                
+            else:
+                this_field_width = np.asarray([], dtype=np.float32)
+
             if peak_rate is not None:
                 target_selectivity_features_dict[gid]['Peak Rate'] = np.asarray([peak_rate]*num_fields, dtype=np.float32)
 
-            input_cell_config = stimulus.get_input_cell_config(target_selectivity_type,
-                                                               selectivity_type_index,
-                                                               selectivity_attr_dict=target_selectivity_features_dict[gid])
-            if input_cell_config.num_fields > 0:
+            if num_fields > 0:
+                input_cell_config = stimulus.get_input_cell_config(target_selectivity_type,
+                                                                   selectivity_type_index,
+                                                                   selectivity_attr_dict=target_selectivity_features_dict[gid])
                 arena_margin_size = max(arena_margin_size, np.max(input_cell_config.field_width) * arena_margin)
                 target_field_width_dict[gid] = input_cell_config.field_width
                 target_selectivity_config_dict[gid] = input_cell_config
@@ -251,9 +257,10 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
 
         if initial_weights_path is not None:
             initial_weights_iter = \
-              read_cell_attribute_selection(initial_weights_path, destination,
-                                            namespace=initial_weights_namespace,
-                                            selection=selection)
+              scatter_read_cell_attribute_selection(initial_weights_path, destination,
+                                                    namespace=initial_weights_namespace,
+                                                    selection=selection, 
+                                                    comm=env.comm, io_size=env.io_size)
 
             initial_weights_gid_count = 0
             initial_weights_syn_count = 0
@@ -277,9 +284,10 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             
         if non_structured_weights_path is not None:
             non_structured_weights_iter = \
-                read_cell_attribute_selection(initial_weights_path, destination,
-                                              namespace=non_structured_weights_namespace,
-                                              selection=selection)
+                scatter_read_cell_attribute_selection(initial_weights_path, destination,
+                                                      namespace=non_structured_weights_namespace,
+                                                      selection=selection,
+                                                      comm=env.comm, io_size=env.io_size)
 
             non_structured_weights_gid_count = 0
             non_structured_weights_syn_count = 0
@@ -300,8 +308,10 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
         if reference_weights_path is not None:
             reference_weights_by_syn_id_dict = defaultdict(lambda: dict())
             reference_weights_iter = \
-              read_cell_attribute_selection(reference_weights_path, destination, namespace=reference_weights_namespace,
-                                            selection=selection)
+              scatter_read_cell_attribute_selection(reference_weights_path, destination, 
+                                                    namespace=reference_weights_namespace,
+                                                    selection=selection, 
+                                                    comm=env.comm, io_size=env.io_size)
             reference_weights_gid_count = 0
 
             for this_gid, syn_weight_attr_dict in reference_weights_iter:
@@ -377,10 +387,11 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             if rank == 0:
                 logger.info('Reading %s feature data for %i cells in population %s...' % (input_features_namespace, len(source_gids), source))
             for input_features_namespace in this_input_features_namespaces:
-                input_features_iter = read_cell_attribute_selection(input_features_path, source, 
-                                                                    namespace=input_features_namespace,
-                                                                    mask=set(source_features_attr_names), 
-                                                                    comm=env.comm, selection=source_gids)
+                input_features_iter = scatter_read_cell_attribute_selection(input_features_path, source, 
+                                                                            namespace=input_features_namespace,
+                                                                            mask=set(source_features_attr_names), 
+                                                                            selection=source_gids,
+                                                                            comm=env.comm, io_size=env.io_size)
                 count = 0
                 for gid, attr_dict in input_features_iter:
                     this_selectivity_type = attr_dict['Selectivity Type'][0]
