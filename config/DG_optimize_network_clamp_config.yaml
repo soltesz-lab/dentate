@@ -3,13 +3,13 @@ param_gen: PopulationAnnealing
 feature_names:
 - GC in field max firing rate
 - GC out of field mean firing rate
+- GC mean peak firing rate
+- GC mean trough firing rate
 - GC in field mean state value
 - GC out of field mean state value
 objective_names:
-- GC in field max firing rate
-- GC out of field mean firing rate
-- GC in field mean state value
-- GC out of field mean state value
+- GC rate selectivity
+- GC state value selectivity
 update_context:
 - - optimize_network_clamp
   - update_network_clamp
@@ -20,6 +20,7 @@ get_objectives:
   optimize_network_clamp: get_objectives
 kwargs:
   config_file: Network_Clamp_GC_Exc_Sat_SLN_extent.yaml
+  state_filter: lowpass
   input_features_namespaces: 
    - "Place Selectivity"
    - "Grid Selectivity"

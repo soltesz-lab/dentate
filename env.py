@@ -111,6 +111,13 @@ class Env(object):
             self.comm = comm
         rank = self.comm.Get_rank()
 
+        if rank == 0:
+            color = 1
+        else:
+            color = 0
+        ## comm0 includes only rank 0
+        comm0 = comm.Split(color, 0)
+
         if configure_nrn:
             from dentate.neuron_utils import h, find_template
 
@@ -198,10 +205,13 @@ class Env(object):
                 config_file_path = self.config_prefix + '/' + config_file
             else:
                 config_file_path = config_file
-            if not os.path.isfile(config_file_path):
-                raise RuntimeError("configuration file %s was not found" % config_file_path)
-            with open(config_file_path) as fp:
-                self.model_config = yaml.load(fp, IncludeLoader)
+            self.model_config = None
+            if rank == 0:
+                if not os.path.isfile(config_file_path):
+                    raise RuntimeError("configuration file %s was not found" % config_file_path)
+                with open(config_file_path) as fp:
+                    self.model_config = yaml.load(fp, IncludeLoader)
+            self.model_config = self.comm.bcast(self.model_config, root=0)
         else:
             raise RuntimeError("missing configuration file")
 
@@ -250,10 +260,11 @@ class Env(object):
         if self.spike_input_path is not None:
             if rank == 0:
                 self.logger.info('env.spike_input_path = %s' % str(self.spike_input_path))
-            self.spike_input_attribute_info = \
-              read_cell_attribute_info(self.spike_input_path, sorted(self.Populations.keys()), comm=self.comm)
-            if rank == 0:
+                self.spike_input_attribute_info = \
+                     read_cell_attribute_info(self.spike_input_path, sorted(self.Populations.keys()), comm=comm0)
                 self.logger.info('env.spike_input_attribute_info = %s' % str(self.spike_input_attribute_info))
+            self.spike_input_attribute_info = self.comm.bcast(self.spike_input_attribute_info, root=0)
+
         if results_path:
             if self.results_file_id is None:
                 self.results_file_path = "%s/%s_results.h5" % (self.results_path, self.modelName)
@@ -314,16 +325,18 @@ class Env(object):
         if 'Analysis' in self.model_config:
             self.analysis_config = self.model_config['Analysis']
 
-        self.projection_dict = defaultdict(list)
+        self.projection_dict = None
         if self.dataset_prefix is not None:
             if rank == 0:
+                projection_dict = defaultdict(list)
                 self.logger.info('env.connectivity_file_path = %s' % str(self.connectivity_file_path))
-            if self.connectivity_file_path is not None:
-                for (src, dst) in read_projection_names(self.connectivity_file_path, comm=self.comm):
-                    self.projection_dict[dst].append(src)
-                if rank == 0:
-                    self.logger.info('projection_dict = %s' % str(self.projection_dict))
-
+                if self.connectivity_file_path is not None:
+                    for (src, dst) in read_projection_names(self.connectivity_file_path, comm=comm0):
+                        projection_dict[dst].append(src)
+                self.projection_dict = dict(projection_dict)
+                self.logger.info('projection_dict = %s' % str(self.projection_dict))
+            self.projection_dict = self.comm.bcast(self.projection_dict, root=0)
+            
         # Configuration profile for recording intracellular quantities
         assert((recording_fraction >= 0.0) and (recording_fraction <= 1.0))
         self.recording_fraction = recording_fraction
@@ -373,6 +386,8 @@ class Env(object):
 
         self.edge_count = defaultdict(dict)
         self.syns_set = defaultdict(set)
+        
+        comm0.Free()
 
 
     def parse_arena_domain(self, config):
@@ -693,13 +708,16 @@ class Env(object):
         if self.comm is not None:
             rank = self.comm.Get_rank()
 
-        with open(node_rank_file) as fp:
-            dval = {}
-            lines = fp.readlines()
-            for l in lines:
-                a = l.split(' ')
-                dval[int(a[0])] = int(a[1])
-            self.node_ranks = dval
+        self.node_ranks = None
+        if rank == 0:
+            with open(node_rank_file) as fp:
+                dval = {}
+                lines = fp.readlines()
+                for l in lines:
+                    a = l.split(' ')
+                    dval[int(a[0])] = int(a[1])
+                self.node_ranks = dval
+        self.node_ranks = self.comm.bcast(self.node_ranks, root=0)
 
         pop_names = sorted(self.celltypes.keys())
 
@@ -731,11 +749,29 @@ class Env(object):
         typenames = sorted(celltypes.keys())
 
         if rank == 0:
+            color = 1
+        else:
+            color = 0
+        ## comm0 includes only rank 0
+        comm0 = self.comm.Split(color, 0)
+
+        if rank == 0:
             self.logger.info('env.data_file_path = %s' % str(self.data_file_path))
 
-        (population_ranges, _) = read_population_ranges(self.data_file_path, self.comm)
+        self.cell_attribute_info = None
+        population_ranges = None
+        population_names = None
         if rank == 0:
+            population_names = read_population_names(self.data_file_path, comm0)
+            (population_ranges, _) = read_population_ranges(self.data_file_path, comm0)
+            self.cell_attribute_info = read_cell_attribute_info(self.data_file_path, population_names, comm=comm0)
+            self.logger.info('population_names = %s' % str(population_names))
             self.logger.info('population_ranges = %s' % str(population_ranges))
+            self.logger.info('attribute info: %s' % str(self.cell_attribute_info))
+        population_ranges = self.comm.bcast(population_ranges, root=0)
+        population_names = self.comm.bcast(population_names, root=0)
+        self.cell_attribute_info = self.comm.bcast(self.cell_attribute_info, root=0)
+        comm0.Free()
 
         for k in typenames:
             population_range = population_ranges.get(k, None)
@@ -744,7 +780,10 @@ class Env(object):
                 celltypes[k]['num'] = population_ranges[k][1]
                 if 'mechanism file' in celltypes[k]:
                     celltypes[k]['mech_file_path'] = '%s/%s' % (self.config_prefix, celltypes[k]['mechanism file'])
-                    mech_dict = read_from_yaml(celltypes[k]['mech_file_path'])
+                    mech_dict = None
+                    if rank == 0:
+                        mech_dict = read_from_yaml(celltypes[k]['mech_file_path'])
+                    mech_dict = self.comm.bcast(mech_dict, root=0)
                     celltypes[k]['mech_dict'] = mech_dict
                 if 'synapses' in celltypes[k]:
                     synapses_dict = celltypes[k]['synapses']
@@ -763,13 +802,7 @@ class Env(object):
                                 weights_dict['closure'] = clos
                         synapses_dict['weights'] = weights_dicts
                         
-        population_names = read_population_names(self.data_file_path, self.comm)
-        if rank == 0:
-            self.logger.info('population_names = %s' % str(population_names))
-        self.cell_attribute_info = read_cell_attribute_info(self.data_file_path, population_names, comm=self.comm)
 
-        if rank == 0:
-            self.logger.info('attribute info: %s' % str(self.cell_attribute_info))
 
     def clear(self):
         self.gidset = set([])
