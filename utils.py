@@ -36,7 +36,7 @@ class ExprClosure(object):
 
     def __setitem__(self, key, value):
         self.consts[key] = value
-        self.__init_feval__()
+        self.feval = None
     
     def __init_feval__(self):
         fexpr = self.expr
@@ -50,6 +50,8 @@ class ExprClosure(object):
         self.feval = self.sympy.lambdify(formals, fexpr, "numpy")
 
     def __call__(self, *x):
+        if self.feval is None:
+            self.__init_feval__()
         return self.feval(*x)
 
     def __repr__(self):
@@ -75,6 +77,7 @@ class Promise(object):
     An object that represents a closure and unapplied arguments.
     """
     def __init__(self, clos, args):
+        assert(isinstance(clos, ExprClosure))
         self.clos = clos
         self.args = args
     def __repr__(self):

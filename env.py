@@ -60,7 +60,8 @@ class Env(object):
                  max_walltime_hours=0.5, checkpoint_interval=500.0, checkpoint_clear_data=True, 
                  results_write_time=0, dt=0.025, ldbal=False, lptbal=False, transfer_debug=False,
                  cell_selection_path=None, spike_input_path=None, spike_input_namespace=None, spike_input_attr=None,
-                 cleanup=True, cache_queries=False, profile_memory=False, verbose=False, **kwargs):
+                 cleanup=True, cache_queries=False, profile_memory=False, use_coreneuron=False,
+                 verbose=False, **kwargs):
         """
         :param comm: :class:'MPI.COMM_WORLD'
         :param config_file: str; model configuration file name
@@ -118,6 +119,7 @@ class Env(object):
         ## comm0 includes only rank 0
         comm0 = comm.Split(color, 0)
 
+        self.use_coreneuron = use_coreneuron
         if configure_nrn:
             from dentate.neuron_utils import h, find_template
 

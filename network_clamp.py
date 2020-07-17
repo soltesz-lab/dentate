@@ -475,7 +475,6 @@ def run_with(env, param_dict, cvode=False, pc_runworker=True):
 
     st_comptime = env.pc.step_time()
 
-    h.cvode.cache_efficient(1)
     h.cvode_active(1 if cvode else 0)
 
     h.t = 0.0
@@ -509,7 +508,7 @@ def run_with(env, param_dict, cvode=False, pc_runworker=True):
     if pc_runworker:
         env.pc.runworker()
     env.pc.done()
-    
+
     return spikedata.get_env_spike_dict(env, include_artificial=None)
 
 
@@ -1317,13 +1316,14 @@ def cli():
               help='path to neuroh5 file containing input selectivity features')
 @click.option("--input-features-namespaces", type=str, multiple=True, required=False, default=['Place Selectivity', 'Grid Selectivity'],
               help='namespace containing input selectivity features')
+@click.option('--use-coreneuron', is_flag=True, help='enable use of CoreNEURON')
 @click.option('--plot-cell', is_flag=True, help='plot the distribution of weight and g_unit synaptic parameters')
 @click.option('--write-cell', is_flag=True, help='write out selected cell tree morphology and connections')
 @click.option('--profile-memory', is_flag=True, help='calculate and print heap usage after the simulation is complete')
 @click.option('--recording-profile', type=str, default='Network clamp default', help='recording profile to use')
 
 def show(config_file, population, gid, arena_id, trajectory_id, template_paths, dataset_prefix, config_prefix, results_path,
-         spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, plot_cell, write_cell, profile_memory, recording_profile):
+         spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, use_coreneuron, plot_cell, uwrite_cell, profile_memory, recording_profile):
     """
     Show configuration for the specified cell.
     """
@@ -1395,6 +1395,7 @@ def show(config_file, population, gid, arena_id, trajectory_id, template_paths, 
               help='identifier that is used to name neuroh5 files that contain output spike and intracellular trace data')
 @click.option("--results-namespace-id", type=str, required=False, default=None, \
               help='identifier that is used to name neuroh5 namespaces that contain output spike and intracellular trace data')
+@click.option('--use-coreneuron', is_flag=True, help='enable use of CoreNEURON')
 @click.option('--plot-cell', is_flag=True, help='plot the distribution of weight and g_unit synaptic parameters')
 @click.option('--write-cell', is_flag=True, help='write out selected cell tree morphology and connections')
 @click.option('--profile-memory', is_flag=True, help='calculate and print heap usage after the simulation is complete')
@@ -1404,8 +1405,8 @@ def go(config_file, population, gid, arena_id, trajectory_id, generate_weights, 
        template_paths, dataset_prefix, config_prefix,
        spike_events_path, spike_events_namespace, spike_events_t,
        input_features_path, input_features_namespaces, n_trials, params_path,
-       results_path, results_file_id, results_namespace_id, plot_cell, write_cell,
-       profile_memory, recording_profile):
+       results_path, results_file_id, results_namespace_id, use_coreneuron,
+       plot_cell, write_cell, profile_memory, recording_profile):
 
     """
     Runs network clamp simulation for the specified gid, or for all gids found in the input data file.
@@ -1516,6 +1517,7 @@ def go(config_file, population, gid, arena_id, trajectory_id, generate_weights, 
               help='name of state variable used for state optimization')
 @click.option("--target-state-filter", type=str, required=False, 
               help='optional filter for state values used for state optimization')
+@click.option('--use-coreneuron', is_flag=True, help='enable use of CoreNEURON')
 @click.argument('target')# help='rate, rate_dist, state'
 
 
@@ -1525,7 +1527,7 @@ def optimize(config_file, population, gid, arena_id, trajectory_id, generate_wei
              spike_events_path, spike_events_namespace, spike_events_t, 
              input_features_path, input_features_namespaces, n_trials,
              target_rate_map_path, target_rate_map_namespace, target_state_variable,
-             target_state_filter, target):
+             target_state_filter, target, use_coreneuron):
     """
     Optimize the firing rate of the specified cell in a network clamp configuration.
     """

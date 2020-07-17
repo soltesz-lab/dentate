@@ -534,11 +534,12 @@ class SynapseAttributes(object):
                 else:
                     attr_dict[k] = new_val
             elif k in rules[mech_name]['netcon_params']:
+
                 mech_param = mech_params.get(k, None)
                 if isinstance(mech_param, ExprClosure):
                     if mech_param.parameters[0] == 'delay':
                         new_val = mech_param(syn.source.delay)
-                        #print("modify %s.%s.%s: delay: %f new val: %f" % (pop_name, syn_name, k, syn.source.delay, new_val))
+
                     else:
                         raise RuntimeError('modify_mech_attrs: unknown dependent expression parameter %s' %
                                            mech_param.parameters)
@@ -563,7 +564,7 @@ class SynapseAttributes(object):
                                            (k, mech_name, presyn_name))
                 else:
                     attr_dict[k] = new_val
-                logger.debug("modify %s.%s.%s: old_val: %s new val: %s" % (pop_name, syn_name, k, str(old_val), str(new_val)))
+                #logger.debug("modify %s.%s.%s.%s: old_val: %s new val: %s" % (pop_name, presyn_name, syn_name, k, str(old_val), str(new_val)))
                 
             else:
                 raise RuntimeError('modify_mech_attrs: unknown type of parameter %s' % k)
@@ -1044,12 +1045,14 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
                                                'value set for parameter %s' % (gid, syn_id, presyn_name, param_name))
                         if isinstance(param_val, Promise):
                             new_param_val = param_val.clos(*param_val.args)
+                            #logger.debug("config_hoc_cell_syns: %s param_val = %s new_param_val = %s" % (syn_name, str(param_val), str(new_param_val)))
                         elif param_name in param_closure_dict and isinstance(param_val, list):
                             new_param_val = param_closure_dict[param_name](*param_val)
                         else:
                             new_param_val = param_val
                         upd_params[param_name] = new_param_val
-                        
+
+                    #logger.debug("config_hoc_cell_syns: %s params = %s upd_params = %s" % (syn_name, str(params), str(upd_params)))
                     (mech_set, nc_set) = config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
                                                     mech_names=syn_attrs.syn_mech_names, syn=this_pps,
                                                     nc=this_netcon, **upd_params)
@@ -1130,6 +1133,7 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
                         nc.weight[i] = new
                         nc_param = True
                         failed = False
+                    #logger.debug("config_syn: syn: %s param: %s: old = %f new = %f" % (syn_name, param, old, new))
         if failed:
             raise AttributeError('config_syn: problem setting attribute: %s for synaptic mechanism: %s' %
                                  (param, mech_name))
