@@ -1644,7 +1644,9 @@ def get_mech_rules_dict(cell, **rules):
     return rules_dict
 
 
-def modify_mech_param(cell, sec_type, mech_name, param_name=None, append=False, verbose=False, **kwargs):
+def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, origin=None, slope=None, tau=None,
+                      xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None, custom=None,
+                      append=False, verbose=False, **kwargs):
     """
     Modifies or inserts new membrane mechanisms into hoc sections of type sec_type. First updates the mechanism
     dictionary, then sets the corresponding hoc parameters. This method is meant to be called manually during
@@ -1655,6 +1657,17 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, append=False, 
     :param sec_type: str
     :param mech_name: str
     :param param_name: str
+    :param value: float
+    :param origin: str (sec_type)
+    :param slope: float
+    :param tau: float
+    :param xhalf: float
+    :param min: float
+    :param max: float
+    :param min_loc: float
+    :param max_loc: float
+    :param outside: float
+    :param custom: dict
     :param append: bool
     :param verbose: bool
     """
@@ -1669,7 +1682,8 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, append=False, 
         if value is None and origin is None:
             raise ValueError('modify_mech_param: mechanism: %s; parameter: %s; missing origin or value for '
                              'sec_type: %s' % (mech_name, param_name, sec_type))
-        rules = get_mech_rules_dict(cell, **kwargs)
+        rules = get_mech_rules_dict(cell, value=value, origin=origin, slope=slope, tau=tau, xhalf=xhalf, min=min,
+                                    max=max, min_loc=min_loc, max_loc=max_loc, outside=outside, custom=custom, **kwargs)
         mech_content = {param_name: rules}
 
     backup_mech_dict = copy.deepcopy(cell.mech_dict)
