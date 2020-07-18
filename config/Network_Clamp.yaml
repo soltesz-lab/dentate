@@ -197,7 +197,7 @@ Synaptic Optimization:
         MOPP:  
           apical:
             GABA_A:
-              weight: [0.01, 2.0]
+              weight: [0.001, 1.0]
       Weight all inh soma dend:
         !!python/tuple [MPP, LPP]:
           apical:
