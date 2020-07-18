@@ -6,7 +6,7 @@ Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
 Cell Data: DG_MC_forest_syn_wgts_20200708.h5 
 Connection Data: DG_MC_connections_20200708_compressed.h5
-Connection Generator: !include Network_Clamp_Connections_GC_Exc_Sat_S_extent.yaml
+Connection Generator: !include Network_Clamp_Connections_MC.yaml
 Recording: !include Recording.yaml
 Stimulus: !include Input_Configuration.yaml
 Analysis: !include Analysis_Configuration.yaml
