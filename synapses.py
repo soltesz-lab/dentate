@@ -2746,7 +2746,7 @@ def plot_callback_structured_weights(**kwargs):
     fig.colorbar(p, ax=ax)
 
     ax = fig.add_subplot(inner_grid[1])
-    p = ax.pcolormesh(arena_x, arena_y, initial_background_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
+    p = ax.pcolormesh(arena_x, arena_y, initial_background_map.reshape(arena_x.shape)) #, vmin=vmin, vmax=vmax2)
     ax.set_title('Initial', fontsize=font_size)
     fig.colorbar(p, ax=ax)
 

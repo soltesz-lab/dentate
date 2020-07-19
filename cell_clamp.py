@@ -8,7 +8,7 @@ from dentate import cells, synapses, utils, neuron_utils, io_utils
 from dentate.env import Env
 from dentate.synapses import config_syn
 from dentate.utils import Context, get_module_logger, is_interactive
-from dentate.neuron_utils import h, configure_hoc_env
+from dentate.neuron_utils import h, configure_hoc_env, make_rec
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
@@ -426,6 +426,121 @@ def measure_gap_junction_coupling (env, template_class, tree, v_init, cell_dict=
     h.tstop = tstop
     pc.psolve(h.tstop)
     
+
+    
+def measure_psc (gid, pop_name, presyn_name, env, v_init, v_holding, cell_dict={}):
+
+    biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False, cell_dict=cell_dict)
+    hoc_cell = biophys_cell.hoc_cell
+
+    h.dt = env.dt
+
+    stimdur = 1000.0
+    tstop = stimdur
+    tstart = 0.
+    
+    soma = list(hoc_cell.soma)[0]
+    se = h.SEClamp(soma(0.5))
+    se.rs    = 10
+    se.dur   = stimdur
+    se.amp1  = v_holding
+
+    h('objref nil, tlog, ilog, Vlog')
+
+    h.tlog = h.Vector()
+    h.tlog.record (h._ref_t)
+
+    h.Vlog = h.Vector()
+    h.Vlog.record (soma(0.5)._ref_v)
+    
+    h.ilog = h.Vector()
+    ilog.record(se._ref_i)
+
+    h.tstop = tstop
+    
+    neuron_utils.simulate(v_init, 0., stimdur)
+    
+    vec_i = h.ilog.to_python()
+    vec_v = h.Vlog.to_python()
+    vec_t = h.tlog.to_python()
+    
+    idx = np.where(vec_t > tstart)[0]
+    vec_i = vec_i[idx]
+    vec_v = vec_v[idx]
+    vec_t = vec_t[idx]
+
+    t_holding = vec_t[0]
+    i_holding = vec_i[0]
+
+    i_peak = np.max(np.abs(vec_i[1:]))
+    peak_index = np.where(np.abs(vec_i) == i_peak)[0][0]
+    t_peak = vec_t[peak_index]
+    
+    logger.info("measure_psc: t_peak = %f i_holding = %f i_peak = %f" % (t_peak, i_holding, i_peak))
+
+    amp_i = abs(i_peak - i_holding) * 1000
+
+    logger.info("measure_psc: amp_i = %f" % amp_i)
+
+    return  amp_i
+
+
+def measure_psp (gid, pop_name, presyn_name, syn_mech_name, env, v_init, erev, cell_dict={}):
+
+    biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False, cell_dict=cell_dict)
+    hoc_cell = biophys_cell.hoc_cell
+
+    h.dt = env.dt
+
+    stimdur = 1000.0
+    tstop = stimdur
+    tstart = 0.
+
+    syn_attrs = env.synapse_attributes
+    syns = syn_attrs.filter_synapses(biophys_cell.gid, sources=[presyn_name])
+    target_syn_id, target_syn = next(iter(syns.items()))
+    target_syn_pps = syn_attrs.get_pps(gid, syn_id, syn_mech_name)
+    setattr(target_syn_pps, 'e', erev)
+    syn_attrs.add_vecstim(gid, syn_id, syn_mech_name, vs)
+    
+    prelength = 200.
+    mainlength = 1000.
+    
+    soma = list(hoc_cell.soma)[0]
+
+    vs = h.VecStim()
+    vec = h.Vector([prelength+1.])
+    vs.play(vec)
+    
+    v_rec = make_rec('soma', pop_name, gid, cell.hoc_cell, sec=soma, dt=dt, loc=0.5,
+                     param='v')
+    
+    h.tstop = mainlength + prelength
+    h('objref nil, tlog, ilog, Vlog')
+
+    h.tlog = h.Vector()
+    h.tlog.record (h._ref_t)
+    
+    neuron_utils.simulate(v_init, prelength, mainlength)
+    
+    vec_v = v_rec['vec'].to_python()
+    vec_t = h.tlog.to_python()
+    
+    idx = np.where(vec_t > 0)[0]
+    vec_v = vec_v[idx]
+    vec_t = vec_t[idx]
+
+    v_peak_index = np.argmax(vec_v[1:])
+    v_peak = v[v_peak_index]
+    t_peak = vec_t[v_peak_index]
+    
+    logger.info("measure_psc: t_peak = %f v_peak = %f" % (t_peak, v_peak))
+
+    amp_v = abs(v_peak - v_init)
+
+    logger.info("measure_psc: amp_v = %f" % amp_v)
+
+    return  amp_v
 
     
 
