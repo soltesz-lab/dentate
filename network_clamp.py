@@ -883,7 +883,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
                 residual = ((mean_peak - mean_trough) ** 2.) / ((max(mean_trough - target_min_infld, 1.0)) ** 2.)
                 logger.info('selectivity rate objective: mean peak/mean trough/residual rate of gid %i: %.02f %.02f %.04f' % (gid, mean_peak, mean_trough, residual))
             else:
-                residual = (np.clip(max_infld - mean_outfld, 0., None) ** 2.)  / (max(mean_outfld/rate_baseline, 1.0) ** 2.)
+                residual = (np.clip(mean_peak - mean_outfld, 0., None) ** 2.)  / (max(mean_outfld/rate_baseline, 1.0) ** 2.)
                 logger.info('selectivity rate objective: max in/min in/mean out/residual rate of gid %i: %.02f %.02f %.02f %.04f' % (gid, max_infld, min_infld, mean_outfld, residual))
 
             result[gid] = residual

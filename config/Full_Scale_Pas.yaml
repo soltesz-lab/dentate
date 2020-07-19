@@ -22,7 +22,6 @@ Cell Types:
   MC:
     template: MossyCell
     synapses:
-      weights: False
       density: !include MC_synapse_density.yaml
   HC:
     template: HIPPCell
