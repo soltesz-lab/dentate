@@ -116,7 +116,7 @@ class Env(object):
         else:
             color = 0
         ## comm0 includes only rank 0
-        comm0 = comm.Split(color, 0)
+        comm0 = self.comm.Split(color, 0)
 
         if configure_nrn:
             from dentate.neuron_utils import h, find_template
