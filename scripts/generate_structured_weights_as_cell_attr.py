@@ -65,7 +65,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
-@click.option("--cache-size", type=int, default=50)
+@click.option("--cache-size", type=int, default=1)
 @click.option("--write-size", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
@@ -156,7 +156,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
 
     all_sources = sources + non_structured_sources
         
-    connection_gen_list = [ NeuroH5ProjectionGen(connections_path, source, destination, namespaces=['Synapses'], comm=comm) \
+    connection_gen_list = [ NeuroH5ProjectionGen(connections_path, source, destination, namespaces=['Synapses'], io_size=io_size, cache_size=cache_size, comm=comm) \
                                for source in all_sources ]
 
     output_features_dict = {}
@@ -180,11 +180,10 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             logger.info('Rank: %i received None' % rank)
         else:
             selection = [this_gid]
+            logger.info('Rank: %i received gid %d' % (rank, this_gid))
             local_random.seed(int(this_gid + seed_offset))
 
         has_structured_weights = False
-
-        logger.info('Rank %d: selection = %s' % (rank, str(selection)))
 
         dst_input_features_attr_dict = {}
         for input_features_namespace in this_input_features_namespaces:
@@ -197,8 +196,8 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             for gid, attr_dict in input_features_iter:
                 dst_input_features_attr_dict[gid] = attr_dict
                 count += 1
-            if rank == 0:
-                logger.info('Read %s feature data for %i cells in population %s' % (input_features_namespace, count, destination))
+            if this_gid is not None:
+                logger.info('Rank %i: read %s feature data for %i cells in population %s' % (rank, input_features_namespace, count, destination))
 
         arena_margin_size = 0.
         arena_margin = max(arena_margin, 0.)
@@ -273,8 +272,9 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                 initial_weights_gid_count += 1
                 initial_weights_syn_count += len(syn_ids)
 
-            logger.info('destination: %s; read initial synaptic weights for %i gids and %i syns' %
-                        (destination, initial_weights_gid_count, initial_weights_syn_count))
+            if has_structured_weights and (this_gid is not None):
+                logger.info('Rank %i: destination: %s; read initial synaptic weights for %i gids and %i syns' %
+                            (rank, destination, initial_weights_gid_count, initial_weights_syn_count))
 
         if len(non_structured_sources) > 0:
             non_structured_weights_by_syn_id_dict = defaultdict(lambda: dict())
@@ -300,8 +300,10 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                 non_structured_weights_gid_count += 1
                 non_structured_weights_syn_count += len(syn_ids)
 
-            logger.info('destination: %s; read non-structured synaptic weights for %i gids and %i syns' %
-                        (destination, non_structured_weights_gid_count, non_structured_weights_syn_count, ))
+
+            if has_structured_weights and (this_gid is not None):
+                logger.info('Rank %i: destination: %s; read non-structured synaptic weights for %i gids and %i syns' %
+                            (rank, destination, non_structured_weights_gid_count, non_structured_weights_syn_count, ))
             
         reference_weights_by_syn_id_dict = None
         reference_weights_by_source_gid_dict = defaultdict(lambda: dict())
@@ -321,8 +323,9 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                 for (syn_id, weight) in zip(syn_ids, weights):
                     reference_weights_by_syn_id_dict[this_gid][int(syn_id)] = float(weight)
 
-            logger.info('destination: %s; read reference synaptic weights for %i gids' %
-                        (destination, reference_weights_gid_count))
+            if has_structured_weights and (this_gid is not None):
+                logger.info('Rank %i: destination: %s; read reference synaptic weights for %i gids' %
+                            (rank, destination, reference_weights_gid_count))
             
 
         syn_count_by_source_gid_dict = defaultdict(int)
@@ -370,8 +373,9 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                     count += 1
                 if source not in non_structured_sources:
                     structured_syn_id_count += len(syn_ids)
-                logger.info('Rank %i; destination: %s; gid %i; %d edges from source population %s' %
-                            (rank, destination, this_gid, count, source))
+                if has_structured_weights and (this_gid is not None):
+                    logger.info('Rank %i: destination: %s; gid %i; %d edges from source population %s' %
+                                (rank, destination, this_gid, count, source))
 
 
         input_rate_maps_by_source_gid_dict = {}
@@ -384,8 +388,6 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                 source_gids = list(source_gid_set_dict[source])
             else:
                 source_gids = []
-            if rank == 0:
-                logger.info('Reading %s feature data for %i cells in population %s...' % (input_features_namespace, len(source_gids), source))
             for input_features_namespace in this_input_features_namespaces:
                 input_features_iter = scatter_read_cell_attribute_selection(input_features_path, source, 
                                                                             namespace=input_features_namespace,
@@ -406,8 +408,6 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                     else:
                         input_rate_maps_by_source_gid_dict[gid] = this_arena_rate_map
                     count += 1
-                if rank == 0:
-                    logger.info('Read %s feature data for %i cells in population %s' % (input_features_namespace, count, source))
 
         if has_structured_weights:
 
@@ -483,7 +483,6 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                     if output_features_namespace is None:
                         output_features_namespace = '%s Selectivity' % target_selectivity_type_name.title()
                     this_output_features_namespace = '%s %s' % (output_features_namespace, arena_id)
-                    logger.info(str(output_features_dict))
                     append_cell_attributes(output_features_path, destination, output_features_dict,
                                            namespace=this_output_features_namespace)
                     count = comm.reduce(len(output_features_dict), op=MPI.SUM, root=0)
@@ -520,7 +519,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     env.comm.barrier()
     global_count = comm.gather(gid_count, root=0)
     if rank == 0:
-        logger.info('destination: %s; %i ranks assigned structured weights to %i cells in %.2f s' %
+        logger.info('destination: %s; %i ranks generated structured weights for %i cells in %.2f s' %
                     (destination, comm.size, np.sum(global_count), time.time() - start_time))
 
 
