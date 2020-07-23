@@ -4,14 +4,13 @@ public connect2target, subsets, is_art, is_connected
 public all, soma, basal, apical, ais, hillock, axon, allaxon
 public apicalidx, basalidx, somaidx, axonidx, aisidx, hilidx
 public xx, yy, zz, position
-public syns
+public syns, layers, ndendpts
 
 create sections[1]
 
 objref all, soma, basal, apical, ais, hillock, axon, allaxon
 objref apicalidx, basalidx, somaidx, axonidx, aisidx, hilidx
-objref layers
-objref syns
+objref syns, layers, ndendpts
 
 gid = -1
 
