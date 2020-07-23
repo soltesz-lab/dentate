@@ -117,7 +117,7 @@ class Env(object):
         else:
             color = 0
         ## comm0 includes only rank 0
-        comm0 = comm.Split(color, 0)
+        comm0 = self.comm.Split(color, 0)
 
         self.use_coreneuron = use_coreneuron
         if configure_nrn:
