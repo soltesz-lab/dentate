@@ -4,7 +4,7 @@ Dataset Name: Small_Scale
 Definitions: !include Definitions.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-Cell Data: BC_axon_20200713.h5 
+Cell Data: BC_axon_20200723.h5 
 #Connection Data: GC_MC_BC_trees_syns_connections_20181126.h5  # MC_BC_connections_20180905.h5
 Connection Generator: !include Small_Scale_Connections_tune_GC_synapses.yaml
 Recording: !include Recording.yaml

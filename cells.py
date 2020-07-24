@@ -2123,7 +2123,32 @@ def report_topology(cell, env, node=None):
     for child in node.children:
         report_topology(cell, env, child)
 
-
+        
+def make_section_node_dict(neurotree_dict):
+    """
+    Creates a dictionary of node to section assignments.
+    :param neurotree_dict:
+    :return: dict
+    """
+    pt_sections = neurotree_dict['sections']
+    num_sections = pt_sections[0]
+    sec_nodes = {}
+    i = 1
+    section_idx = 0
+    while i < len(pt_sections):
+          num_points = pt_sections[i]
+          i += 1
+          sec_nodes[section_idx] = []
+          for ip in range(num_points):
+            p = pt_sections[i]
+            sec_nodes[section_idx].append(p)
+            i += 1
+          section_idx += 1
+    assert(section_idx == num_sections)
+    return sec_nodes
+  
+    
+    
 def make_section_graph(neurotree_dict):
     """
     Creates a graph of sections that follows the topological organization of the given neuron.
@@ -2132,13 +2157,28 @@ def make_section_graph(neurotree_dict):
     """
     import networkx as nx
 
-    sec_nodes = neurotree_dict['section_topology']['nodes']
-    sec_src = neurotree_dict['section_topology']['src']
-    sec_dst = neurotree_dict['section_topology']['dst']
-
+    if 'section_topology' in neurotree_dict:
+        sec_src = neurotree_dict['section_topology']['src']
+        sec_dst = neurotree_dict['section_topology']['dst']
+        sec_loc = neurotree_dict['section_topology']['loc']
+    else:
+        sec_src = neurotree_dict['src']
+        sec_dst = neurotree_dict['dst']
+        sec_loc = []
+        sec_nodes = {}
+        pt_sections = neurotree_dict['sections']
+        pt_parents = neurotree_dict['parent']
+        sec_nodes = make_section_node_dict(neurotree_dict)
+        for src, dst in zip_longest(sec_src, sec_dst):
+            src_pts = sec_nodes[src]
+            dst_pts = sec_nodes[dst]
+            dst_parent = pt_parents[dst_pts[0]]
+            loc = np.argwhere(src_pts == dst_parent)[0]
+            sec_loc.append(loc)
+                
     sec_graph = nx.DiGraph()
-    for i, j in zip(sec_src, sec_dst):
-        sec_graph.add_edge(i, j)
+    for i, j, loc in zip(sec_src, sec_dst, sec_loc):
+        sec_graph.add_edge(i, j, loc=loc)
 
     return sec_graph
 
@@ -2213,6 +2253,98 @@ def make_morph_graph(biophys_cell, node_filters={}):
         morph_graph.add_edge(i, j)
 
     return morph_graph
+
+
+def resize_tree_sections(neurotree_dict, max_section_length):
+    """
+    Given a neurotree dictionary, transforms section and point data such that 
+    no section exceeds the length specified by parameter max_section_length.
+
+    :param neurotree_dict: neurotree dictionary
+    :param max_section_length: maximum section length
+    :return: neurotree dict
+    """
+    import networkx as nx
+
+    assert(max_section_length > 0)
+    
+    vx = copy.deepcopy(neurotree_dict['x'])
+    vy = copy.deepcopy(neurotree_dict['y'])
+    vz = copy.deepcopy(neurotree_dict['z'])
+    vradius = copy.deepcopy(neurotree_dict['radius'])
+    vlayer = copy.deepcopy(neurotree_dict['layer'])
+    swc_type = copy.deepcopy(neurotree_dict['swc_type'])
+    vparent = copy.deepcopy(neurotree_dict['parent'])
+    vsrc = copy.deepcopy(neurotree_dict['src'])
+    vdst = copy.deepcopy(neurotree_dict['dst'])
+    sec_nodes_dict = make_section_node_dict(neurotree_dict)
+    new_ndindex = len(vx)
+    new_secindex = len(sec_nodes_dict)
+    node_arrays = (vx,vy,vz,vradius,vlayer,swc_type,vparent)
+    secg = make_section_graph(neurotree_dict)
+    secq = sorted(sec_nodes_dict.keys(), reverse=True)
+    while secq:
+        secindex = secq.pop()
+        nodes = np.asarray(sec_nodes_dict[secindex])
+        nodes_xyz = np.column_stack((vx[nodes], vy[nodes], vz[nodes]))
+        a = nodes_xyz[1:,:]
+        b = nodes_xyz[:-1,:]
+        nodes_dd = np.sqrt(np.sum((a - b) ** 2, axis=1))
+        nodes_cd = np.cumsum(nodes_dd)
+        nodes_dist = np.concatenate(([0.], nodes_cd))
+        new_secnodes = nodes[np.argwhere(nodes_dist > max_section_length).flat]
+        if len(new_secnodes) > 0:
+            old_secnodes = nodes[np.argwhere(nodes_dist <= max_section_length).flat]
+            sec_len = len(old_secnodes)+1
+            sec_nodes_dict[new_secindex] = np.concatenate(([new_ndindex], new_secnodes))
+            sec_nodes_dict[secindex] = np.concatenate((old_secnodes, [new_ndindex]))
+            for a in node_arrays:
+                a.resize(new_ndindex+1, refcheck=False)
+            new_x = np.interp(max_section_length, nodes_dist, vx[nodes])
+            new_y = np.interp(max_section_length, nodes_dist, vy[nodes])
+            new_z = np.interp(max_section_length, nodes_dist, vz[nodes])
+            new_radius = np.interp(max_section_length, nodes_dist, vradius[nodes])
+            new_layer = vlayer[new_secnodes[0]]
+            new_swctype = swc_type[new_secnodes[0]]
+            new_parent = sec_nodes_dict[secindex][-1]
+            for a,v in zip_longest(node_arrays,(new_x,new_y,new_z,new_radius,new_layer,new_swctype,new_parent)):
+                np.concatenate((a[:-1],[v]),out=a)
+            vparent[new_secnodes[0]] = new_ndindex
+            secg.add_node(new_secindex)
+            sec_out = secg.out_edges(secindex, data=True)
+            for i,j,attr in sec_out:
+                loc = attr['loc']
+                if loc >= sec_len-1:
+                    secg.remove_edge(i,j)
+                    secg.add_edge(new_secindex, j, loc=loc-sec_len+1)
+            secg.add_edge(secindex, new_secindex, loc=sec_len-1)
+            secq.append(new_secindex)
+            new_secindex += 1
+            new_ndindex += 1
+    num_secedges = secg.number_of_edges()
+    vsrc = np.zeros((num_secedges,), dtype=np.uint16)
+    vdst = np.zeros((num_secedges,), dtype=np.uint16)
+    for i, (s, d, l) in enumerate(secg.edges.data('loc')):
+        vsrc[i] = s
+        vdst[i] = d
+    sections = [np.asarray([len(sec_nodes_dict)], dtype=np.uint16)]
+    for secindex, secnodes in viewitems(sec_nodes_dict):
+        sections.append(np.asarray([len(secnodes)], dtype=np.uint16))
+        sections.append(secnodes)
+    vsection = np.asarray(np.concatenate(sections), dtype=np.uint16)
+    
+    new_tree_dict = { 'x': vx,
+                      'y': vy,
+                      'z': vz,
+                      'radius': vradius,
+                      'layer': vlayer,
+                      'parent': vparent,
+                      'swc_type': swc_type,
+                      'sections': vsection,
+                      'src': vsrc,
+                      'dst': vdst }
+
+    return new_tree_dict
 
 
 def normalize_tree_topology(neurotree_dict, swc_type_defs):
@@ -2392,6 +2524,7 @@ def make_neurotree_cell(template_class, gid=0, dataset_path="", neurotree_dict={
     :param neurotree_dict:
     :return: hoc cell object
     """
+
     vx = neurotree_dict['x']
     vy = neurotree_dict['y']
     vz = neurotree_dict['z']
@@ -2403,6 +2536,7 @@ def make_neurotree_cell(template_class, gid=0, dataset_path="", neurotree_dict={
     vdst = neurotree_dict['section_topology']['dst']
     vloc = neurotree_dict['section_topology']['loc']
     swc_type = neurotree_dict['swc_type']
+    
     cell = template_class(gid, dataset_path, secnodes, vlayer, vsrc, vdst, vloc, vx, vy, vz, vradius, swc_type)
     return cell
 
@@ -2412,7 +2546,7 @@ def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
 
     :param env:
     :param gid:
-    :param population:
+    :param pop_name:
     :return:
     """
     dataset_path = env.dataset_path if env.dataset_path is not None else ""
