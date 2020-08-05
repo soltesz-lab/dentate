@@ -154,52 +154,56 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     if len(gid) > 0:
         target_gid_set = set(gid)
 
-    all_sources = sources + non_structured_sources
-        
-    connection_gen_list = [ NeuroH5ProjectionGen(connections_path, source, destination, namespaces=['Synapses'], comm=comm) \
-                               for source in all_sources ]
 
+    all_sources = sources + non_structured_sources
+    dst_gids = []
+    dst_input_features_attr_dict = {}
+    if target_gid_set is not None:
+        for i, gid in enumerate(target_gid_set):
+            if i%nranks == rank:
+                dst_gids.append(gid)
+        else:
+            for input_features_namespace in this_input_features_namespaces:
+                count = 0
+                input_features_iter = scatter_read_cell_attributes(input_features_path, destination, 
+                                                                   namespace=input_features_namespace,
+                                                                   mask=set(target_features_attr_names), 
+                                                                   io_size=env.io_size, comm=env.comm)
+                for gid, attr_dict in input_features_iter:
+                    if (len(coordinates) > 0) or (attr_dict['Num Fields'][0] > 0):
+                        dst_input_features_attr_dict[gid] = attr_dict
+                        count += 1
+
+                count = comm.reduce(count, op=MPI.SUM, root=0)
+                if rank == 0:
+                    logger.info('Read %s feature data for %i cells in population %s' % (input_features_namespace, count, destination))
+
+            max_dst_count = comm.allreduce(len(dst_input_features_attr_dict), op=MPI.MAX)
+            dst_gids = list(dst_input_features_attr_dict.keys())
+    
     output_features_dict = {}
     LTP_output_weights_dict = {}
     LTD_output_weights_dict = {}
-    for iter_count, attr_gen_package in enumerate(zip_longest(*connection_gen_list)):
-        
+    for iter_count in range(max_dst_count):
+
         local_time = time.time()
-        this_gid = attr_gen_package[0][0]
-        if not all([attr_gen_items[0] == this_gid for attr_gen_items in attr_gen_package]):
-            raise Exception('Rank: %i; destination: %s; this_gid not matched across multiple attribute '
-                            'generators: %s' % (rank, destination,
-                                                [attr_gen_items[0] for attr_gen_items in attr_gen_package]))
-        
-        if (target_gid_set is not None) and (this_gid not in target_gid_set):
-            continue
-
-
-        if this_gid is None:
-            selection = []
-            logger.info('Rank: %i received None' % rank)
-        else:
+        this_gid = None
+        has_structured_weights = False
+        selection = []
+        if len(dst_gids) > 0:
+            this_gid = dst_gids.pop()
             selection = [this_gid]
             local_random.seed(int(this_gid + seed_offset))
+            logger.info('Rank %i received %d' % (rank, this_gid))
+        else:
+            logger.info('Rank: %i received None' % rank)
 
-        has_structured_weights = False
-
-        logger.info('Rank %d: selection = %s' % (rank, str(selection)))
-
-        dst_input_features_attr_dict = {}
-        for input_features_namespace in this_input_features_namespaces:
-            input_features_iter = scatter_read_cell_attribute_selection(input_features_path, destination, 
-                                                                        namespace=input_features_namespace,
-                                                                        mask=set(target_features_attr_names), 
-                                                                        selection=selection,
-                                                                        io_size=env.io_size, comm=env.comm)
-            count = 0
-            for gid, attr_dict in input_features_iter:
-                dst_input_features_attr_dict[gid] = attr_dict
-                count += 1
-            if rank == 0:
-                logger.info('Read %s feature data for %i cells in population %s' % (input_features_namespace, count, destination))
-
+        projections = ( (source, destination) for source in all_sources )
+        edge_iter_dict, edge_attr_info = read_graph_selection(connections_path, selection=selection,
+                                                              namespaces=['Synapses'], comm=comm,
+                                                              projections=projections)
+        syn_id_attr_index = edge_attr_info['Synapses']['syn_id']
+        
         arena_margin_size = 0.
         arena_margin = max(arena_margin, 0.)
         target_selectivity_features_dict = {}
@@ -242,15 +246,13 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
 
         arena_x, arena_y = stimulus.get_2D_arena_spatial_mesh(arena, spatial_resolution,
                                                               margin=arena_margin_size)
+
         for gid, input_cell_config in viewitems(target_selectivity_config_dict):
             target_map = np.asarray(input_cell_config.get_rate_map(arena_x, arena_y,
                                                                    scale=field_width_scale),
                                     dtype=np.float32)
             target_selectivity_features_dict[gid]['Arena Rate Map'] = target_map
 
-                
-        if not has_structured_weights:
-            selection = []
                 
         initial_weights_by_syn_id_dict = defaultdict(lambda: dict())
         initial_weights_by_source_gid_dict = defaultdict(lambda: dict())
@@ -331,47 +333,49 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
         structured_syn_id_count = 0
 
         if has_structured_weights:
-            for source, (destination_gid, (source_gid_array, conn_attr_dict)) in zip_longest(all_sources, attr_gen_package):
-                syn_ids = conn_attr_dict['Synapses']['syn_id']
-                count = 0
-                this_initial_weights_by_syn_id_dict = None
-                this_initial_weights_by_source_gid_dict = None
-                this_reference_weights_by_syn_id_dict = None
-                this_reference_weights_by_source_gid_dict = None
-                this_non_structured_weights_by_syn_id_dict = None
-                this_non_structured_weights_by_source_gid_dict = None
-                if destination_gid is not None:
-                    this_initial_weights_by_syn_id_dict = initial_weights_by_syn_id_dict[destination_gid]
-                    this_initial_weights_by_source_gid_dict = initial_weights_by_source_gid_dict[destination_gid]
-                    if reference_weights_by_syn_id_dict is not None:
-                        this_reference_weights_by_syn_id_dict = reference_weights_by_syn_id_dict[destination_gid]
-                        this_reference_weights_by_source_gid_dict = reference_weights_by_source_gid_dict[destination_gid]
-                    this_non_structured_weights_by_syn_id_dict = non_structured_weights_by_syn_id_dict[destination_gid]
-                    this_non_structured_weights_by_source_gid_dict = non_structured_weights_by_source_gid_dict[destination_gid]
+            for source, edge_dict in viewitems(edge_iter_dict[destination]):
+                for destination_gid, edges in viewitems(edge_dict):
+                    (source_gid_array, edge_attr_dict) = edges
+                    syn_ids = edge_attr_dict['Synapses'][syn_id_attr_index]
+                    count = 0
+                    this_initial_weights_by_syn_id_dict = None
+                    this_initial_weights_by_source_gid_dict = None
+                    this_reference_weights_by_syn_id_dict = None
+                    this_reference_weights_by_source_gid_dict = None
+                    this_non_structured_weights_by_syn_id_dict = None
+                    this_non_structured_weights_by_source_gid_dict = None
+                    if destination_gid is not None:
+                        this_initial_weights_by_syn_id_dict = initial_weights_by_syn_id_dict[destination_gid]
+                        this_initial_weights_by_source_gid_dict = initial_weights_by_source_gid_dict[destination_gid]
+                        if reference_weights_by_syn_id_dict is not None:
+                            this_reference_weights_by_syn_id_dict = reference_weights_by_syn_id_dict[destination_gid]
+                            this_reference_weights_by_source_gid_dict = reference_weights_by_source_gid_dict[destination_gid]
+                        this_non_structured_weights_by_syn_id_dict = non_structured_weights_by_syn_id_dict[destination_gid]
+                        this_non_structured_weights_by_source_gid_dict = non_structured_weights_by_source_gid_dict[destination_gid]
 
-                for i in range(len(source_gid_array)):
-                    this_source_gid = source_gid_array[i]
-                    this_syn_id = syn_ids[i]
-                    if this_syn_id in this_initial_weights_by_syn_id_dict:
-                        this_syn_wgt = this_initial_weights_by_syn_id_dict[this_syn_id]
-                        if this_source_gid not in this_initial_weights_by_source_gid_dict:
-                            this_initial_weights_by_source_gid_dict[this_source_gid] = this_syn_wgt
-                        if this_reference_weights_by_syn_id_dict is not None:
-                            this_reference_weights_by_source_gid_dict[this_source_gid] = \
-                              this_reference_weights_by_syn_id_dict[this_syn_id]
-                    elif this_syn_id in this_non_structured_weights_by_syn_id_dict:
-                        this_syn_wgt = this_non_structured_weights_by_syn_id_dict[this_syn_id]
-                        if this_source_gid not in this_non_structured_weights_by_source_gid_dict:
-                            this_non_structured_weights_by_source_gid_dict[this_source_gid] = this_syn_wgt
-                    source_gid_set_dict[source].add(this_source_gid)
-                    syn_ids_by_source_gid_dict[this_source_gid].append(this_syn_id)
-                    syn_count_by_source_gid_dict[this_source_gid] += 1
-                        
-                    count += 1
-                if source not in non_structured_sources:
-                    structured_syn_id_count += len(syn_ids)
-                logger.info('Rank %i; destination: %s; gid %i; %d edges from source population %s' %
-                            (rank, destination, this_gid, count, source))
+                    for i in range(len(source_gid_array)):
+                        this_source_gid = source_gid_array[i]
+                        this_syn_id = syn_ids[i]
+                        if this_syn_id in this_initial_weights_by_syn_id_dict:
+                            this_syn_wgt = this_initial_weights_by_syn_id_dict[this_syn_id]
+                            if this_source_gid not in this_initial_weights_by_source_gid_dict:
+                                this_initial_weights_by_source_gid_dict[this_source_gid] = this_syn_wgt
+                            if this_reference_weights_by_syn_id_dict is not None:
+                                this_reference_weights_by_source_gid_dict[this_source_gid] = \
+                                  this_reference_weights_by_syn_id_dict[this_syn_id]
+                        elif this_syn_id in this_non_structured_weights_by_syn_id_dict:
+                            this_syn_wgt = this_non_structured_weights_by_syn_id_dict[this_syn_id]
+                            if this_source_gid not in this_non_structured_weights_by_source_gid_dict:
+                                this_non_structured_weights_by_source_gid_dict[this_source_gid] = this_syn_wgt
+                        source_gid_set_dict[source].add(this_source_gid)
+                        syn_ids_by_source_gid_dict[this_source_gid].append(this_syn_id)
+                        syn_count_by_source_gid_dict[this_source_gid] += 1
+
+                        count += 1
+                    if source not in non_structured_sources:
+                        structured_syn_id_count += len(syn_ids)
+                    logger.info('Rank %i; destination: %s; gid %i; %d edges from source population %s' %
+                                (rank, destination, this_gid, count, source))
 
 
         input_rate_maps_by_source_gid_dict = {}
