@@ -1273,7 +1273,7 @@ def get_syn_filter_dict(env, rules, convert=False, check_valid=True):
                 raise ValueError('get_syn_filter_dict: swc_type: %s not recognized by network configuration' %
                                  syn_type)
             if convert:
-                rules_dict['swc_types'][i] = env.SWC_Types[syn_type]
+                rules_dict['swc_types'][i] = env.SWC_Types[swc_type]
     if layers is not None:
         for i, layer in enumerate(layers):
             if layer not in env.layers:
