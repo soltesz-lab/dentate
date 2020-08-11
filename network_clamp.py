@@ -378,8 +378,12 @@ def run(env, cvode=False, pc_runworker=True):
 
     rec_dt = 0.1
     if env.recording_profile is not None:
-        rec_dt = env.recording_profile.get('dt', 0.1) 
-    env.t_rec.record(h._ref_t, rec_dt)
+        rec_dt = env.recording_profile.get('dt', 0.1)
+    if env.use_coreneuron:
+        #h('create netclamp_sec')
+        env.t_rec.record(h._ref_t)
+    else:
+        env.t_rec.record(h._ref_t, rec_dt)
     env.t_vec.resize(0)
     env.id_vec.resize(0)
 
@@ -468,7 +472,10 @@ def run_with(env, param_dict, cvode=False, pc_runworker=True):
     rec_dt = 0.1
     if env.recording_profile is not None:
         rec_dt = env.recording_profile.get('dt', 0.1) 
-    env.t_rec.record(h._ref_t, rec_dt)
+    if env.use_coreneuron:
+        env.t_rec.record(h._ref_t)
+    else:
+        env.t_rec.record(h._ref_t, rec_dt)
 
     env.t_vec.resize(0)
     env.id_vec.resize(0)
