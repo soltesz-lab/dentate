@@ -376,11 +376,10 @@ def run(env, cvode=False, pc_runworker=True):
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
-    rec_dt = 0.1
+    rec_dt = None
     if env.recording_profile is not None:
-        rec_dt = env.recording_profile.get('dt', 0.1)
-    if env.use_coreneuron:
-        #h('create netclamp_sec')
+        rec_dt = env.recording_profile.get('dt', None)
+    if rec_dt is None:
         env.t_rec.record(h._ref_t)
     else:
         env.t_rec.record(h._ref_t, rec_dt)
@@ -469,10 +468,10 @@ def run_with(env, param_dict, cvode=False, pc_runworker=True):
 
     update_network_params(env, param_dict)
 
-    rec_dt = 0.1
+    rec_dt = None
     if env.recording_profile is not None:
-        rec_dt = env.recording_profile.get('dt', 0.1) 
-    if env.use_coreneuron:
+        rec_dt = env.recording_profile.get('dt', None)
+    if rec_dt is None:
         env.t_rec.record(h._ref_t)
     else:
         env.t_rec.record(h._ref_t, rec_dt)
@@ -565,7 +564,7 @@ def optimize_params(env, pop_name, param_type, param_config_name):
     return param_bounds, param_names, param_initial_dict, param_tuples
 
 
-def init_state_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, n_trials, param_type, param_config_name, recording_profile, state_variable, state_filter, target_value, worker, **kwargs):
+def init_state_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, n_trials, param_type, param_config_name, recording_profile, state_variable, state_filter, target_value, use_coreneuron, worker, **kwargs):
 
     params = dict(locals())
     env = Env(**params)
@@ -642,7 +641,7 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
     return f
 
 
-def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, n_trials, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, param_type, param_config_name, recording_profile, target_rate, worker, **kwargs):
+def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, n_trials, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, param_type, param_config_name, recording_profile, target_rate, use_coreneuron, worker, **kwargs):
 
     params = dict(locals())
     env = Env(**params)
@@ -731,7 +730,8 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
                                     input_features_path, input_features_namespaces,
                                     param_type, param_config_name, recording_profile, rate_baseline,
                                     target_rate_map_path, target_rate_map_namespace,
-			            target_rate_map_arena, target_rate_map_trajectory,  worker, **kwargs):
+			            target_rate_map_arena, target_rate_map_trajectory,  worker, 
+                                    use_coreneuron, **kwargs):
     
     params = dict(locals())
     env = Env(**params)
@@ -778,9 +778,9 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
     infld_idxs_dict = { gid: range_inds(contiguous_ranges(target_rate_vector > 0, return_indices=True))
                         for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
     
-    peak_pctile_dict = { gid: np.percentile(target_rate_vector_dict[gid][infld_idxs], 80)
+    peak_pctile_dict = { gid: np.percentile(target_rate_vector_dict[gid][infld_idxs], 90)
                          for gid, infld_idxs in viewitems(infld_idxs_dict) }
-    trough_pctile_dict = { gid: np.percentile(target_rate_vector_dict[gid][infld_idxs], 20)
+    trough_pctile_dict = { gid: np.percentile(target_rate_vector_dict[gid][infld_idxs], 10)
                            for gid, infld_idxs in viewitems(infld_idxs_dict) }
 
     peak_idxs_dict = { gid: range_inds(contiguous_ranges(target_rate_vector >= peak_pctile_dict[gid], return_indices=True)) 
@@ -802,7 +802,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
         if target_outfld_rate_vector is not None:
             logger.info('selectivity rate objective: target max in/mean out rate of gid %i: %.02f %.02f' % (gid, np.max(target_infld_rate_vector), np.mean(target_outfld_rate_vector)))
         else:
-            logger.info('selectivity rate objective: target max in/min in rate of gid %i: %.02f %.02f' % (gid, np.max(target_infld_rate_vector), np.min(target_infld_rate_vector)))
+            logger.info('selectivity rate objective: target peak/trough rate of gid %i: %.02f %.02f' % (gid, peak_pctile_dict[gid], trough_pctile_dict[gid]))
         
     param_bounds, param_names, param_initial_dict, param_tuples = \
       optimize_params(env, population, param_type, param_config_name)
@@ -875,7 +875,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             else:
                 mean_outfld_rate_vector = None
 
-            target_min_infld = np.min(target_infld_rate_vector)
+            target_mean_trough = np.mean(target_rate_vector[trough_idxs])
             target_max_infld = np.max(target_infld_rate_vector)
 
             mean_peak = np.mean(mean_peak_rate_vector)
@@ -887,7 +887,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             if max_infld > target_max_infld:
                 residual = 0.
             elif mean_outfld is None:
-                residual = ((mean_peak - mean_trough) ** 2.) / ((max(mean_trough - target_min_infld, 1.0)) ** 2.)
+                residual = ((mean_peak - mean_trough) ** 2.)  / max((mean_trough - target_mean_trough) ** 2., 1.0)
                 logger.info('selectivity rate objective: mean peak/mean trough/residual rate of gid %i: %.02f %.02f %.04f' % (gid, mean_peak, mean_trough, residual))
             else:
                 residual = (np.clip(mean_peak - mean_outfld, 0., None) ** 2.)  / (max(mean_outfld/rate_baseline, 1.0) ** 2.)
@@ -907,7 +907,8 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
                                     param_type, param_config_name, recording_profile,
                                     state_variable, state_filter, state_baseline,
                                     target_rate_map_path, target_rate_map_namespace,
-			            target_rate_map_arena, target_rate_map_trajectory,  worker, **kwargs):
+			            target_rate_map_arena, target_rate_map_trajectory,  
+                                    use_coreneuron, worker, **kwargs):
     
     
     params = dict(locals())
@@ -1080,7 +1081,8 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
                           input_features_path, input_features_namespaces,
                           param_type, param_config_name, recording_profile,
                           target_rate_map_path, target_rate_map_namespace,
-			  target_rate_map_arena, target_rate_map_trajectory,  worker, **kwargs):
+			  target_rate_map_arena, target_rate_map_trajectory,  
+                          use_coreneuron, worker, **kwargs):
     
     params = dict(locals())
     env = Env(**params)

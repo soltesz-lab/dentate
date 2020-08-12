@@ -2759,7 +2759,7 @@ def record_cell(env, pop_name, gid, recording_profile=None):
         cell = env.biophys_cells[pop_name].get(gid, None)
         if cell is not None:
             label = recording_profile['label']
-            dt = recording_profile.get('dt', 0.1)
+            dt = recording_profile.get('dt', None)
             for recvar, recdict  in viewitems(recording_profile.get('section quantity', {})):
                 nodes = filter_nodes(cell, layers=recdict.get('layers', None),
                                      swc_types=recdict.get('swc types', None))

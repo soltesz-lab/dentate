@@ -215,7 +215,7 @@ def load_cell_template(env, pop_name):
     return template_class
 
 
-def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v', label=None, dt=h.dt, description=''):
+def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v', label=None, dt=None, description=''):
     """
     Makes a recording vector for the specified quantity in the specified section and location.
 
@@ -257,7 +257,10 @@ def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v
                 break
     if label is None:
         label = param
-    vec.record(getattr(hocobj, '_ref_%s' % param), dt)
+    if dt is None:
+        vec.record(getattr(hocobj, '_ref_%s' % param))
+    else:
+        vec.record(getattr(hocobj, '_ref_%s' % param), dt)
     rec_dict = {'name': recid,
                 'gid': gid,
                 'cell': cell,

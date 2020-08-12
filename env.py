@@ -358,6 +358,9 @@ class Env(object):
                     filters['sources'] = recdict['sources']
                 syn_filters = get_syn_filter_dict(self, filters, convert=True)
                 recdict['syn_filters'] = syn_filters
+        
+            if self.use_coreneuron:
+                self.recording_profile['dt'] = None
 
         # Configuration profile for recording local field potentials
         self.LFP_config = {}

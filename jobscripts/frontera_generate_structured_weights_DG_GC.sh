@@ -2,10 +2,10 @@
 #
 #SBATCH -J generate_distance_structured_weights_DG_GC
 #SBATCH -o ./results/generate_structured_weights_DG_GC.%j.o
-#SBATCH -N 512
-#SBATCH -n 28672
+#SBATCH -N 80
+#SBATCH -n 4480
 #SBATCH -p normal      # Queue (partition) name
-#SBATCH -t 6:00:00
+#SBATCH -t 1:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #SBATCH --mail-type=BEGIN
@@ -15,6 +15,7 @@ module load intel/18.0.5
 module load python3
 module load phdf5
 module load python_cacher
+module load remora
 
 export NEURONROOT=$HOME/bin/nrnpython3
 export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
@@ -26,7 +27,7 @@ cd $SLURM_SUBMIT_DIR
 
 export DATA_PREFIX=$SCRATCH/striped/dentate/Full_Scale_Control  
 
-ibrun python3 ./scripts/generate_structured_weights_as_cell_attr.py \
+remora ibrun python3 ./scripts/generate_structured_weights_as_cell_attr.py \
     -d GC -s MPP -s LPP -n MC \
     --config=./config/Full_Scale_GC_Exc_Sat_DD_SLN.yaml \
     --initial-weights-namespace='Log-Normal Weights' \
@@ -39,5 +40,6 @@ ibrun python3 ./scripts/generate_structured_weights_as_cell_attr.py \
     --input-features-path=$DATA_PREFIX/DG_input_features_20200611_compressed.h5 \
     --arena-id=A --optimize-tol 1e-3 --optimize-grad --arena-margin=0.3 \
     --max-delta-weight=10 --max-weight-decay-fraction=0.5 --target-amplitude=10 \
-    --io-size=160 --cache-size=10  --value-chunk-size=100000 --chunk-size=20000 --write-size=5 -v
+    --io-size=80 --cache-size=2  --value-chunk-size=100000 --chunk-size=20000 --write-size=5 -v \
+    --debug --dry-run
 
