@@ -5,7 +5,8 @@ import numpy as np
 from mpi4py import MPI
 import neuroh5
 from neuroh5.io import append_cell_attributes, read_population_ranges, \
-    scatter_read_cell_attribute_selection, NeuroH5ProjectionGen
+    scatter_read_cell_attribute_selection, scatter_read_cell_attributes, \
+    read_graph_selection, read_graph_info
 import dentate
 from dentate.env import Env
 from dentate import utils, stimulus, synapses
@@ -153,8 +154,14 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     target_gid_set = None
     if len(gid) > 0:
         target_gid_set = set(gid)
-
-
+    projections = [ (source, destination) for source in sources ]
+    graph_info = read_graph_info(connections_path, namespaces=['Connections', 'Synapses'], read_node_index=True)
+    for projection in projections:
+        if projection not in graph_info:
+            raise RuntimeError('Projection %s -> %s is not present in connections file.' % projection)
+        if (target_gid_set is None) and (len(coordinates) > 0):
+            target_gid_set = set(graph_info[projection][1])
+        
     all_sources = sources + non_structured_sources
     dst_gids = []
     dst_input_features_attr_dict = {}
@@ -162,25 +169,33 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
         for i, gid in enumerate(target_gid_set):
             if i%nranks == rank:
                 dst_gids.append(gid)
+
+    for input_features_namespace in this_input_features_namespaces:
+        count = 0
+        if target_gid_set is not None:
+            input_features_iter = scatter_read_cell_attribute_selection(input_features_path, destination, 
+                                                                        namespace=input_features_namespace,
+                                                                        mask=set(target_features_attr_names),
+                                                                        selection=dst_gids,
+                                                                        io_size=env.io_size, comm=env.comm)
+            
         else:
-            for input_features_namespace in this_input_features_namespaces:
-                count = 0
-                input_features_iter = scatter_read_cell_attributes(input_features_path, destination, 
-                                                                   namespace=input_features_namespace,
-                                                                   mask=set(target_features_attr_names), 
-                                                                   io_size=env.io_size, comm=env.comm)
-                for gid, attr_dict in input_features_iter:
-                    if (len(coordinates) > 0) or (attr_dict['Num Fields'][0] > 0):
-                        dst_input_features_attr_dict[gid] = attr_dict
-                        count += 1
+            input_features_dict = scatter_read_cell_attributes(input_features_path, destination, 
+                                                               namespaces=[input_features_namespace],
+                                                               mask=set(target_features_attr_names), 
+                                                               io_size=env.io_size, comm=env.comm)
+            input_features_iter = input_features_dict[input_features_namespace]
+        for gid, attr_dict in input_features_iter:
+            if (len(coordinates) > 0) or (attr_dict['Num Fields'][0] > 0):
+                dst_input_features_attr_dict[gid] = attr_dict
+                count += 1
 
-                count = comm.reduce(count, op=MPI.SUM, root=0)
-                if rank == 0:
-                    logger.info('Read %s feature data for %i cells in population %s' % (input_features_namespace, count, destination))
+        count = comm.reduce(count, op=MPI.SUM, root=0)
+        if rank == 0:
+            logger.info('Read %s feature data for %i cells in population %s' % (input_features_namespace, count, destination))
 
-            max_dst_count = comm.allreduce(len(dst_input_features_attr_dict), op=MPI.MAX)
-            dst_gids = list(dst_input_features_attr_dict.keys())
-    
+    dst_gids = list(dst_input_features_attr_dict.keys())
+    max_dst_count = comm.allreduce(len(dst_gids), op=MPI.MAX)
     output_features_dict = {}
     LTP_output_weights_dict = {}
     LTD_output_weights_dict = {}
@@ -198,11 +213,10 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
         else:
             logger.info('Rank: %i received None' % rank)
 
-        projections = ( (source, destination) for source in all_sources )
+        projections = [ (source, destination) for source in all_sources ]
         edge_iter_dict, edge_attr_info = read_graph_selection(connections_path, selection=selection,
                                                               namespaces=['Synapses'], comm=comm,
                                                               projections=projections)
-        syn_id_attr_index = edge_attr_info['Synapses']['syn_id']
         
         arena_margin_size = 0.
         arena_margin = max(arena_margin, 0.)
@@ -236,6 +250,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                 target_selectivity_features_dict[gid]['Peak Rate'] = np.asarray([peak_rate]*num_fields, dtype=np.float32)
 
             if num_fields > 0:
+                logger.info("target_selectivity_features_dict[%d] = %s" % (gid, target_selectivity_features_dict[gid]))
                 input_cell_config = stimulus.get_input_cell_config(target_selectivity_type,
                                                                    selectivity_type_index,
                                                                    selectivity_attr_dict=target_selectivity_features_dict[gid])
@@ -333,8 +348,9 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
         structured_syn_id_count = 0
 
         if has_structured_weights:
-            for source, edge_dict in viewitems(edge_iter_dict[destination]):
-                for destination_gid, edges in viewitems(edge_dict):
+            for source, edge_iter in viewitems(edge_iter_dict[destination]):
+                syn_id_attr_index = edge_attr_info[destination][source]['Synapses']['syn_id']
+                for destination_gid, edges in edge_iter:
                     (source_gid_array, edge_attr_dict) = edges
                     syn_ids = edge_attr_dict['Synapses'][syn_id_attr_index]
                     count = 0
