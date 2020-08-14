@@ -331,13 +331,14 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                     count = 0
                     this_initial_weights_by_syn_id_dict = initial_weights_by_syn_id_dict[this_gid]
                     this_initial_weights_by_source_gid_dict = initial_weights_by_source_gid_dict[this_gid]
+                    this_reference_weights_by_syn_id_dict = None
+                    this_reference_weights_by_source_gid_dict = None
                     if reference_weights_by_syn_id_dict is not None:
                         this_reference_weights_by_syn_id_dict = reference_weights_by_syn_id_dict[this_gid]
                         this_reference_weights_by_source_gid_dict = reference_weights_by_source_gid_dict[this_gid]
                     this_non_structured_weights_by_syn_id_dict = non_structured_weights_by_syn_id_dict[this_gid]
                     this_non_structured_weights_by_source_gid_dict = non_structured_weights_by_source_gid_dict[this_gid]
 
-                    logger.info(source_gid_array)
                     for i in range(len(source_gid_array)):
                         this_source_gid = source_gid_array[i]
                         this_syn_id = syn_ids[i]
@@ -361,7 +362,6 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                         structured_syn_id_count += len(syn_ids)
                     logger.info('Rank %i; destination: %s; gid %i; %d edges from source population %s' %
                                 (rank, destination, this_gid, count, source))
-
 
         input_rate_maps_by_source_gid_dict = {}
         if len(non_structured_sources) > 0:
@@ -410,6 +410,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             reference_weight_dict = None
             if reference_weights_path is not None:
                 reference_weight_dict = reference_weights_by_source_gid_dict[destination_gid]
+                
             normalized_LTP_delta_weights_dict, LTD_delta_weights_dict, arena_LS_map = \
               synapses.generate_structured_weights(target_map=target_selectivity_features_dict['Arena Rate Map'],
                                                 initial_weight_dict=initial_weights_by_source_gid_dict[destination_gid],
@@ -513,7 +514,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     env.comm.barrier()
     global_count = comm.gather(gid_count, root=0)
     if rank == 0:
-        logger.info('destination: %s; %i ranks assigned structured weights to %i cells in %.2f s' %
+        logger.info('Destination: %s; %i ranks assigned structured weights to %i cells in %.2f s' %
                     (destination, comm.size, np.sum(global_count), time.time() - start_time))
 
 
