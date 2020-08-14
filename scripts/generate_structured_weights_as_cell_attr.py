@@ -159,7 +159,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     for projection in projections:
         if projection not in graph_info:
             raise RuntimeError('Projection %s -> %s is not present in connections file.' % projection)
-        if (target_gid_set is None) and (len(coordinates) > 0):
+        if target_gid_set is None:
             target_gid_set = set(graph_info[projection][1])
         
     all_sources = sources + non_structured_sources
@@ -172,19 +172,12 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
 
     for input_features_namespace in this_input_features_namespaces:
         count = 0
-        if target_gid_set is not None:
-            input_features_iter = scatter_read_cell_attribute_selection(input_features_path, destination, 
-                                                                        namespace=input_features_namespace,
-                                                                        mask=set(target_features_attr_names),
-                                                                        selection=dst_gids,
-                                                                        io_size=env.io_size, comm=env.comm)
+        input_features_iter = scatter_read_cell_attribute_selection(input_features_path, destination, 
+                                                                    namespace=input_features_namespace,
+                                                                    mask=set(target_features_attr_names),
+                                                                    selection=dst_gids,
+                                                                    io_size=env.io_size, comm=env.comm)
             
-        else:
-            input_features_dict = scatter_read_cell_attributes(input_features_path, destination, 
-                                                               namespaces=[input_features_namespace],
-                                                               mask=set(target_features_attr_names), 
-                                                               io_size=env.io_size, comm=env.comm)
-            input_features_iter = input_features_dict[input_features_namespace]
         for gid, attr_dict in input_features_iter:
             if (len(coordinates) > 0) or (attr_dict['Num Fields'][0] > 0):
                 dst_input_features_attr_dict[gid] = attr_dict
@@ -250,7 +243,6 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                 target_selectivity_features_dict[gid]['Peak Rate'] = np.asarray([peak_rate]*num_fields, dtype=np.float32)
 
             if num_fields > 0:
-                logger.info("target_selectivity_features_dict[%d] = %s" % (gid, target_selectivity_features_dict[gid]))
                 input_cell_config = stimulus.get_input_cell_config(target_selectivity_type,
                                                                    selectivity_type_index,
                                                                    selectivity_attr_dict=target_selectivity_features_dict[gid])
