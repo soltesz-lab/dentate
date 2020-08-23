@@ -174,6 +174,7 @@ def configure_hoc_env(env):
     if env.use_coreneuron:
         from neuron import coreneuron
         coreneuron.enable = True
+        coreneuron.verbose = 1
     h.pc = h.ParallelContext()
     h.pc.gid_clear()
     env.pc = h.pc

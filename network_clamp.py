@@ -10,7 +10,7 @@ from dentate import io_utils, spikedata, synapses, stimulus, cell_clamp
 from dentate.cells import h, make_input_cell, register_cell, record_cell, report_topology, is_cell_registered
 from dentate.env import Env
 from dentate.neuron_utils import h, configure_hoc_env, make_rec
-from dentate.utils import is_interactive, Context, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger, config_logging
+from dentate.utils import is_interactive, is_iterable, Context, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger, config_logging
 from dentate.utils import write_to_yaml, read_from_yaml, get_trial_time_indices, get_trial_time_ranges, get_low_pass_filtered_trace, contiguous_ranges
 from dentate.cell_clamp import init_biophys_cell
 from neuroh5.io import read_cell_attribute_selection, read_cell_attribute_info
@@ -357,7 +357,7 @@ def init(env, pop_name, gid_set, arena_id=None, trajectory_id=None, n_trials=1,
         h.psection(sec=sec)
         
     env.pc.set_maxstep(10)
-    h.stdinit()
+#    h.stdinit()
 
     if is_interactive:
         context.update(locals())
@@ -444,11 +444,16 @@ def update_network_params(env, param_config_dict):
                 else:
                     if source is not None:
                         sources = [source]
-                synapses.modify_syn_param(biophys_cell, env, sec_type, syn_name,
-                                          param_name=p, 
-                                          value={s: param_value} if (s is not None) else param_value,
-                                          filters={'sources': sources} if sources is not None else None,
-                                          origin='soma', update_targets=True)
+                if isinstance(sec_type, list) or isinstance(sec_type, tuple):
+                    sec_types = sec_type
+                else:
+                    sec_types = [sec_type]
+                for this_sec_type in sec_types:
+                    synapses.modify_syn_param(biophys_cell, env, this_sec_type, syn_name,
+                                              param_name=p, 
+                                              value={s: param_value} if (s is not None) else param_value,
+                                              filters={'sources': sources} if sources is not None else None,
+                                              origin='soma', update_targets=True)
             cell = env.pc.gid2cell(gid)
     
 
@@ -885,15 +890,15 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             mean_infld = np.mean(mean_infld_rate_vector)
             mean_outfld = np.mean(mean_outfld_rate_vector) if mean_outfld_rate_vector is not None else None
             if max_infld > target_max_infld:
-                residual = 0.
+                snr = 0.
             elif mean_outfld is None:
-                residual = ((mean_peak - mean_trough) ** 2.)  / max((mean_trough - target_mean_trough) ** 2., 1.0)
-                logger.info('selectivity rate objective: mean peak/mean trough/residual rate of gid %i: %.02f %.02f %.04f' % (gid, mean_peak, mean_trough, residual))
+                snr = (np.clip(mean_peak - mean_trough, 0., None) ** 2.)  / max((mean_trough - target_mean_trough) ** 2., 1.0)
+                logger.info('selectivity rate objective: mean peak/mean trough/snr of gid %i: %.02f %.02f %.04f' % (gid, mean_peak, mean_trough, snr))
             else:
-                residual = (np.clip(mean_peak - mean_outfld, 0., None) ** 2.)  / (max(mean_outfld/rate_baseline, 1.0) ** 2.)
-                logger.info('selectivity rate objective: max in/min in/mean out/residual rate of gid %i: %.02f %.02f %.02f %.04f' % (gid, max_infld, min_infld, mean_outfld, residual))
+                snr = (np.clip(mean_peak - mean_outfld, 0., None) ** 2.)  / (max(mean_outfld/rate_baseline, 1.0) ** 2.)
+                logger.info('selectivity rate objective: max in/min in/mean out/snr of gid %i: %.02f %.02f %.02f %.04f' % (gid, max_infld, min_infld, mean_outfld, snr))
 
-            result[gid] = residual
+            result[gid] = snr
         return result
     
     return f
@@ -1058,14 +1063,14 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
             mean_infld = np.mean(mean_state_values[t_infld_idxs])
 
             if t_outfld_idxs is None:
-                residual = np.clip(peak_infld - min_infld, 0., None) ** 2.
-                logger.info('selectivity state value objective: state values of gid %i: max/min/mean in: %.02f / %.02f / %.02f residual: %.04f' % (gid, peak_infld, min_infld, mean_infld, residual))
+                snr = np.clip(peak_infld - min_infld, 0., None) ** 2.
+                logger.info('selectivity state value objective: state values of gid %i: max/min/mean in: %.02f / %.02f / %.02f snr: %.04f' % (gid, peak_infld, min_infld, mean_infld, snr))
             else:
                 mean_outfld = np.mean(mean_state_values[t_outfld_idxs])
-                residual = (np.clip(peak_infld - mean_outfld, 0., None) ** 2.) - ((mean_outfld - state_baseline) ** 2.)
-                logger.info('selectivity state value objective: state values of gid %i: max in/mean in/mean out: %.02f / %.02f / %.02f residual: %.04f' % (gid, peak_infld, mean_infld, mean_outfld, residual))
+                snr = (np.clip(peak_infld - mean_outfld, 0., None) ** 2.) - ((mean_outfld - state_baseline) ** 2.)
+                logger.info('selectivity state value objective: state values of gid %i: max in/mean in/mean out: %.02f / %.02f / %.02f snr: %.04f' % (gid, peak_infld, mean_infld, mean_outfld, snr))
             
-            result[gid] = residual
+            result[gid] = snr
 
         return result
 
@@ -1168,7 +1173,7 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
 
 
 def optimize_run(env, pop_name, param_config_name, init_objfun,
-                 opt_iter=10, solver_epsilon=1e-5, param_type='synaptic', init_params={}, 
+                 opt_iter=10, solver_epsilon=1e-2, param_type='synaptic', init_params={}, 
                  results_file=None, verbose=False):
     import distgfs
 
@@ -1490,6 +1495,7 @@ def go(config_file, population, gid, arena_id, trajectory_id, generate_weights, 
               help='generate weights for the given presynaptic population')
 @click.option("--t-max", '-t', type=float, default=150.0, help='simulation end time')
 @click.option("--t-min", type=float)
+@click.option("--opt-epsilon", type=float, default=1e-2, help='local convergence epsilon')
 @click.option("--opt-iter", type=int, default=10, help='number of optimization iterations')
 @click.option("--template-paths", type=str, required=True,
               help='colon-separated list of paths to directories containing hoc cell templates')
@@ -1530,7 +1536,8 @@ def go(config_file, population, gid, arena_id, trajectory_id, generate_weights, 
 @click.argument('target')# help='rate, rate_dist, state'
 
 
-def optimize(config_file, population, gid, arena_id, trajectory_id, generate_weights, t_max, t_min, opt_iter, 
+def optimize(config_file, population, gid, arena_id, trajectory_id, generate_weights, t_max, t_min, 
+             opt_epsilon, opt_iter, 
              template_paths, dataset_prefix, config_prefix,
              param_config_name, param_type, recording_profile, results_file, results_path,
              spike_events_path, spike_events_namespace, spike_events_t, 
@@ -1626,7 +1633,7 @@ def optimize(config_file, population, gid, arena_id, trajectory_id, generate_wei
         raise RuntimeError('network_clamp.optimize: unknown optimization target %s' % target) 
         
     results_config_dict =  optimize_run(env, population, param_config_name, init_objfun_name,
-                                        opt_iter=opt_iter, param_type=param_type,
+                                        opt_iter=opt_iter, solver_epsilon=opt_epsilon, param_type=param_type,
                                         init_params=init_params, results_file=results_file,
                                         verbose=verbose)
 

@@ -2363,14 +2363,14 @@ def generate_sparse_weights(weights_name, fraction, seed, source_syn_dict):
 
 
     
-def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_dict, syn_count_dict,
+def generate_structured_weights(destination_gid, target_map, initial_weight_dict, input_rate_map_dict, syn_count_dict,
                                 max_delta_weight=10., target_amplitude=3.,
                                 max_weight_decay_fraction = 1.,
                                 arena_x=None, arena_y=None,
                                 non_structured_input_rate_map_dict=None, 
                                 non_structured_weights_dict=None, 
                                 reference_weight_dict=None, reference_weights_are_delta=False,
-                                reference_weights_namespace='', optimize_method='L-BFGS-B',
+                                reference_weights_namespace=None, optimize_method='L-BFGS-B',
                                 optimize_tol=1e-6, max_opt_iter=1000,
                                 optimize_grad=False, verbose=False, plot=False, show_fig=False, save_fig=None,
                                 fig_kwargs={}):
@@ -2394,11 +2394,17 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
     :return: dict: {int: float}
     """
 
+    if len(initial_weight_dict) != len(input_rate_map_dict):
+        logger.info("len(initial_weight_dict) = %d" % len(initial_weight_dict))
+        logger.info("len(input_rate_map_dict) = %d" % len(input_rate_map_dict))
+    assert(len(initial_weight_dict) == len(input_rate_map_dict))
+    if non_structured_input_rate_map_dict is not None:
+        assert(len(non_structured_weights_dict) == len(non_structured_input_rate_map_dict))
+
     assert((max_weight_decay_fraction >= 0.) and (max_weight_decay_fraction <= 1.))
     input_matrix = np.empty((target_map.size, len(input_rate_map_dict)),
                             dtype=np.float32)
     source_gid_array = np.empty(len(input_rate_map_dict), dtype=np.uint32)
-    syn_count_array = np.empty(len(input_rate_map_dict), dtype=np.uint32)
     initial_weight_array = np.empty(len(input_rate_map_dict), dtype=np.float32)
     if reference_weight_dict is None:
         reference_weight_array = None
@@ -2410,7 +2416,6 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
         this_syn_count = syn_count_dict[source_gid]
         this_input = input_rate_map_dict[source_gid].ravel() * this_syn_count
         input_matrix[:, i] = this_input
-        syn_count_array[i] = this_syn_count
         initial_weight_array[i] = initial_weight_dict[source_gid]
         if reference_weight_array is not None:
             reference_weight_array[i] = reference_weight_dict[source_gid]
@@ -2418,7 +2423,7 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
     non_structured_input_matrix = None
     if non_structured_input_rate_map_dict is not None:
         non_structured_input_matrix = np.empty((target_map.size, len(non_structured_input_rate_map_dict)),
-                                    dtype=np.float32)
+                                               dtype=np.float32)
         non_structured_weight_array = np.empty(len(non_structured_input_rate_map_dict), dtype=np.float32)
         for i, source_gid in enumerate(non_structured_input_rate_map_dict):
             this_syn_count = syn_count_dict[source_gid]
@@ -2442,12 +2447,12 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
     scaled_background_map = initial_background_map / mean_initial_background
     scaled_background_map -= 1.
    
-    scaled_input_matrix = np.asarray(input_matrix / mean_initial_background, dtype=np.float32)
+    scaled_input_matrix = np.divide(input_matrix, mean_initial_background, out=input_matrix)
     scaled_non_structured_input_matrix = None
     scaled_non_structured_input_map = None
     if non_structured_input_matrix is not None:
-        scaled_non_structured_input_matrix = np.asarray(non_structured_input_matrix / mean_initial_background,
-                                               dtype=np.float32)
+        scaled_non_structured_input_matrix = np.divide(non_structured_input_matrix, mean_initial_background,
+                                                       out=non_structured_input_matrix)
         scaled_non_structured_input_map = np.dot(scaled_non_structured_input_matrix, non_structured_weight_array)
         
     ## Compute pseudo inverse of scaled_input_matrix
@@ -2528,6 +2533,12 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
                               bounds=opt_bounds,
                               tol=optimize_tol,
                               options=method_options)
+        if not result.success:
+            logger.info('initial weights for gid %d: %s' % (destination_gid, str(initial_weight_dict)))
+            logger.info('input rate maps for gid %d: %s' % (destination_gid, str(input_rate_map_dict)))
+            logger.info('non-structured weights for gid %d: %s' % (destination_gid, str(non_structured_weights_dict)))
+            logger.info('non-structured input rate map for gid %d: %s' % (destination_gid, str(non_structured_input_rate_map_dict)))
+            raise RuntimeError("Error in structured weight optimization for gid %d" % destination_gid)
         LS_delta_weights = np.array(result.x)
 
     

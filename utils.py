@@ -237,6 +237,13 @@ class IncludeLoader(yaml.Loader):
 
 IncludeLoader.add_constructor('!include', IncludeLoader.include)
 
+class ExplicitDumper(yaml.SafeDumper):
+    """
+    YAML dumper that will never emit aliases.
+    """
+
+    def ignore_aliases(self, data):
+        return True
 
 def config_logging(verbose):
     if verbose:
@@ -275,7 +282,7 @@ def write_to_yaml(file_path, data, convert_scalars=False):
     with open(file_path, 'w') as outfile:
         if convert_scalars:
             data = nested_convert_scalars(data)
-        yaml.dump(data, outfile, default_flow_style=False)
+        yaml.dump(data, outfile, default_flow_style=False, Dumper=ExplicitDumper)
 
 
 def read_from_yaml(file_path, include_loader=None):
@@ -326,6 +333,8 @@ def nested_convert_scalars(data):
         data = data.item()
     return data
 
+def is_iterable(obj):
+    return isinstance(obj, Iterable)
 
 def list_index(element, lst):
     """
