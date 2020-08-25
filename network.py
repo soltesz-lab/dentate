@@ -349,11 +349,6 @@ def connect_cell_selection(env):
             has_weights = True
             weight_dicts = synapse_config['weights']
 
-        if 'mech file_path' in env.celltypes[postsyn_name]:
-            mech_file_path = env.celltypes[postsyn_name]['mech_file_path']
-        else:
-            mech_file_path = None
-
         if rank == 0:
             logger.info('*** Reading synaptic attributes of population %s' % (postsyn_name))
 
@@ -607,8 +602,10 @@ def make_cells(env):
     for pop_name in pop_names:
         if rank == 0:
             logger.info("*** Creating population %s" % pop_name)
-        load_cell_template(env, pop_name)
 
+        template_name = env.celltypes[pop_name]['template']
+        if template_name.lower() != 'izhikevich':    
+            load_cell_template(env, pop_name)
 
         recording_set = set([])
         for gid in range(env.celltypes[pop_name]['start'],
@@ -618,14 +615,23 @@ def make_cells(env):
         env.recording_sets[pop_name] = recording_set
                 
         if 'mech_file_path' in env.celltypes[pop_name]:
-            mech_file_path = env.celltypes[pop_name]['mech_file_path']
+            mech_dict = env.celltypes[pop_name]['mech_dict']
             if rank == 0:
                 logger.info('*** Mechanism file for population %s is %s' % (pop_name, str(mech_file_path)))
         else:
-            mech_file_path = None
+            mech_dict = None
 
         num_cells = 0
-        if (pop_name in env.cell_attribute_info) and ('Trees' in env.cell_attribute_info[pop_name]):
+        
+        if template_name.lower() == 'izhikevich':
+
+            biophys_cell = cells.make_izhikevich_cell(gid=gid, pop_name=pop_name,
+                                                      env=env, param_dict=mech_dict)
+            # cells.init_spike_detector(biophys_cell)
+            cells.register_cell(env, pop_name, gid, biophys_cell)
+            env.biophys_cells[pop_name][gid] = biophys_cell
+            num_cells += 1
+        elif (pop_name in env.cell_attribute_info) and ('Trees' in env.cell_attribute_info[pop_name]):
             if rank == 0:
                 logger.info("*** Reading trees for population %s" % pop_name)
 
@@ -648,12 +654,12 @@ def make_cells(env):
                     first_gid = gid
 
                 hoc_cell = cells.make_hoc_cell(env, pop_name, gid, neurotree_dict=tree)
-                if mech_file_path is None:
+                if mech_dict is None:
                     cells.register_cell(env, pop_name, gid, hoc_cell)
                 else:
-                    biophys_cell = cells.BiophysCell(gid=gid, pop_name=pop_name,
-                                                     hoc_cell=hoc_cell, env=env,
-                                                     mech_file_path=mech_file_path)
+                    biophys_cell = cells.make_biophys_cell(gid=gid, pop_name=pop_name,
+                                                           hoc_cell=hoc_cell, env=env,
+                                                           mech_dict=mech_dict)
                     # cells.init_spike_detector(biophys_cell)
                     cells.register_cell(env, pop_name, gid, biophys_cell)
                     env.biophys_cells[pop_name][gid] = biophys_cell
@@ -668,6 +674,7 @@ def make_cells(env):
                 num_cells += 1
             del trees
 
+            
         elif (pop_name in env.cell_attribute_info) and ('Coordinates' in env.cell_attribute_info[pop_name]):
             if rank == 0:
                 logger.info("*** Reading coordinates for population %s" % pop_name)
@@ -691,19 +698,22 @@ def make_cells(env):
             x_index = coords_attr_info.get('X Coordinate', None)
             y_index = coords_attr_info.get('Y Coordinate', None)
             z_index = coords_attr_info.get('Z Coordinate', None)
-            for i, (gid, cell_coords_tuple) in enumerate(coords_iter):
+            for i, (gid, cell_coords) in enumerate(coords_iter):
                 if rank == 0:
                     logger.info("*** Creating %s gid %i" % (pop_name, gid))
 
                 hoc_cell = cells.make_hoc_cell(env, pop_name, gid)
-                cell_x = cell_coords_tuple[x_index][0]
-                cell_y = cell_coords_tuple[y_index][0]
-                cell_z = cell_coords_tuple[z_index][0]
+                cell_x = cell_coords[x_index][0]
+                cell_y = cell_coords[y_index][0]
+                cell_z = cell_coords[z_index][0]
                 hoc_cell.position(cell_x, cell_y, cell_z)
 
                 cells.register_cell(env, pop_name, gid, hoc_cell)
                 num_cells += 1
+        else:
+            raise RuntimeError("make_cells: unknown cell configuration type for cell type %s" % pop_name)
 
+                
         h.define_shape()
         logger.info("*** Rank %i: Created %i cells from population %s" % (rank, num_cells, pop_name))
 
@@ -727,18 +737,32 @@ def make_cell_selection(env):
     for pop_name in pop_names:
         if rank == 0:
             logger.info("*** Creating selected cells from population %s" % pop_name)
-        load_cell_template(env, pop_name)
+
+        template_name = env.celltypes[pop_name]['template']
+        if template_name.lower() != 'izhikevich':    
+            load_cell_template(env, pop_name)
+
         templateClass = getattr(h, env.celltypes[pop_name]['template'])
 
         gid_range = [gid for gid in env.cell_selection[pop_name] if gid % nhosts == rank]
 
         if 'mech_file_path' in env.celltypes[pop_name]:
-            mech_file_path = env.celltypes[pop_name]['mech_file_path']
+            mech_dict = env.celltypes[pop_name]['mech_dict']
         else:
-            mech_file_path = None
+            mech_dict = None
 
         num_cells = 0
-        if (pop_name in env.cell_attribute_info) and ('Trees' in env.cell_attribute_info[pop_name]):
+        
+        if template_name.lower() == 'izhikevich':
+
+            biophys_cell = cells.make_izhikevich_cell(gid=gid, pop_name=pop_name,
+                                                      env=env, param_dict=mech_dict)
+            # cells.init_spike_detector(biophys_cell)
+            cells.register_cell(env, pop_name, gid, biophys_cell)
+            env.biophys_cells[pop_name][gid] = biophys_cell
+            num_cells += 1
+            
+        elif (pop_name in env.cell_attribute_info) and ('Trees' in env.cell_attribute_info[pop_name]):
             if rank == 0:
                 logger.info("*** Reading trees for population %s" % pop_name)
 
@@ -758,9 +782,9 @@ def make_cell_selection(env):
                 if mech_file_path is None:
                     cells.register_cell(env, pop_name, gid, hoc_cell)
                 else:
-                    biophys_cell = cells.BiophysCell(gid=gid, pop_name=pop_name,
-                                                     hoc_cell=hoc_cell, env=env,
-                                                     mech_file_path=mech_file_path)
+                    biophys_cell = cells.make_biophys_cell(gid=gid, pop_name=pop_name,
+                                                           hoc_cell=hoc_cell, env=env,
+                                                           mech_dict=mech_dict)
                     # cells.init_spike_detector(biophys_cell)
                     cells.register_cell(env, pop_name, gid, biophys_cell)
                     env.biophys_cells[pop_name][gid] = biophys_cell
@@ -774,6 +798,7 @@ def make_cell_selection(env):
                         h.psection(sec=sec)
 
                 num_cells += 1
+                
 
         elif (pop_name in env.cell_attribute_info) and ('Coordinates' in env.cell_attribute_info[pop_name]):
             if rank == 0:

@@ -205,7 +205,7 @@ def load_cell_template(env, pop_name):
         raise KeyError('load_cell_templates: unrecognized cell population: %s' % pop_name)
     template_name = env.celltypes[pop_name]['template']
     if 'template file' in env.celltypes[pop_name]:
-            template_file = env.celltypes[pop_name]['template file']
+        template_file = env.celltypes[pop_name]['template file']
     else:
         template_file = None
     if not hasattr(h, template_name):
