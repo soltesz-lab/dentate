@@ -1,7 +1,7 @@
 import collections, os, sys, traceback, copy, datetime, math, itertools, pprint
 import numpy as np
 from dentate.neuron_utils import h, d_lambda, default_hoc_sec_lists, default_ordered_sec_types, freq, make_rec, \
-    load_cell_template, IzhiCellAttrs, default_izhi_cell_attrs_dict
+    load_cell_template, HocCellInterface, IzhiCellAttrs, default_izhi_cell_attrs_dict
 from dentate.utils import get_module_logger, map, range, zip, zip_longest, viewitems, read_from_yaml, write_to_yaml, Promise
 from neuroh5.io import read_cell_attribute_selection, read_graph_selection, read_tree_selection
 
@@ -599,7 +599,7 @@ class IzhiCell(object):
         self.nodes = {key: [] for key in default_ordered_sec_types}
         self.mech_file_path = None
         self.init_mech_dict = None
-        self.mech_dict = None
+        self.mech_dict = {}
         self.random = np.random.RandomState()
         self.random.seed(self.gid)
         self.spike_detector = None
@@ -620,12 +620,12 @@ class IzhiCell(object):
         sec.L, sec.diam = 10., 10.
         self.izh = h.Izhi2019(.5, sec=sec)
         self.base_cm = 31.831  # Produces membrane time constant of 8 ms for a RS cell with izh.C = 1. and izi.k = 0.7
-
         for attr_name, attr_val in cell_attrs._asdict().items():
             setattr(self.izh, attr_name, attr_val)
         sec.cm = self.base_cm * self.izh.C
 
-        self.hoc_cell = sec
+        self.hoc_cell = HocCellInterface(sections=[sec], is_art=lambda: 0, is_reduced=True,
+                                         all=[sec], soma=[sec], apical=[], basal=[], axon=[], ais=[], hillock=[])
 
         init_spike_detector(self, self.tree.root, loc=0.5, threshold=self.izh.vpeak - 1.)
 
@@ -2595,9 +2595,10 @@ def make_input_cell(env, gid, pop_id, input_source_dict, spike_train_attr_name='
 
 
 def load_circuit_context(env, pop_name, gid,
-                         load_edges=True, connection_graph=None,
-                         load_weights=False, weight_dicts=None, 
-                         set_edge_delays=True):
+                         load_edges=False, connection_graph=None,
+                         load_weights=False, weight_dicts=None,
+                         load_synapses=False, synapses_dict=None,
+                         set_edge_delays=True, **kwargs):
     
     syn_attrs = env.synapse_attributes
     synapse_config = env.celltypes[pop_name]['synapses']
@@ -2611,7 +2612,7 @@ def load_circuit_context(env, pop_name, gid,
     else: 
         weight_dicts = []
         
-    if load_synapses:
+    if load_synapses or load_edges:
         if synapses_dict is not None:
             syn_attrs.init_syn_id_attrs(gid, **synapses_dict)
         elif (pop_name in env.cell_attribute_info) and ('Synapse Attributes' in env.cell_attribute_info[pop_name]):
@@ -2748,7 +2749,7 @@ def make_izhikevich_cell(env, pop_name, gid, mech_file_path=None, mech_dict=None
     if mech_dict is None and mech_file_path is None:
         raise RuntimeError('make_izhikevich_cell: mech_dict or mech_file_path must be specified')
 
-    if mech_dict is None and param_file_path is not None:
+    if mech_dict is None and mech_file_path is not None:
         mech_dict = read_from_yaml(mech_file_path)
 
     cell = IzhiCell(gid=gid, pop_name=pop_name, env=env, cell_attrs=IzhiCellAttrs(**mech_dict))
@@ -2779,7 +2780,7 @@ def register_cell(env, pop_name, gid, cell):
     env.pc.set_gid2node(gid, rank)
     hoc_cell = getattr(cell, 'hoc_cell', cell)
     env.cells[pop_name].append(hoc_cell)
-    if hoc_cell.is_art() == 1:
+    if hoc_cell.is_art() > 0:
         env.artificial_cells[pop_name][gid] = hoc_cell
     # Tell the ParallelContext that this cell is a spike source
     # for all other hosts. NetCon is temporary.

@@ -628,7 +628,7 @@ def make_cells(env):
             biophys_cell = cells.make_izhikevich_cell(gid=gid, pop_name=pop_name,
                                                       env=env, param_dict=mech_dict)
             # cells.init_spike_detector(biophys_cell)
-            cells.register_cell(env, pop_name, gid, biophys_cell)
+            cells.register_cell(env, pop_name, gid, cell)
             env.biophys_cells[pop_name][gid] = biophys_cell
             num_cells += 1
         elif (pop_name in env.cell_attribute_info) and ('Trees' in env.cell_attribute_info[pop_name]):
@@ -1063,7 +1063,7 @@ def init_input_cells(env, input_sources=None):
                                         (pop_name, gid, len(spiketrain)))
 
                         input_cell = env.pc.gid2cell(gid)
-                        if input_cell.is_art() == 1:
+                        if input_cell.is_art() > 0:
                             input_cell.play(h.Vector(spiketrain))
                         else:
                             raise RuntimeError("init_input_cells: input cell gid %d is not an artificial cell (%s)" % (gid, str(input_cell)))

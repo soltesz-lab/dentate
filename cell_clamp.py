@@ -65,8 +65,7 @@ def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=T
                                           weight_dicts=cell_dict.get('weight', None),
                                           mech_dict=mech_dict,
                                           load_synapses=True, load_weights=True,
-                                          load_edges=load_connections,
-                                          correct_for_spines=correct_for_spines_flag)
+                                          load_edges=load_connections)
     else:
         cell = cells.make_biophys_cell(env, pop_name, gid,
                                        tree_dict=cell_dict.get('morph', None),
@@ -75,15 +74,14 @@ def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=T
                                        weight_dicts=cell_dict.get('weight', None),
                                        mech_dict=mech_dict,
                                        load_synapses=True, load_weights=True,
-                                       load_edges=load_connections,
-                                       correct_for_spines=correct_for_spines_flag)
+                                       load_edges=load_connections)
         
                              
 
     # init_spike_detector(cell)
     cells.init_biophysics(cell, reset_cable=True, 
-                          correct_cm=correct_for_spines,
-                          correct_g_pas=correct_for_spines, env=env)
+                          correct_cm=correct_for_spines_flag,
+                          correct_g_pas=correct_for_spines_flag, env=env)
     synapses.init_syn_mech_attrs(cell, env)
 
     
