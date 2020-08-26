@@ -353,7 +353,7 @@ def init(env, pop_name, gid_set, arena_id=None, trajectory_id=None, n_trials=1,
         
 
     cell = env.pc.gid2cell(gid)
-    for sec in list(cell.all):
+    for sec in list(cell.hoc_cell.all if hasattr(cell, 'hoc_cell') else cell.all):
         h.psection(sec=sec)
         
     env.pc.set_maxstep(10)

@@ -13,9 +13,6 @@ from builtins import object, range
 
 from neuron import h
 
-h('objref strfun')
-h.strfun = h.StringFunctions()
-
 
 def interpxyz(nn, nsegs, xx, yy, zz, ll, xint, yint, zint):
     """Computes xyz coords of nodes in a model cell  whose topology & geometry are defined by pt3d data.
@@ -159,7 +156,7 @@ class LFP(object):
 
                 cell = self.pc.gid2cell(gid)
 
-                if h.strfun.is_artificial(cell) > 0:
+                if cell.is_art() > 0:
                     continue
 
                 somasec = list(cell.soma)
