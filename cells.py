@@ -579,7 +579,7 @@ class IzhiCell(object):
     An implementation of an Izhikevich adaptive integrate-and-fire-type cell model for simulation in NEURON.
     Conforms to the same API as BiophysCell.
     """
-    def __init__(self, gid, pop_name, env=None, cell_type='RS', cell_attrs=None, **kwargs):
+    def __init__(self, gid, pop_name, env=None, cell_type='RS', cell_attrs=None, mech_dict=None):
         """
 
         :param gid: int
@@ -598,8 +598,8 @@ class IzhiCell(object):
                     raise AttributeError('Warning! unexpected SWC Type definitions found in Env')
         self.nodes = {key: [] for key in default_ordered_sec_types}
         self.mech_file_path = None
-        self.init_mech_dict = None
-        self.mech_dict = {}
+        self.init_mech_dict = dict(mech_dict) if mech_dict is not None else None
+        self.mech_dict = dict(mech_dict) if mech_dict is not None else None
         self.random = np.random.RandomState()
         self.random.seed(self.gid)
         self.spike_detector = None
@@ -607,10 +607,10 @@ class IzhiCell(object):
 
         if cell_attrs is not None:
             if not isinstance(cell_attrs, IzhiCellAttrs):
-                raise RuntimeError('IzhiCell: provided cell_attrs must be of type IzhiCellAttrs')
+                raise RuntimeError('IzhiCell: argument cell_attrs must be of type IzhiCellAttrs')
             cell_type = 'custom'
         elif cell_type not in default_izhi_cell_attrs_dict:
-            raise RuntimeError('IzhiCell: unknown izhi cell_type: %s' % cell_type)
+            raise RuntimeError('IzhiCell: unknown value for cell_type: %s' % str(cell_type))
         else:
             cell_attrs = default_izhi_cell_attrs_dict[cell_type]
         self.cell_type = cell_type
@@ -2752,7 +2752,9 @@ def make_izhikevich_cell(env, pop_name, gid, mech_file_path=None, mech_dict=None
     if mech_dict is None and mech_file_path is not None:
         mech_dict = read_from_yaml(mech_file_path)
 
-    cell = IzhiCell(gid=gid, pop_name=pop_name, env=env, cell_attrs=IzhiCellAttrs(**mech_dict))
+    cell = IzhiCell(gid=gid, pop_name=pop_name, env=env,
+                    cell_attrs=IzhiCellAttrs(**mech_dict['izhikevich']),
+                    mech_dict={ k: mech_dict[k] for k in mech_dict if k != 'izhikevich' })
 
     load_circuit_context(env, pop_name, gid,
                          load_edges=load_edges, connection_graph=connection_graph,
