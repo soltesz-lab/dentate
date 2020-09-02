@@ -336,7 +336,7 @@ def synapse_group_test (env, presyn_name, gid, cell, syn_obj_dict, syn_params_di
             
         print('synapse_group_test: %s %s synapses: %i out of %i' % (presyn_name, syn_name, len(synlst), len(syn_ids)))
 
-        ns = h.NetStim()
+        vs = h.NetStim()
         ns.interval = 1000
         ns.number = 1
         ns.start  = 200

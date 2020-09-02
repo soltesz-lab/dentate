@@ -165,10 +165,16 @@ def configure_hoc_env(env):
         path = "%s/rn.hoc" % template_dir
         if os.path.exists(path):
             h.load_file(path)
+    h.cvode.cache_efficient(1)
+    h.cvode.use_fast_imem(1)
     h('objref pc, nc, nil')
     h('strdef dataset_path')
     if hasattr(env, 'dataset_path'):
         h.dataset_path = env.dataset_path if env.dataset_path is not None else ""
+    if env.use_coreneuron:
+        from neuron import coreneuron
+        coreneuron.enable = True
+        coreneuron.verbose = 1
     h.pc = h.ParallelContext()
     h.pc.gid_clear()
     env.pc = h.pc
@@ -187,7 +193,6 @@ def configure_hoc_env(env):
         h.nrn_sparse_partrans = 1
     find_template(env, 'StimCell', path=env.template_paths)
     find_template(env, 'VecStimCell', path=env.template_paths)
-
 
 def load_cell_template(env, pop_name):
     """
@@ -211,7 +216,7 @@ def load_cell_template(env, pop_name):
     return template_class
 
 
-def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v', label=None, dt=h.dt, description=''):
+def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v', label=None, dt=None, description=''):
     """
     Makes a recording vector for the specified quantity in the specified section and location.
 
@@ -253,7 +258,10 @@ def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v
                 break
     if label is None:
         label = param
-    vec.record(getattr(hocobj, '_ref_%s' % param), dt)
+    if dt is None:
+        vec.record(getattr(hocobj, '_ref_%s' % param))
+    else:
+        vec.record(getattr(hocobj, '_ref_%s' % param), dt)
     rec_dict = {'name': recid,
                 'gid': gid,
                 'cell': cell,

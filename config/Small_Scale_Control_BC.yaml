@@ -1,16 +1,13 @@
-Network Clamp:  !include Network_Clamp.yaml
-Model Name: Single_MC_SLN
-Dataset Name: Full_Scale_Control
+## Model configuration of dentate gyrus network
+Model Name: dentatenet
+Dataset Name: Small_Scale
 Definitions: !include Definitions.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-Cell Data: DG_MC_forest_syn_wgts_20200708.h5 
-Connection Data: DG_MC_connections_20200708_compressed.h5
-#Connection Generator: !include Network_Clamp_Connections_MC.yaml
-Connection Generator: !include Network_Clamp_Connections_GC_Exc_Sat_S_extent.yaml
+Cell Data: BC_axon_20200723.h5 
+#Connection Data: GC_MC_BC_trees_syns_connections_20181126.h5  # MC_BC_connections_20180905.h5
+Connection Generator: !include Small_Scale_Connections_tune_GC_synapses.yaml
 Recording: !include Recording.yaml
-Stimulus: !include Input_Configuration.yaml
-Analysis: !include Analysis_Configuration.yaml
 ## Cell types for dentate gyrus model
 Cell Types: 
   GC:
@@ -25,15 +22,7 @@ Cell Types:
   MC:
     template: MossyCell
     template file: MossyCell_minimal.hoc
-    mechanism file: 20200511_0641_DG_MC_leak_spiking_mech.yaml
     synapses:
-      weights:
-      - namespace: ['LTP Structured Weights A', 'LTD Structured Weights A', 'Log-Normal Weights']
-        expr: a*ltp + (ltd + lnw)
-        parameter: [ltp, ltd, lnw]
-        const:
-          a: 1.0
-      - namespace: ['Normal Weights']
       density: !include MC_synapse_density.yaml
   HC:
     template: HIPPCell
@@ -66,8 +55,8 @@ Cell Types:
       density: !include IS_synapse_density.yaml
   MPP:
     template: MPPCell
+    Vector Stimulus: Vector Stimulus 0
   LPP:
     template: LPPCell
-  CA3c:
-    template: CA3Cell
+    Vector Stimulus: Vector Stimulus 0
 

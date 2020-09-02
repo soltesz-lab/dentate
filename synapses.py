@@ -534,11 +534,12 @@ class SynapseAttributes(object):
                 else:
                     attr_dict[k] = new_val
             elif k in rules[mech_name]['netcon_params']:
+
                 mech_param = mech_params.get(k, None)
                 if isinstance(mech_param, ExprClosure):
                     if mech_param.parameters[0] == 'delay':
                         new_val = mech_param(syn.source.delay)
-                        #print("modify %s.%s.%s: delay: %f new val: %f" % (pop_name, syn_name, k, syn.source.delay, new_val))
+
                     else:
                         raise RuntimeError('modify_mech_attrs: unknown dependent expression parameter %s' %
                                            mech_param.parameters)
@@ -563,7 +564,7 @@ class SynapseAttributes(object):
                                            (k, mech_name, presyn_name))
                 else:
                     attr_dict[k] = new_val
-                logger.debug("modify %s.%s.%s: old_val: %s new val: %s" % (pop_name, syn_name, k, str(old_val), str(new_val)))
+                #logger.debug("modify %s.%s.%s.%s: old_val: %s new val: %s" % (pop_name, presyn_name, syn_name, k, str(old_val), str(new_val)))
                 
             else:
                 raise RuntimeError('modify_mech_attrs: unknown type of parameter %s' % k)
@@ -1044,12 +1045,14 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
                                                'value set for parameter %s' % (gid, syn_id, presyn_name, param_name))
                         if isinstance(param_val, Promise):
                             new_param_val = param_val.clos(*param_val.args)
+                            #logger.debug("config_hoc_cell_syns: %s param_val = %s new_param_val = %s" % (syn_name, str(param_val), str(new_param_val)))
                         elif param_name in param_closure_dict and isinstance(param_val, list):
                             new_param_val = param_closure_dict[param_name](*param_val)
                         else:
                             new_param_val = param_val
                         upd_params[param_name] = new_param_val
-                        
+
+                    #logger.debug("config_hoc_cell_syns: %s params = %s upd_params = %s" % (syn_name, str(params), str(upd_params)))
                     (mech_set, nc_set) = config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
                                                     mech_names=syn_attrs.syn_mech_names, syn=this_pps,
                                                     nc=this_netcon, **upd_params)
@@ -1130,6 +1133,7 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
                         nc.weight[i] = new
                         nc_param = True
                         failed = False
+                    #logger.debug("config_syn: syn: %s param: %s: old = %f new = %f" % (syn_name, param, old, new))
         if failed:
             raise AttributeError('config_syn: problem setting attribute: %s for synaptic mechanism: %s' %
                                  (param, mech_name))
@@ -1269,7 +1273,7 @@ def get_syn_filter_dict(env, rules, convert=False, check_valid=True):
                 raise ValueError('get_syn_filter_dict: swc_type: %s not recognized by network configuration' %
                                  syn_type)
             if convert:
-                rules_dict['swc_types'][i] = env.SWC_Types[syn_type]
+                rules_dict['swc_types'][i] = env.SWC_Types[swc_type]
     if layers is not None:
         for i, layer in enumerate(layers):
             if layer not in env.layers:
@@ -2359,14 +2363,14 @@ def generate_sparse_weights(weights_name, fraction, seed, source_syn_dict):
 
 
     
-def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_dict, syn_count_dict,
+def generate_structured_weights(destination_gid, target_map, initial_weight_dict, input_rate_map_dict, syn_count_dict,
                                 max_delta_weight=10., target_amplitude=3.,
                                 max_weight_decay_fraction = 1.,
                                 arena_x=None, arena_y=None,
                                 non_structured_input_rate_map_dict=None, 
                                 non_structured_weights_dict=None, 
                                 reference_weight_dict=None, reference_weights_are_delta=False,
-                                reference_weights_namespace='', optimize_method='L-BFGS-B',
+                                reference_weights_namespace=None, optimize_method='L-BFGS-B',
                                 optimize_tol=1e-6, max_opt_iter=1000,
                                 optimize_grad=False, verbose=False, plot=False, show_fig=False, save_fig=None,
                                 fig_kwargs={}):
@@ -2390,11 +2394,17 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
     :return: dict: {int: float}
     """
 
+    if len(initial_weight_dict) != len(input_rate_map_dict):
+        logger.info("len(initial_weight_dict) = %d" % len(initial_weight_dict))
+        logger.info("len(input_rate_map_dict) = %d" % len(input_rate_map_dict))
+    assert(len(initial_weight_dict) == len(input_rate_map_dict))
+    if non_structured_input_rate_map_dict is not None:
+        assert(len(non_structured_weights_dict) == len(non_structured_input_rate_map_dict))
+
     assert((max_weight_decay_fraction >= 0.) and (max_weight_decay_fraction <= 1.))
     input_matrix = np.empty((target_map.size, len(input_rate_map_dict)),
                             dtype=np.float32)
     source_gid_array = np.empty(len(input_rate_map_dict), dtype=np.uint32)
-    syn_count_array = np.empty(len(input_rate_map_dict), dtype=np.uint32)
     initial_weight_array = np.empty(len(input_rate_map_dict), dtype=np.float32)
     if reference_weight_dict is None:
         reference_weight_array = None
@@ -2406,7 +2416,6 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
         this_syn_count = syn_count_dict[source_gid]
         this_input = input_rate_map_dict[source_gid].ravel() * this_syn_count
         input_matrix[:, i] = this_input
-        syn_count_array[i] = this_syn_count
         initial_weight_array[i] = initial_weight_dict[source_gid]
         if reference_weight_array is not None:
             reference_weight_array[i] = reference_weight_dict[source_gid]
@@ -2414,7 +2423,7 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
     non_structured_input_matrix = None
     if non_structured_input_rate_map_dict is not None:
         non_structured_input_matrix = np.empty((target_map.size, len(non_structured_input_rate_map_dict)),
-                                    dtype=np.float32)
+                                               dtype=np.float32)
         non_structured_weight_array = np.empty(len(non_structured_input_rate_map_dict), dtype=np.float32)
         for i, source_gid in enumerate(non_structured_input_rate_map_dict):
             this_syn_count = syn_count_dict[source_gid]
@@ -2438,12 +2447,12 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
     scaled_background_map = initial_background_map / mean_initial_background
     scaled_background_map -= 1.
    
-    scaled_input_matrix = np.asarray(input_matrix / mean_initial_background, dtype=np.float32)
+    scaled_input_matrix = np.divide(input_matrix, mean_initial_background, out=input_matrix)
     scaled_non_structured_input_matrix = None
     scaled_non_structured_input_map = None
     if non_structured_input_matrix is not None:
-        scaled_non_structured_input_matrix = np.asarray(non_structured_input_matrix / mean_initial_background,
-                                               dtype=np.float32)
+        scaled_non_structured_input_matrix = np.divide(non_structured_input_matrix, mean_initial_background,
+                                                       out=non_structured_input_matrix)
         scaled_non_structured_input_map = np.dot(scaled_non_structured_input_matrix, non_structured_weight_array)
         
     ## Compute pseudo inverse of scaled_input_matrix
@@ -2524,6 +2533,12 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
                               bounds=opt_bounds,
                               tol=optimize_tol,
                               options=method_options)
+        if not result.success:
+            logger.info('initial weights for gid %d: %s' % (destination_gid, str(initial_weight_dict)))
+            logger.info('input rate maps for gid %d: %s' % (destination_gid, str(input_rate_map_dict)))
+            logger.info('non-structured weights for gid %d: %s' % (destination_gid, str(non_structured_weights_dict)))
+            logger.info('non-structured input rate map for gid %d: %s' % (destination_gid, str(non_structured_input_rate_map_dict)))
+            raise RuntimeError("Error in structured weight optimization for gid %d" % destination_gid)
         LS_delta_weights = np.array(result.x)
 
     
@@ -2742,7 +2757,7 @@ def plot_callback_structured_weights(**kwargs):
     fig.colorbar(p, ax=ax)
 
     ax = fig.add_subplot(inner_grid[1])
-    p = ax.pcolormesh(arena_x, arena_y, initial_background_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
+    p = ax.pcolormesh(arena_x, arena_y, initial_background_map.reshape(arena_x.shape)) #, vmin=vmin, vmax=vmax2)
     ax.set_title('Initial', fontsize=font_size)
     fig.colorbar(p, ax=ax)
 
