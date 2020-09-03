@@ -1,0 +1,28 @@
+apical:
+  cable:
+    Ra:
+      origin: soma
+    cm:
+      origin: soma
+  pas:
+    e:
+      value: -65.0
+    g:
+      value: 1e-6
+      slope: 5e-5
+      tau: 100.0
+soma:
+  cable:
+    Ra:
+      value: 150.0
+    cm:
+      value: 1.0
+  wbin:
+    gnabar:
+      value: 0.035
+    gkbar:
+      value: 0.009
+    gl:
+      value: 1e-4
+    sh:
+      value: 20.0
