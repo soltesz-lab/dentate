@@ -938,7 +938,6 @@ def config_biophys_cell_syns(env, gid, postsyn_name, syn_ids=None, unique=None, 
             raise KeyError('config_biophys_cell_syns: insert: BiophysCell with gid %i does not exist' % gid)
 
         for presyn_name, source_syn_ids in viewitems(source_syn_ids_dict):
-            print(presyn_name, source_syn_ids)
             if (presyn_name is not None) and (source_syn_ids is not None):
                 insert_biophys_cell_syns(env, gid, postsyn_name, presyn_name, source_syn_ids, unique=unique,
                                          insert_netcons=insert_netcons, insert_vecstims=insert_vecstims,
