@@ -197,11 +197,12 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     logger.info('Rank %d: %d destination gids' % (rank, len(dst_gids)))
 
     dst_input_features_attr_dict = {}
-    for input_features_namespace in this_input_features_namespaces:
+    for this_input_features_namespace in this_input_features_namespaces:
         feature_count = 0
         gid_count = 0
+        logger.info('Rank %d: reading %s feature data for population %s' % (rank, this_input_features_namespace, destination))
         input_features_iter = scatter_read_cell_attribute_selection(input_features_path, destination, 
-                                                                    namespace=input_features_namespace,
+                                                                    namespace=this_input_features_namespace,
                                                                     mask=set(target_features_attr_names),
                                                                     selection=dst_gids,
                                                                     io_size=env.io_size, comm=env.comm)
@@ -211,10 +212,10 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                 dst_input_features_attr_dict[gid] = attr_dict
                 feature_count += 1
 
-        logger.info('Rank %d: read %s feature data for %i / %i cells in population %s' % (rank, input_features_namespace, gid_count, feature_count, destination))
+        logger.info('Rank %d: read %s feature data for %i / %i cells in population %s' % (rank, this_input_features_namespace, gid_count, feature_count, destination))
         feature_count = comm.reduce(feature_count, op=MPI.SUM, root=0)
         if rank == 0:
-            logger.info('Read %s feature data for %i cells in population %s' % (input_features_namespace, feature_count, destination))
+            logger.info('Read %s feature data for %i cells in population %s' % (this_input_features_namespace, feature_count, destination))
 
     dst_gids = list(dst_input_features_attr_dict.keys())
     max_dst_count = comm.allreduce(len(dst_gids), op=MPI.MAX)
@@ -232,6 +233,8 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             local_random.seed(int(destination_gid + seed_offset))
             logger.info('Rank %i received %d' % (rank, destination_gid))
         else:
+            destination_gid = None
+            selection = []
             logger.info('Rank: %i received None' % rank)
 
         
@@ -243,7 +246,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
 
         target_selectivity_features_dict = dst_input_features_attr_dict.get(destination_gid, {})
         target_selectivity_features_dict['Selectivity Type'] = np.asarray([target_selectivity_type], dtype=np.uint8)
-        if len(coordinates) > 0:
+        if (destination_gid is not None) and (len(coordinates) > 0):
             num_fields = len(coordinates)
             target_selectivity_features_dict['X Offset'] =  np.asarray([x[0] for x in coordinates],
                                                                             dtype=np.float32)
@@ -369,7 +372,6 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             else:
                 source_gids = []
             for input_features_namespace in this_input_features_namespaces:
-                logger.info('Rank %d: reading %s feature data for %i cells in population %s...' % (rank, input_features_namespace, len(source_gids), source))
                 input_features_iter = scatter_read_cell_attribute_selection(input_features_path, source, 
                                                                             namespace=input_features_namespace,
                                                                             mask=set(source_features_attr_names), 
