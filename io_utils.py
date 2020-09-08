@@ -125,6 +125,7 @@ def make_h5types(env, output_path, gap_junctions=False):
 
         dset[:] = a
 
+    h5.close()
 
 def mkout(env, results_filename):
     """
@@ -447,8 +448,9 @@ def write_cell_selection(env, write_selection_file_path, populations=None, write
             
         if rank == 0:
             logger.info("*** Writing cell selection for population %s to file %s" % (pop_name, write_selection_file_path))
-        append_cell_trees(write_selection_file_path, pop_name, trees_output_dict, create_index=True, **write_kwds)
-        write_cell_attributes(write_selection_file_path, pop_name, coords_output_dict, namespace='Coordinates', **write_kwds)
+        append_cell_trees(write_selection_file_path, pop_name, trees_output_dict, **write_kwds)
+        write_cell_attributes(write_selection_file_path, pop_name, coords_output_dict, 
+                              namespace='Coordinates', **write_kwds)
 
 
 
@@ -510,7 +512,7 @@ def write_connection_selection(env, write_selection_file_path, populations=None,
             has_weights = False
 
         if rank == 0:
-            logger.info('*** Reading synaptic attributes of population %s' % (postsyn_name))
+            logger.info('*** Reading synaptic attributes for population %s' % (postsyn_name))
 
         syn_attributes_iter = read_cell_attribute_selection(forest_file_path, postsyn_name, selection=gid_range,
                                                             namespace='Synapse Attributes', comm=env.comm)
