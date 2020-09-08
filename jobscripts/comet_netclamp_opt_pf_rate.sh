@@ -4,7 +4,7 @@
 #SBATCH -o ./results/netclamp_opt_pf_extent_features.%j.o
 #SBATCH --nodes=4
 #SBATCH --ntasks-per-node=24
-#SBATCH -t 4:00:00
+#SBATCH -t 3:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #SBATCH --mail-type=BEGIN
