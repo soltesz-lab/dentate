@@ -266,18 +266,17 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
         if rank == 0:
             logger.info('Read %s feature data for %i cells in population %s' % (this_input_features_namespace, feature_count, destination))
 
-    readahead = 5
     dst_gids = list(dst_input_features_attr_dict.keys())
     max_dst_count = comm.allreduce(len(dst_gids), op=MPI.MAX)
+    max_iter_count = max_dst_count
     output_features_dict = {}
     LTP_output_weights_dict = {}
     LTD_output_weights_dict = {}
-    for iter_count in range(max_dst_count):
+    for iter_count in range(max_iter_count):
 
         local_time = time.time()
-        has_structured_weights = False
         selection = []
-        while len(dst_gids) > 0 and len(selection) < readahead:
+        if  len(dst_gids) > 0:
             dst_gid = dst_gids.pop()
             selection.append(dst_gid)
             logger.info('Rank %i received %d' % (rank, destination_gid))
@@ -299,6 +298,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
  
 
         selection = list(target_selectivity_features_dict.keys())
+
         initial_weights_by_source_gid_dict = defaultdict(lambda: dict())
         initial_weights_by_syn_id_dict = \
           read_weights(initial_weights_path, initial_weights_namespace, synapse_name,
@@ -380,10 +380,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             non_structured_input_rate_maps_by_source_gid_dict = None
 
         for source in all_sources:
-            if has_structured_weights:
-                source_gids = list(source_gid_set_dict[source])
-            else:
-                source_gids = []
+            source_gids = list(source_gid_set_dict[source])
             for input_features_namespace in this_input_features_namespaces:
                 input_features_iter = scatter_read_cell_attribute_selection(input_features_path, source, 
                                                                             namespace=input_features_namespace,
@@ -405,7 +402,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                         input_rate_maps_by_source_gid_dict[this_gid] = this_arena_rate_map
                     count += 1
 
-        if has_structured_weights:
+        for destination_gid in selection:
 
             if is_interactive:
                 context.update(locals())

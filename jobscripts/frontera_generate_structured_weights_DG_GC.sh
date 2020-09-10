@@ -37,7 +37,7 @@ remora ibrun python3 ./scripts/generate_structured_weights_as_cell_attr.py \
     --output-weights-namespace='Structured Weights' \
     --output-weights-path=$DATA_PREFIX/DG_GC_syn_weights_S_20200908.h5 \
     --connections-path=$DATA_PREFIX/DG_GC_connections_20200703_compressed.h5 \
-    --input-features-path=$DATA_PREFIX/DG_input_features_20200611_compressed.h5 \
+    --input-features-path=$DATA_PREFIX/DG_input_features_20200910_compressed.h5 \
     --arena-id=A --optimize-tol 1e-3 --optimize-grad --arena-margin=0.3 \
     --max-delta-weight=10 --max-weight-decay-fraction=0.5 --target-amplitude=10 \
     --io-size=20 --value-chunk-size=100000 --chunk-size=20000 --write-size=5 -v \

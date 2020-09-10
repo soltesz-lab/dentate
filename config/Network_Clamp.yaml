@@ -214,11 +214,6 @@ Synaptic Optimization:
             GABA_B:
               weight: [0.001, 1.0]
       Weight all no MC inh soma pd-dend:
-        !!python/tuple [MPP, LPP]:
-          apical:
-            AMPA:
-              weight:
-                a: [1.0, 10.0]
         AAC:
           ais:
             GABA_A:
@@ -238,11 +233,6 @@ Synaptic Optimization:
             GABA_B:
               weight: [0.01, 1.0]
       Weight all no MC inh soma all-dend:
-        !!python/tuple [MPP, LPP]:
-          apical:
-            AMPA:
-              weight:
-                a: [1.0, 10.0]
         AAC:
           ais:
             GABA_A:
