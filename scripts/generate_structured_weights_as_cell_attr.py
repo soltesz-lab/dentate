@@ -53,6 +53,57 @@ def read_weights(weights_path, weights_namespace, synapse_name, destination, sel
 
     return weights_by_syn_id_dict
 
+
+def init_selectivity_config(destination_gid, arena, arena_margin, arena_margin_size, coordinates, field_width, 
+                            dst_input_features_attr_dict, target_selectivity_features_dict,
+                            target_selectivity_config_dict, target_field_width_dict):
+
+
+    this_target_selectivity_features_dict = dst_input_features_attr_dict.get(destination_gid, {})
+    this_target_selectivity_features_dict['Selectivity Type'] = np.asarray([target_selectivity_type], dtype=np.uint8)
+
+    if len(coordinates) > 0:
+        num_fields = len(coordinates)
+        this_target_selectivity_features_dict['X Offset'] =  np.asarray([x[0] for x in coordinates],
+                                                                        dtype=np.float32)
+        this_target_selectivity_features_dict['Y Offset'] =  np.asarray([x[1] for x in coordinates],
+                                                                        dtype=np.float32)
+        this_target_selectivity_features_dict['Num Fields'] = np.asarray([num_fields], dtype=np.uint8)
+    elif 'Num Fields' in this_target_selectivity_features_dict:
+        num_fields = this_target_selectivity_features_dict['Num Fields'][0]
+    else:
+        num_fields = 0
+
+    if field_width is not None:
+        this_target_selectivity_features_dict['Field Width'] = np.asarray([field_width]*num_fields, dtype=np.float32)
+    elif 'Field Width' in this_target_selectivity_features_dict:
+        this_field_width = this_target_selectivity_features_dict['Field Width']
+        this_target_selectivity_features_dict['Field Width'] = this_field_width[:num_fields]
+    else:
+        this_field_width = np.asarray([], dtype=np.float32)
+
+    if peak_rate is not None:
+        this_target_selectivity_features_dict['Peak Rate'] = np.asarray([peak_rate]*num_fields, dtype=np.float32)
+
+    if num_fields > 0:
+        input_cell_config = stimulus.get_input_cell_config(target_selectivity_type,
+                                                           selectivity_type_index,
+                                                           selectivity_attr_dict=target_selectivity_features_dict)
+        arena_margin_size = max(arena_margin_size, np.max(input_cell_config.field_width) * arena_margin)
+        
+        arena_x, arena_y = stimulus.get_2D_arena_spatial_mesh(arena, spatial_resolution,
+                                                              margin=arena_margin_size)
+
+        target_map = np.asarray(input_cell_config.get_rate_map(arena_x, arena_y,
+                                                               scale=field_width_scale),
+                                dtype=np.float32)
+        this_target_selectivity_features_dict['Arena Rate Map'] = target_map
+        target_selectivity_features_dict[destination_gid] = this_target_selectivity_features_dict
+        target_field_width_dict[destination_gid] = input_cell_config.field_width
+        target_selectivity_config_dict[destination_gid] = input_cell_config
+
+    return arena_margin_size
+        
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coordinates", '-c', type=(float, float), multiple=True)
@@ -166,8 +217,6 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     target_features_attr_names = ['Selectivity Type', 'Num Fields', 'Field Width', 'Peak Rate', 
                                   'X Offset', 'Y Offset']
 
-    local_random = np.random.RandomState()
-
     seed_offset = int(env.model_config['Random Seeds']['GC Structured Weights'])
     spatial_resolution = env.stimulus_config['Spatial Resolution'] # cm
 
@@ -217,6 +266,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
         if rank == 0:
             logger.info('Read %s feature data for %i cells in population %s' % (this_input_features_namespace, feature_count, destination))
 
+    readahead = 5
     dst_gids = list(dst_input_features_attr_dict.keys())
     max_dst_count = comm.allreduce(len(dst_gids), op=MPI.MAX)
     output_features_dict = {}
@@ -227,66 +277,28 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
         local_time = time.time()
         has_structured_weights = False
         selection = []
-        if len(dst_gids) > 0:
-            destination_gid = dst_gids.pop()
-            selection = [destination_gid]
-            local_random.seed(int(destination_gid + seed_offset))
+        while len(dst_gids) > 0 and len(selection) < readahead:
+            dst_gid = dst_gids.pop()
+            selection.append(dst_gid)
             logger.info('Rank %i received %d' % (rank, destination_gid))
-        else:
-            destination_gid = None
-            selection = []
-            logger.info('Rank: %i received None' % rank)
 
-        
         arena_margin_size = 0.
         arena_margin = max(arena_margin, 0.)
         target_selectivity_features_dict = {}
         target_selectivity_config_dict = {}
         target_field_width_dict = {}
 
-        target_selectivity_features_dict = dst_input_features_attr_dict.get(destination_gid, {})
-        target_selectivity_features_dict['Selectivity Type'] = np.asarray([target_selectivity_type], dtype=np.uint8)
-        if (destination_gid is not None) and (len(coordinates) > 0):
-            num_fields = len(coordinates)
-            target_selectivity_features_dict['X Offset'] =  np.asarray([x[0] for x in coordinates],
-                                                                            dtype=np.float32)
-            target_selectivity_features_dict['Y Offset'] =  np.asarray([x[1] for x in coordinates],
-                                                                            dtype=np.float32)
-            target_selectivity_features_dict['Num Fields'] = np.asarray([num_fields], dtype=np.uint8)
-        elif 'Num Fields' in target_selectivity_features_dict:
-            num_fields = target_selectivity_features_dict['Num Fields'][0]
-        else:
-            num_fields = 0
+        for destination_gid in selection:
+            arena_margin_size = init_selectivity_config(destination_gid, 
+                                                        arena, arena_margin, arena_margin_size,
+                                                        coordinates, field_width,
+                                                        dst_input_features_attr_dict, 
+                                                        target_selectivity_features_dict,
+                                                        target_selectivity_config_dict,
+                                                        target_field_width_dict)
+ 
 
-        if field_width is not None:
-            target_selectivity_features_dict['Field Width'] = np.asarray([field_width]*num_fields, dtype=np.float32)
-        elif 'Field Width' in target_selectivity_features_dict:
-            this_field_width = target_selectivity_features_dict['Field Width']
-            target_selectivity_features_dict['Field Width'] = this_field_width[:num_fields]
-        else:
-            this_field_width = np.asarray([], dtype=np.float32)
-
-        if peak_rate is not None:
-            target_selectivity_features_dict['Peak Rate'] = np.asarray([peak_rate]*num_fields, dtype=np.float32)
-
-        if num_fields > 0:
-            input_cell_config = stimulus.get_input_cell_config(target_selectivity_type,
-                                                               selectivity_type_index,
-                                                               selectivity_attr_dict=target_selectivity_features_dict)
-            arena_margin_size = max(arena_margin_size, np.max(input_cell_config.field_width) * arena_margin)
-            target_field_width_dict = input_cell_config.field_width
-            target_selectivity_config_dict = input_cell_config
-            has_structured_weights = True
-
-            arena_x, arena_y = stimulus.get_2D_arena_spatial_mesh(arena, spatial_resolution,
-                                                                  margin=arena_margin_size)
-
-            target_map = np.asarray(input_cell_config.get_rate_map(arena_x, arena_y,
-                                                                   scale=field_width_scale),
-                                    dtype=np.float32)
-            target_selectivity_features_dict['Arena Rate Map'] = target_map
-
-                
+        selection = list(target_selectivity_features_dict.keys())
         initial_weights_by_source_gid_dict = defaultdict(lambda: dict())
         initial_weights_by_syn_id_dict = \
           read_weights(initial_weights_path, initial_weights_namespace, synapse_name,
@@ -320,7 +332,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                                       projections=projections,
                                                                       comm=env.comm, io_size=env.io_size)
 
-        if has_structured_weights:
+        for destination_gid in selection:
             for source, edge_iter in viewitems(edge_iter_dict[destination]):
                 syn_id_attr_index = edge_attr_info[destination][source]['Synapses']['syn_id']
                 for this_gid, edges in edge_iter:
@@ -366,6 +378,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             non_structured_input_rate_maps_by_source_gid_dict = {}
         else:
             non_structured_input_rate_maps_by_source_gid_dict = None
+
         for source in all_sources:
             if has_structured_weights:
                 source_gids = list(source_gid_set_dict[source])

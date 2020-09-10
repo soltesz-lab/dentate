@@ -893,10 +893,10 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
                 snr = 0.
             elif mean_outfld is None:
                 snr = (np.clip(mean_peak - mean_trough, 0., None) ** 2.)  / max((mean_trough - target_mean_trough) ** 2., 1.0)
-                logger.info('selectivity rate objective: mean peak/mean trough/snr of gid %i: %.02f %.02f %.04f' % (gid, mean_peak, mean_trough, snr))
+                logger.info('selectivity rate objective: mean peak/trough/snr of gid %i: %.02f %.02f %.04f' % (gid, mean_peak, mean_trough, snr))
             else:
-                snr = (np.clip(mean_peak - mean_outfld, 0., None) ** 2.)  / (max(mean_outfld/rate_baseline, 1.0) ** 2.)
-                logger.info('selectivity rate objective: max in/min in/mean out/snr of gid %i: %.02f %.02f %.02f %.04f' % (gid, max_infld, min_infld, mean_outfld, snr))
+                snr = (np.clip(mean_peak - mean_trough, 0., None) ** 2.)  / (max((mean_trough - target_mean_trough) ** 2., 1.0) * max(mean_outfld/rate_baseline, 1.0) ** 2.)
+                logger.info('selectivity rate objective: mean peak/trough/mean out/snr of gid %i: %.02f %.02f %.02f %.04f' % (gid, mean_peak, mean_trough, mean_outfld, snr))
 
             result[gid] = snr
         return result
@@ -1023,7 +1023,6 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
         return t_vec[t_trial_inds[0]], results_dict
 
     recording_profile = { 'label': 'network_clamp.state.%s' % state_variable,
-                          'dt': 0.1,
                           'section quantity': {
                               state_variable: { 'swc types': ['soma'] }
                             }
@@ -1058,17 +1057,19 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
             logger.info('selectivity state value objective: gid %i: t_peak_idxs/t_trough_idxs: %s / %s' % (gid, str(t_peak_idxs), str(t_trough_idxs)))
 
             mean_state_values = state_values_dict[gid]
-            peak_infld = np.max(mean_state_values[t_peak_idxs])
-            min_infld = np.min(mean_state_values[t_trough_idxs])
+            peak_infld = np.mean(mean_state_values[t_peak_idxs])
+            trough_infld = np.mean(mean_state_values[t_trough_idxs])
             mean_infld = np.mean(mean_state_values[t_infld_idxs])
 
             if t_outfld_idxs is None:
-                snr = np.clip(peak_infld - min_infld, 0., None) ** 2.
-                logger.info('selectivity state value objective: state values of gid %i: max/min/mean in: %.02f / %.02f / %.02f snr: %.04f' % (gid, peak_infld, min_infld, mean_infld, snr))
+                snr = np.clip(peak_infld - trough_infld, 0., None) ** 2.
+                logger.info('selectivity state value objective: state values of gid %i: peak/trough/mean in: %.02f / %.02f / %.02f snr: %.04f' % (gid, peak_infld, trough_infld, mean_infld, snr))
             else:
                 mean_outfld = np.mean(mean_state_values[t_outfld_idxs])
-                snr = (np.clip(peak_infld - mean_outfld, 0., None) ** 2.) - ((mean_outfld - state_baseline) ** 2.)
-                logger.info('selectivity state value objective: state values of gid %i: max in/mean in/mean out: %.02f / %.02f / %.02f snr: %.04f' % (gid, peak_infld, mean_infld, mean_outfld, snr))
+                snr = 0.
+                if mean_outfld < mean_infld:
+                    snr = (np.clip(peak_infld - trough_infld, 0., None) ** 2.) - ((mean_outfld - state_baseline) ** 2.)
+                logger.info('selectivity state value objective: state values of gid %i: peak/trough/mean in/mean out: %.02f / %.02f / %.02f / %.02f snr: %.04f' % (gid, peak_infld, trough_infld, mean_infld, mean_outfld, snr))
             
             result[gid] = snr
 
