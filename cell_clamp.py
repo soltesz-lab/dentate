@@ -15,46 +15,6 @@ logger = get_module_logger(__name__)
 
 context = Context()
 
-def load_biophys_cell(env, pop_name, gid, mech_file_path=None, mech_dict=None, correct_for_spines=False,
-                      tree_dict=None, load_synapses=True, synapses_dict=None,
-                      load_connections=True, connection_graph=None,
-                      load_weights=True, weight_dicts=None):
-    """
-    Instantiates the mechanisms of a single BiophysCell instance.
-
-    :param env: env.Env
-    :param pop_name: str
-    :param gid: int
-    :param mech_file_path: str; path to cell mechanism config file
-    :param correct_for_spines: bool
-
-    Environment can be instantiated as:
-    env = Env(config_file, template_paths, dataset_prefix, config_prefix)
-    :param template_paths: str; colon-separated list of paths to directories containing hoc cell templates
-    :param dataset_prefix: str; path to directory containing required neuroh5 data files
-    :param config_prefix: str; path to directory containing network and cell mechanism config files
-    
-    """
-
-    cell = cells.get_biophys_cell(env, pop_name, gid, tree_dict=tree_dict,
-                                  load_synapses=load_synapses,
-                                  synapses_dict=synapses_dict,
-                                  load_weights=load_weights,
-                                  weight_dicts=weight_dicts,
-                                  load_edges=load_connections,
-                                  connection_graph=connection_graph,
-                                  mech_file_path=mech_file_path,
-                                  mech_dict=mech_dict)
-
-    # init_spike_detector(cell)
-    cells.init_biophysics(cell, reset_cable=True, 
-                          correct_cm=correct_for_spines,
-                          correct_g_pas=correct_for_spines, env=env)
-    synapses.init_syn_mech_attrs(cell, env)
-    
-    return cell
-
-
 
 def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=True, write_cell=False,
                       cell_dict={}):
@@ -64,10 +24,23 @@ def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=T
     :param env: an instance of env.Env
     :param pop_name: population name
     :param gid: gid
+    :param load_connections: bool
+    :param register_cell: bool
+    :param write_cell: bool
+    :param cell_dict: dict
+
+    Environment can be instantiated as:
+    env = Env(config_file, template_paths, dataset_prefix, config_prefix)
+    :param template_paths: str; colon-separated list of paths to directories containing hoc cell templates
+    :param dataset_prefix: str; path to directory containing required neuroh5 data files
+    :param config_prefix: str; path to directory containing network and cell mechanism config files
     """
 
     rank = int(env.pc.id())
 
+    ## Determine template name for this cell type
+    template_name = env.celltypes[pop_name]['template']
+    
     ## Determine if a mechanism configuration file exists for this cell type
     if 'mech_file_path' in env.celltypes[pop_name]:
         mech_dict = env.celltypes[pop_name]['mech_dict']
@@ -85,14 +58,33 @@ def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=T
     presyn_names = env.projection_dict[pop_name]
 
     ## Load cell gid and its synaptic attributes and connection data
-    cell = load_biophys_cell(env, pop_name, gid, mech_dict=mech_dict, \
-                             correct_for_spines=correct_for_spines_flag, \
-                             load_connections=load_connections,
-                             tree_dict=cell_dict.get('morph', None),
-                             synapses_dict=cell_dict.get('synapse', None),
-                             connection_graph=cell_dict.get('connectivity', None),
-                             weight_dicts=cell_dict.get('weight', None))
+    if template_name.lower() == 'izhikevich':
+        cell = cells.make_izhikevich_cell(env, pop_name, gid,
+                                          synapses_dict=cell_dict.get('synapse', None),
+                                          connection_graph=cell_dict.get('connectivity', None),
+                                          weight_dicts=cell_dict.get('weight', None),
+                                          mech_dict=mech_dict,
+                                          load_synapses=True, load_weights=True,
+                                          load_edges=load_connections)
+    else:
+        cell = cells.make_biophys_cell(env, pop_name, gid,
+                                       tree_dict=cell_dict.get('morph', None),
+                                       synapses_dict=cell_dict.get('synapse', None),
+                                       connection_graph=cell_dict.get('connectivity', None),
+                                       weight_dicts=cell_dict.get('weight', None),
+                                       mech_dict=mech_dict,
+                                       load_synapses=True, load_weights=True,
+                                       load_edges=load_connections)
+        
                              
+
+    # init_spike_detector(cell)
+    cells.init_biophysics(cell, reset_cable=True, 
+                          correct_cm=correct_for_spines_flag,
+                          correct_g_pas=correct_for_spines_flag, env=env)
+    synapses.init_syn_mech_attrs(cell, env)
+
+    
     if register_cell:
         cells.register_cell(env, pop_name, gid, cell)
     

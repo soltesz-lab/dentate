@@ -353,7 +353,7 @@ def init(env, pop_name, gid_set, arena_id=None, trajectory_id=None, n_trials=1,
         
 
     cell = env.pc.gid2cell(gid)
-    for sec in list(cell.all):
+    for sec in list(cell.hoc_cell.all if hasattr(cell, 'hoc_cell') else cell.all):
         h.psection(sec=sec)
         
     env.pc.set_maxstep(10)
@@ -433,14 +433,14 @@ def update_network_params(env, param_config_dict):
         for gid, params_tuples in viewitems(gid_param_config_dict):
             biophys_cell = biophys_cell_dict[gid]
             for destination, source, sec_type, syn_name, param_path, param_value in params_tuples:
-                if isinstance(param_path, tuple):
+                if isinstance(param_path, list) or isinstance(param_path, tuple):
                     p, s = param_path
                 else:
                     p, s = param_path, None
 
                 sources = None
-                if isinstance(source, tuple):
-                    sources = list(source)
+                if isinstance(source, list) or isinstance(source, tuple):
+                    sources = source
                 else:
                     if source is not None:
                         sources = [source]

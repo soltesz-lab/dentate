@@ -39,7 +39,7 @@ for name in files:
 for k in toplevel:
     data_dict = toplevel[k]
     df_dict = {}
-    for i in data_dict:
+    for i in sorted(data_dict.keys()):
         param_dict = data_dict[i]
         param_tuple = tuple( param_dict[c] for c in columns )
         df_dict[i] = param_tuple

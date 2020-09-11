@@ -560,8 +560,8 @@ class SynapseAttributes(object):
                         for sk, sv in viewitems(new_val):
                             old_val[sk] = sv
                     else:
-                        raise RuntimeError('modify_mech_attrs: dictionary value provided to a non-expression parameter %s mechanism: %s presynaptic: %s' %
-                                           (k, mech_name, presyn_name))
+                        raise RuntimeError('modify_mech_attrs: dictionary value provided to a non-expression parameter %s mechanism: %s presynaptic: %s old value: %s' %
+                                           (k, mech_name, presyn_name, old_val))
                 else:
                     attr_dict[k] = new_val
                 #logger.debug("modify %s.%s.%s.%s: old_val: %s new val: %s" % (pop_name, presyn_name, syn_name, k, str(old_val), str(new_val)))
@@ -792,7 +792,11 @@ def insert_hoc_cell_syns(env, gid, cell, syn_ids, syn_params, unique=False, inse
                          swc_type_ais: syns_dict_ais,
                          swc_type_hill: syns_dict_hill,
                          swc_type_soma: syns_dict_soma}
+
     py_sections = [sec for sec in cell.sections]
+    is_reduced = False
+    if hasattr(cell, 'is_reduced'):
+        is_reduced = cell.is_reduced
 
     syn_attrs = env.synapse_attributes
     syn_id_attr_dict = syn_attrs.syn_id_attr_dict[gid]
@@ -808,8 +812,11 @@ def insert_hoc_cell_syns(env, gid, cell, syn_ids, syn_params, unique=False, inse
         swc_type = syn.swc_type
         syn_loc = syn.syn_loc
         syn_section = syn.syn_section
-        
-        sec = py_sections[syn_section]
+
+        if is_reduced:
+            sec = py_sections[0]
+        else:
+            sec = py_sections[syn_section]
         if swc_type in syns_dict_by_type:
             syns_dict = syns_dict_by_type[swc_type]
         else:

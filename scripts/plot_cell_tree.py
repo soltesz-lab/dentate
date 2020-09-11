@@ -4,7 +4,7 @@ import dentate
 from dentate import env, plot, utils, cells, neuron_utils
 from dentate.neuron_utils import h, configure_hoc_env
 from dentate.env import Env
-from dentate.cells import get_biophys_cell
+from dentate.cells import make_biophys_cell
 from mpi4py import MPI
 
 script_name = os.path.basename(__file__)
@@ -46,11 +46,11 @@ def main(config_file, population, gid, template_paths, dataset_prefix, config_pr
     logger.info('loading cell %i' % gid)
 
     load_weights = False
-    biophys_cell = get_biophys_cell(env, population, gid, 
-                                    load_synapses=load_synapses,
-                                    load_weights=load_weights, 
-                                    load_edges=load_synapses,
-                                    mech_file_path=mech_file_path)
+    biophys_cell = make_biophys_cell(env, population, gid, 
+                                     load_synapses=load_synapses,
+                                     load_weights=load_weights, 
+                                     load_edges=load_synapses,
+                                     mech_file_path=mech_file_path)
 
     if len(syn_types) == 0:
         syn_types = None

@@ -1,7 +1,7 @@
 import collections, os, sys, traceback, copy, datetime, math, itertools, pprint
 import numpy as np
 from dentate.neuron_utils import h, d_lambda, default_hoc_sec_lists, default_ordered_sec_types, freq, make_rec, \
-    load_cell_template, IzhiCellAttrs, default_izhi_cell_attrs_dict
+    load_cell_template, HocCellInterface, IzhiCellAttrs, default_izhi_cell_attrs_dict
 from dentate.utils import get_module_logger, map, range, zip, zip_longest, viewitems, read_from_yaml, write_to_yaml, Promise
 from neuroh5.io import read_cell_attribute_selection, read_graph_selection, read_tree_selection
 
@@ -579,7 +579,7 @@ class IzhiCell(object):
     An implementation of an Izhikevich adaptive integrate-and-fire-type cell model for simulation in NEURON.
     Conforms to the same API as BiophysCell.
     """
-    def __init__(self, gid, pop_name, env=None, cell_type='RS', cell_attrs=None, **kwargs):
+    def __init__(self, gid, pop_name, env=None, cell_type='RS', cell_attrs=None, mech_dict=None):
         """
 
         :param gid: int
@@ -598,20 +598,19 @@ class IzhiCell(object):
                     raise AttributeError('Warning! unexpected SWC Type definitions found in Env')
         self.nodes = {key: [] for key in default_ordered_sec_types}
         self.mech_file_path = None
-        self.init_mech_dict = None
-        self.mech_dict = None
+        self.init_mech_dict = dict(mech_dict) if mech_dict is not None else None
+        self.mech_dict = dict(mech_dict) if mech_dict is not None else None
         self.random = np.random.RandomState()
         self.random.seed(self.gid)
         self.spike_detector = None
         self.spike_onset_delay = 0.
-        self.hoc_cell = None
 
         if cell_attrs is not None:
             if not isinstance(cell_attrs, IzhiCellAttrs):
-                raise RuntimeError('IzhiCell: provided cell_attrs must be of type IzhiCellAttrs')
+                raise RuntimeError('IzhiCell: argument cell_attrs must be of type IzhiCellAttrs')
             cell_type = 'custom'
         elif cell_type not in default_izhi_cell_attrs_dict:
-            raise RuntimeError('IzhiCell: unknown izhi cell_type: %s' % cell_type)
+            raise RuntimeError('IzhiCell: unknown value for cell_type: %s' % str(cell_type))
         else:
             cell_attrs = default_izhi_cell_attrs_dict[cell_type]
         self.cell_type = cell_type
@@ -621,10 +620,12 @@ class IzhiCell(object):
         sec.L, sec.diam = 10., 10.
         self.izh = h.Izhi2019(.5, sec=sec)
         self.base_cm = 31.831  # Produces membrane time constant of 8 ms for a RS cell with izh.C = 1. and izi.k = 0.7
-
         for attr_name, attr_val in cell_attrs._asdict().items():
             setattr(self.izh, attr_name, attr_val)
         sec.cm = self.base_cm * self.izh.C
+
+        self.hoc_cell = HocCellInterface(sections=[sec], is_art=lambda: 0, is_reduced=True,
+                                         all=[sec], soma=[sec], apical=[], basal=[], axon=[], ais=[], hillock=[])
 
         init_spike_detector(self, self.tree.root, loc=0.5, threshold=self.izh.vpeak - 1.)
 
@@ -2593,34 +2594,12 @@ def make_input_cell(env, gid, pop_id, input_source_dict, spike_train_attr_name='
     return cell
 
 
-def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, load_synapses=True,
-                     load_edges=True, connection_graph=None,
-                     load_weights=False, weight_dicts=None, 
-                     set_edge_delays=True, mech_file_path=None, mech_dict=None):
-    """
-    :param env: :class:'Env'
-    :param pop_name: str
-    :param gid: int
-    :param tree_dict: dict
-    :param synapses_dict: dict
-    :param weight_dicts: list of dict
-    :param load_synapses: bool
-    :param load_edges: bool
-    :param load_weights: bool
-    :param set_edge_delays: bool
-    :param mech_file_path: str (path)
-    :return: :class:'BiophysCell'
-    """
-    load_cell_template(env, pop_name)
-
-    if tree_dict is None:
-        tree_attr_iter, _ = read_tree_selection(env.data_file_path, pop_name, [gid], comm=env.comm, topology=True)
-        _, tree_dict = next(tree_attr_iter)
-
-        
-    hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict)
-    cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env,
-                       mech_file_path=mech_file_path, mech_dict=mech_dict)
+def load_circuit_context(env, pop_name, gid,
+                         load_edges=False, connection_graph=None,
+                         load_weights=False, weight_dicts=None,
+                         load_synapses=False, synapses_dict=None,
+                         set_edge_delays=True, **kwargs):
+    
     syn_attrs = env.synapse_attributes
     synapse_config = env.celltypes[pop_name]['synapses']
 
@@ -2633,7 +2612,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     else: 
         weight_dicts = []
         
-    if load_synapses:
+    if load_synapses or load_edges:
         if synapses_dict is not None:
             syn_attrs.init_syn_id_attrs(gid, **synapses_dict)
         elif (pop_name in env.cell_attribute_info) and ('Synapse Attributes' in env.cell_attribute_info[pop_name]):
@@ -2642,7 +2621,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
             syn_attrs.init_syn_id_attrs_from_iter(synapses_iter)
 
         else:
-            logger.error('get_biophys_cell: synapse attributes not found for %s: gid: %i' % (pop_name, gid))
+            logger.error('make_biophys_cell: synapse attributes not found for %s: gid: %i' % (pop_name, gid))
             raise Exception
 
         if load_weights and has_weights:
@@ -2672,7 +2651,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
                                                                            if expr_closure else [{'weight': x} for x in weights_values]),
                                                                multiple=multiple_weights, append=append_weights)
                             if first_gid == gid:
-                                logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights in namespace %s' %
+                                logger.info('load_circuit_context: gid: %i; found %i %s synaptic weights in namespace %s' %
                                             (gid, len(cell_weights_dict[syn_name]), syn_name, weights_namespace))
                                 logger.info('weight_values min/max/mean: %.02f / %.02f / %.02f' %
                                             (np.min(weights_values), np.max(weights_values), np.mean(weights_values)))
@@ -2683,7 +2662,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
 
     if load_edges:
         if env.connectivity_file_path is None:
-            logger.error('get_biophys_cell: load_edges=True but connectivity file path is not specified ')
+            logger.error('load_circuit_context: load_edges=True but connectivity file path is not specified ')
             raise Exception
         if connection_graph is not None:
             (graph, a) = connection_graph
@@ -2691,7 +2670,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
             (graph, a) = read_graph_selection(file_name=env.connectivity_file_path, selection=[gid],
                                               namespaces=['Synapses', 'Connections'], comm=env.comm)
         else:
-            logger.error('get_biophys_cell: connection file %s not found' % env.connectivity_file_path)
+            logger.error('load_circuit_context: connection file %s not found' % env.connectivity_file_path)
             raise Exception
     else:
         (graph, a) = None, None
@@ -2702,12 +2681,91 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
                 edge_iter = graph[pop_name][presyn_name]
                 syn_attrs.init_edge_attrs_from_iter(pop_name, presyn_name, a, edge_iter, set_edge_delays)
         else:
-            logger.error('get_biophys_cell: connection attributes not found for %s: gid: %i' % (pop_name, gid))
+            logger.error('load_circuit_context: connection attributes not found for %s: gid: %i' % (pop_name, gid))
             raise Exception
+    
+    
+
+def make_biophys_cell(env, pop_name, gid, 
+                      mech_file_path=None, mech_dict=None,
+                      tree_dict=None,
+                      load_synapses=False, synapses_dict=None, 
+                      load_edges=False, connection_graph=None,
+                      load_weights=False, weight_dicts=None, 
+                      set_edge_delays=True, **kwargs):
+    """
+    :param env: :class:'Env'
+    :param pop_name: str
+    :param gid: int
+    :param tree_dict: dict
+    :param synapses_dict: dict
+    :param weight_dicts: list of dict
+    :param load_synapses: bool
+    :param load_edges: bool
+    :param load_weights: bool
+    :param set_edge_delays: bool
+    :param mech_file_path: str (path)
+    :return: :class:'BiophysCell'
+    """
+    load_cell_template(env, pop_name)
+
+    if tree_dict is None:
+        tree_attr_iter, _ = read_tree_selection(env.data_file_path, pop_name, [gid], comm=env.comm, topology=True)
+        _, tree_dict = next(tree_attr_iter)
+        
+    hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict)
+    cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env,
+                       mech_file_path=mech_file_path, mech_dict=mech_dict)
+
+    load_circuit_context(env, pop_name, gid,
+                         load_edges=load_edges, connection_graph=connection_graph,
+                         load_weights=load_weights, weight_dicts=weight_dicts, 
+                         set_edge_delays=set_edge_delays, **kwargs)
+    
+    env.biophys_cells[pop_name][gid] = cell
+    return cell
+
+
+def make_izhikevich_cell(env, pop_name, gid, mech_file_path=None, mech_dict=None,
+                         load_synapses=False, synapses_dict=None, 
+                         load_edges=False, connection_graph=None,
+                         load_weights=False, weight_dicts=None, 
+                         set_edge_delays=True, **kwargs):
+    """
+    :param env: :class:'Env'
+    :param pop_name: str
+    :param gid: int
+    :param mech_file_path: str (path)
+    :param mech_dict: dict
+    :param synapses_dict: dict
+    :param weight_dicts: list of dict
+    :param load_synapses: bool
+    :param load_edges: bool
+    :param load_weights: bool
+    :param set_edge_delays: bool
+    :return: :class:'IzhikevichCell'
+    """
+
+    if mech_dict is None and mech_file_path is None:
+        raise RuntimeError('make_izhikevich_cell: mech_dict or mech_file_path must be specified')
+
+    if mech_dict is None and mech_file_path is not None:
+        mech_dict = read_from_yaml(mech_file_path)
+
+    cell = IzhiCell(gid=gid, pop_name=pop_name, env=env,
+                    cell_attrs=IzhiCellAttrs(**mech_dict['izhikevich']),
+                    mech_dict={ k: mech_dict[k] for k in mech_dict if k != 'izhikevich' })
+
+    load_circuit_context(env, pop_name, gid,
+                         load_edges=load_edges, connection_graph=connection_graph,
+                         load_weights=load_weights, weight_dicts=weight_dicts, 
+                         set_edge_delays=set_edge_delays, **kwargs)
         
     env.biophys_cells[pop_name][gid] = cell
     return cell
 
+
+get_biophys_cell = make_biophys_cell
 
 
 def register_cell(env, pop_name, gid, cell):
@@ -2724,7 +2782,7 @@ def register_cell(env, pop_name, gid, cell):
     env.pc.set_gid2node(gid, rank)
     hoc_cell = getattr(cell, 'hoc_cell', cell)
     env.cells[pop_name].append(hoc_cell)
-    if hoc_cell.is_art() == 1:
+    if hoc_cell.is_art() > 0:
         env.artificial_cells[pop_name][gid] = hoc_cell
     # Tell the ParallelContext that this cell is a spike source
     # for all other hosts. NetCon is temporary.
