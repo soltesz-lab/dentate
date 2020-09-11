@@ -198,7 +198,7 @@ Synaptic Optimization:
           apical:
             AMPA:
               weight:
-                a: [1.0, 10.0]
+                a: [7.0, 10.0]
         MC:
           apical:
             AMPA:

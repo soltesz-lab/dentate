@@ -1288,12 +1288,14 @@ def get_syn_filter_dict(env, rules, convert=False, check_valid=True):
             if convert:
                 rules_dict['layers'][i] = env.layers[layer]
     if sources is not None:
+        source_idxs = []
         for i, source in enumerate(sources):
             if source not in env.Populations:
                 raise ValueError('get_syn_filter_dict: presynaptic population: %s not recognized by network '
                                  'configuration' % str(source))
-            if convert:
-                rules_dict['sources'][i] = env.Populations[source]
+            source_idxs.append(env.Populations[source])
+        if convert:
+            rules_dict['sources'] = source_idxs
     return rules_dict
 
 

@@ -250,9 +250,10 @@ class Env(object):
         self.cell_selection_path = cell_selection_path
         if rank == 0:
             self.logger.info('env.cell_selection_path = %s' % str(self.cell_selection_path))
-        if cell_selection_path is not None:
-            with open(cell_selection_path) as fp:
-                self.cell_selection = yaml.load(fp, IncludeLoader)
+            if cell_selection_path is not None:
+                with open(cell_selection_path) as fp:
+                    self.cell_selection = yaml.load(fp, IncludeLoader)
+        self.cell_selection = self.comm.bcast(self.cell_selection, root=0)
 
         # Spike input path
         self.spike_input_path = spike_input_path

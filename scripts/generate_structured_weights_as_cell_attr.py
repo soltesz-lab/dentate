@@ -53,6 +53,128 @@ def read_weights(weights_path, weights_namespace, synapse_name, destination, sel
 
     return weights_by_syn_id_dict
 
+
+def init_selectivity_config(destination_gid, spatial_resolution, 
+                            arena, arena_margin, arena_margin_size, 
+                            coordinates, field_width, field_width_scale, peak_rate, 
+                            target_selectivity_type, selectivity_type_index,
+                            dst_input_features_attr_dict, target_selectivity_features_dict,
+                            target_selectivity_config_dict, target_field_width_dict):
+
+
+    this_target_selectivity_features_dict = dst_input_features_attr_dict.get(destination_gid, {})
+    this_target_selectivity_features_dict['Selectivity Type'] = np.asarray([target_selectivity_type], dtype=np.uint8)
+
+    if len(coordinates) > 0:
+        num_fields = len(coordinates)
+        this_target_selectivity_features_dict['X Offset'] =  np.asarray([x[0] for x in coordinates],
+                                                                        dtype=np.float32)
+        this_target_selectivity_features_dict['Y Offset'] =  np.asarray([x[1] for x in coordinates],
+                                                                        dtype=np.float32)
+        this_target_selectivity_features_dict['Num Fields'] = np.asarray([num_fields], dtype=np.uint8)
+    elif 'Num Fields' in this_target_selectivity_features_dict:
+        num_fields = this_target_selectivity_features_dict['Num Fields'][0]
+    else:
+        num_fields = 0
+
+    if field_width is not None:
+        this_target_selectivity_features_dict['Field Width'] = np.asarray([field_width]*num_fields, dtype=np.float32)
+    elif 'Field Width' in this_target_selectivity_features_dict:
+        this_field_width = this_target_selectivity_features_dict['Field Width']
+        this_target_selectivity_features_dict['Field Width'] = this_field_width[:num_fields]
+    else:
+        this_field_width = np.asarray([], dtype=np.float32)
+
+    if peak_rate is not None:
+        this_target_selectivity_features_dict['Peak Rate'] = np.asarray([peak_rate]*num_fields, dtype=np.float32)
+
+    if num_fields > 0:
+        input_cell_config = stimulus.get_input_cell_config(target_selectivity_type,
+                                                           selectivity_type_index,
+                                                           selectivity_attr_dict=this_target_selectivity_features_dict)
+        arena_margin_size = max(arena_margin_size, np.max(input_cell_config.field_width) * arena_margin)
+        
+        arena_x, arena_y = stimulus.get_2D_arena_spatial_mesh(arena, spatial_resolution,
+                                                              margin=arena_margin_size)
+
+        target_map = np.asarray(input_cell_config.get_rate_map(arena_x, arena_y,
+                                                               scale=field_width_scale),
+                                dtype=np.float32)
+        this_target_selectivity_features_dict['Arena Rate Map'] = target_map
+        target_selectivity_features_dict[destination_gid] = this_target_selectivity_features_dict
+        target_field_width_dict[destination_gid] = input_cell_config.field_width
+        target_selectivity_config_dict[destination_gid] = input_cell_config
+
+    return arena_margin_size
+
+
+def init_syn_weight_dicts(destination, non_structured_sources,
+                          edge_iter_dict, edge_attr_info,
+                          initial_weights_by_syn_id_dict,
+                          initial_weights_by_source_gid_dict,
+                          non_structured_weights_by_syn_id_dict,
+                          non_structured_weights_by_source_gid_dict,
+                          reference_weights_by_syn_id_dict,
+                          reference_weights_by_source_gid_dict,
+                          source_gid_set_dict,
+                          syn_count_by_source_gid_dict,
+                          syn_ids_by_source_gid_dict,
+                          structured_syn_id_count):
+
+    syn_counts_by_source = {}
+
+    if destination not in edge_iter_dict:
+        return syn_counts_by_source
+
+    for source, edge_iter in viewitems(edge_iter_dict[destination]):
+
+        syn_counts_by_source[source] = {}
+        syn_id_attr_index = edge_attr_info[destination][source]['Synapses']['syn_id']
+
+        for this_gid, edges in edge_iter:
+            (source_gid_array, edge_attr_dict) = edges
+            syn_ids = edge_attr_dict['Synapses'][syn_id_attr_index]
+            this_initial_weights_by_syn_id_dict = initial_weights_by_syn_id_dict[this_gid]
+            this_initial_weights_by_source_gid_dict = initial_weights_by_source_gid_dict[this_gid]
+            this_non_structured_weights_by_syn_id_dict = non_structured_weights_by_syn_id_dict[this_gid]
+            this_non_structured_weights_by_source_gid_dict = non_structured_weights_by_source_gid_dict[this_gid]
+            this_syn_ids_by_source_gid_dict = syn_ids_by_source_gid_dict[this_gid]
+            this_syn_count_by_source_gid_dict = syn_count_by_source_gid_dict[this_gid]
+            this_reference_weights_by_syn_id_dict = None
+            this_reference_weights_by_source_gid_dict = None
+            if reference_weights_by_syn_id_dict is not None:
+                this_reference_weights_by_syn_id_dict = reference_weights_by_syn_id_dict[this_gid]
+                this_reference_weights_by_source_gid_dict = reference_weights_by_source_gid_dict[this_gid]
+
+            count = 0
+            for i in range(len(source_gid_array)):
+                this_source_gid = source_gid_array[i]
+                this_syn_id = syn_ids[i]
+                if this_syn_id in this_initial_weights_by_syn_id_dict:
+                    this_syn_wgt = this_initial_weights_by_syn_id_dict[this_syn_id]
+                    if this_source_gid not in this_initial_weights_by_source_gid_dict:
+                        this_initial_weights_by_source_gid_dict[this_source_gid] = this_syn_wgt
+                    if this_reference_weights_by_syn_id_dict is not None:
+                        this_reference_weights_by_source_gid_dict[this_source_gid] = \
+                          this_reference_weights_by_syn_id_dict[this_syn_id]
+                elif this_syn_id in this_non_structured_weights_by_syn_id_dict:
+                    this_syn_wgt = this_non_structured_weights_by_syn_id_dict[this_syn_id]
+                    if this_source_gid not in this_non_structured_weights_by_source_gid_dict:
+                        this_non_structured_weights_by_source_gid_dict[this_source_gid] = this_syn_wgt
+                this_syn_ids_by_source_gid_dict[this_source_gid].append(this_syn_id)
+                this_syn_count_by_source_gid_dict[this_source_gid] += 1
+
+                source_gid_set_dict[source].add(this_source_gid)
+
+                count += 1
+
+            syn_counts_by_source[source][this_gid] = count
+
+            if source not in non_structured_sources:
+                structured_syn_id_count[this_gid] += len(syn_ids)
+
+    return syn_counts_by_source
+        
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coordinates", '-c', type=(float, float), multiple=True)
@@ -166,8 +288,6 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     target_features_attr_names = ['Selectivity Type', 'Num Fields', 'Field Width', 'Peak Rate', 
                                   'X Offset', 'Y Offset']
 
-    local_random = np.random.RandomState()
-
     seed_offset = int(env.model_config['Random Seeds']['GC Structured Weights'])
     spatial_resolution = env.stimulus_config['Spatial Resolution'] # cm
 
@@ -194,7 +314,6 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
         for i, gid in enumerate(target_gid_set):
             if i%nranks == rank:
                 dst_gids.append(gid)
-    logger.info('Rank %d: %d destination gids' % (rank, len(dst_gids)))
 
     dst_input_features_attr_dict = {}
     for this_input_features_namespace in this_input_features_namespaces:
@@ -218,75 +337,48 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             logger.info('Read %s feature data for %i cells in population %s' % (this_input_features_namespace, feature_count, destination))
 
     dst_gids = list(dst_input_features_attr_dict.keys())
+    logger.info('Rank %d: %d destination gids' % (rank, len(dst_gids)))
+
     max_dst_count = comm.allreduce(len(dst_gids), op=MPI.MAX)
+    max_iter_count = max_dst_count
     output_features_dict = {}
     LTP_output_weights_dict = {}
     LTD_output_weights_dict = {}
-    for iter_count in range(max_dst_count):
+    for iter_count in range(max_iter_count):
+
+        gc.collect()
 
         local_time = time.time()
-        has_structured_weights = False
         selection = []
-        if len(dst_gids) > 0:
-            destination_gid = dst_gids.pop()
-            selection = [destination_gid]
-            local_random.seed(int(destination_gid + seed_offset))
-            logger.info('Rank %i received %d' % (rank, destination_gid))
-        else:
-            destination_gid = None
-            selection = []
-            logger.info('Rank: %i received None' % rank)
+        if  len(dst_gids) > 0:
+            dst_gid = dst_gids.pop()
+            selection.append(dst_gid)
+            logger.info('Rank %i received %d' % (rank, dst_gid))
 
-        
         arena_margin_size = 0.
         arena_margin = max(arena_margin, 0.)
+
         target_selectivity_features_dict = {}
         target_selectivity_config_dict = {}
         target_field_width_dict = {}
 
-        target_selectivity_features_dict = dst_input_features_attr_dict.get(destination_gid, {})
-        target_selectivity_features_dict['Selectivity Type'] = np.asarray([target_selectivity_type], dtype=np.uint8)
-        if (destination_gid is not None) and (len(coordinates) > 0):
-            num_fields = len(coordinates)
-            target_selectivity_features_dict['X Offset'] =  np.asarray([x[0] for x in coordinates],
-                                                                            dtype=np.float32)
-            target_selectivity_features_dict['Y Offset'] =  np.asarray([x[1] for x in coordinates],
-                                                                            dtype=np.float32)
-            target_selectivity_features_dict['Num Fields'] = np.asarray([num_fields], dtype=np.uint8)
-        elif 'Num Fields' in target_selectivity_features_dict:
-            num_fields = target_selectivity_features_dict['Num Fields'][0]
-        else:
-            num_fields = 0
+        for destination_gid in selection:
+            arena_margin_size = init_selectivity_config(destination_gid, 
+                                                        spatial_resolution,
+                                                        arena, arena_margin, arena_margin_size,
+                                                        coordinates, field_width, field_width_scale, peak_rate,
+                                                        target_selectivity_type,
+                                                        selectivity_type_index,
+                                                        dst_input_features_attr_dict, 
+                                                        target_selectivity_features_dict,
+                                                        target_selectivity_config_dict,
+                                                        target_field_width_dict)
+ 
+        arena_x, arena_y = stimulus.get_2D_arena_spatial_mesh(arena, spatial_resolution,
+                                                              margin=arena_margin_size)
 
-        if field_width is not None:
-            target_selectivity_features_dict['Field Width'] = np.asarray([field_width]*num_fields, dtype=np.float32)
-        elif 'Field Width' in target_selectivity_features_dict:
-            this_field_width = target_selectivity_features_dict['Field Width']
-            target_selectivity_features_dict['Field Width'] = this_field_width[:num_fields]
-        else:
-            this_field_width = np.asarray([], dtype=np.float32)
+        selection = list(target_selectivity_features_dict.keys())
 
-        if peak_rate is not None:
-            target_selectivity_features_dict['Peak Rate'] = np.asarray([peak_rate]*num_fields, dtype=np.float32)
-
-        if num_fields > 0:
-            input_cell_config = stimulus.get_input_cell_config(target_selectivity_type,
-                                                               selectivity_type_index,
-                                                               selectivity_attr_dict=target_selectivity_features_dict)
-            arena_margin_size = max(arena_margin_size, np.max(input_cell_config.field_width) * arena_margin)
-            target_field_width_dict = input_cell_config.field_width
-            target_selectivity_config_dict = input_cell_config
-            has_structured_weights = True
-
-            arena_x, arena_y = stimulus.get_2D_arena_spatial_mesh(arena, spatial_resolution,
-                                                                  margin=arena_margin_size)
-
-            target_map = np.asarray(input_cell_config.get_rate_map(arena_x, arena_y,
-                                                                   scale=field_width_scale),
-                                    dtype=np.float32)
-            target_selectivity_features_dict['Arena Rate Map'] = target_map
-
-                
         initial_weights_by_source_gid_dict = defaultdict(lambda: dict())
         initial_weights_by_syn_id_dict = \
           read_weights(initial_weights_path, initial_weights_namespace, synapse_name,
@@ -309,10 +401,10 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                           destination, selection, env.comm, env.io_size, defaultdict(lambda: dict()),
                           logger=logger)
 
-        syn_count_by_source_gid_dict = defaultdict(int)
         source_gid_set_dict = defaultdict(set)
-        syn_ids_by_source_gid_dict = defaultdict(list)
-        structured_syn_id_count = 0
+        syn_count_by_source_gid_dict = defaultdict(lambda: defaultdict(int))
+        syn_ids_by_source_gid_dict = defaultdict(lambda: defaultdict(list))
+        structured_syn_id_count = defaultdict(int)
 
         projections = [ (source, destination) for source in all_sources ]
         edge_iter_dict, edge_attr_info = scatter_read_graph_selection(connections_path, selection=selection,
@@ -320,57 +412,33 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                                       projections=projections,
                                                                       comm=env.comm, io_size=env.io_size)
 
-        if has_structured_weights:
-            for source, edge_iter in viewitems(edge_iter_dict[destination]):
-                syn_id_attr_index = edge_attr_info[destination][source]['Synapses']['syn_id']
-                for this_gid, edges in edge_iter:
-                    (source_gid_array, edge_attr_dict) = edges
-                    syn_ids = edge_attr_dict['Synapses'][syn_id_attr_index]
-                    this_initial_weights_by_syn_id_dict = initial_weights_by_syn_id_dict[this_gid]
-                    this_initial_weights_by_source_gid_dict = initial_weights_by_source_gid_dict[this_gid]
-                    this_non_structured_weights_by_syn_id_dict = non_structured_weights_by_syn_id_dict[this_gid]
-                    this_non_structured_weights_by_source_gid_dict = non_structured_weights_by_source_gid_dict[this_gid]
-                    this_reference_weights_by_syn_id_dict = None
-                    this_reference_weights_by_source_gid_dict = None
-                    if reference_weights_by_syn_id_dict is not None:
-                        this_reference_weights_by_syn_id_dict = reference_weights_by_syn_id_dict[this_gid]
-                        this_reference_weights_by_source_gid_dict = reference_weights_by_source_gid_dict[this_gid]
-
-                    count = 0
-                    for i in range(len(source_gid_array)):
-                        this_source_gid = source_gid_array[i]
-                        this_syn_id = syn_ids[i]
-                        if this_syn_id in this_initial_weights_by_syn_id_dict:
-                            this_syn_wgt = this_initial_weights_by_syn_id_dict[this_syn_id]
-                            if this_source_gid not in this_initial_weights_by_source_gid_dict:
-                                this_initial_weights_by_source_gid_dict[this_source_gid] = this_syn_wgt
-                            if this_reference_weights_by_syn_id_dict is not None:
-                                this_reference_weights_by_source_gid_dict[this_source_gid] = \
-                                  this_reference_weights_by_syn_id_dict[this_syn_id]
-                        elif this_syn_id in this_non_structured_weights_by_syn_id_dict:
-                            this_syn_wgt = this_non_structured_weights_by_syn_id_dict[this_syn_id]
-                            if this_source_gid not in this_non_structured_weights_by_source_gid_dict:
-                                this_non_structured_weights_by_source_gid_dict[this_source_gid] = this_syn_wgt
-                        source_gid_set_dict[source].add(this_source_gid)
-                        syn_ids_by_source_gid_dict[this_source_gid].append(this_syn_id)
-                        syn_count_by_source_gid_dict[this_source_gid] += 1
-
-                        count += 1
-                    if source not in non_structured_sources:
-                        structured_syn_id_count += len(syn_ids)
-                    logger.info('Rank %i; destination: %s; gid %i; %d edges from source population %s' %
-                                (rank, destination, this_gid, count, source))
+        syn_counts_by_source = init_syn_weight_dicts(destination, non_structured_sources,
+                                                     edge_iter_dict, edge_attr_info,
+                                                     initial_weights_by_syn_id_dict,
+                                                     initial_weights_by_source_gid_dict,
+                                                     non_structured_weights_by_syn_id_dict,
+                                                     non_structured_weights_by_source_gid_dict,
+                                                     reference_weights_by_syn_id_dict,
+                                                     reference_weights_by_source_gid_dict,
+                                                     source_gid_set_dict,
+                                                     syn_count_by_source_gid_dict,
+                                                     syn_ids_by_source_gid_dict,
+                                                     structured_syn_id_count)
+    
+        for source in syn_counts_by_source:
+            for this_gid in syn_counts_by_source[source]:
+                count = syn_counts_by_source[source][this_gid]
+                logger.info('Rank %i; destination: %s; gid %i; %d edges from source population %s' %
+                            (rank, destination, this_gid, count, source))
 
         input_rate_maps_by_source_gid_dict = {}
         if len(non_structured_sources) > 0:
             non_structured_input_rate_maps_by_source_gid_dict = {}
         else:
             non_structured_input_rate_maps_by_source_gid_dict = None
+
         for source in all_sources:
-            if has_structured_weights:
-                source_gids = list(source_gid_set_dict[source])
-            else:
-                source_gids = []
+            source_gids = list(source_gid_set_dict[source])
             for input_features_namespace in this_input_features_namespaces:
                 input_features_iter = scatter_read_cell_attribute_selection(input_features_path, source, 
                                                                             namespace=input_features_namespace,
@@ -391,9 +459,8 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                     else:
                         input_rate_maps_by_source_gid_dict[this_gid] = this_arena_rate_map
                     count += 1
-                logger.info('Rank %i: read %s feature data for %i cells in population %s' % (rank, input_features_namespace, count, source))
 
-        if has_structured_weights:
+        for destination_gid in selection:
 
             if is_interactive:
                 context.update(locals())
@@ -408,7 +475,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                 
             normalized_LTP_delta_weights_dict, LTD_delta_weights_dict, arena_LS_map = \
                synapses.generate_structured_weights(destination_gid,
-                                                 target_map=target_selectivity_features_dict['Arena Rate Map'],
+                                                 target_map=target_selectivity_features_dict[destination_gid]['Arena Rate Map'],
                                                  initial_weight_dict=initial_weights_by_source_gid_dict[destination_gid],
                                                  reference_weight_dict=reference_weight_dict,
                                                  reference_weights_are_delta=reference_weights_are_delta,
@@ -416,7 +483,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                  input_rate_map_dict=input_rate_maps_by_source_gid_dict,
                                                  non_structured_input_rate_map_dict=non_structured_input_rate_maps_by_source_gid_dict,
                                                  non_structured_weights_dict=non_structured_weights_by_source_gid_dict[destination_gid],
-                                                 syn_count_dict=syn_count_by_source_gid_dict,
+                                                 syn_count_dict=syn_count_by_source_gid_dict[destination_gid],
                                                  max_delta_weight=max_delta_weight,
                                                  max_opt_iter=max_opt_iter,
                                                  max_weight_decay_fraction=max_weight_decay_fraction,
@@ -425,27 +492,28 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                  optimize_method=optimize_method,
                                                  optimize_tol=optimize_tol,
                                                  optimize_grad=optimize_grad,
-                                                 verbose=verbose, plot=plot, show_fig=show_fig,
+                                                 verbose=verbose if rank == 0 else False, 
+                                                 plot=plot, show_fig=show_fig,
                                                  save_fig=save_fig_path,
                                                  fig_kwargs={'gid': destination_gid,
                                                              'field_width': target_field_width_dict})
-            gc.collect()
-
+            input_rate_maps_by_source_gid_dict.clear()
             output_features_dict[destination_gid] = \
-               { fld: target_selectivity_features_dict[fld]
+               { fld: target_selectivity_features_dict[destination_gid][fld]
                  for fld in ['Selectivity Type',
                              'Num Fields',
                              'Field Width',
                              'Peak Rate',
                              'X Offset',
                              'Y Offset'] }
-            #output_features_dict[destination_gid]['Arena State Map'] = np.asarray(arena_LS_map.ravel(), dtype=np.float32)
-            output_syn_ids = np.empty(structured_syn_id_count, dtype='uint32')
-            LTD_output_weights = np.empty(structured_syn_id_count, dtype='float32')
-            LTP_output_weights = np.empty(structured_syn_id_count, dtype='float32')
+
+            this_structured_syn_id_count = structured_syn_id_count[destination_gid]
+            output_syn_ids = np.empty(this_structured_syn_id_count, dtype='uint32')
+            LTD_output_weights = np.empty(this_structured_syn_id_count, dtype='float32')
+            LTP_output_weights = np.empty(this_structured_syn_id_count, dtype='float32')
             i = 0
             for source_gid in normalized_LTP_delta_weights_dict:
-                 for syn_id in syn_ids_by_source_gid_dict[source_gid]:
+                 for syn_id in syn_ids_by_source_gid_dict[destination_gid][source_gid]:
                      output_syn_ids[i] = syn_id
                      LTP_output_weights[i] = normalized_LTP_delta_weights_dict[source_gid]
                      LTD_output_weights[i] = LTD_delta_weights_dict[source_gid]
@@ -465,7 +533,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                 append_cell_attributes(output_weights_path, destination, LTP_output_weights_dict,
                                        namespace=LTP_output_weights_namespace, comm=env.comm, io_size=env.io_size,
                                        chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-                count = comm.reduce(len(LTP_output_weights_dict), op=MPI.SUM, root=0)
+                count = env.comm.reduce(len(LTP_output_weights_dict), op=MPI.SUM, root=0)
                 if rank == 0:
                     logger.info('Destination: %s; appended weights for %i cells' % (destination, count))
                 if output_features_path is not None:
@@ -474,7 +542,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                     this_output_features_namespace = '%s %s' % (output_features_namespace, arena_id)
                     append_cell_attributes(output_features_path, destination, output_features_dict,
                                            namespace=this_output_features_namespace)
-                    count = comm.reduce(len(output_features_dict), op=MPI.SUM, root=0)
+                    count = env.comm.reduce(len(output_features_dict), op=MPI.SUM, root=0)
                     if rank == 0:
                         logger.info('Destination: %s; appended selectivity features for %i cells' % (destination, count))
 
@@ -482,10 +550,12 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             LTD_output_weights_dict.clear()
             output_features_dict.clear()
             gc.collect()
+
+        env.comm.barrier()
+
         if (iter_count >= 10) and debug:
             break
 
-        env.comm.barrier()
 
     if not dry_run:
         append_cell_attributes(output_weights_path, destination, LTD_output_weights_dict,
@@ -503,15 +573,15 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             this_output_features_namespace = '%s %s' % (output_features_namespace, arena_id)
             append_cell_attributes(output_features_path, destination, output_features_dict,
                                    namespace=this_output_features_namespace)
-            count = comm.reduce(len(output_features_dict), op=MPI.SUM, root=0)
+            count = env.comm.reduce(len(output_features_dict), op=MPI.SUM, root=0)
             if rank == 0:
                 logger.info('Destination: %s; appended selectivity features for %i cells' % (destination, count))
 
     env.comm.barrier()
-    global_count = comm.gather(gid_count, root=0)
+    global_count = env.comm.gather(gid_count, root=0)
     if rank == 0:
         logger.info('Destination: %s; %i ranks assigned structured weights to %i cells in %.2f s' %
-                    (destination, comm.size, np.sum(global_count), time.time() - start_time))
+                    (destination, env.comm.size, np.sum(global_count), time.time() - start_time))
 
 
 if __name__ == '__main__':

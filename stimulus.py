@@ -933,9 +933,6 @@ def generate_input_selectivity_features(env, population, arena, arena_x, arena_y
         this_context.update(dict(locals()))
         callback(this_context)
         
-    selectivity_attr_dict['Arena Rate Map'] = \
-        np.asarray(rate_map, dtype=np.float32).reshape(-1,)
-
     if rate_map_sum is not None:
         rate_map_sum[this_selectivity_type_name] = \
          np.add(rate_map_sum[this_selectivity_type_name], rate_map)

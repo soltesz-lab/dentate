@@ -24,7 +24,7 @@ mpirun_rsh -export-all -hostfile $SLURM_NODEFILE -np 288 \
     --config=Full_Scale_Basis.yaml \
     --config-prefix=./config \
     --coords-path=${SCRATCH}/dentate/Full_Scale_Control/DG_coords_20190717_compressed.h5 \
-    --output-path=${SCRATCH}/dentate/Full_Scale_Control/DG_input_features_20200611.h5 \
+    --output-path=${SCRATCH}/dentate/Full_Scale_Control/DG_input_features_20200910.h5 \
     --io-size 24 \
     -v
 
