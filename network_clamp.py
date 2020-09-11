@@ -1490,6 +1490,7 @@ def go(config_file, population, gid, arena_id, trajectory_id, generate_weights, 
 @click.option("--config-file", '-c', required=True, type=str, help='model configuration file name')
 @click.option("--population", '-p', required=True, type=str, default='GC', help='target population')
 @click.option("--gid", '-g', type=int, help='target cell gid')
+@click.option("--gid-selection-file", type=click.Path(exists=True, file_okay=True, dir_okay=False), help='file containing target cell gids')
 @click.option("--arena-id", '-a', type=str, required=True, help='arena id')
 @click.option("--trajectory-id", '-t', type=str, required=True, help='trajectory id')
 @click.option("--generate-weights", '-w', required=False, type=str, multiple=True,
@@ -1537,7 +1538,8 @@ def go(config_file, population, gid, arena_id, trajectory_id, generate_weights, 
 @click.argument('target')# help='rate, rate_dist, state'
 
 
-def optimize(config_file, population, gid, arena_id, trajectory_id, generate_weights, t_max, t_min, 
+def optimize(config_file, population, gid, gid_selection_file, arena_id, trajectory_id, 
+             generate_weights, t_max, t_min, 
              opt_epsilon, opt_iter, 
              template_paths, dataset_prefix, config_prefix,
              param_config_name, param_type, recording_profile, results_file, results_path,
@@ -1565,7 +1567,15 @@ def optimize(config_file, population, gid, arena_id, trajectory_id, generate_wei
     cache_queries = True
 
     cell_index_set = set([])
-    if gid is None:
+    if gid_selection_file is not None:
+        with open(gid_selection_file, 'r') as f:
+            lines = f.readlines()
+            for line in lines:
+                gid = int(line)
+                cell_index_set.add(gid)
+    elif gid is not None:
+        cell_index_set.add(gid)
+    else:
         cell_index_data = None
         comm0 = comm.Split(2 if rank == 0 else 1, 0)
         if rank == 0:
@@ -1576,8 +1586,6 @@ def optimize(config_file, population, gid, arena_id, trajectory_id, generate_wei
             attr_name, attr_cell_index = next(iter(attr_info_dict[population]['Trees']))
             cell_index_set = set(attr_cell_index)
         cell_index_set = comm.bcast(cell_index_set, root=0)
-    else:
-        cell_index_set.add(gid)
     init_params['cell_index_set'] = cell_index_set
     del(init_params['gid'])
     comm.barrier()
