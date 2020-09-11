@@ -20,7 +20,7 @@ Cell Types:
     mechanism file: 20200219_DG_GC_excitability_synint_combined_gid_0_mech.yaml
     synapses:
       correct_for_spines: True
-#      weights: !include GC_SLN_weights.yaml
+      weights: !include GC_SLN_weights.yaml
       density: !include GC_synapse_density.yaml
   MC:
     template: MossyCell
