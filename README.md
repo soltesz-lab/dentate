@@ -26,9 +26,9 @@ make install
 4. Building and installing NeuroH5
 
 ```
-git clone --branch v0.0.4 https://github.com/soltesz-lab/neuroh5.git
+git clone https://github.com/soltesz-lab/neuroh5.git
 cd neuroh5
-pip install .
+CMAKE_BUILD_PARALLEL_LEVEL=8 pip install .
 ```
 
 5. Fetching source code
