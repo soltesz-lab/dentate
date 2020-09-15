@@ -23,10 +23,12 @@ cmake .. -DNRN_ENABLE_INTERVIEWS=OFF -DNRN_ENABLE_MPI=ON -DNRN_ENABLE_RX3D=ON -D
 make install
 ```
 
-4. Building and installing NeuroH5
+4. Building and installing NeuroH5 
+
+The NeuroH5 build system requires cmake.
 
 ```
-git clone --branch v0.0.4 https://github.com/soltesz-lab/neuroh5.git
+git clone https://github.com/soltesz-lab/neuroh5.git
 cd neuroh5
 pip install .
 ```
@@ -42,7 +44,7 @@ git clone https://github.com/soltesz-lab/dgc.git
 
 ```
 
-# Running
+# Running the main network simulation script
 
 ```
 export PYTHONPATH=$PWD;$PYTHONPATH # Must include directory containing dentate repository

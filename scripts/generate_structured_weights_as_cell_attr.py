@@ -28,6 +28,8 @@ sys.excepthook = mpi_excepthook
 def read_weights(weights_path, weights_namespace, synapse_name, destination, selection, comm, io_size, 
                  weights_by_syn_id_dict, logger=None):
 
+    if logger is not None:
+        logger.info("reading weights from namespace %s..." % weights_namespace)
     if weights_path is not None:
         weights_iter = \
           scatter_read_cell_attribute_selection(weights_path, destination,
@@ -332,14 +334,41 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                 feature_count += 1
 
         logger.info('Rank %d: read %s feature data for %i / %i cells in population %s' % (rank, this_input_features_namespace, gid_count, feature_count, destination))
-        feature_count = comm.reduce(feature_count, op=MPI.SUM, root=0)
+        feature_count = env.comm.reduce(feature_count, op=MPI.SUM, root=0)
+        env.comm.barrier()
         if rank == 0:
             logger.info('Read %s feature data for %i cells in population %s' % (this_input_features_namespace, feature_count, destination))
 
     dst_gids = list(dst_input_features_attr_dict.keys())
-    logger.info('Rank %d: %d destination gids' % (rank, len(dst_gids)))
+    all_dst_gids = env.comm.allgather(dst_gids)
+    all_dst_gids = sorted([item for sublist in all_dst_gids for item in sublist])
+    dst_gid_rank_map = {}
+    for i, gid in enumerate(all_dst_gids):
+        this_rank = i%nranks
+        dst_gid_rank_map[gid] = this_rank
 
-    max_dst_count = comm.allreduce(len(dst_gids), op=MPI.MAX)
+    dst_input_features_sendbuf = [list() for i in range(nranks)]
+    for gid, features_dict in viewitems(dst_input_features_attr_dict):
+        dst_input_features_sendbuf[dst_gid_rank_map[gid]].append((gid, features_dict))
+
+    dst_input_features_recvbuf = env.comm.alltoall(dst_input_features_sendbuf)
+    env.comm.barrier()
+    dst_input_features_attr_dict.clear()
+    for l in dst_input_features_recvbuf:
+        for gid, features_dict in l:
+            dst_input_features_attr_dict[gid] = features_dict
+    dst_gids = list(dst_input_features_attr_dict.keys())
+
+    dst_count = env.comm.reduce(len(dst_gids), op=MPI.SUM, root=0)
+    env.comm.barrier()
+
+    logger.info("Rank %d has %d destination gids" % (rank, len(dst_gids)))
+    if rank == 0:
+        logger.info('Total %d destination gids' % dst_count)
+
+    max_dst_count = env.comm.allreduce(len(dst_gids), op=MPI.MAX)
+    env.comm.barrier()
+
     max_iter_count = max_dst_count
     output_features_dict = {}
     LTP_output_weights_dict = {}
@@ -383,7 +412,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
         initial_weights_by_syn_id_dict = \
           read_weights(initial_weights_path, initial_weights_namespace, synapse_name,
                        destination, selection, env.comm, env.io_size, defaultdict(lambda: dict()), 
-                       logger=logger)
+                       logger=logger if rank == 0 else None)
 
         non_structured_weights_by_source_gid_dict = defaultdict(lambda: dict())
         non_structured_weights_by_syn_id_dict = None
@@ -391,7 +420,8 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             non_structured_weights_by_syn_id_dict = \
              read_weights(non_structured_weights_path, non_structured_weights_namespace, synapse_name,
                           destination, selection, env.comm, env.io_size, defaultdict(lambda: dict()),
-                          logger=logger)
+                          logger=logger if rank == 0 else None)
+
             
         reference_weights_by_syn_id_dict = None
         reference_weights_by_source_gid_dict = defaultdict(lambda: dict())
@@ -399,12 +429,13 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             reference_weights_by_syn_id_dict = \
              read_weights(reference_weights_path, reference_weights_namespace, synapse_name,
                           destination, selection, env.comm, env.io_size, defaultdict(lambda: dict()),
-                          logger=logger)
+                          logger=logger if rank == 0 else None)
 
         source_gid_set_dict = defaultdict(set)
         syn_count_by_source_gid_dict = defaultdict(lambda: defaultdict(int))
         syn_ids_by_source_gid_dict = defaultdict(lambda: defaultdict(list))
         structured_syn_id_count = defaultdict(int)
+
 
         projections = [ (source, destination) for source in all_sources ]
         edge_iter_dict, edge_attr_info = scatter_read_graph_selection(connections_path, selection=selection,
@@ -525,6 +556,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                         's' % (rank, destination, destination_gid, len(output_syn_ids), time.time() - local_time))
             gid_count += 1
 
+        env.comm.barrier()
         if iter_count % write_size == 0:
             if not dry_run:
                 append_cell_attributes(output_weights_path, destination, LTD_output_weights_dict,
@@ -534,6 +566,8 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                        namespace=LTP_output_weights_namespace, comm=env.comm, io_size=env.io_size,
                                        chunk_size=chunk_size, value_chunk_size=value_chunk_size)
                 count = env.comm.reduce(len(LTP_output_weights_dict), op=MPI.SUM, root=0)
+                env.comm.barrier()
+
                 if rank == 0:
                     logger.info('Destination: %s; appended weights for %i cells' % (destination, count))
                 if output_features_path is not None:
@@ -543,6 +577,8 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                     append_cell_attributes(output_features_path, destination, output_features_dict,
                                            namespace=this_output_features_namespace)
                     count = env.comm.reduce(len(output_features_dict), op=MPI.SUM, root=0)
+                    env.comm.barrier()
+
                     if rank == 0:
                         logger.info('Destination: %s; appended selectivity features for %i cells' % (destination, count))
 
@@ -556,7 +592,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
         if (iter_count >= 10) and debug:
             break
 
-
+    env.comm.barrier()
     if not dry_run:
         append_cell_attributes(output_weights_path, destination, LTD_output_weights_dict,
                                namespace=LTD_output_weights_namespace, comm=env.comm, io_size=env.io_size,
@@ -565,6 +601,8 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                namespace=LTP_output_weights_namespace, comm=env.comm, io_size=env.io_size,
                                chunk_size=chunk_size, value_chunk_size=value_chunk_size)
         count = comm.reduce(len(LTP_output_weights_dict), op=MPI.SUM, root=0)
+        env.comm.barrier()
+
         if rank == 0:
             logger.info('Destination: %s; appended weights for %i cells' % (destination, count))
         if output_features_path is not None:
@@ -574,11 +612,15 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             append_cell_attributes(output_features_path, destination, output_features_dict,
                                    namespace=this_output_features_namespace)
             count = env.comm.reduce(len(output_features_dict), op=MPI.SUM, root=0)
+            env.comm.barrier()
+
             if rank == 0:
                 logger.info('Destination: %s; appended selectivity features for %i cells' % (destination, count))
 
     env.comm.barrier()
     global_count = env.comm.gather(gid_count, root=0)
+    env.comm.barrier()
+
     if rank == 0:
         logger.info('Destination: %s; %i ranks assigned structured weights to %i cells in %.2f s' %
                     (destination, env.comm.size, np.sum(global_count), time.time() - start_time))

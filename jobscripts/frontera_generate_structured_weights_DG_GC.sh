@@ -5,7 +5,7 @@
 #SBATCH -N 40
 #SBATCH --ntasks-per-node=56
 #SBATCH -p normal      # Queue (partition) name
-#SBATCH -t 6:00:00
+#SBATCH -t 3:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #SBATCH --mail-type=BEGIN
@@ -39,6 +39,6 @@ ibrun python3 ./scripts/generate_structured_weights_as_cell_attr.py \
     --input-features-path=$DATA_PREFIX/DG_input_features_20200910_compressed.h5 \
     --arena-id=A --optimize-tol 1e-3 --optimize-grad --arena-margin=0.3 \
     --max-delta-weight=10 --max-weight-decay-fraction=0.5 --target-amplitude=10 \
-    --io-size=20 --value-chunk-size=100000 --chunk-size=20000 --write-size=4 -v
+    --io-size=40 --value-chunk-size=100000 --chunk-size=20000 --write-size=4 -v
 
 
