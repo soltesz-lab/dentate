@@ -676,23 +676,22 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
         return result
 
     def gid_firing_rate(spkdict, cell_index_set):
-        rates_dict = defauldict(list)
+        rates_dict = defaultdict(list)
         mean_rates_dict = {}
         for i in range(n_trials):
             spkdict1 = {}
             for gid in cell_index_set:
-                if gid in spkdict[pop_name]:
-                    spk_ts = spkdict[pop_name][gid][i]
+                if gid in spkdict[population]:
+                    spk_ts = spkdict[population][gid][i]
                     spkdict1[gid] = spk_ts
                 else:
                     spkdict1[gid] = np.asarray([], dtype=np.float32)
 
             rate_dict = spikedata.spike_rates(spkdict1)
-            for gid in spkdict[pop_name]:
-                logger.info('firing rate objective: spike times of gid %i: %s' % (gid, pprint.pformat(spkdict[pop_name][gid])))
-                logger.info('firing rate objective: rate of gid %i is %.2f' % (gid, rate_dict[gid]))
             for gid in cell_index_set:
-                rates_dict[gid].append(rate_dict[gid]['rate'])
+                logger.info('firing rate objective: spike times of gid %i: %s' % (gid, pprint.pformat(spkdict1[gid])))
+                logger.info('firing rate objective: rate of gid %i is %.2f' % (gid, rate_dict[gid]))
+                rates_dict[gid].append(rate_dict[gid])
         mean_rates_dict = { gid: np.mean(np.asarray(rates_dict[gid]))
                             for gid in cell_index_set }
         return mean_rates_dict
