@@ -30,7 +30,7 @@ The NeuroH5 build system requires cmake.
 ```
 git clone https://github.com/soltesz-lab/neuroh5.git
 cd neuroh5
-pip install .
+CMAKE_BUILD_PARALLEL_LEVEL=8 pip install .
 ```
 
 5. Fetching source code

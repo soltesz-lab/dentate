@@ -681,13 +681,13 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
         return result
 
     def gid_firing_rate(spkdict, cell_index_set):
-        rates_dict = defauldict(list)
+        rates_dict = defaultdict(list)
         mean_rates_dict = {}
         for i in range(n_trials):
             spkdict1 = {}
             for gid in cell_index_set:
-                if gid in spkdict[pop_name]:
-                    spk_ts = spkdict[pop_name][gid][i]
+                if gid in spkdict[population]:
+                    spk_ts = spkdict[population][gid][i]
                     spkdict1[gid] = spk_ts
                 else:
                     spkdict1[gid] = np.asarray([], dtype=np.float32)
