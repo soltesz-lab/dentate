@@ -1365,7 +1365,7 @@ def optimize_run(env, pop_name, param_config_name, init_objfun,
                                             param_tuple.syn_name,
                                             param_tuple.param_name,
                                             params_dict[param_pattern]))
-            gid_results_config_dict[gid] = results_config_tuples
+            gid_results_config_dict[int(gid)] = results_config_tuples
 
         logger.info('Optimized parameters and objective function: %s' % pprint.pformat(gid_results_config_dict))
 
@@ -1792,7 +1792,6 @@ def optimize(config_file, population, gid, gid_selection_file, arena_id, traject
                                         opt_iter=opt_iter, solver_epsilon=opt_epsilon, param_type=param_type,
                                         init_params=init_params, results_file=results_file,
                                         verbose=verbose)
-
     if results_config_dict is not None:
         if results_path is not None:
             file_path = '%s/network_clamp.optimize.%s.yaml' % (results_path, str(results_file_id))
