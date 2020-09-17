@@ -5,7 +5,7 @@
 #SBATCH -N 40
 #SBATCH --ntasks-per-node=56
 #SBATCH -p normal      # Queue (partition) name
-#SBATCH -t 3:00:00
+#SBATCH -t 5:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #SBATCH --mail-type=BEGIN
