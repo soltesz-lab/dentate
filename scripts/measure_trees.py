@@ -1,23 +1,16 @@
-import itertools
-import logging
-import os
-import sys
-import time
+import itertools, logging, os, sys, time
 from collections import defaultdict
-
+from mpi4py import MPI
 import h5py
 import numpy as np
-
 import click
+import dentate.utils as utils
 import dentate.cells as cells
 import dentate.synapses as synapses
-from dentate import utils
+
 from dentate.env import Env
-from dentate.utils import *
-from mpi4py import MPI
-from neuroh5.io import NeuroH5TreeGen
-from neuroh5.io import append_cell_attributes
-from neuroh5.io import read_population_ranges
+from dentate.neuron_utils import configure_hoc_env, load_cell_template
+from neuroh5.io import NeuroH5TreeGen, append_cell_attributes, read_population_ranges
 from neuron import h
 
 sys_excepthook = sys.excepthook
@@ -25,7 +18,7 @@ def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
-sys.excepthook = mpi_excepthook
+#sys.excepthook = mpi_excepthook
 
 script_name="measure_trees.py"
 
@@ -61,20 +54,12 @@ def main(config, template_path, output_path, forest_path, populations, io_size, 
     rank = comm.rank
     
     env = Env(comm=MPI.COMM_WORLD, config_file=config, template_paths=template_path)
-    h('objref nil, pc, templatePaths')
-    h.load_file("nrngui.hoc")
-    h.load_file("./templates/Value.hoc")
-    h.xopen("./lib.hoc")
-    h.pc = h.ParallelContext()
+    configure_hoc_env(env)
     
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
         logger.info('%i ranks have been allocated' % comm.size)
-
-    h.templatePaths = h.List()
-    for path in env.templatePaths:
-        h.templatePaths.append(h.Value(1,path))
 
     if output_path is None:
         output_path = forest_path
@@ -94,9 +79,7 @@ def main(config, template_path, output_path, forest_path, populations, io_size, 
         logger.info('Rank %i population: %s' % (rank, population))
         count = 0
         (population_start, _) = pop_ranges[population]
-        template_name = env.celltypes[population]['template']
-        h.find_template(h.pc, h.templatePaths, template_name)
-        template_class = eval('h.%s' % template_name)
+        template_class = load_cell_template(env, population)
         measures_dict = {}
         for gid, morph_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, comm=comm, topology=True):
             if gid is not None:
@@ -116,9 +99,9 @@ def main(config, template_path, output_path, forest_path, populations, io_size, 
                         for seg in sec.allseg():
                             L     = seg.sec.L
                             nseg  = seg.sec.nseg
-                            seg_l = old_div(L,nseg)
+                            seg_l = L / nseg
                             seg_area = h.area(seg.x)
-                            layer = cells.get_node_attribute('layer', morph_dict, seg.sec, secnodes, seg.x)
+                            layer = synapses.get_node_attribute('layer', morph_dict, seg.sec, secnodes, seg.x)
                             layer = layer if layer > 0 else (prev_layer if prev_layer is not None else 1)
                             prev_layer = layer
                             dendrite_length_dict[layer] += seg_l
@@ -139,4 +122,4 @@ def main(config, template_path, output_path, forest_path, populations, io_size, 
 
 
 if __name__ == '__main__':
-    main(args=sys.argv[(list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
