@@ -1,3 +1,4 @@
+export LD_PRELOAD=/opt/intel/compilers_and_libraries_2018.5.274/linux/mkl/lib/intel64_lin/libmkl_core.so:/opt/intel/compilers_and_libraries_2018.5.274/linux/mkl/lib/intel64_lin/libmkl_sequential.so
 
 ibrun -n 4 python3  network_clamp.py optimize -c Network_Clamp_GC_Exc_Sat_SLN_IN_Izh.yaml --template-paths templates \
     -p NGFC -g 1044650 -t 9500 \
