@@ -1,0 +1,6 @@
+- namespace: ['Log-Normal Weights']
+  expr: a * lnw
+  parameter: [lnw]
+  const:
+   a: 0.1
+
