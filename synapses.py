@@ -176,6 +176,7 @@ class SynapseAttributes(object):
                 syn_dict[syn_id] = syn
                 sec_dict[syn_sec].append((syn_id, syn))
 
+
     def init_edge_attrs(self, gid, presyn_name, presyn_gids, edge_syn_ids, delays=None):
         """
         Sets connection edge attributes for the specified synapse ids.
@@ -642,9 +643,9 @@ class SynapseAttributes(object):
         else:
             source_indexes = set(sources)
 
+        sec_dict = self.sec_dict[gid]
         if syn_sections is not None:
             # Fast path
-            sec_dict = self.sec_dict[gid]
             it = itertools.chain.from_iterable([sec_dict[sec_index] for sec_index in syn_sections])
             syn_dict = {k: v for (k, v) in it}
         else:
@@ -1388,7 +1389,6 @@ def modify_syn_param(cell, env, sec_type, syn_name, param_name=None, value=None,
     backup_mech_dict = copy.deepcopy(cell.mech_dict)
 
     mech_content = {param_name: rules}
-    
     # No mechanisms have been specified in this type of section yet
     if sec_type not in cell.mech_dict:
         cell.mech_dict[sec_type] = {'synapses': {syn_name: mech_content}}
@@ -1448,6 +1448,8 @@ def update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, upd
                                               update_targets, verbose)
 
 
+
+
 def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, rules, update_targets=False,
                                       verbose=False):
     """For the provided synaptic mechanism and parameter, this method
@@ -1468,57 +1470,30 @@ def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name,
     """
     new_rules = copy.deepcopy(rules)
     if 'filters' in new_rules:
-        filters = get_syn_filter_dict(env, new_rules['filters'], convert=True)
+        synapse_filters = get_syn_filter_dict(env, new_rules['filters'], convert=True)
         del new_rules['filters']
     else:
-        filters = None
+        synapse_filters = None
     if 'origin_filters' in new_rules:
         origin_filters = get_syn_filter_dict(env, new_rules['origin_filters'], convert=True)
         del new_rules['origin_filters']
     else:
         origin_filters = None
-    if sec_type in cell.nodes:
-        for node in cell.nodes[sec_type]:
-            update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, new_rules, filters, origin_filters,
-                                          update_targets, verbose)
-
-
-def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, filters=None, origin_filters=None,
-                                  update_targets=False, verbose=False):
-    """For the provided synaptic mechanism and parameter, this method
-    first determines the set of placeholder synapses in the provided
-    node that match any provided filters. Then calls
-    apply_syn_mech_rules to interpret the provided rules, and set
-    placeholder values in the syn_mech_attr_dict of a
-    SynapseAttributes object.
-
-
-    :param cell: :class:'BiophysCell'
-    :param env: :class:'Env'
-    :param node: :class:'SHocNode'
-    :param syn_name: str
-    :param param_name: str
-    :param rules: dict
-    :param filters: dict: {category: list of int}
-    :param origin_filters: dict: {category: list of int}
-    :param update_targets: bool
-    :param verbose: bool
-    """
-    gid = cell.gid
-    cache_queries = env.cache_queries
-    syn_attrs = env.synapse_attributes
-    if filters is None:
-        filtered_syns = syn_attrs.filter_synapses(gid, syn_sections=[node.index], cache=cache_queries)
-    else:
-        filtered_syns = syn_attrs.filter_synapses(gid, syn_sections=[node.index], cache=cache_queries, **filters)
-
-    if len(filtered_syns) > 0:
-        syn_ids = list(filtered_syns.keys())
-        apply_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, origin_filters,
+    if cell.is_reduced:
+        synapse_filters['swc_types'] = [env.SWC_Types[sec_type]]
+        apply_syn_mech_rules(cell, env, syn_name, param_name, new_rules, 
+                             synapse_filters=synapse_filters, origin_filters=origin_filters,
                              update_targets=update_targets, verbose=verbose)
+    elif sec_type in cell.nodes:
+        for node in cell.nodes[sec_type]:
+            apply_syn_mech_rules(cell, env, syn_name, param_name, new_rules, node=node,
+                                 synapse_filters=filters, origin_filters=origin_filters,
+                                 update_target=update_targets, verbose=verbose)
 
 
-def apply_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, origin_filters=None, donor=None,
+
+def apply_syn_mech_rules(cell, env, syn_name, param_name, rules, node=None, syn_ids=None, 
+                         synapse_filters=None, origin_filters=None, donor=None, 
                          update_targets=False, verbose=False):
     """Provided a synaptic mechanism, a parameter, a node, a list of
     syn_ids, and a dict of rules. Interprets the provided rules,
@@ -1545,17 +1520,34 @@ def apply_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, 
     :param update_targets: bool
     :param verbose: bool
     """
+    if syn_ids is None:
+        syn_attrs = env.synapse_attributes
+        if synapse_filters is None:
+            synapse_filters = {}
+        if node is None:
+            filtered_syns = syn_attrs.filter_synapses(cell.gid, cache=env.cache_queries, 
+                                                      **synapse_filters)
+        else:
+            filtered_syns = syn_attrs.filter_synapses(cell.gid, syn_sections=[node.index], 
+                                                      cache=env.cache_queries, **synapse_filters)
+        syn_ids = list(filtered_syns.keys())
+
+    
     if 'origin' in rules and donor is None:
-        donor = get_donor(cell, node, rules['origin'])
+        logger.info(rules)
+        if node is None:
+            donor = None
+        else:
+            donor = get_donor(cell, node, rules['origin'])
         if donor is None:
             raise RuntimeError('apply_syn_mech_rules: problem identifying donor of origin_type: %s for synaptic '
                                'mechanism: %s parameter: %s in sec_type: %s' %
-                               (rules['origin'], syn_name, param_name, node.type))
+                               (rules['origin'], syn_name, param_name, node.type if node is not None else "None"))
     if 'value' in rules:
         baseline = rules['value']
     elif donor is None:
         raise RuntimeError('apply_syn_mech_rules: cannot set value of synaptic mechanism: %s parameter: %s in '
-                           'sec_type: %s without a provided origin or value' % (syn_name, param_name, node.type))
+                           'sec_type: %s without a provided origin or value' % (syn_name, param_name, node.type if node is not None else "None"))
     else:
         baseline = inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filters)
     if baseline is None:
@@ -1707,7 +1699,8 @@ def apply_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, 
     new_rules['value'] = baseline
     new_rules = func(cell, node, baseline, new_rules, donor, **custom)
     if new_rules:
-        apply_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, new_rules, donor=donor,
+        apply_syn_mech_rules(cell, env, syn_name, param_name, new_rules, 
+                             node=node, syn_ids=syn_ids, donor=donor,
                              update_targets=update_targets, verbose=verbose)
 
 

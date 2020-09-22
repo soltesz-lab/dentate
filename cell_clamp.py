@@ -60,6 +60,7 @@ def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=T
     ## Load cell gid and its synaptic attributes and connection data
     if template_name.lower() == 'izhikevich':
         cell = cells.make_izhikevich_cell(env, pop_name, gid,
+                                          tree_dict=cell_dict.get('morph', None),
                                           synapses_dict=cell_dict.get('synapse', None),
                                           connection_graph=cell_dict.get('connectivity', None),
                                           weight_dicts=cell_dict.get('weight', None),
@@ -87,8 +88,9 @@ def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=T
     
     if register_cell:
         cells.register_cell(env, pop_name, gid, cell)
-    
-    cells.report_topology(cell, env)
+
+    if not cell.is_reduced:
+        cells.report_topology(cell, env)
 
     env.cell_selection[pop_name] = [gid]
 

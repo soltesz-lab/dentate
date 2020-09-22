@@ -1,6 +1,6 @@
 export LD_PRELOAD=/opt/intel/compilers_and_libraries_2018.5.274/linux/mkl/lib/intel64_lin/libmkl_core.so:/opt/intel/compilers_and_libraries_2018.5.274/linux/mkl/lib/intel64_lin/libmkl_sequential.so
 
-ibrun -n 2 python3  network_clamp.py optimize -c Network_Clamp_GC_Exc_Sat_SLN_IN_Izh.yaml \
+ibrun -n 8 python3  network_clamp.py optimize -c Network_Clamp_GC_Exc_Sat_SLN_IN_Izh.yaml \
     --template-paths templates \
     -p HCC -g 1043250 -t 9500 \
     --dataset-prefix /scratch1/03320/iraikov/striped/dentate \
@@ -11,5 +11,5 @@ ibrun -n 2 python3  network_clamp.py optimize -c Network_Clamp_GC_Exc_Sat_SLN_IN
     --input-features-namespaces 'Constant Selectivity' \
     --arena-id A --trajectory-id Diag \
     --results-path $HOME/model/dentate/results/netclamp \
-    --param-config-name "Weight all" \
-    --opt-iter 100 rate
+    --param-config-name "Weight inh" \
+    --opt-iter 400 rate

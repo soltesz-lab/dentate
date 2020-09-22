@@ -453,7 +453,8 @@ def update_network_params(env, param_config_dict):
                                               param_name=p, 
                                               value={s: param_value} if (s is not None) else param_value,
                                               filters={'sources': sources} if sources is not None else None,
-                                              origin='soma', update_targets=True)
+                                              origin=None if biophys_cell.is_reduced else 'soma', 
+                                              update_targets=True)
             cell = env.pc.gid2cell(gid)
     
 

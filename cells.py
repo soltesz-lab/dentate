@@ -604,7 +604,7 @@ class IzhiCell(object):
         self.random.seed(self.gid)
         self.spike_detector = None
         self.spike_onset_delay = 0.
-
+        self.is_reduced = True
         if cell_attrs is not None:
             if not isinstance(cell_attrs, IzhiCellAttrs):
                 raise RuntimeError('IzhiCell: argument cell_attrs must be of type IzhiCellAttrs')
@@ -625,7 +625,8 @@ class IzhiCell(object):
         sec.cm = self.base_cm * self.izh.C
 
         self.hoc_cell = HocCellInterface(sections=[sec], is_art=lambda: 0, is_reduced=True,
-                                         all=[sec], soma=[sec], apical=[], basal=[], axon=[], ais=[], hillock=[])
+                                         all=[sec], soma=[sec], apical=[], basal=[], 
+                                         axon=[], ais=[], hillock=[])
 
         init_spike_detector(self, self.tree.root, loc=0.5, threshold=self.izh.vpeak - 1.)
 
@@ -2727,7 +2728,7 @@ def make_biophys_cell(env, pop_name, gid,
 
 
 def make_izhikevich_cell(env, pop_name, gid, mech_file_path=None, mech_dict=None,
-                         load_synapses=False, synapses_dict=None, 
+                         tree_dict=None,  load_synapses=False, synapses_dict=None, 
                          load_edges=False, connection_graph=None,
                          load_weights=False, weight_dicts=None, 
                          set_edge_delays=True, **kwargs):
@@ -2760,7 +2761,11 @@ def make_izhikevich_cell(env, pop_name, gid, mech_file_path=None, mech_dict=None
                          load_edges=load_edges, connection_graph=connection_graph,
                          load_weights=load_weights, weight_dicts=weight_dicts, 
                          set_edge_delays=set_edge_delays, **kwargs)
-        
+    
+    syn_attrs = env.synapse_attributes
+    syn_dict = syn_attrs.syn_id_attr_dict[gid]
+    sec_dict = syn_attrs.sec_dict[gid]
+
     env.biophys_cells[pop_name][gid] = cell
     return cell
 
