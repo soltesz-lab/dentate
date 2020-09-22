@@ -527,7 +527,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                  plot=plot, show_fig=show_fig,
                                                  save_fig=save_fig_path,
                                                  fig_kwargs={'gid': destination_gid,
-                                                             'field_width': target_field_width_dict})
+                                                             'field_width': target_field_width_dict[destination_gid]})
             input_rate_maps_by_source_gid_dict.clear()
             output_features_dict[destination_gid] = \
                { fld: target_selectivity_features_dict[destination_gid][fld]

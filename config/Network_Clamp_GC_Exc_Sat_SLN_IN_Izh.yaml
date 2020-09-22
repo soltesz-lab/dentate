@@ -46,7 +46,7 @@ Cell Types:
       density: !include AAC_synapse_density.yaml
   HCC:
     template: Izhikevich
-    mechanism file: 20200918_DG_HICAP_Izhi_cell_attrs.yaml
+    mechanism file: 20200917_DG_HICAP_Izhi_cell_attrs.yaml
     synapses:
       density: !include HCC_synapse_density.yaml
   NGFC:
