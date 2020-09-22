@@ -432,6 +432,10 @@ def update_network_params(env, param_config_dict):
 
         for gid, params_tuples in viewitems(gid_param_config_dict):
             biophys_cell = biophys_cell_dict[gid]
+            is_reduced = False
+            if hasattr(biophys_cell, 'is_reduced'):
+                is_reduced = biophys_cell.is_reduced
+
             for destination, source, sec_type, syn_name, param_path, param_value in params_tuples:
                 if isinstance(param_path, list) or isinstance(param_path, tuple):
                     p, s = param_path
@@ -453,7 +457,7 @@ def update_network_params(env, param_config_dict):
                                               param_name=p, 
                                               value={s: param_value} if (s is not None) else param_value,
                                               filters={'sources': sources} if sources is not None else None,
-                                              origin=None if biophys_cell.is_reduced else 'soma', 
+                                              origin=None if is_reduced else 'soma', 
                                               update_targets=True)
             cell = env.pc.gid2cell(gid)
     

@@ -1479,7 +1479,12 @@ def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name,
         del new_rules['origin_filters']
     else:
         origin_filters = None
-    if cell.is_reduced:
+
+    is_reduced = False
+    if hasattr(cell, 'is_reduced'):
+        is_reduced = cell.is_reduced
+
+    if is_reduced:
         synapse_filters['swc_types'] = [env.SWC_Types[sec_type]]
         apply_syn_mech_rules(cell, env, syn_name, param_name, new_rules, 
                              synapse_filters=synapse_filters, origin_filters=origin_filters,
@@ -1487,8 +1492,8 @@ def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name,
     elif sec_type in cell.nodes:
         for node in cell.nodes[sec_type]:
             apply_syn_mech_rules(cell, env, syn_name, param_name, new_rules, node=node,
-                                 synapse_filters=filters, origin_filters=origin_filters,
-                                 update_target=update_targets, verbose=verbose)
+                                 synapse_filters=synapse_filters, origin_filters=origin_filters,
+                                 update_targets=update_targets, verbose=verbose)
 
 
 
