@@ -91,7 +91,7 @@ def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=T
 
     is_reduced = False
     if hasattr(cell, 'is_reduced'):
-        is_reduced = biophys_cell.is_reduced
+        is_reduced = cell.is_reduced
     if not is_reduced:
         cells.report_topology(cell, env)
 
