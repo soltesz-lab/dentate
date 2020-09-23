@@ -2,7 +2,6 @@
 
 import sys
 from neuron import h, gui
-
 h.load_file("nrngui.hoc")
 h.load_file("import3d.hoc")
 

@@ -984,6 +984,72 @@ def plot_coords_in_volume(populations, coords_path, coords_namespace, config, sc
 
 
 
+    
+def plot_cell_tree(population, gid, tree_dict, line_width=1., sample=0.05, color_edge_scalars=True, mst=False):
+    
+    import networkx as nx
+    from mayavi import mlab
+
+    mlab.figure(bgcolor=(0,0,0))
+
+    logger.info('plotting tree %i' % gid)
+    xcoords = tree_dict['x']
+    ycoords = tree_dict['y']
+    zcoords = tree_dict['z']
+    swc_type = tree_dict['swc_type']
+    layer    = tree_dict['layer']
+    secnodes = tree_dict['section_topology']['nodes']
+    src      = tree_dict['section_topology']['src']
+    dst      = tree_dict['section_topology']['dst']
+    
+    edges = []
+    for sec, nodes in viewitems(secnodes):
+        for i in range(1, len(nodes)):
+            srcnode = nodes[i-1]
+            dstnode = nodes[i]
+            edges.append((srcnode, dstnode))
+            
+    for (s,d) in zip(src,dst):
+        srcnode = secnodes[s][-1]
+        dstnode = secnodes[d][0]
+        edges.append((srcnode, dstnode))
+
+                
+    x = xcoords.reshape(-1,)
+    y = ycoords.reshape(-1,)
+    z = zcoords.reshape(-1,)
+
+    # Make a NetworkX graph out of our point and edge data
+    g = make_geometric_graph(x, y, z, edges)
+
+    # Compute minimum spanning tree using networkx
+    # nx.mst returns an edge generator
+    if mst:
+        edges = nx.minimum_spanning_tree(g).edges(data=True)
+
+    edge_array = np.array(list(edges)).T
+    start_idx = edge_array[0, :]
+    end_idx = edge_array[1, :]
+    
+    start_idx = start_idx.astype(np.int)
+    end_idx   = end_idx.astype(np.int)
+    if color_edge_scalars:
+        edge_scalars = z[start_idx]
+        edge_color = None
+    else:
+        edge_scalars = None
+        edge_color = hex2rgb(rainbow_colors[gid%len(rainbow_colors)])
+        
+    # Plot this with Mayavi
+    plot_graph(x, y, z, start_idx, end_idx, edge_scalars=edge_scalars, edge_color=edge_color, \
+               opacity=0.8, colormap='summer', line_width=line_width)
+
+    mlab.gcf().scene.x_plus_view()
+    mlab.savefig('%s_cell_tree.tiff' % population, magnification=10)
+    mlab.show()
+    
+
+
 ## Plot biophys cell tree 
 def plot_biophys_cell_tree (env, biophys_cell, node_filters={'swc_types': ['apical', 'basal']},
                             plot_synapses=False, synapse_filters=None, syn_source_threshold=0.0,
