@@ -22,7 +22,7 @@ def mpi_excepthook(type, value, traceback):
 sys.excepthook = mpi_excepthook
 
 
-def export_swc_dict(sections=[("somatic",1),("Dendrites",4),("basal",3),("Axon",7)]):
+def export_swc_dict(sections=[("somatic",1),("Dendrites",4),("Axon",7)]):
     
     swc_point_idx = 0
     swc_points = []
@@ -31,7 +31,7 @@ def export_swc_dict(sections=[("somatic",1),("Dendrites",4),("basal",3),("Axon",
     for section, sectype in sections:
         if hasattr(h, section):
             seclist = list(getattr(h, section))
-            for secidx, sec in enumerate(seclist):
+            for sec in seclist:
                 if hasattr(sec, 'sec'):
                     sec = sec.sec
                 n3d = sec.n3d()

@@ -992,7 +992,6 @@ def plot_cell_tree(population, gid, tree_dict, line_width=1., sample=0.05, color
 
     mlab.figure(bgcolor=(0,0,0))
 
-    logger.info('plotting tree %i' % gid)
     xcoords = tree_dict['x']
     ycoords = tree_dict['y']
     zcoords = tree_dict['z']
@@ -1001,6 +1000,7 @@ def plot_cell_tree(population, gid, tree_dict, line_width=1., sample=0.05, color
     secnodes = tree_dict['section_topology']['nodes']
     src      = tree_dict['section_topology']['src']
     dst      = tree_dict['section_topology']['dst']
+    loc      = tree_dict['section_topology']['loc']
     
     edges = []
     for sec, nodes in viewitems(secnodes):
@@ -1009,11 +1009,10 @@ def plot_cell_tree(population, gid, tree_dict, line_width=1., sample=0.05, color
             dstnode = nodes[i]
             edges.append((srcnode, dstnode))
             
-    for (s,d) in zip(src,dst):
-        srcnode = secnodes[s][-1]
+    for (s,d,l) in zip(src,dst,loc):
+        srcnode = secnodes[s][l]
         dstnode = secnodes[d][0]
         edges.append((srcnode, dstnode))
-
                 
     x = xcoords.reshape(-1,)
     y = ycoords.reshape(-1,)
@@ -1027,9 +1026,10 @@ def plot_cell_tree(population, gid, tree_dict, line_width=1., sample=0.05, color
     if mst:
         edges = nx.minimum_spanning_tree(g).edges(data=True)
 
-    edge_array = np.array(list(edges)).T
+    edge_array = np.array(list(g.edges)).T
     start_idx = edge_array[0, :]
     end_idx = edge_array[1, :]
+
     
     start_idx = start_idx.astype(np.int)
     end_idx   = end_idx.astype(np.int)
