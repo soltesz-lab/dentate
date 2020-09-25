@@ -423,12 +423,152 @@ Synaptic Optimization:
       firing rate: 1.5
       baseline firing rate: 1.0
       fraction active: 0.3
+  AAC:
+    Targets:
+      firing rate: 21.0
+      Weight all:
+        GC:
+          !!python/tuple [basal, soma]:
+            AMPA:
+              weight: [0.1, 1.0]
+        !!python/tuple [MPP, LPP]:
+          apical:
+            AMPA:
+              weight: [0.1, 1.0]
+        MC:
+          apical:
+            AMPA:
+              weight: [0.1, 1.0]
+        BC:
+          !!python/tuple [basal, soma]:
+            GABA_A:
+              weight: [0.01, 0.1]
+        HCC:
+          apical:
+            GABA_A:
+              weight: [0.01, 0.1]
+        HC:
+          apical:
+            GABA_A:
+              weight: [0.01, 0.1]
+        NGFC:
+          apical:
+            GABA_A:
+              weight: [0.005, 0.1]
+            GABA_B:
+              weight: [0.005, 0.1]
+        MOPP:
+          apical:
+            GABA_A:
+              weight: [0.01, 0.1]
+        IS:
+          !!python/tuple [apical, basal]:
+            GABA_A:
+              weight: [0.01, 0.1]
+      Weight inh:
+        BC:
+          !!python/tuple [basal, soma]:
+            GABA_A:
+              weight: [0.01, 0.1]
+        HCC:
+          apical:
+            GABA_A:
+              weight: [0.01, 0.1]
+        HC:
+          apical:
+            GABA_A:
+              weight: [0.01, 0.1]
+        NGFC:
+          apical:
+            GABA_A:
+              weight: [0.005, 0.1]
+            GABA_B:
+              weight: [0.005, 0.1]
+        MOPP:
+          apical:
+            GABA_A:
+              weight: [0.01, 0.1]
+        IS:
+          !!python/tuple [apical, basal]:
+            GABA_A:
+              weight: [0.01, 0.1]
   BC:
     Targets:
       firing rate: 21.0
+    Parameter ranges:
+      Weight all:
+        GC:
+          !!python/tuple [basal, soma]:
+            AMPA:
+              weight: [0.1, 1.0]
+        !!python/tuple [MPP, LPP]:
+          apical:
+            AMPA:
+              weight: [0.1, 1.0]
+        CA3c:
+          basal:
+            AMPA:
+              weight: [0.1, 1.0]
+        MC:
+          apical:
+            AMPA:
+              weight: [0.1, 1.0]
+        BC:
+          !!python/tuple [basal, soma]:
+            GABA_A:
+              weight: [0.01, 0.1]
+        HCC:
+          apical:
+            GABA_A:
+              weight: [0.01, 0.1]
+        HC:
+          apical:
+            GABA_A:
+              weight: [0.01, 0.1]
+        NGFC:
+          apical:
+            GABA_A:
+              weight: [0.005, 0.1]
+            GABA_B:
+              weight: [0.005, 0.1]
+        MOPP:
+          apical:
+            GABA_A:
+              weight: [0.01, 0.1]
+        IS:
+          !!python/tuple [apical, basal]:
+            GABA_A:
+              weight: [0.01, 0.1]
+      Weight inh:
+        BC:
+          !!python/tuple [basal, soma]:
+            GABA_A:
+              weight: [0.01, 0.1]
+        HCC:
+          apical:
+            GABA_A:
+              weight: [0.01, 0.1]
+        HC:
+          apical:
+            GABA_A:
+              weight: [0.01, 0.1]
+        NGFC:
+          apical:
+            GABA_A:
+              weight: [0.005, 0.1]
+            GABA_B:
+              weight: [0.005, 0.1]
+        MOPP:
+          apical:
+            GABA_A:
+              weight: [0.01, 0.1]
+        IS:
+          !!python/tuple [apical, basal]:
+            GABA_A:
+              weight: [0.01, 0.1]
   HC:
     Targets:
-      firing rate: 21.0
+      firing rate: 16.0
     Parameter ranges:
       Weight all:
         GC:
@@ -444,13 +584,22 @@ Synaptic Optimization:
             AMPA:
               weight: [0.1, 1.0]
         HC:
-          !!python/tuple [apical]:
+          apical:
             GABA_A:
-              weight: [0.1, 2.0]
+              weight: [0.01, 0.1]
         IS:
           !!python/tuple [apical, soma]:
             GABA_A:
-              weight: [0.1, 2.0]
+              weight: [0.01, 0.1]
+      Weight inh:
+        HC:
+          apical:
+            GABA_A:
+              weight: [0.01, 0.1]
+        IS:
+          !!python/tuple [apical, soma]:
+            GABA_A:
+              weight: [0.01, 0.1]
     
   HCC:
     Targets:
@@ -476,21 +625,21 @@ Synaptic Optimization:
         IS:
           !!python/tuple [apical, basal, soma]:
             GABA_A:
-              weight: [0.001, 0.01]
+              weight: [0.01, 0.1]
         HCC:
           !!python/tuple [apical, basal]:
             GABA_A:
-              weight: [0.001, 0.01]
+              weight: [0.01, 0.1]
         NGFC:
           apical:
             GABA_A:
-              weight: [0.001, 0.01]
+              weight: [0.005, 0.1]
             GABA_B:
-              weight: [0.01, 0.1]
+              weight: [0.005, 0.1]
         MOPP:
           apical:
             GABA_A:
-              weight: [0.001, 0.01]
+              weight: [0.01, 0.01]
       Weight inh:
         IS:
           !!python/tuple [apical, basal, soma]:
@@ -519,24 +668,83 @@ Synaptic Optimization:
           apical:
             AMPA:
               weight: [0.1, 1.0]
-        MPP:
-          !!python/tuple [apical, basal, soma]:
-            AMPA:
-              weight: [0.1, 1.0]
-        LPP:
-          !!python/tuple [apical, basal, soma]:
-            AMPA:
-              weight: [0.1, 1.0]
         HC:
           !!python/tuple [apical, basal, soma]:
             GABA_A:
-              weight: [0.01, 0.2]
+              weight: [0.01, 0.1]
         MOPP:
           !!python/tuple [apical, basal, soma]:
             GABA_A:
-              weight: [0.01, 0.2]
+              weight: [0.01, 0.1]
         NGFC:
           !!python/tuple [apical, basal, soma]:
             GABA_A:
-              weight: [0.01, 0.2]
+              weight: [0.005, 0.1]
+            GABA_B:
+              weight: [0.005, 0.1]
+      Weight inh:
+        HC:
+          !!python/tuple [apical, basal, soma]:
+            GABA_A:
+              weight: [0.01, 0.1]
+        MOPP:
+          !!python/tuple [apical, basal, soma]:
+            GABA_A:
+              weight: [0.01, 0.1]
+        NGFC:
+          !!python/tuple [apical, basal, soma]:
+            GABA_A:
+              weight: [0.005, 0.1]
+            GABA_B:
+              weight: [0.005, 0.1]
+  MOPP:
+    Targets:
+      firing rate: 4.0
+    Parameter ranges:
+      Weight all:
+        !!python/tuple [MPP, LPP]:
+          apical:
+            AMPA:
+              weight: [0.1, 1.0]
+        MC:
+          !!python/tuple [basal, soma]:
+            AMPA:
+              weight: [0.1, 1.0]
+        HC:
+          !!python/tuple [apical, basal]:
+            GABA_A:
+              weight: [0.01, 0.1]
+        HCC:
+          !!python/tuple [apical, basal]:
+            GABA_A:
+              weight: [0.01, 0.1]
+        MOPP:
+          !!python/tuple [apical]:
+            GABA_A:
+              weight: [0.01, 0.1]
+        NGFC:
+          !!python/tuple [apical]:
+            GABA_A:
+              weight: [0.005, 0.1]
+            GABA_B:
+              weight: [0.005, 0.1]
+      Weight inh:
+        HC:
+          !!python/tuple [apical, basal]:
+            GABA_A:
+              weight: [0.01, 0.1]
+        HCC:
+          !!python/tuple [apical, basal]:
+            GABA_A:
+              weight: [0.01, 0.1]
+        MOPP:
+          !!python/tuple [apical]:
+            GABA_A:
+              weight: [0.01, 0.1]
+        NGFC:
+          !!python/tuple [apical]:
+            GABA_A:
+              weight: [0.005, 0.1]
+            GABA_B:
+              weight: [0.005, 0.1]
 
