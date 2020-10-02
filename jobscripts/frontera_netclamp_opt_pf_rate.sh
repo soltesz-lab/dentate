@@ -8,13 +8,13 @@
 #SBATCH --mail-type=all    # Send email at begin and end of job
 #SBATCH -A BIR20001
 
-module load intel/18.0.5
+
 module load python3
 module load phdf5
 
 set -x
 
-export LD_PRELOAD=/opt/intel/compilers_and_libraries_2018.5.274/linux/mkl/lib/intel64_lin/libmkl_core.so:/opt/intel/compilers_and_libraries_2018.5.274/linux/mkl/lib/intel64_lin/libmkl_sequential.so
+export FI_MLX_ENABLE_SPAWN=yes
 export NEURONROOT=$HOME/bin/nrnpython3
 export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
 export PATH=$NEURONROOT/x86_64/bin:$PATH
@@ -34,7 +34,7 @@ ibrun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.
     --input-features-namespaces 'Grid Selectivity' \
     --input-features-namespaces 'Constant Selectivity' \
     --config-prefix config  --opt-iter 2000  --opt-epsilon 1 \
-    --param-config-name 'Weight all no MC inh soma all-dend' \
+    --param-config-name 'Weight all inh soma all-dend' \
     --arena-id A --trajectory-id Diag \
     --target-rate-map-path $SCRATCH/dentate/Slice/GC_extent_input_spike_trains_20200901.h5 \
     --use-coreneuron \
