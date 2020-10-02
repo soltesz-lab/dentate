@@ -4,7 +4,7 @@
 #SBATCH -o ./results/netclamp_opt_pf_extent_features.%j.o
 #SBATCH --nodes=4
 #SBATCH --ntasks-per-node=24
-#SBATCH -t 3:00:00
+#SBATCH -t 4:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #SBATCH --mail-type=BEGIN
@@ -19,7 +19,7 @@ export SLURM_NODEFILE=`generate_pbs_nodefile`
 
 mpirun_rsh  -export-all -hostfile $SLURM_NODEFILE  -np 96 \
 `which python3` network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
-    -p GC -g $1 --n-trials 1 -t 9500 \
+    -p GC -g $1 --n-trials 3 -t 9500 \
     --template-paths templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/dentate \
     --results-path $SCRATCH/dentate/results/netclamp \
