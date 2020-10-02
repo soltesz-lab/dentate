@@ -365,7 +365,7 @@ Synaptic Optimization:
       fraction active: 0.01
   MC:
     Parameter ranges:
-      Weight all:
+      Weight all no GC MC:
         CA3c:
           apical:
             AMPA:
@@ -390,31 +390,19 @@ Synaptic Optimization:
           apical:
             GABA_A:
               weight: [0.1, 1.0]
-      Weight no GC MC:
-        CA3c:
-          apical:
-            AMPA:
-              weight:
-                a: [0.1, 10.0]
+      Weight all inh soma all-dend:
         BC:
-          apical:
-            GABA_A:
-              weight: [0.001, 1.0]
           soma:
             GABA_A:
-              weight: [0.001, 1.0]
+              weight: [0.005, 1.0]
         AAC:
           ais:
             GABA_A:
-              weight: [0.001, 1.0]
-        HC:
+              weight: [0.005, 1.0]
+        !!python/tuple [HC, HCC, BC]:
           apical:
             GABA_A:
-              weight: [0.001, 1.0]
-        HCC:
-          apical:
-            GABA_A:
-              weight: [0.001, 1.0]
+              weight: [0.005, 1.0]
     Targets:
       state:
         v:

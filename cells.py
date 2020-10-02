@@ -2711,6 +2711,7 @@ def make_biophys_cell(env, pop_name, gid,
     load_cell_template(env, pop_name)
 
     if tree_dict is None:
+        print("%s: %d" % (pop_name, gid))
         tree_attr_iter, _ = read_tree_selection(env.data_file_path, pop_name, [gid], comm=env.comm, topology=True)
         _, tree_dict = next(tree_attr_iter)
         

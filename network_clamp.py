@@ -259,6 +259,7 @@ def init(env, pop_name, gid_set, arena_id=None, trajectory_id=None, n_trials=1,
 
     ## Load cell gid and its synaptic attributes and connection data
     for gid in gid_set:
+        print("%s: %d" % (pop_name, gid))
         cell = init_biophys_cell(env, pop_name, gid, write_cell=write_cell)
 
     pop_index_dict = { ind: name for name, ind in viewitems(env.Populations) }
