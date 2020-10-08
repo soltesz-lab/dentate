@@ -6,54 +6,14 @@ from neuroh5.io import append_cell_attributes
 from neuron import h
 from dentate import cells, synapses, utils, neuron_utils, io_utils
 from dentate.env import Env
-from dentate.synapses import config_syn
+from dentate.synapses import get_syn_filter_dict
 from dentate.utils import Context, get_module_logger, is_interactive
-from dentate.neuron_utils import h, configure_hoc_env
+from dentate.neuron_utils import h, configure_hoc_env, make_rec
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
 
 context = Context()
-
-def load_biophys_cell(env, pop_name, gid, mech_file_path=None, mech_dict=None, correct_for_spines=False,
-                      tree_dict=None, load_synapses=True, synapses_dict=None,
-                      load_connections=True, connection_graph=None,
-                      load_weights=True, weight_dicts=None):
-    """
-    Instantiates the mechanisms of a single BiophysCell instance.
-
-    :param env: env.Env
-    :param pop_name: str
-    :param gid: int
-    :param mech_file_path: str; path to cell mechanism config file
-    :param correct_for_spines: bool
-
-    Environment can be instantiated as:
-    env = Env(config_file, template_paths, dataset_prefix, config_prefix)
-    :param template_paths: str; colon-separated list of paths to directories containing hoc cell templates
-    :param dataset_prefix: str; path to directory containing required neuroh5 data files
-    :param config_prefix: str; path to directory containing network and cell mechanism config files
-    
-    """
-
-    cell = cells.get_biophys_cell(env, pop_name, gid, tree_dict=tree_dict,
-                                  load_synapses=load_synapses,
-                                  synapses_dict=synapses_dict,
-                                  load_weights=load_weights,
-                                  weight_dicts=weight_dicts,
-                                  load_edges=load_connections,
-                                  connection_graph=connection_graph,
-                                  mech_file_path=mech_file_path,
-                                  mech_dict=mech_dict)
-
-    # init_spike_detector(cell)
-    cells.init_biophysics(cell, reset_cable=True, 
-                          correct_cm=correct_for_spines,
-                          correct_g_pas=correct_for_spines, env=env)
-    synapses.init_syn_mech_attrs(cell, env)
-    
-    return cell
-
 
 
 def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=True, write_cell=False,
@@ -64,10 +24,23 @@ def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=T
     :param env: an instance of env.Env
     :param pop_name: population name
     :param gid: gid
+    :param load_connections: bool
+    :param register_cell: bool
+    :param write_cell: bool
+    :param cell_dict: dict
+
+    Environment can be instantiated as:
+    env = Env(config_file, template_paths, dataset_prefix, config_prefix)
+    :param template_paths: str; colon-separated list of paths to directories containing hoc cell templates
+    :param dataset_prefix: str; path to directory containing required neuroh5 data files
+    :param config_prefix: str; path to directory containing network and cell mechanism config files
     """
 
     rank = int(env.pc.id())
 
+    ## Determine template name for this cell type
+    template_name = env.celltypes[pop_name]['template']
+    
     ## Determine if a mechanism configuration file exists for this cell type
     if 'mech_file_path' in env.celltypes[pop_name]:
         mech_dict = env.celltypes[pop_name]['mech_dict']
@@ -85,18 +58,42 @@ def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=T
     presyn_names = env.projection_dict[pop_name]
 
     ## Load cell gid and its synaptic attributes and connection data
-    cell = load_biophys_cell(env, pop_name, gid, mech_dict=mech_dict, \
-                             correct_for_spines=correct_for_spines_flag, \
-                             load_connections=load_connections,
-                             tree_dict=cell_dict.get('morph', None),
-                             synapses_dict=cell_dict.get('synapse', None),
-                             connection_graph=cell_dict.get('connectivity', None),
-                             weight_dicts=cell_dict.get('weight', None))
+    if template_name.lower() == 'izhikevich':
+        cell = cells.make_izhikevich_cell(env, pop_name, gid,
+                                          tree_dict=cell_dict.get('morph', None),
+                                          synapses_dict=cell_dict.get('synapse', None),
+                                          connection_graph=cell_dict.get('connectivity', None),
+                                          weight_dicts=cell_dict.get('weight', None),
+                                          mech_dict=mech_dict,
+                                          load_synapses=True, load_weights=True,
+                                          load_edges=load_connections)
+    else:
+        cell = cells.make_biophys_cell(env, pop_name, gid,
+                                       tree_dict=cell_dict.get('morph', None),
+                                       synapses_dict=cell_dict.get('synapse', None),
+                                       connection_graph=cell_dict.get('connectivity', None),
+                                       weight_dicts=cell_dict.get('weight', None),
+                                       mech_dict=mech_dict,
+                                       load_synapses=True, load_weights=True,
+                                       load_edges=load_connections)
+        
                              
+
+    # init_spike_detector(cell)
+    cells.init_biophysics(cell, reset_cable=True, 
+                          correct_cm=correct_for_spines_flag,
+                          correct_g_pas=correct_for_spines_flag, env=env)
+    synapses.init_syn_mech_attrs(cell, env)
+
+    
     if register_cell:
         cells.register_cell(env, pop_name, gid, cell)
-    
-    cells.report_topology(cell, env)
+
+    is_reduced = False
+    if hasattr(cell, 'is_reduced'):
+        is_reduced = cell.is_reduced
+    if not is_reduced:
+        cells.report_topology(cell, env)
 
     env.cell_selection[pop_name] = [gid]
 
@@ -428,14 +425,149 @@ def measure_gap_junction_coupling (env, template_class, tree, v_init, cell_dict=
     
 
     
+def measure_psc (gid, pop_name, presyn_name, env, v_init, v_holding, cell_dict={}):
+
+    biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False, cell_dict=cell_dict)
+    hoc_cell = biophys_cell.hoc_cell
+
+    h.dt = env.dt
+
+    stimdur = 1000.0
+    tstop = stimdur
+    tstart = 0.
+    
+    soma = list(hoc_cell.soma)[0]
+    se = h.SEClamp(soma(0.5))
+    se.rs    = 10
+    se.dur   = stimdur
+    se.amp1  = v_holding
+
+    h('objref nil, tlog, ilog, Vlog')
+
+    h.tlog = h.Vector()
+    h.tlog.record (h._ref_t)
+
+    h.Vlog = h.Vector()
+    h.Vlog.record (soma(0.5)._ref_v)
+    
+    h.ilog = h.Vector()
+    ilog.record(se._ref_i)
+
+    h.tstop = tstop
+    
+    neuron_utils.simulate(v_init, 0., stimdur)
+    
+    vec_i = h.ilog.to_python()
+    vec_v = h.Vlog.to_python()
+    vec_t = h.tlog.to_python()
+    
+    idx = np.where(vec_t > tstart)[0]
+    vec_i = vec_i[idx]
+    vec_v = vec_v[idx]
+    vec_t = vec_t[idx]
+
+    t_holding = vec_t[0]
+    i_holding = vec_i[0]
+
+    i_peak = np.max(np.abs(vec_i[1:]))
+    peak_index = np.where(np.abs(vec_i) == i_peak)[0][0]
+    t_peak = vec_t[peak_index]
+    
+    logger.info("measure_psc: t_peak = %f i_holding = %f i_peak = %f" % (t_peak, i_holding, i_peak))
+
+    amp_i = abs(i_peak - i_holding) * 1000
+
+    logger.info("measure_psc: amp_i = %f" % amp_i)
+
+    return  amp_i
+
+
+def measure_psp (gid, pop_name, presyn_name, syn_mech_name, swc_type, env, v_init, erev, weight=1, cell_dict={}):
+
+    biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False, cell_dict=cell_dict)
+    synapses.config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True, insert_vecstims=True)
+
+    hoc_cell = biophys_cell.hoc_cell
+
+    h.dt = env.dt
+
+    prelength = 200.0
+    mainlength = 50.0
+
+    syn_attrs = env.synapse_attributes
+    syn_filters = get_syn_filter_dict(env, rules={'sources': [presyn_name], 'swc_types': [swc_type]}, convert=True)
+    syns = syn_attrs.filter_synapses(biophys_cell.gid, **syn_filters)
+    target_syn_id, target_syn = next(iter(syns.items()))
+
+    print("total number of %s %s synapses: %d" % (presyn_name, swc_type, len(syns)))
+    target_syn_pps = syn_attrs.get_pps(gid, target_syn_id, syn_mech_name)
+    target_syn_nc = syn_attrs.get_netcon(gid, target_syn_id, syn_mech_name)
+    target_syn_nc.weight[0] = weight
+    setattr(target_syn_pps, 'e', erev)
+    vs = target_syn_nc.pre()
+    vec = h.Vector()
+    vec.append(prelength+1.)
+    vs.play(vec)
+    
+    sec = target_syn_pps.get_segment().sec
+
+    v_rec = make_rec('psp', pop_name, gid, biophys_cell.hoc_cell, sec=sec, dt=env.dt, loc=0.5,
+                     param='v')
+    
+    h.tstop = mainlength + prelength
+    h('objref nil, tlog, ilog')
+
+    h.tlog = h.Vector()
+    h.tlog.record (h._ref_t)
+
+    h.ilog = h.Vector()
+    h.ilog.record(target_syn_pps._ref_i)
+    
+    neuron_utils.simulate(v_init, prelength, mainlength)
+    
+    vec_v = np.asarray(v_rec['vec'].to_python())
+    vec_i = np.asarray(h.ilog.to_python())
+    vec_t = np.asarray(h.tlog.to_python())
+    idx = np.where(vec_t >= prelength)[0]
+    vec_v = vec_v[idx]
+    vec_t = vec_t[idx]
+
+    v_peak_index = np.argmax(np.abs(vec_v[1:]))
+    v_peak = vec_v[v_peak_index]
+    i_peak_index = np.argmax(np.abs(vec_i[1:]))    
+    i_peak = vec_i[i_peak_index]
+    
+    amp_v = abs(v_peak - vec_v[0])
+    amp_i = abs(i_peak - vec_i[0])
+    
+    print("measure_psp: v_peak = %f (at t %f)" % (v_peak, vec_t[v_peak_index]))
+    print("measure_psp: i_peak = %f (at t %f)" % (i_peak, vec_t[i_peak_index]))
+    print("measure_psp: amp_v = %f amp_i = %f" % (amp_v, amp_i))
+
+
+    results = { '%s %s PSP' % (presyn_name, syn_mech_name): np.asarray([amp_v], dtype=np.float32),
+                '%s %s PSP i' % (presyn_name, syn_mech_name): np.asarray(vec_i, dtype=np.float32),
+                '%s %s PSP v' % (presyn_name, syn_mech_name): np.asarray(vec_v, dtype=np.float32),
+                '%s %s PSP t' % (presyn_name, syn_mech_name): np.asarray(vec_t, dtype=np.float32) }
+
+    env.synapse_attributes.del_syn_id_attr_dict(gid)
+    if gid in env.biophys_cells[pop_name]:
+        del env.biophys_cells[pop_name][gid]
+
+    return  results
+
+    
 
 @click.command()
 @click.option("--config-file", '-c', required=True, type=str, help='model configuration file name')
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='config',
               help='path to directory containing network and cell mechanism config files')
+@click.option("--erev", type=float, help='synaptic reversal potential')
 @click.option("--population", '-p', required=True, type=str, default='GC', help='target population')
+@click.option("--presyn-name", type=str, help='presynaptic population')
 @click.option("--gid", '-g', required=True, type=int, default=0, help='target cell gid')
+@click.option("--measurements", '-m', type=str, default="passive,fi,ap,ap_rate", help='measurements to perform')
 @click.option("--template-paths", type=str, required=True,
               help='colon-separated list of paths to directories containing hoc cell templates')
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
@@ -446,8 +578,11 @@ def measure_gap_junction_coupling (env, template_class, tree, v_init, cell_dict=
               help='identifier that is used to name neuroh5 files that contain output spike and intracellular trace data')
 @click.option("--results-namespace-id", type=str, required=False, default=None, \
               help='identifier that is used to name neuroh5 namespaces that contain output spike and intracellular trace data')
+@click.option("--syn-mech-name", type=str, help='synaptic mechanism name')
+@click.option("--syn-weight", type=float, help='synaptic weight')
+@click.option("--swc-type", type=str, help='synaptic swc type')
 @click.option("--v-init", type=float, default=-75.0, help='initialization membrane potential (mV)')
-def main(config_file, config_prefix, population, gid, template_paths, dataset_prefix, results_path, results_file_id, results_namespace_id, v_init):
+def main(config_file, config_prefix, erev, population, presyn_name, gid, measurements, template_paths, dataset_prefix, results_path, results_file_id, results_namespace_id, syn_mech_name, syn_weight, swc_type, v_init):
 
     if results_file_id is None:
         results_file_id = uuid.uuid4()
@@ -462,22 +597,36 @@ def main(config_file, config_prefix, population, gid, template_paths, dataset_pr
     io_utils.mkout(env, env.results_file_path)
     env.cell_selection = {}
 
+    if measurements is not None:
+        measurements = [ x.strip() for x in measurements.split(",") ]
+    
     attr_dict = {}
     attr_dict[gid] = {}
-    attr_dict[gid].update(measure_passive(gid, population, v_init, env))
-    attr_dict[gid].update(measure_ap(gid, population, v_init, env))
-    attr_dict[gid].update(measure_ap_rate(gid, population, v_init, env))
-    attr_dict[gid].update(measure_fi(gid, population, v_init, env))
-
-    pprint.pprint(attr_dict)
+    if 'passive' in measurements:
+        attr_dict[gid].update(measure_passive(gid, population, v_init, env))
+    if 'ap' in measurements:
+        attr_dict[gid].update(measure_ap(gid, population, v_init, env))
+    if 'ap_rate' in measurements:
+        attr_dict[gid].update(measure_ap_rate(gid, population, v_init, env))
+    if 'fi' in measurements:
+        attr_dict[gid].update(measure_fi(gid, population, v_init, env))
+    if 'gap' in measurements:
+        gap_junction_test(gid, population, v_init, env)
+    if 'psp':
+        assert(presyn_name is not None)
+        assert(swc_type is not None)
+        assert(syn_mech_name is not None)
+        assert(erev is not None)
+        assert(syn_weight is not None)
+        attr_dict[gid].update(measure_psp (gid, population, presyn_name, syn_mech_name, swc_type,
+                                           env, v_init, erev, weight=syn_weight, cell_dict={}))
+    #synapse_test(gid, population, v_init, env)
 
     if results_path is not None:
         append_cell_attributes(env.results_file_path, population, attr_dict,
                                namespace=env.results_namespace_id,
                                comm=env.comm, io_size=env.io_size)
         
-    #gap_junction_test(gid, population, v_init, env)
-    #synapse_test(gid, population, v_init, env)
     
 
 if __name__ == '__main__':

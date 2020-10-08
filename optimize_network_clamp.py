@@ -90,7 +90,7 @@ def read_target_rate_vector(context, eps=1e-2):
     trj_rate_map = attr_dict['Trajectory Rate Map']
     target_rate_vector = np.interp(context.state_time_bins, trj_t, trj_rate_map)
 
-    target_rate_vector[np.abs(target_rate_vector) < eps] = 0.
+    target_rate_vector[np.isclose(target_rate_vector, 0., atol=1e-4, rtol=1e-4)] = 0.
     
     
     return target_rate_vector
@@ -156,20 +156,35 @@ def config_worker():
 
     if 'state_filter' not in context():
         context.state_filter = None
-    
+
+    context.logger.info("target_rate_vector max: %s" % str(np.max(target_rate_vector)))
+    context.logger.info("target_rate_vector > 0: %s" % str(target_rate_vector > 0))
     context.outfld_idxs = range_inds(utils.contiguous_ranges(target_rate_vector <= 0., return_indices=True))
     context.infld_idxs = range_inds(utils.contiguous_ranges(target_rate_vector > 0, return_indices=True))
+    context.max_infld_target_rate = np.max(target_rate_vector[context.infld_idxs])
+    context.min_infld_target_rate = np.min(target_rate_vector[context.infld_idxs])
+    peak_pctile = np.percentile(target_rate_vector[context.infld_idxs], 80)
+    trough_pctile = np.percentile(target_rate_vector[context.infld_idxs], 20)
+
+    context.peak_idxs = range_inds(utils.contiguous_ranges(target_rate_vector >= peak_pctile, return_indices=True)) 
+    context.trough_idxs = range_inds(utils.contiguous_ranges(np.logical_and(target_rate_vector > 0., target_rate_vector <= trough_pctile), return_indices=True))
+
 
     context.t_outfld_ranges = tuple( ( (context.time_bins[r[0]], context.time_bins[r[1]])
                                        for r in utils.contiguous_ranges(target_rate_vector <= 0.) ) )
     context.t_infld_ranges = tuple( ( (context.time_bins[r[0]], context.time_bins[r[1]])
                                       for r in utils.contiguous_ranges(target_rate_vector > 0) ) )
+    context.t_peak_ranges = tuple( ( (context.time_bins[r[0]], context.time_bins[r[1]])
+                                      for r in utils.contiguous_ranges(target_rate_vector > peak_pctile) ) )
+    context.t_trough_ranges = tuple( ( (context.time_bins[r[0]], context.time_bins[r[1]])
+                                      for r in utils.contiguous_ranges(np.logical_and(target_rate_vector > 0., target_rate_vector <= trough_pctile))) )
 
     target_state_variable = context.target_state_variable
-    context.target_val['%s in field mean state value' % context.population] = opt_params['Targets']['state'][target_state_variable]['mean in field']
-    context.target_val['%s out of field mean state value' % context.population] = opt_params['Targets']['state'][target_state_variable]['mean out field']
-
+    context.target_val['%s peak state value' % context.population] = opt_params['Targets']['state'][target_state_variable]['peak']
+    context.target_val['%s baseline state value' % context.population] = opt_params['Targets']['state'][target_state_variable]['mean']
+    context.target_val['%s baseline firing rate' % context.population] = float(opt_params['Targets']['baseline firing rate'])
     context.target_val['%s in field max firing rate' % context.population] = np.max(target_rate_vector[context.infld_idxs])
+    context.target_val['%s in field min firing rate' % context.population] = np.min(target_rate_vector[context.infld_idxs])
     context.target_val['%s out of field mean firing rate' % context.population] = np.mean(target_rate_vector[context.outfld_idxs])
 
     
@@ -261,9 +276,9 @@ def update_network_clamp(x, context=None):
                 continue
 
             if isinstance(param_path, tuple):
-                p, _ = param_path
+                p, s = param_path
             else:
-                p = param_path
+                p, s = param_path, None
 
             sources = None
             if isinstance(source, tuple):
@@ -275,9 +290,9 @@ def update_network_clamp(x, context=None):
             context.logger.info("gid %d: updating parameter %s with value %s" % (gid, str(p), str(param_value)))
 
             synapses.modify_syn_param(biophys_cell, context.env, sec_type, syn_name,
-                                      param_name=p, value=param_value,
+                                      param_name=p, 
+                                      value={s: param_value} if (s is not None) else param_value,
                                       filters={'sources': sources} if sources is not None else None,
-                                      update_operator=update_operator,
                                       origin='soma', update_targets=True)
                 
     context.pop_spike_dict = network_clamp.run(context.env, pc_runworker=False)
@@ -297,16 +312,13 @@ def gid_firing_rate_vector(population, gid, time_bins, n_trials, spkdict):
             spkdict1[gid] = np.asarray([], dtype=np.float32)
         spike_density_dict = spikedata.spike_density_estimate (population, spkdict1, time_bins)
         rates_dict[gid].append(spike_density_dict[gid]['rate'])
-        if gid in spkdict[population]:
-            context.logger.info('firing rate objective: trial %d spike times of gid %i: %s' % (i, gid, str(spkdict[population][gid])))
-        context.logger.info('firing rate objective: trial %d firing rate of gid %i: %s' % (i, gid, str(spike_density_dict[gid])))
-        context.logger.info('firing rate objective: trial %d firing rate min/max of gid %i: %.02f / %.02f Hz' % (i, gid, np.min(rates_dict[gid]), np.max(rates_dict[gid])))
+
             
     mean_rate_vector = np.mean(np.row_stack(rates_dict[gid]), axis=0)
 
-    context.logger.info('firing rate objective: mean firing rate vector of gid %i: %s' % (gid, str(mean_rate_vector)))
-    context.logger.info('firing rate objective: mean firing rate min/max of gid %i: %.02f / %.02f Hz' % (gid, np.min(mean_rate_vector), np.max(mean_rate_vector)))
-        
+    if gid in spkdict[population]:
+        context.logger.info('firing rate objective: mean rate vector: %s' % (str(mean_rate_vector)))
+
     return mean_rate_vector
 
 
@@ -367,10 +379,17 @@ def compute_features(x, n, export=False):
                                                 context.pop_spike_dict)
     
     max_infld_firing_rate = np.max(firing_rate_vector[context.infld_idxs])
-    mean_outfld_firing_rate = np.mean(firing_rate_vector[context.outfld_idxs])
-    
-    context.logger.info("in field max firing rate: %s" % str(max_infld_firing_rate))
-    context.logger.info("out of field mean firing rate: %s" % str(mean_outfld_firing_rate))
+    mean_peak_firing_rate = np.mean(firing_rate_vector[context.peak_idxs])
+    mean_trough_firing_rate = np.mean(firing_rate_vector[context.trough_idxs])
+    if context.outfld_idxs is not None:
+        mean_outfld_firing_rate = np.mean(firing_rate_vector[context.outfld_idxs] )
+    else:
+        mean_outfld_firing_rate = None
+
+    results['%s in field max firing rate' % context.population] = max_infld_firing_rate
+    results['%s out of field mean firing rate' % context.population] = mean_outfld_firing_rate
+    results['%s mean peak firing rate' % context.population] = mean_peak_firing_rate
+    results['%s mean trough firing rate' % context.population] = mean_trough_firing_rate
 
     t_s, mean_state_values = gid_state_values(context.population, context.gid,
                                               context.equilibration_duration, 
@@ -379,21 +398,29 @@ def compute_features(x, n, export=False):
     
     t_infld_ranges = context.t_infld_ranges
     t_outfld_ranges = context.t_outfld_ranges
+    t_peak_ranges = context.t_peak_ranges
+    t_trough_ranges = context.t_trough_ranges
 
+    t_peak_idxs = np.concatenate([ np.where(np.logical_and(t_s >= r[0], t_s < r[1]))[0] for r in t_peak_ranges ])
+    t_trough_idxs = np.concatenate([ np.where(np.logical_and(t_s >= r[0], t_s < r[1]))[0] for r in t_trough_ranges ])
     t_infld_idxs = np.concatenate([ np.where(np.logical_and(t_s >= r[0], t_s < r[1]))[0] for r in t_infld_ranges ])
-    t_outfld_idxs = np.concatenate([ np.where(np.logical_and(t_s >= r[0], t_s < r[1]))[0] for r in t_outfld_ranges ])
-
+    if context.t_outfld_ranges is not None:
+        t_outfld_idxs = np.concatenate([ np.where(np.logical_and(t_s >= r[0], t_s < r[1]))[0] for r in t_outfld_ranges ])
+    else:
+        t_outfld_idxs = None
             
+    max_peak_state_value = np.max(mean_state_values[t_peak_idxs])
+    min_infld_state_value = np.min(mean_state_values[t_infld_idxs])
     mean_infld_state_value = np.mean(mean_state_values[t_infld_idxs])
-    mean_outfld_state_value = np.mean(mean_state_values[t_outfld_idxs])
-
-    context.logger.info("mean in field state value: %.02f" % mean_infld_state_value)
-    context.logger.info("mean out of field state value: %.02f" % mean_outfld_state_value)
+    if t_outfld_idxs is not None:
+        mean_outfld_state_value = np.mean(mean_state_values[t_outfld_idxs])
+    else:
+        mean_outfld_state_value = None
     
+    results['%s peak max state value' % context.population] = max_peak_state_value
+    results['%s in field min state value' % context.population] = min_infld_state_value
     results['%s in field mean state value' % context.population] = mean_infld_state_value
     results['%s out of field mean state value' % context.population] = mean_outfld_state_value
-    results['%s in field max firing rate' % context.population] = max_infld_firing_rate
-    results['%s out of field mean firing rate' % context.population] = mean_outfld_firing_rate
 
     return results
 
@@ -407,9 +434,54 @@ def get_objectives(features, n, export=False):
     :return: tuple of dict
     """
     objectives = dict()
-    for feature_key in context.feature_names:
-        objectives[feature_key] = np.square(np.subtract(features[feature_key],
-                                                        context.target_val[feature_key])).mean()
+
+    target_min_infld_rate = context.target_val['%s in field min firing rate' % context.population]
+    target_max_infld_rate = context.target_val['%s in field max firing rate' % context.population]
+    rate_baseline = context.target_val['%s baseline firing rate' % context.population]
+    state_baseline = context.target_val['%s baseline state value' % context.population]
+    state_peak = context.target_val['%s peak state value' % context.population]
+    
+    max_infld_rate = features['%s in field max firing rate' % context.population]
+    mean_outfld_rate = features['%s out of field mean firing rate' % context.population]
+    mean_peak_rate = features['%s mean peak firing rate' % context.population]
+    mean_trough_rate = features['%s mean trough firing rate' % context.population]
+
+    context.logger.info('rate selectivity objective: max infld rate: %.02f target max infld: %.02f' % (max_infld_rate, target_max_infld_rate))
+
+    if max_infld_rate > target_max_infld_rate:
+        rate_selectivity = None
+        rate_selectivity_residual = 1.0
+    elif mean_outfld_rate is None:
+        rate_selectivity = ((mean_peak_rate - mean_trough_rate) ** 2.) / ((max(mean_trough_rate - target_min_infld_rate, 1.0)) ** 2.)
+        rate_selectivity_range = context.max_infld_target_rate - context.min_infld_target_rate
+        rate_selectivity_residual = (rate_selectivity_range**2 - rate_selectivity ) / (rate_selectivity_range**2)
+        context.logger.info('rate selectivity objective: mean peak/mean trough/selectivity/residual: %.02f %.02f %.04f %.04f' % ( mean_peak_rate, mean_trough_rate, rate_selectivity, rate_selectivity_residual))
+    else:
+        rate_selectivity = (np.clip(max_infld_rate - mean_outfld_rate, 0., None) ** 2.)  / (max(mean_outfld_rate/rate_baseline, 1.0) ** 2.)
+        rate_selectivity_range = context.max_infld_target_rate
+        rate_selectivity_residual = (rate_selectivity_range**2 - rate_selectivity ) / (rate_selectivity_range**2)
+        context.logger.info('rate selectivity objective: max in/mean out/selectivity/residual: %.02f %.02f %.04f %.04f' % (max_infld_rate, mean_outfld_rate, rate_selectivity, rate_selectivity_residual))
+
+    max_peak_infld_state = features['%s peak max state value' % context.population] 
+    min_infld_state = features['%s in field min state value' % context.population]
+    mean_infld_state = features['%s in field mean state value' % context.population]
+    mean_outfld_state = features['%s out of field mean state value' % context.population] 
+
+    if mean_outfld_state is None:
+        state_selectivity = np.clip(max_peak_infld_state - min_infld_state, 0., None) ** 2.
+        state_selectivity_range = state_peak - state_baseline
+        state_selectivity_residual = (state_selectivity_range**2 - state_selectivity) / (state_selectivity_range**2)
+        context.logger.info('state selectivity objective: max/min/mean in: %.02f / %.02f / %.02f selectivity/residual: %.04f %.04f' % (max_peak_infld_state, min_infld_state, mean_infld_state, state_selectivity, state_residual))
+    else:
+        state_selectivity = np.clip(np.clip(max_peak_infld_state - mean_outfld_state, 0., None) - (mean_outfld_state - state_baseline), 0., None) ** 2.        
+        state_selectivity_range = state_peak - state_baseline
+        state_selectivity_residual = (state_selectivity_range**2 - state_selectivity) / (state_selectivity_range**2)
+
+        context.logger.info('state selectivity objective: max in/mean in/mean out: %.02f / %.02f / %.02f selectivity/residual: %.04f %.04f' % (max_peak_infld_state, mean_infld_state, mean_outfld_state, state_selectivity, state_selectivity_residual))
+
+
+    objectives['%s rate selectivity' % context.population] = rate_selectivity_residual
+    objectives['%s state value selectivity' % context.population] = state_selectivity_residual
 
     return features, objectives
 

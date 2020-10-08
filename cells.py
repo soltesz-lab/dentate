@@ -1,7 +1,7 @@
 import collections, os, sys, traceback, copy, datetime, math, itertools, pprint
 import numpy as np
 from dentate.neuron_utils import h, d_lambda, default_hoc_sec_lists, default_ordered_sec_types, freq, make_rec, \
-    load_cell_template, IzhiCellAttrs, default_izhi_cell_attrs_dict
+    load_cell_template, HocCellInterface, IzhiCellAttrs, default_izhi_cell_attrs_dict
 from dentate.utils import get_module_logger, map, range, zip, zip_longest, viewitems, read_from_yaml, write_to_yaml, Promise
 from neuroh5.io import read_cell_attribute_selection, read_graph_selection, read_tree_selection
 
@@ -579,7 +579,7 @@ class IzhiCell(object):
     An implementation of an Izhikevich adaptive integrate-and-fire-type cell model for simulation in NEURON.
     Conforms to the same API as BiophysCell.
     """
-    def __init__(self, gid, pop_name, env=None, cell_type='RS', cell_attrs=None, **kwargs):
+    def __init__(self, gid, pop_name, env=None, cell_type='RS', cell_attrs=None, mech_dict=None):
         """
 
         :param gid: int
@@ -598,20 +598,19 @@ class IzhiCell(object):
                     raise AttributeError('Warning! unexpected SWC Type definitions found in Env')
         self.nodes = {key: [] for key in default_ordered_sec_types}
         self.mech_file_path = None
-        self.init_mech_dict = None
-        self.mech_dict = None
+        self.init_mech_dict = dict(mech_dict) if mech_dict is not None else None
+        self.mech_dict = dict(mech_dict) if mech_dict is not None else None
         self.random = np.random.RandomState()
         self.random.seed(self.gid)
         self.spike_detector = None
         self.spike_onset_delay = 0.
-        self.hoc_cell = None
-
+        self.is_reduced = True
         if cell_attrs is not None:
             if not isinstance(cell_attrs, IzhiCellAttrs):
-                raise RuntimeError('IzhiCell: provided cell_attrs must be of type IzhiCellAttrs')
+                raise RuntimeError('IzhiCell: argument cell_attrs must be of type IzhiCellAttrs')
             cell_type = 'custom'
         elif cell_type not in default_izhi_cell_attrs_dict:
-            raise RuntimeError('IzhiCell: unknown izhi cell_type: %s' % cell_type)
+            raise RuntimeError('IzhiCell: unknown value for cell_type: %s' % str(cell_type))
         else:
             cell_attrs = default_izhi_cell_attrs_dict[cell_type]
         self.cell_type = cell_type
@@ -621,10 +620,13 @@ class IzhiCell(object):
         sec.L, sec.diam = 10., 10.
         self.izh = h.Izhi2019(.5, sec=sec)
         self.base_cm = 31.831  # Produces membrane time constant of 8 ms for a RS cell with izh.C = 1. and izi.k = 0.7
-
         for attr_name, attr_val in cell_attrs._asdict().items():
             setattr(self.izh, attr_name, attr_val)
         sec.cm = self.base_cm * self.izh.C
+
+        self.hoc_cell = HocCellInterface(sections=[sec], is_art=lambda: 0, is_reduced=True,
+                                         all=[sec], soma=[sec], apical=[], basal=[], 
+                                         axon=[], ais=[], hillock=[])
 
         init_spike_detector(self, self.tree.root, loc=0.5, threshold=self.izh.vpeak - 1.)
 
@@ -1644,7 +1646,9 @@ def get_mech_rules_dict(cell, **rules):
     return rules_dict
 
 
-def modify_mech_param(cell, sec_type, mech_name, param_name=None, append=False, verbose=False, **kwargs):
+def modify_mech_param(cell, sec_type, mech_name, param_name=None, value=None, origin=None, slope=None, tau=None,
+                      xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None, custom=None,
+                      append=False, verbose=False, **kwargs):
     """
     Modifies or inserts new membrane mechanisms into hoc sections of type sec_type. First updates the mechanism
     dictionary, then sets the corresponding hoc parameters. This method is meant to be called manually during
@@ -1655,6 +1659,17 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, append=False, 
     :param sec_type: str
     :param mech_name: str
     :param param_name: str
+    :param value: float
+    :param origin: str (sec_type)
+    :param slope: float
+    :param tau: float
+    :param xhalf: float
+    :param min: float
+    :param max: float
+    :param min_loc: float
+    :param max_loc: float
+    :param outside: float
+    :param custom: dict
     :param append: bool
     :param verbose: bool
     """
@@ -1669,7 +1684,8 @@ def modify_mech_param(cell, sec_type, mech_name, param_name=None, append=False, 
         if value is None and origin is None:
             raise ValueError('modify_mech_param: mechanism: %s; parameter: %s; missing origin or value for '
                              'sec_type: %s' % (mech_name, param_name, sec_type))
-        rules = get_mech_rules_dict(cell, **kwargs)
+        rules = get_mech_rules_dict(cell, value=value, origin=origin, slope=slope, tau=tau, xhalf=xhalf, min=min,
+                                    max=max, min_loc=min_loc, max_loc=max_loc, outside=outside, custom=custom, **kwargs)
         mech_content = {param_name: rules}
 
     backup_mech_dict = copy.deepcopy(cell.mech_dict)
@@ -2109,7 +2125,32 @@ def report_topology(cell, env, node=None):
     for child in node.children:
         report_topology(cell, env, child)
 
-
+        
+def make_section_node_dict(neurotree_dict):
+    """
+    Creates a dictionary of node to section assignments.
+    :param neurotree_dict:
+    :return: dict
+    """
+    pt_sections = neurotree_dict['sections']
+    num_sections = pt_sections[0]
+    sec_nodes = {}
+    i = 1
+    section_idx = 0
+    while i < len(pt_sections):
+          num_points = pt_sections[i]
+          i += 1
+          sec_nodes[section_idx] = []
+          for ip in range(num_points):
+            p = pt_sections[i]
+            sec_nodes[section_idx].append(p)
+            i += 1
+          section_idx += 1
+    assert(section_idx == num_sections)
+    return sec_nodes
+  
+    
+    
 def make_section_graph(neurotree_dict):
     """
     Creates a graph of sections that follows the topological organization of the given neuron.
@@ -2118,13 +2159,28 @@ def make_section_graph(neurotree_dict):
     """
     import networkx as nx
 
-    sec_nodes = neurotree_dict['section_topology']['nodes']
-    sec_src = neurotree_dict['section_topology']['src']
-    sec_dst = neurotree_dict['section_topology']['dst']
-
+    if 'section_topology' in neurotree_dict:
+        sec_src = neurotree_dict['section_topology']['src']
+        sec_dst = neurotree_dict['section_topology']['dst']
+        sec_loc = neurotree_dict['section_topology']['loc']
+    else:
+        sec_src = neurotree_dict['src']
+        sec_dst = neurotree_dict['dst']
+        sec_loc = []
+        sec_nodes = {}
+        pt_sections = neurotree_dict['sections']
+        pt_parents = neurotree_dict['parent']
+        sec_nodes = make_section_node_dict(neurotree_dict)
+        for src, dst in zip_longest(sec_src, sec_dst):
+            src_pts = sec_nodes[src]
+            dst_pts = sec_nodes[dst]
+            dst_parent = pt_parents[dst_pts[0]]
+            loc = np.argwhere(src_pts == dst_parent)[0]
+            sec_loc.append(loc)
+                
     sec_graph = nx.DiGraph()
-    for i, j in zip(sec_src, sec_dst):
-        sec_graph.add_edge(i, j)
+    for i, j, loc in zip(sec_src, sec_dst, sec_loc):
+        sec_graph.add_edge(i, j, loc=loc)
 
     return sec_graph
 
@@ -2199,6 +2255,98 @@ def make_morph_graph(biophys_cell, node_filters={}):
         morph_graph.add_edge(i, j)
 
     return morph_graph
+
+
+def resize_tree_sections(neurotree_dict, max_section_length):
+    """
+    Given a neurotree dictionary, transforms section and point data such that 
+    no section exceeds the length specified by parameter max_section_length.
+
+    :param neurotree_dict: neurotree dictionary
+    :param max_section_length: maximum section length
+    :return: neurotree dict
+    """
+    import networkx as nx
+
+    assert(max_section_length > 0)
+    
+    vx = copy.deepcopy(neurotree_dict['x'])
+    vy = copy.deepcopy(neurotree_dict['y'])
+    vz = copy.deepcopy(neurotree_dict['z'])
+    vradius = copy.deepcopy(neurotree_dict['radius'])
+    vlayer = copy.deepcopy(neurotree_dict['layer'])
+    swc_type = copy.deepcopy(neurotree_dict['swc_type'])
+    vparent = copy.deepcopy(neurotree_dict['parent'])
+    vsrc = copy.deepcopy(neurotree_dict['src'])
+    vdst = copy.deepcopy(neurotree_dict['dst'])
+    sec_nodes_dict = make_section_node_dict(neurotree_dict)
+    new_ndindex = len(vx)
+    new_secindex = len(sec_nodes_dict)
+    node_arrays = (vx,vy,vz,vradius,vlayer,swc_type,vparent)
+    secg = make_section_graph(neurotree_dict)
+    secq = sorted(sec_nodes_dict.keys(), reverse=True)
+    while secq:
+        secindex = secq.pop()
+        nodes = np.asarray(sec_nodes_dict[secindex])
+        nodes_xyz = np.column_stack((vx[nodes], vy[nodes], vz[nodes]))
+        a = nodes_xyz[1:,:]
+        b = nodes_xyz[:-1,:]
+        nodes_dd = np.sqrt(np.sum((a - b) ** 2, axis=1))
+        nodes_cd = np.cumsum(nodes_dd)
+        nodes_dist = np.concatenate(([0.], nodes_cd))
+        new_secnodes = nodes[np.argwhere(nodes_dist > max_section_length).flat]
+        if len(new_secnodes) > 0:
+            old_secnodes = nodes[np.argwhere(nodes_dist <= max_section_length).flat]
+            sec_len = len(old_secnodes)+1
+            sec_nodes_dict[new_secindex] = np.concatenate(([new_ndindex], new_secnodes))
+            sec_nodes_dict[secindex] = np.concatenate((old_secnodes, [new_ndindex]))
+            for a in node_arrays:
+                a.resize(new_ndindex+1, refcheck=False)
+            new_x = np.interp(max_section_length, nodes_dist, vx[nodes])
+            new_y = np.interp(max_section_length, nodes_dist, vy[nodes])
+            new_z = np.interp(max_section_length, nodes_dist, vz[nodes])
+            new_radius = np.interp(max_section_length, nodes_dist, vradius[nodes])
+            new_layer = vlayer[new_secnodes[0]]
+            new_swctype = swc_type[new_secnodes[0]]
+            new_parent = sec_nodes_dict[secindex][-1]
+            for a,v in zip_longest(node_arrays,(new_x,new_y,new_z,new_radius,new_layer,new_swctype,new_parent)):
+                np.concatenate((a[:-1],[v]),out=a)
+            vparent[new_secnodes[0]] = new_ndindex
+            secg.add_node(new_secindex)
+            sec_out = secg.out_edges(secindex, data=True)
+            for i,j,attr in sec_out:
+                loc = attr['loc']
+                if loc >= sec_len-1:
+                    secg.remove_edge(i,j)
+                    secg.add_edge(new_secindex, j, loc=loc-sec_len+1)
+            secg.add_edge(secindex, new_secindex, loc=sec_len-1)
+            secq.append(new_secindex)
+            new_secindex += 1
+            new_ndindex += 1
+    num_secedges = secg.number_of_edges()
+    vsrc = np.zeros((num_secedges,), dtype=np.uint16)
+    vdst = np.zeros((num_secedges,), dtype=np.uint16)
+    for i, (s, d, l) in enumerate(secg.edges.data('loc')):
+        vsrc[i] = s
+        vdst[i] = d
+    sections = [np.asarray([len(sec_nodes_dict)], dtype=np.uint16)]
+    for secindex, secnodes in viewitems(sec_nodes_dict):
+        sections.append(np.asarray([len(secnodes)], dtype=np.uint16))
+        sections.append(secnodes)
+    vsection = np.asarray(np.concatenate(sections), dtype=np.uint16)
+    
+    new_tree_dict = { 'x': vx,
+                      'y': vy,
+                      'z': vz,
+                      'radius': vradius,
+                      'layer': vlayer,
+                      'parent': vparent,
+                      'swc_type': swc_type,
+                      'sections': vsection,
+                      'src': vsrc,
+                      'dst': vdst }
+
+    return new_tree_dict
 
 
 def normalize_tree_topology(neurotree_dict, swc_type_defs):
@@ -2378,6 +2526,7 @@ def make_neurotree_cell(template_class, gid=0, dataset_path="", neurotree_dict={
     :param neurotree_dict:
     :return: hoc cell object
     """
+
     vx = neurotree_dict['x']
     vy = neurotree_dict['y']
     vz = neurotree_dict['z']
@@ -2389,6 +2538,7 @@ def make_neurotree_cell(template_class, gid=0, dataset_path="", neurotree_dict={
     vdst = neurotree_dict['section_topology']['dst']
     vloc = neurotree_dict['section_topology']['loc']
     swc_type = neurotree_dict['swc_type']
+    
     cell = template_class(gid, dataset_path, secnodes, vlayer, vsrc, vdst, vloc, vx, vy, vz, vradius, swc_type)
     return cell
 
@@ -2398,7 +2548,7 @@ def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
 
     :param env:
     :param gid:
-    :param population:
+    :param pop_name:
     :return:
     """
     dataset_path = env.dataset_path if env.dataset_path is not None else ""
@@ -2445,34 +2595,12 @@ def make_input_cell(env, gid, pop_id, input_source_dict, spike_train_attr_name='
     return cell
 
 
-def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, load_synapses=True,
-                     load_edges=True, connection_graph=None,
-                     load_weights=False, weight_dicts=None, 
-                     set_edge_delays=True, mech_file_path=None, mech_dict=None):
-    """
-    :param env: :class:'Env'
-    :param pop_name: str
-    :param gid: int
-    :param tree_dict: dict
-    :param synapses_dict: dict
-    :param weight_dicts: list of dict
-    :param load_synapses: bool
-    :param load_edges: bool
-    :param load_weights: bool
-    :param set_edge_delays: bool
-    :param mech_file_path: str (path)
-    :return: :class:'BiophysCell'
-    """
-    load_cell_template(env, pop_name)
-
-    if tree_dict is None:
-        tree_attr_iter, _ = read_tree_selection(env.data_file_path, pop_name, [gid], comm=env.comm, topology=True)
-        _, tree_dict = next(tree_attr_iter)
-
-        
-    hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict)
-    cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env,
-                       mech_file_path=mech_file_path, mech_dict=mech_dict)
+def load_circuit_context(env, pop_name, gid,
+                         load_edges=False, connection_graph=None,
+                         load_weights=False, weight_dicts=None,
+                         load_synapses=False, synapses_dict=None,
+                         set_edge_delays=True, **kwargs):
+    
     syn_attrs = env.synapse_attributes
     synapse_config = env.celltypes[pop_name]['synapses']
 
@@ -2485,7 +2613,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
     else: 
         weight_dicts = []
         
-    if load_synapses:
+    if load_synapses or load_edges:
         if synapses_dict is not None:
             syn_attrs.init_syn_id_attrs(gid, **synapses_dict)
         elif (pop_name in env.cell_attribute_info) and ('Synapse Attributes' in env.cell_attribute_info[pop_name]):
@@ -2494,7 +2622,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
             syn_attrs.init_syn_id_attrs_from_iter(synapses_iter)
 
         else:
-            logger.error('get_biophys_cell: synapse attributes not found for %s: gid: %i' % (pop_name, gid))
+            logger.error('make_biophys_cell: synapse attributes not found for %s: gid: %i' % (pop_name, gid))
             raise Exception
 
         if load_weights and has_weights:
@@ -2524,7 +2652,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
                                                                            if expr_closure else [{'weight': x} for x in weights_values]),
                                                                multiple=multiple_weights, append=append_weights)
                             if first_gid == gid:
-                                logger.info('get_biophys_cell: gid: %i; found %i %s synaptic weights in namespace %s' %
+                                logger.info('load_circuit_context: gid: %i; found %i %s synaptic weights in namespace %s' %
                                             (gid, len(cell_weights_dict[syn_name]), syn_name, weights_namespace))
                                 logger.info('weight_values min/max/mean: %.02f / %.02f / %.02f' %
                                             (np.min(weights_values), np.max(weights_values), np.mean(weights_values)))
@@ -2535,7 +2663,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
 
     if load_edges:
         if env.connectivity_file_path is None:
-            logger.error('get_biophys_cell: load_edges=True but connectivity file path is not specified ')
+            logger.error('load_circuit_context: load_edges=True but connectivity file path is not specified ')
             raise Exception
         if connection_graph is not None:
             (graph, a) = connection_graph
@@ -2543,7 +2671,7 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
             (graph, a) = read_graph_selection(file_name=env.connectivity_file_path, selection=[gid],
                                               namespaces=['Synapses', 'Connections'], comm=env.comm)
         else:
-            logger.error('get_biophys_cell: connection file %s not found' % env.connectivity_file_path)
+            logger.error('load_circuit_context: connection file %s not found' % env.connectivity_file_path)
             raise Exception
     else:
         (graph, a) = None, None
@@ -2554,12 +2682,96 @@ def get_biophys_cell(env, pop_name, gid, tree_dict=None, synapses_dict=None, loa
                 edge_iter = graph[pop_name][presyn_name]
                 syn_attrs.init_edge_attrs_from_iter(pop_name, presyn_name, a, edge_iter, set_edge_delays)
         else:
-            logger.error('get_biophys_cell: connection attributes not found for %s: gid: %i' % (pop_name, gid))
+            logger.error('load_circuit_context: connection attributes not found for %s: gid: %i' % (pop_name, gid))
             raise Exception
+    
+    
+
+def make_biophys_cell(env, pop_name, gid, 
+                      mech_file_path=None, mech_dict=None,
+                      tree_dict=None,
+                      load_synapses=False, synapses_dict=None, 
+                      load_edges=False, connection_graph=None,
+                      load_weights=False, weight_dicts=None, 
+                      set_edge_delays=True, **kwargs):
+    """
+    :param env: :class:'Env'
+    :param pop_name: str
+    :param gid: int
+    :param tree_dict: dict
+    :param synapses_dict: dict
+    :param weight_dicts: list of dict
+    :param load_synapses: bool
+    :param load_edges: bool
+    :param load_weights: bool
+    :param set_edge_delays: bool
+    :param mech_file_path: str (path)
+    :return: :class:'BiophysCell'
+    """
+    load_cell_template(env, pop_name)
+
+    if tree_dict is None:
+        print("%s: %d" % (pop_name, gid))
+        tree_attr_iter, _ = read_tree_selection(env.data_file_path, pop_name, [gid], comm=env.comm, topology=True)
+        _, tree_dict = next(tree_attr_iter)
         
+    hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict)
+    cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env,
+                       mech_file_path=mech_file_path, mech_dict=mech_dict)
+
+    load_circuit_context(env, pop_name, gid,
+                         load_edges=load_edges, connection_graph=connection_graph,
+                         load_weights=load_weights, weight_dicts=weight_dicts, 
+                         set_edge_delays=set_edge_delays, **kwargs)
+    
     env.biophys_cells[pop_name][gid] = cell
     return cell
 
+
+def make_izhikevich_cell(env, pop_name, gid, mech_file_path=None, mech_dict=None,
+                         tree_dict=None,  load_synapses=False, synapses_dict=None, 
+                         load_edges=False, connection_graph=None,
+                         load_weights=False, weight_dicts=None, 
+                         set_edge_delays=True, **kwargs):
+    """
+    :param env: :class:'Env'
+    :param pop_name: str
+    :param gid: int
+    :param mech_file_path: str (path)
+    :param mech_dict: dict
+    :param synapses_dict: dict
+    :param weight_dicts: list of dict
+    :param load_synapses: bool
+    :param load_edges: bool
+    :param load_weights: bool
+    :param set_edge_delays: bool
+    :return: :class:'IzhikevichCell'
+    """
+
+    if mech_dict is None and mech_file_path is None:
+        raise RuntimeError('make_izhikevich_cell: mech_dict or mech_file_path must be specified')
+
+    if mech_dict is None and mech_file_path is not None:
+        mech_dict = read_from_yaml(mech_file_path)
+
+    cell = IzhiCell(gid=gid, pop_name=pop_name, env=env,
+                    cell_attrs=IzhiCellAttrs(**mech_dict['izhikevich']),
+                    mech_dict={ k: mech_dict[k] for k in mech_dict if k != 'izhikevich' })
+
+    load_circuit_context(env, pop_name, gid,
+                         load_edges=load_edges, connection_graph=connection_graph,
+                         load_weights=load_weights, weight_dicts=weight_dicts, 
+                         set_edge_delays=set_edge_delays, **kwargs)
+    
+    syn_attrs = env.synapse_attributes
+    syn_dict = syn_attrs.syn_id_attr_dict[gid]
+    sec_dict = syn_attrs.sec_dict[gid]
+
+    env.biophys_cells[pop_name][gid] = cell
+    return cell
+
+
+get_biophys_cell = make_biophys_cell
 
 
 def register_cell(env, pop_name, gid, cell):
@@ -2576,7 +2788,7 @@ def register_cell(env, pop_name, gid, cell):
     env.pc.set_gid2node(gid, rank)
     hoc_cell = getattr(cell, 'hoc_cell', cell)
     env.cells[pop_name].append(hoc_cell)
-    if hoc_cell.is_art() == 1:
+    if hoc_cell.is_art() > 0:
         env.artificial_cells[pop_name][gid] = hoc_cell
     # Tell the ParallelContext that this cell is a spike source
     # for all other hosts. NetCon is temporary.
@@ -2611,7 +2823,7 @@ def record_cell(env, pop_name, gid, recording_profile=None):
         cell = env.biophys_cells[pop_name].get(gid, None)
         if cell is not None:
             label = recording_profile['label']
-            dt = recording_profile.get('dt', 0.1)
+            dt = recording_profile.get('dt', None)
             for recvar, recdict  in viewitems(recording_profile.get('section quantity', {})):
                 nodes = filter_nodes(cell, layers=recdict.get('layers', None),
                                      swc_types=recdict.get('swc types', None))

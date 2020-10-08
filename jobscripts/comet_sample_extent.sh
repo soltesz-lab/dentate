@@ -25,13 +25,13 @@ ibrun -np 1 -v python3 ./scripts/sample_extent.py \
     --config-prefix=./config \
     --dataset-prefix="$SCRATCH/dentate" \
     --output-path=$results_path \
-    --spike-input-path="$SCRATCH/dentate/Full_Scale_Control/DG_input_spike_trains_20190912_compressed.h5" \
+    --spike-input-path="$SCRATCH/dentate/Full_Scale_Control/DG_input_spike_trains_20200323_compressed.h5" \
     --spike-input-namespace='Input Spikes A Diag' \
-    --input-features-path="$SCRATCH/dentate/Full_Scale_Control/DG_input_features_20191119_compressed.h5" \
+    --input-features-path="$SCRATCH/dentate/Full_Scale_Control/DG_input_features_20200611_compressed.h5" \
     --output-path=${results_path} \
-    --bin-sample-count=2 \
-    --distance-bin-extent=900. \
+    --bin-sample-count=10 \
+    --distance-bin-extent=500. \
     --write-selection \
-    -i GC \
+    -i GC -i MC \
     --verbose
 

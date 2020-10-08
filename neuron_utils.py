@@ -27,6 +27,7 @@ default_izhi_cell_attrs_dict = {
     'RTN': IzhiCellAttrs(C=0.4, k=0.25, vr=-65., vt=-45., vpeak=0., a=0.015, b=10., c=-55., d=50., celltype=7)
 }
 
+HocCellInterface = namedtuple('HocCellInterface', ['sections', 'is_art', 'is_reduced', 'soma', 'hillock', 'ais', 'axon', 'basal', 'apical', 'all'])
 
 def hoc_results_to_python(hoc_results):
     results_dict = {}
@@ -165,10 +166,16 @@ def configure_hoc_env(env):
         path = "%s/rn.hoc" % template_dir
         if os.path.exists(path):
             h.load_file(path)
+    h.cvode.cache_efficient(1)
+    h.cvode.use_fast_imem(1)
     h('objref pc, nc, nil')
     h('strdef dataset_path')
     if hasattr(env, 'dataset_path'):
         h.dataset_path = env.dataset_path if env.dataset_path is not None else ""
+    if env.use_coreneuron:
+        from neuron import coreneuron
+        coreneuron.enable = True
+        coreneuron.verbose = 1 if env.verbose else 0
     h.pc = h.ParallelContext()
     h.pc.gid_clear()
     env.pc = h.pc
@@ -188,7 +195,6 @@ def configure_hoc_env(env):
     find_template(env, 'StimCell', path=env.template_paths)
     find_template(env, 'VecStimCell', path=env.template_paths)
 
-
 def load_cell_template(env, pop_name):
     """
     :param pop_name: str
@@ -200,7 +206,7 @@ def load_cell_template(env, pop_name):
         raise KeyError('load_cell_templates: unrecognized cell population: %s' % pop_name)
     template_name = env.celltypes[pop_name]['template']
     if 'template file' in env.celltypes[pop_name]:
-            template_file = env.celltypes[pop_name]['template file']
+        template_file = env.celltypes[pop_name]['template file']
     else:
         template_file = None
     if not hasattr(h, template_name):
@@ -211,7 +217,7 @@ def load_cell_template(env, pop_name):
     return template_class
 
 
-def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v', label=None, dt=h.dt, description=''):
+def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v', label=None, dt=None, description=''):
     """
     Makes a recording vector for the specified quantity in the specified section and location.
 
@@ -253,7 +259,10 @@ def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v
                 break
     if label is None:
         label = param
-    vec.record(getattr(hocobj, '_ref_%s' % param), dt)
+    if dt is None:
+        vec.record(getattr(hocobj, '_ref_%s' % param))
+    else:
+        vec.record(getattr(hocobj, '_ref_%s' % param), dt)
     rec_dict = {'name': recid,
                 'gid': gid,
                 'cell': cell,

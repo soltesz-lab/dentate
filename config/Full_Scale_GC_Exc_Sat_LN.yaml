@@ -18,15 +18,15 @@ Cell Types:
     mechanism file: 20181205_DG_GC_excitability_mech.yaml
     synapses:
       correct_for_spines: True
-      weights: True
-      weights namespace: Log-Normal Weights
+      weights: 
+       - namespace: ['Log-Normal Weights']
       density: !include GC_synapse_density.yaml
   MC:
     template: MossyCell
     synapses:
       density: !include MC_synapse_density.yaml
-      weights: True
-      weights namespace: Log-Normal Weights
+      weights:
+       - namespace: ['Log-Normal Weights']
   HC:
     template: HIPPCell
     synapses:
