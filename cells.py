@@ -2625,7 +2625,7 @@ def load_biophys_cell_dicts(env, pop_name, gid_set, load_connections=True):
     tree_dicts = {}
     synapses_dicts = {}
     weight_dicts = {}
-    connection_graphs = { gid: { pop_name: {} } for gid in gid_list }
+    connection_graphs = { gid: { pop_name: {} } for gid in gid_set }
     graph_attr_info = None
     
     gid_list = list(gid_set)
@@ -2634,7 +2634,7 @@ def load_biophys_cell_dicts(env, pop_name, gid_set, load_connections=True):
     for gid, tree_dict in tree_attr_iter:
         tree_dicts[gid] = tree_dict
 
-    if load_connectivity:
+    if load_connections:
         synapses_iter = read_cell_attribute_selection(env.data_file_path, pop_name,
                                                       gid_list, 'Synapse Attributes',
                                                       comm=env.comm)
@@ -2660,7 +2660,7 @@ def load_biophys_cell_dicts(env, pop_name, gid_set, load_connections=True):
         for presyn_name in graph[pop_name].keys():
             edge_iter = graph[pop_name][presyn_name]
             for (postsyn_gid, edges) in edge_iter:
-                connectivity_graphs[postsyn_gid][pop_name][presyn_name] = { postsyn_gid: edges }
+                connection_graphs[postsyn_gid][pop_name][presyn_name] = { postsyn_gid: edges }
         
         
     cell_dicts = {}
@@ -2672,7 +2672,7 @@ def load_biophys_cell_dicts(env, pop_name, gid_set, load_connections=True):
         
         if load_connections:
             synapses_dict = synapses_dicts[gid]
-            weight_dict = weight_dicts[gid]
+            weight_dict = weight_dicts.get(gid, None)
             connection_graph = connection_graphs[gid]
             this_cell_dict['synapse'] = synapses_dict
             this_cell_dict['connectivity'] = connection_graph, graph_attr_info

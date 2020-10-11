@@ -222,7 +222,8 @@ def init_inputs_from_features(env, presyn_sources, time_range,
 def init(env, pop_name, gid_set, arena_id=None, trajectory_id=None, n_trials=1,
          spike_events_path=None, spike_events_namespace='Spike Events', spike_train_attr_name='t',
          input_features_path=None, input_features_namespaces=None, 
-         generate_weights_pops=set([]), t_min=None, t_max=None, write_cell=False, plot_cell=False):
+         generate_weights_pops=set([]), t_min=None, t_max=None, write_cell=False, plot_cell=False,
+         worker=None):
     """
     Instantiates a cell and all its synapses and connections and loads
     or generates spike times for all synaptic connections.
@@ -258,10 +259,24 @@ def init(env, pop_name, gid_set, arena_id=None, trajectory_id=None, n_trials=1,
     presyn_names = env.projection_dict[pop_name]
 
     cell_dict = None
-    if (worker.worker_id == 1) and (env.comm.rank == 0):
-        cell_dict = load_biophys_cell_dicts(env, population, cell_index_set)
-    cell_dict = worker.worker_comm.bcast(cell_dict, root=0)
-    logger.info("network_clamp.init: worker = %d; rank = %d: cell_dict = %s" % (worker.worker_id, env.comm.rank, str(cell_dict)))
+    if worker is not None:
+        if (worker.worker_id == 1) and (worker.comm.rank == 0):
+            cell_dict = load_biophys_cell_dicts(env, pop_name, gid_set)
+        if worker.worker_id == 1:
+            if cell_dict is not None:
+                root = MPI.ROOT
+            else:
+                root = MPI.PROC_NULL
+        else:
+            root = 0
+        worker.worker_comm.barrier()
+        if cell_dict is None:
+            cell_dict = worker.worker_comm.bcast(cell_dict, root=root)
+        else:
+            worker.worker_comm.bcast(cell_dict, root=root)
+        worker.worker_comm.barrier()
+    else:
+        cell_dict = load_biophys_cell_dicts(env, pop_name, gid_set)
     
     ## Load cell gid and its synaptic attributes and connection data
     for gid in gid_set:
@@ -593,7 +608,7 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
          input_features_path=input_features_path,
          input_features_namespaces=input_features_namespaces,
          generate_weights_pops=set(generate_weights), 
-         t_min=t_min, t_max=t_max)
+         t_min=t_min, t_max=t_max, worker=worker)
 
     time_step = env.stimulus_config['Temporal Resolution']
     equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
@@ -669,13 +684,14 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
     env = Env(**params)
     env.results_file_path = None
     configure_hoc_env(env)
+    logger.info("init_rate_objfun: worker = %s"  % str(worker))
     init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
-         spike_events_path, spike_events_namespace=spike_events_namespace, 
+         spike_events_path=spike_events_path, spike_events_namespace=spike_events_namespace, 
          spike_train_attr_name=spike_events_t,
          input_features_path=input_features_path,
          input_features_namespaces=input_features_namespaces,
          generate_weights_pops=set(generate_weights),
-         t_min=t_min, t_max=t_max)
+         t_min=t_min, t_max=t_max, worker=worker)
 
     time_step = env.stimulus_config['Temporal Resolution']
     param_bounds, param_names, param_initial_dict, param_tuples = \
@@ -776,7 +792,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
          input_features_path=input_features_path,
          input_features_namespaces=input_features_namespaces,
          generate_weights_pops=set(generate_weights), 
-         t_min=t_min, t_max=t_max)
+         t_min=t_min, t_max=t_max, worker=worker)
 
     time_step = env.stimulus_config['Temporal Resolution']
 
@@ -1011,7 +1027,7 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
          input_features_path=input_features_path,
          input_features_namespaces=input_features_namespaces,
          generate_weights_pops=set(generate_weights), 
-         t_min=t_min, t_max=t_max)
+         t_min=t_min, t_max=t_max, worker=worker)
 
     time_step = env.stimulus_config['Temporal Resolution']
     equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
@@ -1236,7 +1252,7 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
          input_features_path=input_features_path,
          input_features_namespaces=input_features_namespaces,
          generate_weights_pops=set(generate_weights), 
-         t_min=t_min, t_max=t_max)
+         t_min=t_min, t_max=t_max, worker=worker)
 
     time_step = env.stimulus_config['Temporal Resolution']
 
