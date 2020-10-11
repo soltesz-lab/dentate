@@ -7,7 +7,7 @@ from mpi4py import MPI
 import numpy as np
 import click
 from dentate import io_utils, spikedata, synapses, stimulus, cell_clamp
-from dentate.cells import h, make_input_cell, register_cell, record_cell, report_topology, is_cell_registered
+from dentate.cells import h, make_input_cell, register_cell, record_cell, report_topology, is_cell_registered, load_biophys_cell_dicts
 from dentate.env import Env
 from dentate.neuron_utils import h, configure_hoc_env, make_rec
 from dentate.utils import is_interactive, is_iterable, Context, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger, config_logging
@@ -221,7 +221,7 @@ def init_inputs_from_features(env, presyn_sources, time_range,
 
 def init(env, pop_name, gid_set, arena_id=None, trajectory_id=None, n_trials=1,
          spike_events_path=None, spike_events_namespace='Spike Events', spike_train_attr_name='t',
-         input_features_path=None, input_features_namespaces=None,
+         input_features_path=None, input_features_namespaces=None, 
          generate_weights_pops=set([]), t_min=None, t_max=None, write_cell=False, plot_cell=False):
     """
     Instantiates a cell and all its synapses and connections and loads
@@ -257,10 +257,15 @@ def init(env, pop_name, gid_set, arena_id=None, trajectory_id=None, n_trials=1,
     ## Determine presynaptic populations that connect to this cell type
     presyn_names = env.projection_dict[pop_name]
 
+    cell_dict = None
+    if (worker.worker_id == 1) and (env.comm.rank == 0):
+        cell_dict = load_biophys_cell_dicts(env, population, cell_index_set)
+    cell_dict = worker.worker_comm.bcast(cell_dict, root=0)
+    logger.info("network_clamp.init: worker = %d; rank = %d: cell_dict = %s" % (worker.worker_id, env.comm.rank, str(cell_dict)))
+    
     ## Load cell gid and its synaptic attributes and connection data
     for gid in gid_set:
-        print("%s: %d" % (pop_name, gid))
-        cell = init_biophys_cell(env, pop_name, gid, write_cell=write_cell)
+        cell = init_biophys_cell(env, pop_name, gid, cell_dict=cell_dict, write_cell=write_cell)
 
     pop_index_dict = { ind: name for name, ind in viewitems(env.Populations) }
     
@@ -581,6 +586,7 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
     env = Env(**params)
     env.results_file_path = None
     configure_hoc_env(env)
+    
     init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
          spike_events_path, spike_events_namespace=spike_events_namespace, 
          spike_train_attr_name=spike_events_t,
@@ -1588,7 +1594,6 @@ def go(config_file, population, gid, arena_id, trajectory_id, generate_weights, 
     
     cell_index_set = set([])
     if gid is None:
-        cell_index_data = None
         comm0 = comm.Split(2 if rank == 0 else 1, 0)
         if rank == 0:
             env = Env(**init_params, comm=comm0)
@@ -1729,7 +1734,6 @@ def optimize(config_file, population, gid, gid_selection_file, arena_id, traject
     elif gid is not None:
         cell_index_set.add(gid)
     else:
-        cell_index_data = None
         comm0 = comm.Split(2 if rank == 0 else 1, 0)
         if rank == 0:
             env = Env(**init_params, comm=comm0)
