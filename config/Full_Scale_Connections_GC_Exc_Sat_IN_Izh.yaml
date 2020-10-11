@@ -267,7 +267,7 @@ Synapses:
           tau_offset: 11.0
           e: -75
           g_unit: 0.000175
-          weight: 1.0
+          weight: 0.165
     BC:   
       type: inhibitory
       sections: [soma, apical]
@@ -281,14 +281,14 @@ Synapses:
             tau_offset: 9.0
             e: -75
             g_unit: 0.0005
-            weight: 1.0
+            weight: 0.145
         apical:
           GABA_A:
             dur_onset: 0.6
             tau_offset: 9.0
             e: -75
             g_unit: 0.00012
-            weight: 1.0
+            weight: 0.165
     AAC:  
       type: inhibitory
       sections: [ais]
@@ -301,7 +301,7 @@ Synapses:
           tau_offset: 9.0
           e: -75
           g_unit: 0.00012
-          weight: 1.0
+          weight: 0.742
     HCC:  
       type: inhibitory
       sections: [apical]
@@ -314,7 +314,7 @@ Synapses:
           tau_offset: 10.0
           e: -75
           g_unit: 0.000125
-          weight: 1.0
+          weight: 0.165
   HC:
     GC:   
       type: excitatory
