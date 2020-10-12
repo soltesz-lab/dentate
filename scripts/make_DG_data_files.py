@@ -8,17 +8,17 @@ DG_populations = ["AAC", "BC", "GC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC", "M
 DG_IN_populations = ["AAC", "BC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC"]
 DG_EXT_populations = ["MPP", "LPP", "CA3c"]
 
-DG_cells_file = "DG_Cells_Full_Scale_20200311.h5"
-DG_connections_file = "DG_Connections_Full_Scale_20200311.h5"
+DG_cells_file = "DG_Cells_Full_Scale_20201008.h5"
+DG_connections_file = "DG_Connections_Full_Scale_20201008.h5"
 
 DG_GC_coordinate_file  = "DG_coords_20190717_compressed.h5"
 DG_IN_coordinate_file  = "DG_coords_20190717_compressed.h5"
 DG_EXT_coordinate_file = "DG_coords_20190717_compressed.h5"
 
-DG_GC_forest_file = "DGC_forest_normalized_20200311_compressed.h5"
+DG_GC_forest_file = "DGC_forest_normalized_20200628_compressed.h5"
 DG_IN_forest_file = "DG_IN_forest_20200112_compressed.h5"
 
-DG_GC_forest_syns_file = "DGC_forest_syns_20190717_compressed.h5"
+DG_GC_forest_syns_file = "DGC_forest_syns_20190628_compressed.h5"
 DG_IN_forest_syns_file = "DG_IN_forest_syns_20200112_compressed.h5"
 
 DG_GC_syn_weights_SLN_file = "DG_GC_syn_weights_SLN_20191128_compressed.h5"
@@ -50,9 +50,9 @@ DG_vecstim_file_dict = {
 
 vecstim_dict = {'Input Spikes %s' % stim_id : stim_file for stim_id, stim_file in viewitems(DG_vecstim_file_dict)}
 
-DG_remap_vecstim_file_dict = { 
-    'A Diag': "DG_remap_spike_trains_20191113_compressed.h5",
-}
+#DG_remap_vecstim_file_dict = { 
+#    'A Diag': "DG_remap_spike_trains_20191113_compressed.h5",
+#}
 
 
 coordinate_files = {
