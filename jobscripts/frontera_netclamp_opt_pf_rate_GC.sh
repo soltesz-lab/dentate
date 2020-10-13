@@ -14,12 +14,13 @@ module load phdf5
 
 set -x
 
-export FI_MLX_ENABLE_SPAWN=yes
 export NEURONROOT=$HOME/bin/nrnpython3
 export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
 export PATH=$NEURONROOT/x86_64/bin:$PATH
 export MODEL_HOME=$HOME/model
 export DG_HOME=$MODEL_HOME/dentate
+export LD_PRELOAD=$MKLROOT/lib/intel64_lin/libmkl_core.so:$MKLROOT/lib/intel64_lin/libmkl_sequential.so
+export FI_MLX_ENABLE_SPAWN=1
 
 cd $SLURM_SUBMIT_DIR
 
@@ -34,10 +35,9 @@ ibrun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.
     --input-features-namespaces 'Grid Selectivity' \
     --input-features-namespaces 'Constant Selectivity' \
     --config-prefix config  --opt-iter 2000  --opt-epsilon 1 \
-    --param-config-name 'Weight all inh soma all-dend' \
-    --arena-id A --trajectory-id Diag \
-    --target-rate-map-path $SCRATCH/dentate/Slice/GC_extent_input_spike_trains_20200901.h5 \
-    --use-coreneuron \
+    --param-config-name 'Weight all no MC inh soma all-dend' \
+    --arena-id A --trajectory-id Diag --use-coreneuron \
+    --target-rate-map-path $SCRATCH/dentate/Slice/GC_extent_input_spike_trains_20201001.h5 \
     selectivity_rate
 else
 ibrun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
@@ -52,8 +52,9 @@ ibrun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.
     --input-features-namespaces 'Constant Selectivity' \
     --config-prefix config  --opt-iter 2000  --opt-epsilon 1 \
     --param-config-name 'Weight all no MC inh soma all-dend' \
-    --arena-id A --trajectory-id Diag \
-    --target-rate-map-path $SCRATCH/dentate/Slice/GC_extent_input_spike_trains_20200901.h5 \
-    --use-coreneuron \
+    --arena-id A --trajectory-id Diag --use-coreneuron \
+    --target-rate-map-path $SCRATCH/dentate/Slice/GC_extent_input_spike_trains_20201001.h5 \
     selectivity_rate
 fi
+
+

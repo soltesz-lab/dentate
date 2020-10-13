@@ -2642,18 +2642,16 @@ def load_biophys_cell_dicts(env, pop_name, gid_set, load_connections=True):
             synapses_dicts[gid] = attr_dict
 
         if has_weights:
-            expr_closure = weights_config.get('closure', None)
-            weights_namespaces = weights_config['namespace']
-            cell_weights_iters = [read_cell_attribute_selection(env.data_file_path, pop_name, gid_list,
-                                                                weights_namespace, comm=env.comm)
-                                  for weights_namespace in weights_namespaces]
-            cell_ns_weights_iter = zip_longest(weights_namespaces, cell_weights_iters)
-
-            for weights_namespace, cell_weights_iter in cell_ns_weights_iter:
-                for gid, cell_weights_dict in cell_weights_iter:
-                    this_weights_dict = weight_dicts.get(gid, {})
-                    this_weights_dict[weights_namespace] = cell_weights_dict
-                    weight_dicts[gid] = this_weights_dict
+            for config in weights_config:
+                weights_namespaces = config['namespace']
+                cell_weights_iters = [read_cell_attribute_selection(env.data_file_path, pop_name, gid_list,
+                                                                  weights_namespace, comm=env.comm)
+                                      for weights_namespace in weights_namespaces]
+                for weights_namespace, cell_weights_iter in zip_longest(weights_namespaces, cell_weights_iters):
+                    for gid, cell_weights_dict in cell_weights_iter:
+                        this_weights_dict = weight_dicts.get(gid, {})
+                        this_weights_dict[weights_namespace] = cell_weights_dict
+                        weight_dicts[gid] = this_weights_dict
 
         graph, graph_attr_info = read_graph_selection(file_name=env.connectivity_file_path, selection=gid_list,
                                                       namespaces=['Synapses', 'Connections'], comm=env.comm)

@@ -51,6 +51,29 @@ SynParam = namedtuple('SynParam',
 def distgfs_reduce_fun(xs):
     return xs[0]
 
+
+def distgfs_broker_init(broker, *args):
+
+    data = None
+    if broker.worker_id == 1:
+        status = MPI.Status()
+        data = broker.sub_comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
+        tag = status.Get_tag()
+
+    if broker.worker_id == 1:
+        broker.group_comm.bcast(data, root=0)
+    else:
+        data = broker.group_comm.bcast(None, root=0)
+    broker.group_comm.barrier()
+
+    if broker.worker_id != 1:
+        req = broker.sub_comm.Ibarrier()
+        broker.sub_comm.bcast(data, root=MPI.ROOT)
+        req.wait()
+    broker.group_comm.barrier()
+
+
+
 def generate_weights(env, weight_source_rules, this_syn_attrs):
     """
     Generates synaptic weights according to the rules specified in the
@@ -219,6 +242,7 @@ def init_inputs_from_features(env, presyn_sources, time_range,
     return input_source_dict
 
 
+
 def init(env, pop_name, gid_set, arena_id=None, trajectory_id=None, n_trials=1,
          spike_events_path=None, spike_events_namespace='Spike Events', spike_train_attr_name='t',
          input_features_path=None, input_features_namespaces=None, 
@@ -260,21 +284,15 @@ def init(env, pop_name, gid_set, arena_id=None, trajectory_id=None, n_trials=1,
 
     cell_dict = None
     if worker is not None:
-        if (worker.worker_id == 1) and (worker.comm.rank == 0):
+        if (worker.worker_id == 1):
             cell_dict = load_biophys_cell_dicts(env, pop_name, gid_set)
-        if worker.worker_id == 1:
-            if cell_dict is not None:
-                root = MPI.ROOT
-            else:
-                root = MPI.PROC_NULL
+            req = worker.parent_comm.isend(cell_dict, dest=0)
+            req.wait()
         else:
-            root = 0
-        worker.worker_comm.barrier()
-        if cell_dict is None:
-            cell_dict = worker.worker_comm.bcast(cell_dict, root=root)
-        else:
-            worker.worker_comm.bcast(cell_dict, root=root)
-        worker.worker_comm.barrier()
+            req = worker.parent_comm.Ibarrier()
+            cell_dict = worker.parent_comm.bcast(None, root=0)
+            req.wait()
+        worker.comm.barrier()
     else:
         cell_dict = load_biophys_cell_dicts(env, pop_name, gid_set)
     
@@ -1372,6 +1390,8 @@ def optimize_run(env, pop_name, param_config_name, init_objfun,
                       'obj_fun_init_args': init_params,
                       'reduce_fun_name': 'distgfs_reduce_fun',
                       'reduce_fun_module': 'dentate.network_clamp',
+                      'broker_fun_name': 'distgfs_broker_init',
+                      'broker_module_name': 'dentate.network_clamp',
                       'problem_parameters': {},
                       'space': hyperprm_space,
                       'file_path': file_path,
