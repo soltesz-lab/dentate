@@ -504,7 +504,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             if reference_weights_path is not None:
                 reference_weight_dict = reference_weights_by_source_gid_dict[destination_gid]
                 
-            normalized_LTP_delta_weights_dict, LTD_delta_weights_dict, arena_LS_map = \
+            normalized_LTP_delta_weights_dict, LTD_delta_weights_dict, arena_LS_map, input_corrcoeff = \
                synapses.generate_structured_weights(destination_gid,
                                                  target_map=target_selectivity_features_dict[destination_gid]['Arena Rate Map'],
                                                  initial_weight_dict=initial_weights_by_source_gid_dict[destination_gid],
@@ -536,7 +536,8 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                              'Field Width',
                              'Peak Rate',
                              'X Offset',
-                             'Y Offset'] }
+                             'Y Offset']}
+            output_features_dict[destination_gid]['Input Correlation'] = input_corrcoeff
 
             this_structured_syn_id_count = structured_syn_id_count[destination_gid]
             output_syn_ids = np.empty(this_structured_syn_id_count, dtype='uint32')
