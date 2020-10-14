@@ -2418,21 +2418,14 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
     else:
         reference_weight_array = np.empty(len(input_rate_map_dict), dtype=np.float32)
 
-    infld_idxs = np.argwhere(target_map > 0.)
-    outfld_idxs = np.argwhere(target_map <= 0.)
-    infld_sum_input_vector = np.zeros((len(input_rate_map_dict),))
-    outfld_sum_input_vector = np.zeros((len(input_rate_map_dict),))
     for i, source_gid in enumerate(input_rate_map_dict):
         source_gid_array[i] = source_gid
         this_syn_count = syn_count_dict[source_gid]
         this_input = input_rate_map_dict[source_gid].ravel() * this_syn_count
         input_matrix[:, i] = this_input
-        infld_sum_input_vector[i] = np.sum(this_input[infld_idxs])
-        outfld_sum_input_vector[i] = np.sum(this_input[outfld_idxs])
         initial_weight_array[i] = initial_weight_dict[source_gid]
         if reference_weight_array is not None:
             reference_weight_array[i] = reference_weight_dict[source_gid]
-    input_corrcoeff = np.corrcoeff(infld_sum_input_vector, outfld_sum_input_vector)
             
     non_structured_input_matrix = None
     if non_structured_input_rate_map_dict is not None:
@@ -2617,7 +2610,7 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
                                          **fig_kwargs)
 
 
-    return normalized_LTP_delta_weights_dict, LTD_delta_weights_dict, LS_map, input_corrcoeff
+    return normalized_LTP_delta_weights_dict, LTD_delta_weights_dict, LS_map
 
 
 def plot_callback_structured_weights(**kwargs):
