@@ -26,7 +26,7 @@ cd $SLURM_SUBMIT_DIR
 
 if test "$2" == ""; then
 ibrun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
-    -p GC -g $1 -t 9500 --n-trials 10 --trial-regime best \
+    -p GC -g $1 -t 9500 --n-trials 1 --trial-regime best \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/dentate \
     --results-path $SCRATCH/dentate/results/netclamp \
@@ -36,12 +36,12 @@ ibrun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.
     --input-features-namespaces 'Constant Selectivity' \
     --config-prefix config  --opt-iter 2000  --opt-epsilon 1 \
     --param-config-name 'Weight all no MC inh soma all-dend' \
-    --arena-id A --trajectory-id Diag --use-coreneuron \
+    --arena-id A --trajectory-id MainDiags --use-coreneuron \
     --target-rate-map-path $SCRATCH/dentate/Slice/GC_extent_input_spike_trains_20201001.h5 \
     selectivity_rate
 else
 ibrun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
-    -p GC -g $1 -t 9500 --n-trials 10 \
+    -p GC -g $1 -t 9500 --n-trials 1 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/dentate \
     --results-path $SCRATCH/dentate/results/netclamp \
@@ -52,7 +52,7 @@ ibrun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.
     --input-features-namespaces 'Constant Selectivity' \
     --config-prefix config  --opt-iter 2000  --opt-epsilon 1 \
     --param-config-name 'Weight all no MC inh soma all-dend' \
-    --arena-id A --trajectory-id Diag --use-coreneuron \
+    --arena-id A --trajectory-id MainDiags --use-coreneuron \
     --target-rate-map-path $SCRATCH/dentate/Slice/GC_extent_input_spike_trains_20201001.h5 \
     selectivity_rate
 fi
