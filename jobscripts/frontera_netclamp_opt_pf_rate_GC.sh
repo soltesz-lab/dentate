@@ -26,10 +26,10 @@ cd $SLURM_SUBMIT_DIR
 
 if test "$2" == ""; then
 ibrun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
-    -p GC -g $1 -t 9500 --n-trials 1 --trial-regime best \
+    -p GC -g $1 -t 28250 --n-trials 3 --trial-regime best \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/dentate \
-    --results-path $SCRATCH/dentate/results/netclamp \
+    --results-path $SCRATCH/dentate/results/netclamp/20201015 \
     --input-features-path $SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5 \
     --input-features-namespaces 'Place Selectivity' \
     --input-features-namespaces 'Grid Selectivity' \
@@ -41,10 +41,10 @@ ibrun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.
     selectivity_rate
 else
 ibrun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
-    -p GC -g $1 -t 9500 --n-trials 1 \
+    -p GC -g $1 -t 28250 --n-trials 3 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/dentate \
-    --results-path $SCRATCH/dentate/results/netclamp \
+    --results-path $SCRATCH/dentate/results/netclamp/20201015 \
     --results-file "$2" \
     --input-features-path $SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5 \
     --input-features-namespaces 'Place Selectivity' \
