@@ -24,14 +24,14 @@ env = None
 
 @unique
 class TrialRegime(IntEnum):
-    Mean = 0
-    Best = 1
+    mean = 0
+    best = 1
 
 @unique
 class ProblemRegime(IntEnum):
-    Every = 0
-    Mean = 1
-    Max = 2
+    every = 0
+    mean = 1
+    max = 2
 
 
 def mpi_excepthook(type, value, traceback):
@@ -97,13 +97,14 @@ def distgfs_reduce_max(xs):
 
 def distgfs_eval_fun(problem_regime, eval_problem_fun):    
 
+    problem_regime = ProblemRegime[problem_regime]
     def f(v, **kwargs):
         results_dict = eval_problem_fun(v, **kwargs)
-        if problem_regime == ProblemRegime.Every:
+        if problem_regime == ProblemRegime.every:
             result = results_dict
-        elif trial_regime == ProblemRegime.Mean:
+        elif trial_regime == ProblemRegime.mean:
             result = np.mean([ v for k,v in viewitems(results_dict) ])
-        elif trial_regime == ProblemRegime.Max:
+        elif trial_regime == ProblemRegime.max:
             result = np.max([ v for k,v in viewitems(results_dict) ])
         else:
             raise RuntimeError("distgfs_eval_fun: unknown problem regime %s" % str(problem_regime))
@@ -661,6 +662,8 @@ def optimize_params(env, pop_name, param_type, param_config_name):
 
 def init_state_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, n_trials, trial_regime, problem_regime, param_type, param_config_name, recording_profile, state_variable, state_filter, target_value, use_coreneuron, worker, **kwargs):
 
+    problem_regime = ProblemRegime[problem_regime]
+
     params = dict(locals())
     env = Env(**params)
     env.results_file_path = None
@@ -731,9 +734,9 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
                                              equilibration_duration, 
                                              n_trials, env.t_rec, 
                                              state_recs_dict)
-        if trial_regime == TriaRegime.Mean:
+        if trial_regime == TriaRegime.mean:
             return { gid: -abs(np.mean(state_values_dict[gid]) - target_value) for gid in my_cell_index_set }
-        elif trial_regime == TrialRegime.Best:
+        elif trial_regime == TrialRegime.best:
             return { gid: -(np.min(np.abs(np.asarray(state_values_dict[gid]) - target_value))) for gid in my_cell_index_set }         
         else:
             raise RuntimeError("state_objfun: unknown trial regime %s" % str(trial_regime))
@@ -742,6 +745,8 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
 
 
 def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, n_trials, trial_regime, problem_regime, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, param_type, param_config_name, recording_profile, target_rate, use_coreneuron, worker, **kwargs):
+
+    problem_regime = ProblemRegime[problem_regime]
 
     params = dict(locals())
     env = Env(**params)
@@ -806,9 +811,9 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
         firing_rates_dict = gid_firing_rate(run_with(env, {population: {gid: from_param_dict(cell_param_dict[gid]) 
                                                                         for gid in my_cell_index_set}}), 
                                             my_cell_index_set)
-        if trial_regime == TrialRegime.Mean:
+        if trial_regime == TrialRegime.mean:
             return { gid: -mean_rate_diff(gid, firing_rates_dict[gid], target_rate) for gid in my_cell_index_set }
-        elif trial_regime == TrialRegime.Best:
+        elif trial_regime == TrialRegime.best:
             return { gid: -best_rate_diff(gid, firing_rates_dict[gid], target_rate) for gid in my_cell_index_set }    
         else:
             raise RuntimeError('rate_objfun: unknown trial regime %s' % str(trial_regime))
@@ -846,6 +851,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
                                  target_rate_map_path, target_rate_map_namespace,
 			         target_rate_map_arena, target_rate_map_trajectory,  worker, 
                                  use_coreneuron, **kwargs):
+    problem_regime = ProblemRegime[problem_regime]
     
     params = dict(locals())
     env = Env(**params)
@@ -1055,11 +1061,11 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             rate_vectors = rates_dict[gid]
             logger.info('selectivity rate objective: max rates of gid %i: %s' % (gid, str([np.max(rate_vector) for rate_vector in rate_vectors])))
 
-            if trial_regime == TrialRegime.Mean:
+            if trial_regime == TrialRegime.mean:
                 snr = mean_trial_snr(gid, target_max_infld, target_mean_trough, 
                                      peak_idxs, trough_idxs, infld_idxs, outfld_idxs, rate_vectors)
 
-            elif trial_regime == TrialRegime.Best:
+            elif trial_regime == TrialRegime.best:
                 snr = best_trial_snr(gid, target_max_infld, target_mean_trough, 
                                      peak_idxs, trough_idxs, infld_idxs, outfld_idxs, rate_vectors)
 
@@ -1084,6 +1090,7 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
                                   target_rate_map_path, target_rate_map_namespace,
 			          target_rate_map_arena, target_rate_map_trajectory,  
                                   use_coreneuron, worker, **kwargs):
+    problem_regime = ProblemRegime[problem_regime]
     
     
     params = dict(locals())
@@ -1280,11 +1287,11 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
             
             state_values = state_values_dict[gid]
             
-            if trial_regime == TrialRegime.Mean:
+            if trial_regime == TrialRegime.mean:
                 snr = mean_trial_snr(gid, target_max_infld, target_mean_trough, 
                                      t_peak_idxs, t_trough_idxs, t_infld_idxs, t_outfld_idxs, state_values)
             
-            elif trial_regime == TrialRegime.Best:
+            elif trial_regime == TrialRegime.best:
                 snr = best_trial_snr(gid, target_max_infld, target_mean_trough, 
                                      t_peak_idxs, t_trough_idxs, t_infld_idxs, t_outfld_idxs, state_values)
             
@@ -1310,6 +1317,7 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
                           target_rate_map_path, target_rate_map_namespace,
 			  target_rate_map_arena, target_rate_map_trajectory,  
                           use_coreneuron, worker, **kwargs):
+    problem_regime = ProblemRegime[problem_regime]
     
     params = dict(locals())
     env = Env(**params)
@@ -1405,10 +1413,10 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
         firing_rate_vectors_dict = gid_firing_rate_vectors(run_with(env, {population: {gid: from_param_dict(cell_param_dict[gid])
                                                                                        for gid in my_cell_index_set}}),
                                                            my_cell_index_set)
-        if trial_regime == TrialRegime.Mean:
+        if trial_regime == TrialRegime.mean:
             return { gid: -mean_trial_rate_mse(gid, firing_rate_vectors_dict[gid], target_rate_vector_dict[gid])
                      for gid in my_cell_index_set }
-        elif trial_regime == TrialRegime.Best:
+        elif trial_regime == TrialRegime.best:
             return { gid: -best_trial_rate_mse(gid, firing_rate_vectors_dict[gid], target_rate_vector_dict[gid])
                      for gid in my_cell_index_set }
         else:
@@ -1438,12 +1446,12 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
         file_path = '%s/%s' % (env.results_path, results_file)
     problem_ids = None
     reduce_fun_name = None
-    if problem_regime == ProblemRegime.Every:
+    if ProblemRegime[problem_regime] == ProblemRegime.every:
         reduce_fun_name = "distgfs_reduce_fun_every"
         problem_ids = init_params.get('cell_index_set', None)
-    elif problem_regime == ProblemRegime.Mean:
+    elif ProblemRegime[problem_regime] == ProblemRegime.mean:
         reduce_fun_name = "distgfs_reduce_fun_mean"
-    elif problem_regime == ProblemRegime.Max:
+    elif ProblemRegime[problem_regime] == ProblemRegime.max:
         reduce_fun_name = "distgfs_reduce_fun_max"
     else:
         raise RuntimeError("optimize_run: unknown problem regime %d" % str(problem_regime))
@@ -1784,9 +1792,9 @@ def go(config_file, population, gid, arena_id, trajectory_id, generate_weights, 
               help='namespace containing input selectivity features')
 @click.option("--n-trials", required=False, type=int, default=1,
               help='number of trials for input stimulus')
-@click.option("--trial-regime", required=False, type=click.Choice(TrialRegime), default=TrialRegime.Mean,
+@click.option("--trial-regime", required=False, type=str, default="mean",
               help='trial aggregation regime (mean or best)')
-@click.option("--problem-regime", required=False, type=click.Choice(ProblemRegime), default=ProblemRegime.Every,
+@click.option("--problem-regime", required=False, type=str, default="every",
               help='problem regime (independently evaluate every problem or mean or max aggregate evaluation)')
 @click.option("--target-rate-map-path", required=False, type=click.Path(),
               help='path to neuroh5 file containing target rate maps used for rate optimization')
