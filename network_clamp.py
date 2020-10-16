@@ -2,6 +2,7 @@
 Routines for Network Clamp simulation.
 """
 import os, sys, copy, uuid, pprint
+from enum import Enum, IntEnum, unique
 from collections import defaultdict, namedtuple
 from mpi4py import MPI
 import numpy as np
@@ -20,6 +21,18 @@ logger = get_module_logger(__name__)
 
 context = Context()
 env = None
+
+@unique
+class TrialRegime(IntEnum):
+    Mean = 0
+    Best = 1
+
+@unique
+class ProblemRegime(IntEnum):
+    Every = 0
+    Mean = 1
+    Max = 2
+
 
 def mpi_excepthook(type, value, traceback):
     """
@@ -48,9 +61,6 @@ SynParam = namedtuple('SynParam',
                        'param_range'])
 
 
-def distgfs_reduce_fun(xs):
-    return xs[0]
-
 
 def distgfs_broker_init(broker, *args):
 
@@ -72,6 +82,35 @@ def distgfs_broker_init(broker, *args):
         req.wait()
     broker.group_comm.barrier()
 
+def distgfs_reduce_every(xs):
+    result = {}
+    for d in xs:
+        result.update(d)
+    return result
+
+def distgfs_reduce_mean(xs):
+    return np.mean(xs)
+
+def distgfs_reduce_max(xs):
+    return np.max(xs)
+
+
+def distgfs_eval_fun(problem_regime, eval_problem_fun):    
+
+    def f(v, **kwargs):
+        results_dict = eval_problem_fun(v, **kwargs)
+        if problem_regime == ProblemRegime.Every:
+            result = results_dict
+        elif trial_regime == ProblemRegime.Mean:
+            result = np.mean([ v for k,v in viewitems(results_dict) ])
+        elif trial_regime == ProblemRegime.Max:
+            result = np.max([ v for k,v in viewitems(results_dict) ])
+        else:
+            raise RuntimeError("distgfs_eval_fun: unknown problem regime %s" % str(problem_regime))
+
+        return result
+
+    return f
 
 
 def generate_weights(env, weight_source_rules, this_syn_attrs):
@@ -243,7 +282,7 @@ def init_inputs_from_features(env, presyn_sources, time_range,
 
 
 
-def init(env, pop_name, gid_set, arena_id=None, trajectory_id=None, n_trials=1,
+def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_trials=1,
          spike_events_path=None, spike_events_namespace='Spike Events', spike_train_attr_name='t',
          input_features_path=None, input_features_namespaces=None, 
          generate_weights_pops=set([]), t_min=None, t_max=None, write_cell=False, plot_cell=False,
@@ -295,9 +334,15 @@ def init(env, pop_name, gid_set, arena_id=None, trajectory_id=None, n_trials=1,
         worker.comm.barrier()
     else:
         cell_dict = load_biophys_cell_dicts(env, pop_name, gid_set)
-    
+
+    my_cell_index_list = []
+    for i, gid in enumerate(cell_index_set):
+        if i%env.comm.size == env.comm.rank:
+            my_cell_index_list.append(gid)
+    my_cell_index_set = set(my_cell_index_list)
+        
     ## Load cell gid and its synaptic attributes and connection data
-    for gid in gid_set:
+    for gid in my_cell_index_set:
         cell = init_biophys_cell(env, pop_name, gid, cell_dict=cell_dict, write_cell=write_cell)
 
     pop_index_dict = { ind: name for name, ind in viewitems(env.Populations) }
@@ -322,7 +367,7 @@ def init(env, pop_name, gid_set, arena_id=None, trajectory_id=None, n_trials=1,
     syn_attrs = env.synapse_attributes
     presyn_sources = defaultdict(set)
 
-    for gid in gid_set:
+    for gid in my_cell_index_set:
         this_syn_attrs = syn_attrs[gid]
         for syn_id, syn in viewitems(this_syn_attrs):
             presyn_id = syn.source.population
@@ -344,7 +389,7 @@ def init(env, pop_name, gid_set, arena_id=None, trajectory_id=None, n_trials=1,
     if t_range is not None:
         env.tstop = t_range[1] - t_range[0]
 
-    for gid in gid_set:
+    for gid in my_cell_index_set:
         this_syn_attrs = syn_attrs[gid]
         for syn_id, syn in viewitems(this_syn_attrs):
             presyn_id = syn.source.population
@@ -358,7 +403,7 @@ def init(env, pop_name, gid_set, arena_id=None, trajectory_id=None, n_trials=1,
                                            spike_train_attr_name=spike_train_attr_name)
                     register_cell(env, presyn_id, presyn_gid, cell)
 
-    for gid in gid_set:
+    for gid in my_cell_index_set:
         this_syn_attrs = syn_attrs[gid]
         source_weight_params = generate_weights(env, weight_source_dict, this_syn_attrs)
 
@@ -369,7 +414,7 @@ def init(env, pop_name, gid_set, arena_id=None, trajectory_id=None, n_trials=1,
                 syn_attrs.add_mech_attrs_from_iter(gid, syn_name, \
                                                    zip_longest(weights_syn_ids, \
                                                                [{'weight': x} for x in weights_values]))
-    for gid in gid_set:
+    for gid in my_cell_index_set:
         synapses.config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True, verbose=True)
         record_cell(env, pop_name, gid)
 
@@ -379,7 +424,7 @@ def init(env, pop_name, gid_set, arena_id=None, trajectory_id=None, n_trials=1,
         syn_attrs = env.synapse_attributes
         syn_name = 'AMPA'
         syn_mech_name = syn_attrs.syn_mech_names[syn_name]
-        for gid in gid_set:
+        for gid in my_cell_index_set:
             biophys_cell = env.biophys_cells[pop_name][gid]
             for param_name in ['weight', 'g_unit']:
                 param_label = '%s; %s; %s' % (syn_name, syn_mech_name, param_name)
@@ -401,6 +446,7 @@ def init(env, pop_name, gid_set, arena_id=None, trajectory_id=None, n_trials=1,
     if is_interactive:
         context.update(locals())
 
+    return my_cell_index_set
 
 def run(env, cvode=False, pc_runworker=True):
     """
@@ -613,20 +659,20 @@ def optimize_params(env, pop_name, param_type, param_config_name):
     return param_bounds, param_names, param_initial_dict, param_tuples
 
 
-def init_state_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, n_trials, trial_regime, param_type, param_config_name, recording_profile, state_variable, state_filter, target_value, use_coreneuron, worker, **kwargs):
+def init_state_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, n_trials, trial_regime, problem_regime, param_type, param_config_name, recording_profile, state_variable, state_filter, target_value, use_coreneuron, worker, **kwargs):
 
     params = dict(locals())
     env = Env(**params)
     env.results_file_path = None
     configure_hoc_env(env)
     
-    init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
-         spike_events_path, spike_events_namespace=spike_events_namespace, 
-         spike_train_attr_name=spike_events_t,
-         input_features_path=input_features_path,
-         input_features_namespaces=input_features_namespaces,
-         generate_weights_pops=set(generate_weights), 
-         t_min=t_min, t_max=t_max, worker=worker)
+    my_cell_index_set = init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
+                             spike_events_path, spike_events_namespace=spike_events_namespace, 
+                             spike_train_attr_name=spike_events_t,
+                             input_features_path=input_features_path,
+                             input_features_namespaces=input_features_namespaces,
+                             generate_weights_pops=set(generate_weights), 
+                             t_min=t_min, t_max=t_max, worker=worker)
 
     time_step = env.stimulus_config['Temporal Resolution']
     equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
@@ -675,41 +721,40 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
                         }
     env.recording_profile = recording_profile
     state_recs_dict = {}
-    for gid in cell_index_set:
+    for gid in my_cell_index_set:
         state_recs_dict[gid] = record_cell(env, population, gid, recording_profile=recording_profile)
 
     
-    def f(v, **kwargs): 
-        state_values_dict = gid_state_values(run_with(env, {population: {gid: from_param_dict(v[gid]) 
-                                                                        for gid in cell_index_set}}), 
+    def eval_problem(cell_param_dict, **kwargs): 
+        state_values_dict = gid_state_values(run_with(env, {population: {gid: from_param_dict(cell_param_dict[gid]) 
+                                                                         for gid in my_cell_index_set}}), 
                                              equilibration_duration, 
                                              n_trials, env.t_rec, 
                                              state_recs_dict)
-        if trial_regime == 'mean':
-            return { gid: -abs(np.mean(state_values_dict[gid]) - target_value) for gid in cell_index_set }
-        elif trial_regime == 'best':
-            return { gid: -(np.min(np.abs(np.asarray(state_values_dict[gid]) - target_value))) for gid in cell_index_set }         
-
+        if trial_regime == TriaRegime.Mean:
+            return { gid: -abs(np.mean(state_values_dict[gid]) - target_value) for gid in my_cell_index_set }
+        elif trial_regime == TrialRegime.Best:
+            return { gid: -(np.min(np.abs(np.asarray(state_values_dict[gid]) - target_value))) for gid in my_cell_index_set }         
         else:
-            raise RuntimeError("state_objfun: unknown trial regime %s" % trial_regime)
+            raise RuntimeError("state_objfun: unknown trial regime %s" % str(trial_regime))
 
-    return f
+    return distgfs_eval_fun(problem_regime, eval_problem)
 
 
-def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, n_trials, trial_regime, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, param_type, param_config_name, recording_profile, target_rate, use_coreneuron, worker, **kwargs):
+def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, n_trials, trial_regime, problem_regime, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, param_type, param_config_name, recording_profile, target_rate, use_coreneuron, worker, **kwargs):
 
     params = dict(locals())
     env = Env(**params)
     env.results_file_path = None
     configure_hoc_env(env)
     logger.info("init_rate_objfun: worker = %s"  % str(worker))
-    init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
-         spike_events_path=spike_events_path, spike_events_namespace=spike_events_namespace, 
-         spike_train_attr_name=spike_events_t,
-         input_features_path=input_features_path,
-         input_features_namespaces=input_features_namespaces,
-         generate_weights_pops=set(generate_weights),
-         t_min=t_min, t_max=t_max, worker=worker)
+    my_cell_index_set = init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
+                             spike_events_path=spike_events_path, spike_events_namespace=spike_events_namespace, 
+                             spike_train_attr_name=spike_events_t,
+                             input_features_path=input_features_path,
+                             input_features_namespaces=input_features_namespaces,
+                             generate_weights_pops=set(generate_weights),
+                             t_min=t_min, t_max=t_max, worker=worker)
 
     time_step = env.stimulus_config['Temporal Resolution']
     param_bounds, param_names, param_initial_dict, param_tuples = \
@@ -757,18 +802,19 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
         return abs(max_rate - target_rate)
 
 
-    def f(cell_param_dict, **kwargs): 
+    def eval_problem(cell_param_dict, **kwargs): 
         firing_rates_dict = gid_firing_rate(run_with(env, {population: {gid: from_param_dict(cell_param_dict[gid]) 
-                                                                        for gid in cell_index_set}}), 
-                                            cell_index_set)
-        if trial_regime == 'mean':
-            return { gid: -mean_rate_diff(gid, firing_rates_dict[gid], target_rate) for gid in cell_index_set }
-        elif trial_regime == 'best':
-            return { gid: -best_rate_diff(gid, firing_rates_dict[gid], target_rate) for gid in cell_index_set }    
+                                                                        for gid in my_cell_index_set}}), 
+                                            my_cell_index_set)
+        if trial_regime == TrialRegime.Mean:
+            return { gid: -mean_rate_diff(gid, firing_rates_dict[gid], target_rate) for gid in my_cell_index_set }
+        elif trial_regime == TrialRegime.Best:
+            return { gid: -best_rate_diff(gid, firing_rates_dict[gid], target_rate) for gid in my_cell_index_set }    
         else:
-            raise RuntimeError('rate_objfun: unknown trial regime %s' % trial_regime)
+            raise RuntimeError('rate_objfun: unknown trial regime %s' % str(trial_regime))
+        
+    return distgfs_eval_fun(problem_regime, eval_problem)
 
-    return f
 
 def gid_spike_counts(spkdict, cell_index_set):
     spike_counts_dict = defaultdict(list)
@@ -790,33 +836,34 @@ def gid_spike_counts(spkdict, cell_index_set):
     return mean_spike_counts_dict
 
 
-def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, n_trials, trial_regime,
-                                    generate_weights, t_max, t_min,
-                                    opt_iter, template_paths, dataset_prefix, config_prefix, results_path,
-                                    spike_events_path, spike_events_namespace, spike_events_t,
-                                    input_features_path, input_features_namespaces,
-                                    param_type, param_config_name, recording_profile, rate_baseline,
-                                    target_rate_map_path, target_rate_map_namespace,
-			            target_rate_map_arena, target_rate_map_trajectory,  worker, 
-                                    use_coreneuron, **kwargs):
+def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_id, trajectory_id,
+                                 n_trials, trial_regime, problem_regime,
+                                 generate_weights, t_max, t_min,
+                                 opt_iter, template_paths, dataset_prefix, config_prefix, results_path,
+                                 spike_events_path, spike_events_namespace, spike_events_t,
+                                 input_features_path, input_features_namespaces,
+                                 param_type, param_config_name, recording_profile, rate_baseline,
+                                 target_rate_map_path, target_rate_map_namespace,
+			         target_rate_map_arena, target_rate_map_trajectory,  worker, 
+                                 use_coreneuron, **kwargs):
     
     params = dict(locals())
     env = Env(**params)
     env.results_file_path = None
     configure_hoc_env(env)
-    init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
-         spike_events_path, spike_events_namespace=spike_events_namespace, 
-         spike_train_attr_name=spike_events_t,
-         input_features_path=input_features_path,
-         input_features_namespaces=input_features_namespaces,
-         generate_weights_pops=set(generate_weights), 
-         t_min=t_min, t_max=t_max, worker=worker)
+    my_cell_index_set = init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
+                             spike_events_path, spike_events_namespace=spike_events_namespace, 
+                             spike_train_attr_name=spike_events_t,
+                             input_features_path=input_features_path,
+                             input_features_namespaces=input_features_namespaces,
+                             generate_weights_pops=set(generate_weights), 
+                             t_min=t_min, t_max=t_max, worker=worker)
 
     time_step = env.stimulus_config['Temporal Resolution']
 
     input_namespace = '%s %s %s' % (target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory)
     it = read_cell_attribute_selection(target_rate_map_path, population, namespace=input_namespace,
-                                        selection=list(cell_index_set), mask=set(['Trajectory Rate Map']))
+                                        selection=list(my_cell_index_set), mask=set(['Trajectory Rate Map']))
     trj_rate_maps = { gid: attr_dict['Trajectory Rate Map']
                       for gid, attr_dict in it }
 
@@ -856,7 +903,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
                          for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
 
 
-    for gid in cell_index_set:
+    for gid in my_cell_index_set:
         infld_idxs = infld_idxs_dict[gid]
         outfld_idxs = outfld_idxs_dict[gid]
         
@@ -983,10 +1030,12 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             
         return max_snr
     
-    def f(cell_param_dict, **kwargs):
-        rates_dict = gid_firing_rate_vectors(run_with(env, {population: {gid: from_param_dict(cell_param_dict[gid]) for gid in cell_index_set}}), cell_index_set)
+    def eval_problem(cell_param_dict, **kwargs):
+        rates_dict = gid_firing_rate_vectors(run_with(env, {population: {gid: from_param_dict(cell_param_dict[gid])
+                                                                         for gid in my_cell_index_set}}),
+                                             my_cell_index_set)
         result = {}
-        for gid in cell_index_set:
+        for gid in my_cell_index_set:
             infld_idxs = infld_idxs_dict[gid]
             outfld_idxs = outfld_idxs_dict[gid]
             peak_idxs = peak_idxs_dict[gid]
@@ -1006,53 +1055,55 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             rate_vectors = rates_dict[gid]
             logger.info('selectivity rate objective: max rates of gid %i: %s' % (gid, str([np.max(rate_vector) for rate_vector in rate_vectors])))
 
-            if trial_regime == 'mean':
+            if trial_regime == TrialRegime.Mean:
                 snr = mean_trial_snr(gid, target_max_infld, target_mean_trough, 
                                      peak_idxs, trough_idxs, infld_idxs, outfld_idxs, rate_vectors)
 
-            elif trial_regime == 'best':
+            elif trial_regime == TrialRegime.Best:
                 snr = best_trial_snr(gid, target_max_infld, target_mean_trough, 
                                      peak_idxs, trough_idxs, infld_idxs, outfld_idxs, rate_vectors)
 
             else:
-                raise RuntimeError("selectivity_rate_objective: unknown trial regime %s" % trial_regime)
+                raise RuntimeError("selectivity_rate_objective: unknown trial regime %s" % str(trial_regime))
                 
             result[gid] = snr
         return result
     
-    return f
+    return distgfs_eval_fun(problem_regime, eval_problem)
 
 
-def init_selectivity_state_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, n_trials, trial_regime,
-                                    generate_weights, t_max, t_min,
-                                    opt_iter, template_paths, dataset_prefix, config_prefix, results_path,
-                                    spike_events_path, spike_events_namespace, spike_events_t,
-                                    input_features_path, input_features_namespaces,
-                                    param_type, param_config_name, recording_profile,
-                                    state_variable, state_filter, state_baseline,
-                                    target_rate_map_path, target_rate_map_namespace,
-			            target_rate_map_arena, target_rate_map_trajectory,  
-                                    use_coreneuron, worker, **kwargs):
+
+def init_selectivity_state_objfun(config_file, population, cell_index_set, arena_id, trajectory_id,
+                                  n_trials, trial_regime, problem_regime,
+                                  generate_weights, t_max, t_min,
+                                  opt_iter, template_paths, dataset_prefix, config_prefix, results_path,
+                                  spike_events_path, spike_events_namespace, spike_events_t,
+                                  input_features_path, input_features_namespaces,
+                                  param_type, param_config_name, recording_profile,
+                                  state_variable, state_filter, state_baseline,
+                                  target_rate_map_path, target_rate_map_namespace,
+			          target_rate_map_arena, target_rate_map_trajectory,  
+                                  use_coreneuron, worker, **kwargs):
     
     
     params = dict(locals())
     env = Env(**params)
     env.results_file_path = None
     configure_hoc_env(env)
-    init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
-         spike_events_path, spike_events_namespace=spike_events_namespace, 
-         spike_train_attr_name=spike_events_t,
-         input_features_path=input_features_path,
-         input_features_namespaces=input_features_namespaces,
-         generate_weights_pops=set(generate_weights), 
-         t_min=t_min, t_max=t_max, worker=worker)
+    my_cell_index_set = init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
+                             spike_events_path, spike_events_namespace=spike_events_namespace, 
+                             spike_train_attr_name=spike_events_t,
+                             input_features_path=input_features_path,
+                             input_features_namespaces=input_features_namespaces,
+                             generate_weights_pops=set(generate_weights), 
+                             t_min=t_min, t_max=t_max, worker=worker)
 
     time_step = env.stimulus_config['Temporal Resolution']
     equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
 
     input_namespace = '%s %s %s' % (target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory)
     it = read_cell_attribute_selection(target_rate_map_path, population, namespace=input_namespace,
-                                        selection=list(cell_index_set), mask=set(['Trajectory Rate Map']))
+                                        selection=list(my_cell_index_set), mask=set(['Trajectory Rate Map']))
     trj_rate_maps = { gid: attr_dict['Trajectory Rate Map']
                       for gid, attr_dict in it }
 
@@ -1146,7 +1197,7 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
                         }
     env.recording_profile = recording_profile
     state_recs_dict = {}
-    for gid in cell_index_set:
+    for gid in my_cell_index_set:
         state_recs_dict[gid] = record_cell(env, population, gid, recording_profile=recording_profile)
 
 
@@ -1205,15 +1256,15 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
 
         return max_snr
 
-    def f(cell_param_dict, **kwargs): 
+    def eval_problem(cell_param_dict, **kwargs): 
         t_s, state_values_dict = gid_state_values(run_with(env, {population: {gid: from_param_dict(cell_param_dict[gid]) 
-                                                                              for gid in cell_index_set}}), 
+                                                                              for gid in my_cell_index_set}}), 
                                                   equilibration_duration, 
                                                   n_trials, env.t_rec, 
                                                   state_recs_dict)
         
         result = {}
-        for gid in cell_index_set:
+        for gid in my_cell_index_set:
             peak_ranges = peak_ranges_dict[gid]
             trough_ranges = trough_ranges_dict[gid]
             infld_ranges = infld_ranges_dict[gid]
@@ -1229,28 +1280,28 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
             
             state_values = state_values_dict[gid]
             
-            if trial_regime == 'mean':
+            if trial_regime == TrialRegime.Mean:
                 snr = mean_trial_snr(gid, target_max_infld, target_mean_trough, 
                                      t_peak_idxs, t_trough_idxs, t_infld_idxs, t_outfld_idxs, state_values)
             
-            elif trial_regime == 'best':
+            elif trial_regime == TrialRegime.Best:
                 snr = best_trial_snr(gid, target_max_infld, target_mean_trough, 
                                      t_peak_idxs, t_trough_idxs, t_infld_idxs, t_outfld_idxs, state_values)
             
             else:
-                raise RuntimeError("selectivity_state_objfun: unknown trial regime %s" % trial_regime)
+                raise RuntimeError("selectivity_state_objfun: unknown trial regime %s" % str(trial_regime))
 
             result[gid] = snr
 
         return result
 
     
-    return f
+    return distgfs_eval_fun(problem_regime, eval_problem)
 
 
 
 def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, 
-                          n_trials, trial_regime,
+                          n_trials, trial_regime, problem_regime,
                           generate_weights, t_max, t_min,
                           opt_iter, template_paths, dataset_prefix, config_prefix, results_path,
                           spike_events_path, spike_events_namespace, spike_events_t,
@@ -1264,19 +1315,19 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
     env = Env(**params)
     env.results_file_path = None
     configure_hoc_env(env)
-    init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
-         spike_events_path, spike_events_namespace=spike_events_namespace, 
-         spike_train_attr_name=spike_events_t,
-         input_features_path=input_features_path,
-         input_features_namespaces=input_features_namespaces,
-         generate_weights_pops=set(generate_weights), 
-         t_min=t_min, t_max=t_max, worker=worker)
+    my_cell_index_set = init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
+                             spike_events_path, spike_events_namespace=spike_events_namespace, 
+                             spike_train_attr_name=spike_events_t,
+                             input_features_path=input_features_path,
+                             input_features_namespaces=input_features_namespaces,
+                             generate_weights_pops=set(generate_weights), 
+                             t_min=t_min, t_max=t_max, worker=worker)
 
     time_step = env.stimulus_config['Temporal Resolution']
 
     input_namespace = '%s %s %s' % (target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory)
     it = read_cell_attribute_selection(target_rate_map_path, population, namespace=input_namespace,
-                                        selection=list(cell_index_set), mask=set(['Trajectory Rate Map']))
+                                        selection=list(my_cell_index_set), mask=set(['Trajectory Rate Map']))
     trj_rate_maps = { gid: attr_dict['Trajectory Rate Map']
                       for gid, attr_dict in it }
 
@@ -1350,21 +1401,23 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
         return min_mse
 
 
-    def f(cell_param_dict, **kwargs): 
-        firing_rate_vectors_dict = gid_firing_rate_vectors(run_with(env, {population: {gid: from_param_dict(cell_param_dict[gid]) for gid in cell_index_set}}), cell_index_set)
-        if trial_regime == 'mean':
+    def eval_problem(cell_param_dict, **kwargs): 
+        firing_rate_vectors_dict = gid_firing_rate_vectors(run_with(env, {population: {gid: from_param_dict(cell_param_dict[gid])
+                                                                                       for gid in my_cell_index_set}}),
+                                                           my_cell_index_set)
+        if trial_regime == TrialRegime.Mean:
             return { gid: -mean_trial_rate_mse(gid, firing_rate_vectors_dict[gid], target_rate_vector_dict[gid])
-                     for gid in cell_index_set }
-        elif trial_regime == 'best':
+                     for gid in my_cell_index_set }
+        elif trial_regime == TrialRegime.Best:
             return { gid: -best_trial_rate_mse(gid, firing_rate_vectors_dict[gid], target_rate_vector_dict[gid])
-                     for gid in cell_index_set }
+                     for gid in my_cell_index_set }
         else:
-            raise RuntimeError("firing_rate_dist: unknown trial regime %s" % trial_regime)
+            raise RuntimeError("firing_rate_dist: unknown trial regime %s" % str(trial_regime))
     
-    return f
+    return distgfs_eval_fun(problem_regime, eval_problem)
 
 
-def optimize_run(env, pop_name, param_config_name, init_objfun,
+def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, nprocs_per_worker=1,
                  opt_iter=10, solver_epsilon=1e-2, param_type='synaptic', init_params={}, 
                  results_file=None, verbose=False):
     import distgfs
@@ -1383,12 +1436,24 @@ def optimize_run(env, pop_name, param_config_name, init_objfun,
             file_path = 'distgfs.network_clamp.%s.h5' % (str(env.results_file_id))
     else:
         file_path = '%s/%s' % (env.results_path, results_file)
+    problem_ids = None
+    reduce_fun_name = None
+    if problem_regime == ProblemRegime.Every:
+        reduce_fun_name = "distgfs_reduce_fun_every"
+        problem_ids = init_params.get('cell_index_set', None)
+    elif problem_regime == ProblemRegime.Mean:
+        reduce_fun_name = "distgfs_reduce_fun_mean"
+    elif problem_regime == ProblemRegime.Max:
+        reduce_fun_name = "distgfs_reduce_fun_max"
+    else:
+        raise RuntimeError("optimize_run: unknown problem regime %d" % str(problem_regime))
+        
     distgfs_params = {'opt_id': 'network_clamp.optimize',
-                      'problem_ids': init_params.get('cell_index_set', None),
+                      'problem_ids': problem_ids,
                       'obj_fun_init_name': init_objfun, 
                       'obj_fun_init_module': 'dentate.network_clamp',
                       'obj_fun_init_args': init_params,
-                      'reduce_fun_name': 'distgfs_reduce_fun',
+                      'reduce_fun_name': reduce_fun_name,
                       'reduce_fun_module': 'dentate.network_clamp',
                       'broker_fun_name': 'distgfs_broker_init',
                       'broker_module_name': 'dentate.network_clamp',
@@ -1400,7 +1465,7 @@ def optimize_run(env, pop_name, param_config_name, init_objfun,
                       'solver_epsilon': solver_epsilon }
 
     gid_results_dict = distgfs.run(distgfs_params, verbose=verbose,
-                                   spawn_workers=True, nprocs_per_worker=1)
+                                   spawn_workers=True, nprocs_per_worker=nprocs_per_worker)
     if gid_results_dict is not None:
         gid_results_config_dict = {}
         for gid, opt_result in viewitems(gid_results_dict):
@@ -1689,6 +1754,7 @@ def go(config_file, population, gid, arena_id, trajectory_id, generate_weights, 
               help='generate weights for the given presynaptic population')
 @click.option("--t-max", '-t', type=float, default=150.0, help='simulation end time')
 @click.option("--t-min", type=float)
+@click.option("--nprocs-per-worker", type=int, default=1, help='number of processes per worker')
 @click.option("--opt-epsilon", type=float, default=1e-2, help='local convergence epsilon')
 @click.option("--opt-iter", type=int, default=10, help='number of optimization iterations')
 @click.option("--template-paths", type=str, required=True,
@@ -1718,8 +1784,10 @@ def go(config_file, population, gid, arena_id, trajectory_id, generate_weights, 
               help='namespace containing input selectivity features')
 @click.option("--n-trials", required=False, type=int, default=1,
               help='number of trials for input stimulus')
-@click.option("--trial-regime", required=False, type=str, default='mean',
+@click.option("--trial-regime", required=False, type=click.Choice(TrialRegime), default=TrialRegime.Mean,
               help='trial aggregation regime (mean or best)')
+@click.option("--problem-regime", required=False, type=click.Choice(ProblemRegime), default=ProblemRegime.Every,
+              help='problem regime (independently evaluate every problem or mean or max aggregate evaluation)')
 @click.option("--target-rate-map-path", required=False, type=click.Path(),
               help='path to neuroh5 file containing target rate maps used for rate optimization')
 @click.option("--target-rate-map-namespace", type=str, required=False, default='Input Spikes',
@@ -1734,11 +1802,11 @@ def go(config_file, population, gid, arena_id, trajectory_id, generate_weights, 
 
 def optimize(config_file, population, gid, gid_selection_file, arena_id, trajectory_id, 
              generate_weights, t_max, t_min, 
-             opt_epsilon, opt_iter, 
+             nprocs_per_worker, opt_epsilon, opt_iter, 
              template_paths, dataset_prefix, config_prefix,
              param_config_name, param_type, recording_profile, results_file, results_path,
              spike_events_path, spike_events_namespace, spike_events_t, 
-             input_features_path, input_features_namespaces, n_trials, trial_regime,
+             input_features_path, input_features_namespaces, n_trials, trial_regime, problem_regime,
              target_rate_map_path, target_rate_map_namespace, target_state_variable,
              target_state_filter, target, use_coreneuron):
     """
@@ -1778,6 +1846,7 @@ def optimize(config_file, population, gid, gid_selection_file, arena_id, traject
             cell_index = None
             attr_name, attr_cell_index = next(iter(attr_info_dict[population]['Trees']))
             cell_index_set = set(attr_cell_index)
+        comm0.Free()
         cell_index_set = comm.bcast(cell_index_set, root=0)
     init_params['cell_index_set'] = cell_index_set
     del(init_params['gid'])
@@ -1834,9 +1903,10 @@ def optimize(config_file, population, gid, gid_selection_file, arena_id, traject
     else:
         raise RuntimeError('network_clamp.optimize: unknown optimization target %s' % target) 
         
-    results_config_dict =  optimize_run(env, population, param_config_name, init_objfun_name,
+    results_config_dict =  optimize_run(env, population, param_config_name, init_objfun_name, problem_regime=problem_regime,
                                         opt_iter=opt_iter, solver_epsilon=opt_epsilon, param_type=param_type,
                                         init_params=init_params, results_file=results_file,
+                                        nprocs_per_worker=nprocs_per_worker,
                                         verbose=verbose)
     if results_config_dict is not None:
         if results_path is not None:
