@@ -80,7 +80,6 @@ def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=T
         
                              
 
-    # init_spike_detector(cell)
     cells.init_biophysics(cell, reset_cable=True, 
                           correct_cm=correct_for_spines_flag,
                           correct_g_pas=correct_for_spines_flag, env=env)

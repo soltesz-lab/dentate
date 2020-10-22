@@ -1,6 +1,6 @@
 from __future__ import absolute_import, division
 import copy, datetime, gc, itertools, logging, math, numbers, os.path, importlib
-import pprint, string, sys, time
+import pprint, string, sys, time, click
 from builtins import input, map, next, object, range, str, zip
 from past.builtins import basestring
 from collections import MutableMapping, Iterable, defaultdict, namedtuple
@@ -214,6 +214,24 @@ class RunningStats(object):
     
         return combined
 
+## https://github.com/pallets/click/issues/605
+class EnumChoice(click.Choice):
+    def __init__(self, enum, case_sensitive=False, use_value=False):
+        self.enum = enum
+        self.use_value = use_value
+        choices = [str(e.value) if use_value else e.name for e in self.enum]
+        super().__init__(choices, case_sensitive)
+
+    def convert(self, value, param, ctx):
+        if value in self.enum:
+            return value
+        result = super().convert(value, param, ctx)
+        # Find the original case in the enum
+        if not self.case_sensitive and result not in self.choices:
+            result = next(c for c in self.choices if result.lower() == c.lower())
+        if self.use_value:
+            return next(e for e in self.enum if str(e.value) == result)
+        return self.enum[result]
 
 class IncludeLoader(yaml.Loader):
     """

@@ -265,6 +265,7 @@ class SynapseAttributes(object):
             raise RuntimeError('add_pps: gid %i Synapse id %i already has mechanism %s' % (gid, syn_id, syn_name))
         else:
             pps_dict.mech[syn_index] = pps
+        return pps
 
     def has_pps(self, gid, syn_id, syn_name):
         """
@@ -318,6 +319,7 @@ class SynapseAttributes(object):
                                (gid, syn_id, syn_name))
         else:
             pps_dict.netcon[syn_index] = nc
+        return nc
 
     def has_netcon(self, gid, syn_id, syn_name):
         """
@@ -390,6 +392,7 @@ class SynapseAttributes(object):
                                (gid, syn_id, syn_name))
         else:
             pps_dict.vecstim[syn_index] = vs
+        return vs
 
     def has_vecstim(self, gid, syn_id, syn_name):
         """
@@ -1099,6 +1102,10 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
 
     nc_param = False
     mech_param = False
+    
+    if nc is not None:
+        if nc.delay <= 0.025:
+            print("config_syn: netcon delay is %f" % nc.delay)
 
     for param, val in viewitems(params):
         failed = True

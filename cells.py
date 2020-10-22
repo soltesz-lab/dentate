@@ -1180,7 +1180,7 @@ def connect2target(cell, sec, loc=1., param='_ref_v', delay=None, weight=None, t
     return this_netcon
 
 
-def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0., onset_delay=0., loc=0.5):
+def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0.025, onset_delay=0., loc=0.5):
     """
     Initializes the spike detector in the given cell according to the
     given arguments or a spike detector configuration of the mechanism
@@ -2581,7 +2581,8 @@ def make_input_cell(env, gid, pop_id, input_source_dict, spike_train_attr_name='
         spk_attr_dict = input_sources['spiketrains'].get(gid, None)
         if spk_attr_dict is not None:
             spk_ts = spk_attr_dict[spike_train_attr_name]
-            cell.pp.play(h.Vector(spk_ts))
+            if len(spk_ts) > 0:
+                cell.pp.play(h.Vector(spk_ts))
     elif 'generator' in input_sources:
         input_gen = input_sources['generator']
         template_name = input_gen['template']
@@ -2655,10 +2656,11 @@ def load_biophys_cell_dicts(env, pop_name, gid_set, load_connections=True):
 
         graph, graph_attr_info = read_graph_selection(file_name=env.connectivity_file_path, selection=gid_list,
                                                       namespaces=['Synapses', 'Connections'], comm=env.comm)
-        for presyn_name in graph[pop_name].keys():
-            edge_iter = graph[pop_name][presyn_name]
-            for (postsyn_gid, edges) in edge_iter:
-                connection_graphs[postsyn_gid][pop_name][presyn_name] = { postsyn_gid: edges }
+        if pop_name in graph:
+            for presyn_name in graph[pop_name].keys():
+                edge_iter = graph[pop_name][presyn_name]
+                for (postsyn_gid, edges) in edge_iter:
+                    connection_graphs[postsyn_gid][pop_name][presyn_name] = [(postsyn_gid, edges)]
         
         
     cell_dicts = {}
@@ -2715,35 +2717,35 @@ def init_circuit_context(env, pop_name, gid,
                 expr_closure = weight_config_dict.get('closure', None)
                 weights_namespaces = weight_config_dict['namespace']
                 if weight_dict is not None:
-                    cell_weights_iters = [ viewitems(weight_dict[weights_namespace])
+                    cell_weights_dicts = [ weight_dict[weights_namespace]
                                            for weights_namespace in weights_namespaces ]
                 else: 
                     cell_weights_iters = [read_cell_attribute_selection(env.data_file_path, pop_name, [gid],
                                                                         weights_namespace, comm=env.comm)
                                           for weights_namespace in weights_namespaces]
+                    cell_weights_dicts = []
+                    for it in cell_weights_iters:
+                        for cell_weights_gid, cell_weights_dict in it:
+                            assert(cell_weights_gid == gid)
+                            cell_weights_dicts.append(cell_weights_dict)
 
-                cell_ns_weights_iter = zip_longest(weights_namespaces, cell_weights_iters)
+                cell_ns_weights_iter = zip_longest(weights_namespaces, cell_weights_dicts)
 
                 multiple_weights = 'error'
                 append_weights = False
-                for weights_namespace, cell_weights_iter in cell_ns_weights_iter:
-                    first_gid = None
-                    for gid, cell_weights_dict in cell_weights_iter:
-                        if first_gid is None:
-                            first_gid = gid
-                        weights_syn_ids = cell_weights_dict['syn_id']
-                        for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
-                            weights_values = cell_weights_dict[syn_name]
-                            syn_attrs.add_mech_attrs_from_iter(gid, syn_name,
-                                                               zip_longest(weights_syn_ids,
-                                                                           [{'weight': Promise(expr_closure, [x])} for x in weights_values]
-                                                                           if expr_closure else [{'weight': x} for x in weights_values]),
-                                                               multiple=multiple_weights, append=append_weights)
-                            if first_gid == gid:
-                                logger.info('init_circuit_context: gid: %i; found %i %s synaptic weights in namespace %s' %
-                                            (gid, len(cell_weights_dict[syn_name]), syn_name, weights_namespace))
-                                logger.info('weight_values min/max/mean: %.02f / %.02f / %.02f' %
-                                            (np.min(weights_values), np.max(weights_values), np.mean(weights_values)))
+                for weights_namespace, cell_weights_dict in cell_ns_weights_iter:
+                    weights_syn_ids = cell_weights_dict['syn_id']
+                    for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
+                        weights_values = cell_weights_dict[syn_name]
+                        syn_attrs.add_mech_attrs_from_iter(gid, syn_name,
+                                                           zip_longest(weights_syn_ids,
+                                                                       [{'weight': Promise(expr_closure, [x])} for x in weights_values]
+                                                                       if expr_closure else [{'weight': x} for x in weights_values]),
+                                                           multiple=multiple_weights, append=append_weights)
+                        logger.info('init_circuit_context: gid: %i; found %i %s synaptic weights in namespace %s' %
+                                    (gid, len(cell_weights_dict[syn_name]), syn_name, weights_namespace))
+                        logger.info('weight_values min/max/mean: %.02f / %.02f / %.02f' %
+                                    (np.min(weights_values), np.max(weights_values), np.mean(weights_values)))
                     expr_closure = None
                     append_weights = True
                     multiple_weights='overwrite'

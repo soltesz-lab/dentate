@@ -1,5 +1,5 @@
 
-import os, pprint
+import os, pprint, logging
 from collections import defaultdict, namedtuple
 import numpy as np
 from mpi4py import MPI
@@ -133,8 +133,9 @@ class Env(object):
 
         # print verbose diagnostic messages
         self.verbose = verbose
-        config_logging(verbose)
         self.logger = get_root_logger()
+        if self.verbose:
+            self.logger.setLevel(logging.INFO)
 
         # Directories for cell templates
         if template_paths is not None:
