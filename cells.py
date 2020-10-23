@@ -1180,7 +1180,7 @@ def connect2target(cell, sec, loc=1., param='_ref_v', delay=None, weight=None, t
     return this_netcon
 
 
-def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0.025, onset_delay=0., loc=0.5):
+def init_spike_detector(cell, node=None, distance=100., threshold=-30, delay=0.05, onset_delay=0., loc=0.5):
     """
     Initializes the spike detector in the given cell according to the
     given arguments or a spike detector configuration of the mechanism
@@ -2885,7 +2885,7 @@ def register_cell(env, pop_name, gid, cell):
         nc = cell.spike_detector
     else:
         nc = hoc_cell.connect2target(h.nil)
-    nc.delay = max(env.dt, nc.delay)
+    nc.delay = max(2*env.dt, nc.delay)
     env.pc.cell(gid, nc, 1)
     # Record spikes of this cell
     env.pc.spike_record(gid, env.t_vec, env.id_vec)
@@ -2931,6 +2931,7 @@ def record_cell(env, pop_name, gid, recording_profile=None):
                                         param=recvar, description=node.name)
                         recs.append(rec)
                         env.recs_dict[pop_name][rec_id].append(rec)
+                        env.recs_count += 1
                         visited.add(str(sec))
             for recvar, recdict  in viewitems(recording_profile.get('synaptic quantity', {})):
                 syn_filters = recdict.get('syn_filters', {})
@@ -2949,6 +2950,7 @@ def record_cell(env, pop_name, gid, recording_profile=None):
                                             label=label, description='%s' % label)
                             ns = '%s%d.%s' % (syn_swc_type_name, syn_section, syn_name)
                             env.recs_dict[pop_name][ns].append(rec)
+                            env.recs_count += 1
                             recs.append(rec)
                 
     return recs

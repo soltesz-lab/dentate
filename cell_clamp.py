@@ -55,9 +55,6 @@ def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=T
     else:
         correct_for_spines_flag = False
 
-    ## Determine presynaptic populations that connect to this cell type
-    presyn_names = env.projection_dict[pop_name]
-
     ## Load cell gid and its synaptic attributes and connection data
     if template_name.lower() == 'izhikevich':
         cell = cells.make_izhikevich_cell(env, pop_name, gid,
@@ -78,7 +75,6 @@ def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=T
                                        load_synapses=True, load_weights=True,
                                        load_edges=load_connections)
         
-                             
 
     cells.init_biophysics(cell, reset_cable=True, 
                           correct_cm=correct_for_spines_flag,

@@ -605,7 +605,7 @@ def make_cells(env):
 
         template_name = env.celltypes[pop_name]['template']
         if template_name.lower() != 'izhikevich':    
-            load_cell_template(env, pop_name)
+            load_cell_template(env, pop_name, bcast_template=True)
 
         recording_set = set([])
         for gid in range(env.celltypes[pop_name]['start'],
@@ -740,7 +740,7 @@ def make_cell_selection(env):
 
         template_name = env.celltypes[pop_name]['template']
         if template_name.lower() != 'izhikevich':    
-            load_cell_template(env, pop_name)
+            load_cell_template(env, pop_name, bcast_template=True)
 
         templateClass = getattr(h, env.celltypes[pop_name]['template'])
 
@@ -1166,8 +1166,6 @@ def init(env):
     env.simtime = simtime.SimTimeEvent(env.pc, env.tstop, env.max_walltime_hours, env.results_write_time, max_setup_time)
     h.v_init = env.v_init
     h.stdinit()
-    if env.coredat:
-        env.pc.nrnbbcore_write("dentate.coredat")
     if env.optldbal or env.optlptbal:
         cx(env)
         ld_bal(env)

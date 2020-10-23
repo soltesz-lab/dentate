@@ -10,7 +10,7 @@ import click
 from dentate import io_utils, spikedata, synapses, stimulus, cell_clamp
 from dentate.cells import h, make_input_cell, register_cell, record_cell, report_topology, is_cell_registered, load_biophys_cell_dicts
 from dentate.env import Env
-from dentate.neuron_utils import h, configure_hoc_env, make_rec
+from dentate.neuron_utils import h, configure_hoc_env
 from dentate.utils import is_interactive, is_iterable, Context, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger, config_logging, EnumChoice
 from dentate.utils import write_to_yaml, read_from_yaml, get_trial_time_indices, get_trial_time_ranges, get_low_pass_filtered_trace, contiguous_ranges
 from dentate.cell_clamp import init_biophys_cell
@@ -114,10 +114,24 @@ def distgfs_reduce_every(xs):
     return result
 
 def distgfs_reduce_mean(xs):
-    return np.mean(xs)
+    ks = list(xs[0].keys())
+    vs = { k: [] for k in ks }
+    for d in xs:
+        for k in ks:
+            v = d[k] 
+            if not np.isnan(v):
+                vs[k].append(v)
+    return { k: np.mean(vs[k]) for k in ks }
 
 def distgfs_reduce_max(xs):
-    return np.max(xs)
+    ks = list(xs[0].keys())
+    vs = { k: [] for k in ks }
+    for d in xs:
+        for k in ks:
+            v = d[k] 
+            if not np.isnan(v):
+                vs[k].append(v)
+    return { k: np.max(vs[k]) for k in ks }
 
 
 def distgfs_eval_fun(problem_regime, cell_index_set, eval_problem_fun):    
@@ -355,7 +369,7 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
     namespace_id = spike_events_namespace
 
     ## Determine presynaptic populations that connect to this cell type
-    presyn_names = env.projection_dict[pop_name]
+    presyn_names = sorted(env.projection_dict[pop_name])
 
     my_cell_index_list = []
     for i, gid in enumerate(cell_index_set):
@@ -373,7 +387,6 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
             req.wait()
         else:
             cell_dict = worker.parent_comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG)
-            logger.info("init: worker %d: cell_dict keys = %s" % (worker.worker_id, str(cell_dict.keys())))
             
     else:
         cell_dict = load_biophys_cell_dicts(env, pop_name, my_cell_index_set)
@@ -382,7 +395,6 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
     for gid in my_cell_index_set:
         cell = init_biophys_cell(env, pop_name, gid, cell_dict=cell_dict[gid], write_cell=write_cell)
         del cell_dict[gid]
-        logger.info("init: worker %d: loaded dictionaries for cell %d" % (worker.worker_id, gid))
         
 
     pop_index_dict = { ind: name for name, ind in viewitems(env.Populations) }
@@ -405,7 +417,7 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
 
     min_delay = float('inf')
     syn_attrs = env.synapse_attributes
-    presyn_sources = defaultdict(set)
+    presyn_sources = { presyn_name: set([]) for presyn_name in presyn_names }
 
     for gid in my_cell_index_set:
         this_syn_attrs = syn_attrs[gid]
@@ -415,10 +427,11 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
             presyn_gid = syn.source.gid
             presyn_sources[presyn_name].add(presyn_gid)
 
-    for presyn_name in sorted(presyn_sources):
+    for presyn_name in presyn_names:
+
         presyn_gid_set = env.comm.reduce(presyn_sources[presyn_name], root=0, op=mpi_op_set_union)
         if env.comm.rank == 0:
-            presyn_gid_rank_dict = defaultdict(set)
+            presyn_gid_rank_dict = { rank: set([]) for rank in range(env.comm.size) }
             for i, gid in enumerate(presyn_gid_set):
                 rank = i%env.comm.size 
                 presyn_gid_rank_dict[rank].add(gid)
@@ -427,7 +440,8 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
         else:
             presyn_sources[presyn_name] = env.comm.scatter(None, root=0)
 
-            
+    env.comm.barrier()
+
     input_source_dict = None
     if worker is not None:
         if (worker.worker_id == 1):
@@ -461,7 +475,11 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
     if t_range is not None:
         env.tstop = t_range[1] - t_range[0]
 
-    for presyn_name, presyn_gids in viewitems(presyn_sources):
+
+    env.comm.barrier()
+
+    for presyn_name in presyn_names:
+        presyn_gids = presyn_sources[presyn_name]
         presyn_id  = int(env.Populations[presyn_name])
         for presyn_gid in presyn_gids:
             ## Load presynaptic spike times into the VecStim for stimulus gid;
@@ -471,8 +489,6 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
                 cell = make_input_cell(env, presyn_gid, presyn_id, input_source_dict,
                                        spike_train_attr_name=spike_train_attr_name)
                 register_cell(env, presyn_name, presyn_gid, cell)
-
-    env.comm.barrier()
 
     for gid in my_cell_index_set:
         synapses.config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True, verbose=True)
@@ -496,11 +512,12 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
         
         
 
-    cell = env.pc.gid2cell(gid)
-    for sec in list(cell.hoc_cell.all if hasattr(cell, 'hoc_cell') else cell.all):
-        h.psection(sec=sec)
+    if is_cell_registered(env, gid):
+        cell = env.pc.gid2cell(gid)
+        for sec in list(cell.hoc_cell.all if hasattr(cell, 'hoc_cell') else cell.all):
+            h.psection(sec=sec)
         
-    env.pc.set_maxstep(10)
+    mindelay = env.pc.set_maxstep(10)
 
     if is_interactive:
         context.update(locals())
@@ -508,7 +525,7 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
     env.comm.barrier()
     return my_cell_index_set
 
-def run(env, cvode=False, pc_runworker=True):
+def run(env, cvode=False, pc_runworker=False):
     """
     Runs network clamp simulation. Assumes that procedure `init` has been
     called with the network configuration provided by the `env`
@@ -524,6 +541,9 @@ def run(env, cvode=False, pc_runworker=True):
     rec_dt = None
     if env.recording_profile is not None:
         rec_dt = env.recording_profile.get('dt', None)
+    if env.recs_count == 0:
+        ## placeholder compartment to allow recording of time below
+        h('''create soma''')
     if rec_dt is None:
         env.t_rec.record(h._ref_t)
     else:
@@ -541,6 +561,7 @@ def run(env, cvode=False, pc_runworker=True):
     if 'Equilibration Duration' in env.stimulus_config:
         tstop += float(env.stimulus_config['Equilibration Duration'])
     h.tstop = float(env.n_trials) * tstop
+
     h.finitialize(env.v_init)
 
     if rank == 0:
@@ -607,7 +628,7 @@ def update_network_params(env, param_config_dict):
             cell = env.pc.gid2cell(gid)
     
 
-def run_with(env, param_dict, cvode=False, pc_runworker=True):
+def run_with(env, param_dict, cvode=False, pc_runworker=False):
     """
     Runs network clamp simulation with the specified parameters for the given gid(s).
     Assumes that procedure `init` has been called with
@@ -626,6 +647,11 @@ def run_with(env, param_dict, cvode=False, pc_runworker=True):
     rec_dt = None
     if env.recording_profile is not None:
         rec_dt = env.recording_profile.get('dt', None)
+
+    if env.recs_count == 0:
+        ## placeholder compartment to allow recording of time below
+        h('''create soma''')
+
     if rec_dt is None:
         env.t_rec.record(h._ref_t)
     else:
@@ -639,12 +665,12 @@ def run_with(env, param_dict, cvode=False, pc_runworker=True):
     h.cvode_active(1 if cvode else 0)
 
     h.t = 0.0
+    h.dt = env.dt
     tstop = float(env.tstop)
     if 'Equilibration Duration' in env.stimulus_config:
         tstop += float(env.stimulus_config['Equilibration Duration'])
     h.tstop = float(env.n_trials) * tstop
 
-    h.dt = env.dt
 
     h.finitialize(env.v_init)
 

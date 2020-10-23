@@ -192,7 +192,7 @@ class SynapseAttributes(object):
         connection_velocity = float(self.env.connection_velocity[presyn_name])
 
         if delays is None:
-            delays = [1.1*h.dt] * len(edge_syn_ids)
+            delays = [2.0*h.dt] * len(edge_syn_ids)
 
         syn_id_dict = self.syn_id_attr_dict[gid]
 
@@ -243,7 +243,7 @@ class SynapseAttributes(object):
             edge_dists = edge_attrs['Connections'][distance_attr_index]
 
             if set_edge_delays:
-                delays = [max((distance / connection_velocity), 1.1*h.dt) for distance in edge_dists]
+                delays = [max((distance / connection_velocity), 2.0*h.dt) for distance in edge_dists]
             else:
                 delays = None
 
@@ -1103,10 +1103,6 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
     nc_param = False
     mech_param = False
     
-    if nc is not None:
-        if nc.delay <= 0.025:
-            print("config_syn: netcon delay is %f" % nc.delay)
-
     for param, val in viewitems(params):
         failed = True
         if param in mech_rules['mech_params']:

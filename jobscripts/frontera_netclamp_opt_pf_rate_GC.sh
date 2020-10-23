@@ -24,11 +24,12 @@ export FI_MLX_ENABLE_SPAWN=1
 #export OMP_NUM_THREADS=2
 
 # 567808
+# 28250
 cd $SLURM_SUBMIT_DIR
-
+ 
 if test "$2" == ""; then
 ibrun -n 3 python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
-    -p GC -g 567808 -t 28250 --n-trials 3 --trial-regime best --problem-regime mean --nprocs-per-worker=4 \
+    -p GC -g 567808 -t 1500  --n-trials 3 --trial-regime best --problem-regime mean --nprocs-per-worker=4 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/dentate \
     --results-path $SCRATCH/dentate/results/netclamp/20201015 \
