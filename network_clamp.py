@@ -461,11 +461,11 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
             input_source_dict = worker.parent_comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG)
     else:
         if spike_events_path is not None:
-            input_source_dict = init_inputs_from_spikes(env, sorted(presyn_sources.keys()), t_range,
+            input_source_dict = init_inputs_from_spikes(env, presyn_sources, t_range,
                                                         spike_events_path, spike_events_namespace,
                                                         arena_id, trajectory_id, spike_train_attr_name, n_trials)
         elif input_features_path is not None:
-            input_source_dict = init_inputs_from_features(env, sorted(presyn_sources.keys()), t_range,
+            input_source_dict = init_inputs_from_features(env, presyn_sources, t_range,
                                                           input_features_path, input_features_namespaces,
                                                           arena_id, trajectory_id, spike_train_attr_name, n_trials)
         else:
