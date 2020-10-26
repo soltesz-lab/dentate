@@ -192,7 +192,7 @@ class SynapseAttributes(object):
         connection_velocity = float(self.env.connection_velocity[presyn_name])
 
         if delays is None:
-            delays = [1.1*h.dt] * len(edge_syn_ids)
+            delays = [2.0*h.dt] * len(edge_syn_ids)
 
         syn_id_dict = self.syn_id_attr_dict[gid]
 
@@ -243,7 +243,7 @@ class SynapseAttributes(object):
             edge_dists = edge_attrs['Connections'][distance_attr_index]
 
             if set_edge_delays:
-                delays = [max((distance / connection_velocity), 1.1*h.dt) for distance in edge_dists]
+                delays = [max((distance / connection_velocity), 2.0*h.dt) for distance in edge_dists]
             else:
                 delays = None
 
@@ -265,6 +265,7 @@ class SynapseAttributes(object):
             raise RuntimeError('add_pps: gid %i Synapse id %i already has mechanism %s' % (gid, syn_id, syn_name))
         else:
             pps_dict.mech[syn_index] = pps
+        return pps
 
     def has_pps(self, gid, syn_id, syn_name):
         """
@@ -318,6 +319,7 @@ class SynapseAttributes(object):
                                (gid, syn_id, syn_name))
         else:
             pps_dict.netcon[syn_index] = nc
+        return nc
 
     def has_netcon(self, gid, syn_id, syn_name):
         """
@@ -390,6 +392,7 @@ class SynapseAttributes(object):
                                (gid, syn_id, syn_name))
         else:
             pps_dict.vecstim[syn_index] = vs
+        return vs
 
     def has_vecstim(self, gid, syn_id, syn_name):
         """
@@ -1099,7 +1102,7 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
 
     nc_param = False
     mech_param = False
-
+    
     for param, val in viewitems(params):
         failed = True
         if param in mech_rules['mech_params']:
@@ -2426,7 +2429,7 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
         initial_weight_array[i] = initial_weight_dict[source_gid]
         if reference_weight_array is not None:
             reference_weight_array[i] = reference_weight_dict[source_gid]
-
+            
     non_structured_input_matrix = None
     if non_structured_input_rate_map_dict is not None:
         non_structured_input_matrix = np.empty((target_map.size, len(non_structured_input_rate_map_dict)),

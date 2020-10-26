@@ -1,5 +1,5 @@
 Network Clamp:  !include Network_Clamp.yaml
-Model Name: Single_GC_Exc_Sat_SLN_extent
+Model Name: Single_GC_Exc_Sat_SLN_IN_Izh_extent
 Dataset Name: Slice
 Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
@@ -8,7 +8,7 @@ Random Seeds: !include Random.yaml
 Cell Data: dentatenet_Full_Scale_GC_Exc_Sat_SLN_extent_arena_margin_20201001_compressed.h5
 Connection Data: dentatenet_Full_Scale_GC_Exc_Sat_SLN_extent_arena_margin_20201001_compressed.h5
 #Gap Junction Data: DG_gapjunctions_20191112.h5
-Connection Generator: !include Network_Clamp_Connections_GC_Exc_Sat_S_extent.yaml
+Connection Generator: !include Full_Scale_Connections_GC_Exc_Sat_IN_Izh.yaml
 Recording: !include Recording.yaml
 Stimulus: !include Input_Configuration.yaml
 Analysis: !include Analysis_Configuration.yaml
@@ -23,9 +23,8 @@ Cell Types:
       weights: !include GC_SLN_weights.yaml
       density: !include GC_synapse_density.yaml
   MC:
-    template: MossyCell
-    template file: MossyCell_minimal.hoc
-    mechanism file: 20191029_DG_MC_excitability_mech.yaml
+    template: Izhikevich
+    mechanism file: 20200703_DG_MC_Izhi_cell_attrs.yaml
     synapses:
       weights: !include MC_SLN_weights.yaml
       density: !include MC_synapse_density.yaml

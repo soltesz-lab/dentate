@@ -16,6 +16,7 @@ logger = get_module_logger(__name__)
 context = Context()
 
 
+
 def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=True, write_cell=False,
                       cell_dict={}):
     """
@@ -54,16 +55,13 @@ def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=T
     else:
         correct_for_spines_flag = False
 
-    ## Determine presynaptic populations that connect to this cell type
-    presyn_names = env.projection_dict[pop_name]
-
     ## Load cell gid and its synaptic attributes and connection data
     if template_name.lower() == 'izhikevich':
         cell = cells.make_izhikevich_cell(env, pop_name, gid,
                                           tree_dict=cell_dict.get('morph', None),
                                           synapses_dict=cell_dict.get('synapse', None),
                                           connection_graph=cell_dict.get('connectivity', None),
-                                          weight_dicts=cell_dict.get('weight', None),
+                                          weight_dict=cell_dict.get('weight', None),
                                           mech_dict=mech_dict,
                                           load_synapses=True, load_weights=True,
                                           load_edges=load_connections)
@@ -72,14 +70,12 @@ def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=T
                                        tree_dict=cell_dict.get('morph', None),
                                        synapses_dict=cell_dict.get('synapse', None),
                                        connection_graph=cell_dict.get('connectivity', None),
-                                       weight_dicts=cell_dict.get('weight', None),
+                                       weight_dict=cell_dict.get('weight', None),
                                        mech_dict=mech_dict,
                                        load_synapses=True, load_weights=True,
                                        load_edges=load_connections)
         
-                             
 
-    # init_spike_detector(cell)
     cells.init_biophysics(cell, reset_cable=True, 
                           correct_cm=correct_for_spines_flag,
                           correct_g_pas=correct_for_spines_flag, env=env)
@@ -111,6 +107,8 @@ def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=T
             io_utils.write_connection_selection(env, write_selection_file_path)
     
     return cell
+
+
 
 def measure_passive (gid, pop_name, v_init, env, prelength=1000.0, mainlength=2000.0, stimdur=500.0, cell_dict={}):
 

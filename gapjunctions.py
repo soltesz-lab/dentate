@@ -218,8 +218,8 @@ def generate_gj_connections(env, forest_path, soma_coords_dict,
         template_name_a = env.celltypes[population_a]['template']
         template_name_b = env.celltypes[population_b]['template']
 
-        load_cell_template(env, population_a)
-        load_cell_template(env, population_b)
+        load_cell_template(env, population_a, bcast_template=True)
+        load_cell_template(env, population_b, bcast_template=True)
         template_class_a = getattr(h, template_name_a)
         template_class_b = getattr(h, template_name_b)
 

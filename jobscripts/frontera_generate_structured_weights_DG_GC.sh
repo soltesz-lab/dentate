@@ -11,10 +11,8 @@
 #SBATCH --mail-type=BEGIN
 #
 
-module load intel/18.0.5
 module load python3
 module load phdf5
-#module load python_cacher
 
 export NEURONROOT=$HOME/bin/nrnpython3
 export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH

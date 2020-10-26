@@ -113,7 +113,7 @@ def mkgap(env, cell, gid, secpos, secidx, sgid, dgid, w):
     return gj
 
 
-def find_template(env, template_name, path=['templates'], template_file=None, root=0):
+def find_template(env, template_name, path=['templates'], template_file=None, bcast_template=False, root=0):
     """
     Finds and loads a template located in a directory within the given path list.
     :param env: :class:'Env'
@@ -129,25 +129,25 @@ def find_template(env, template_name, path=['templates'], template_file=None, ro
     template_path = ''
     if template_file is None:
         template_file = '%s.hoc' % template_name
-    if pc is not None:
+    if (pc is not None) and bcast_template:
         pc.barrier()
-    if (pc is None) or (int(pc.id()) == root):
+    if (pc is None) or (not bcast_template) or (bcast_template and (int(pc.id()) == root)):
         for template_dir in path:
             if template_file is None:
                 template_path = '%s/%s.hoc' % (template_dir, template_name)
             else:
                 template_path = '%s/%s' % (template_dir, template_file)
             found = os.path.isfile(template_path)
-            if found and (rank == root):
+            if found:
                 logger.info('Loaded %s from %s' % (template_name, template_path))
                 break
         foundv.x[0] = 1 if found else 0
-    if pc is not None:
+    if (pc is not None) and bcast_template:
         pc.barrier()
         pc.broadcast(foundv, root)
     if foundv.x[0] > 0.0:
         s = h.ref(template_path)
-        if pc is not None:
+        if (pc is not None) and bcast_template:
             pc.broadcast(s, root)
         h.load_file(s)
     else:
@@ -166,8 +166,8 @@ def configure_hoc_env(env):
         path = "%s/rn.hoc" % template_dir
         if os.path.exists(path):
             h.load_file(path)
-    h.cvode.cache_efficient(1)
     h.cvode.use_fast_imem(1)
+    h.cvode.cache_efficient(1)
     h('objref pc, nc, nil')
     h('strdef dataset_path')
     if hasattr(env, 'dataset_path'):
@@ -195,7 +195,7 @@ def configure_hoc_env(env):
     find_template(env, 'StimCell', path=env.template_paths)
     find_template(env, 'VecStimCell', path=env.template_paths)
 
-def load_cell_template(env, pop_name):
+def load_cell_template(env, pop_name, bcast_template=False):
     """
     :param pop_name: str
     """
@@ -210,7 +210,7 @@ def load_cell_template(env, pop_name):
     else:
         template_file = None
     if not hasattr(h, template_name):
-        find_template(env, template_name, template_file=template_file, path=env.template_paths)
+        find_template(env, template_name, template_file=template_file, path=env.template_paths, bcast_template=bcast_template)
     assert (hasattr(h, template_name))
     template_class = getattr(h, template_name)
     env.template_dict[pop_name] = template_class
