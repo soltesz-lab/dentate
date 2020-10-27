@@ -58,7 +58,7 @@ class Env(object):
                  node_rank_file=None, io_size=0, recording_profile=None, recording_fraction=1.0,
                  tstop=0., v_init=-65, stimulus_onset=0.0, n_trials=1,
                  max_walltime_hours=0.5, checkpoint_interval=500.0, checkpoint_clear_data=True, 
-                 results_write_time=0, dt=0.025, ldbal=False, lptbal=False, transfer_debug=False,
+                 results_write_time=0, dt=None, ldbal=False, lptbal=False, transfer_debug=False,
                  cell_selection_path=None, spike_input_path=None, spike_input_namespace=None, spike_input_attr=None,
                  cleanup=True, cache_queries=False, profile_memory=False, use_coreneuron=False,
                  verbose=False, **kwargs):
@@ -184,7 +184,7 @@ class Env(object):
         self.results_write_time = float(results_write_time)
 
         # time step
-        self.dt = float(dt)
+        self.dt = float(dt if dt is not None else 0.025)
 
         # used to estimate cell complexity
         self.cxvec = None

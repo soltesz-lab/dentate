@@ -745,7 +745,7 @@ def optimize_params(env, pop_name, param_type, param_config_name):
     return param_bounds, param_names, param_initial_dict, param_tuples
 
 
-def init_state_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, n_trials, trial_regime, problem_regime, param_type, param_config_name, recording_profile, state_variable, state_filter, target_value, use_coreneuron, worker, **kwargs):
+def init_state_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, n_trials, trial_regime, problem_regime, param_type, param_config_name, recording_profile, state_variable, state_filter, target_value, use_coreneuron, dt, worker,  **kwargs):
 
     params = dict(locals())
     env = Env(**params)
@@ -827,7 +827,7 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
     return distgfs_eval_fun(problem_regime, my_cell_index_set, eval_problem)
 
 
-def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, n_trials, trial_regime, problem_regime, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, param_type, param_config_name, recording_profile, target_rate, use_coreneuron, worker, **kwargs):
+def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, n_trials, trial_regime, problem_regime, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, param_type, param_config_name, recording_profile, target_rate, use_coreneuron, dt, worker, **kwargs):
 
 
     params = dict(locals())
@@ -931,7 +931,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
                                  param_type, param_config_name, recording_profile, rate_baseline,
                                  target_rate_map_path, target_rate_map_namespace,
 			         target_rate_map_arena, target_rate_map_trajectory,   
-                                 use_coreneuron, worker, **kwargs):
+                                 use_coreneuron, dt, worker, **kwargs):
     
     params = dict(locals())
     env = Env(**params)
@@ -1169,7 +1169,7 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
                                   state_variable, state_filter, state_baseline,
                                   target_rate_map_path, target_rate_map_namespace,
 			          target_rate_map_arena, target_rate_map_trajectory,  
-                                  use_coreneuron, worker, **kwargs):
+                                  use_coreneuron, dt, worker, **kwargs):
     
     
     params = dict(locals())
@@ -1395,7 +1395,7 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
                           param_type, param_config_name, recording_profile,
                           target_rate_map_path, target_rate_map_namespace,
 			  target_rate_map_arena, target_rate_map_trajectory,  
-                          use_coreneuron, worker, **kwargs):
+                          use_coreneuron, dt, worker, **kwargs):
     
     params = dict(locals())
     env = Env(**params)
@@ -1720,6 +1720,7 @@ def show(config_file, population, gid, arena_id, trajectory_id, template_paths, 
 @click.command()
 @click.option("--config-file", '-c', required=True, type=str, help='model configuration file name')
 @click.option("--population", '-p', required=True, type=str, default='GC', help='target population')
+@click.option("--dt", required=False, type=float, help='simulation time step')
 @click.option("--gid", '-g', required=False, type=int, help='target cell gid')
 @click.option("--arena-id", '-a', required=True, type=str, help='arena id for input stimulus')
 @click.option("--trajectory-id", '-t', required=True, type=str, help='trajectory id for input stimulus')
@@ -1760,7 +1761,7 @@ def show(config_file, population, gid, arena_id, trajectory_id, template_paths, 
 @click.option('--profile-memory', is_flag=True, help='calculate and print heap usage after the simulation is complete')
 @click.option('--recording-profile', type=str, default='Network clamp default', help='recording profile to use')
 
-def go(config_file, population, gid, arena_id, trajectory_id, generate_weights, t_max, t_min,
+def go(config_file, population, dt, gid, arena_id, trajectory_id, generate_weights, t_max, t_min,
        template_paths, dataset_prefix, config_prefix,
        spike_events_path, spike_events_namespace, spike_events_t,
        input_features_path, input_features_namespaces, n_trials, params_path,
@@ -1832,6 +1833,7 @@ def go(config_file, population, gid, arena_id, trajectory_id, generate_weights, 
 @click.command()
 @click.option("--config-file", '-c', required=True, type=str, help='model configuration file name')
 @click.option("--population", '-p', required=True, type=str, default='GC', help='target population')
+@click.option("--dt",  type=float, help='simulation time step')
 @click.option("--gid", '-g', type=int, help='target cell gid')
 @click.option("--gid-selection-file", type=click.Path(exists=True, file_okay=True, dir_okay=False), help='file containing target cell gids')
 @click.option("--arena-id", '-a', type=str, required=True, help='arena id')
@@ -1886,7 +1888,7 @@ def go(config_file, population, gid, arena_id, trajectory_id, generate_weights, 
 @click.argument('target')# help='rate, rate_dist, state'
 
 
-def optimize(config_file, population, gid, gid_selection_file, arena_id, trajectory_id, 
+def optimize(config_file, population, dt, gid, gid_selection_file, arena_id, trajectory_id, 
              generate_weights, t_max, t_min, 
              nprocs_per_worker, opt_epsilon, opt_iter, 
              template_paths, dataset_prefix, config_prefix,

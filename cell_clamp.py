@@ -480,7 +480,7 @@ def measure_psc (gid, pop_name, presyn_name, env, v_init, v_holding, cell_dict={
     return  amp_i
 
 
-def measure_psp (gid, pop_name, presyn_name, syn_mech_name, swc_type, env, v_init, erev, weight=1, cell_dict={}):
+def measure_psp (gid, pop_name, presyn_name, syn_mech_name, swc_type, env, v_init, erev, weight=1, syn_count=1, cell_dict={}):
 
     biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False, cell_dict=cell_dict)
     synapses.config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True, insert_vecstims=True)
@@ -495,18 +495,23 @@ def measure_psp (gid, pop_name, presyn_name, syn_mech_name, swc_type, env, v_ini
     syn_attrs = env.synapse_attributes
     syn_filters = get_syn_filter_dict(env, rules={'sources': [presyn_name], 'swc_types': [swc_type]}, convert=True)
     syns = syn_attrs.filter_synapses(biophys_cell.gid, **syn_filters)
-    target_syn_id, target_syn = next(iter(syns.items()))
 
     print("total number of %s %s synapses: %d" % (presyn_name, swc_type, len(syns)))
-    target_syn_pps = syn_attrs.get_pps(gid, target_syn_id, syn_mech_name)
-    target_syn_nc = syn_attrs.get_netcon(gid, target_syn_id, syn_mech_name)
-    target_syn_nc.weight[0] = weight
-    setattr(target_syn_pps, 'e', erev)
-    vs = target_syn_nc.pre()
-    vec = h.Vector()
-    vec.append(prelength+1.)
-    vs.play(vec)
-    
+    stimvec = h.Vector()
+    stimvec.append(prelength+1.)
+    count = 0
+    for target_syn_id, target_syn in iter(syns.items()):
+        
+        target_syn_pps = syn_attrs.get_pps(gid, target_syn_id, syn_mech_name)
+        target_syn_nc = syn_attrs.get_netcon(gid, target_syn_id, syn_mech_name)
+        target_syn_nc.weight[0] = weight
+        setattr(target_syn_pps, 'e', erev)
+        vs = target_syn_nc.pre()
+        vs.play(stimvec)
+        if syn_count <= count:
+            break
+        count += 1
+
     sec = target_syn_pps.get_segment().sec
 
     v_rec = make_rec('psp', pop_name, gid, biophys_cell.hoc_cell, sec=sec, dt=env.dt, loc=0.5,
@@ -578,9 +583,10 @@ def measure_psp (gid, pop_name, presyn_name, syn_mech_name, swc_type, env, v_ini
               help='identifier that is used to name neuroh5 namespaces that contain output spike and intracellular trace data')
 @click.option("--syn-mech-name", type=str, help='synaptic mechanism name')
 @click.option("--syn-weight", type=float, help='synaptic weight')
+@click.option("--syn-count", type=int, default=1, help='synaptic count')
 @click.option("--swc-type", type=str, help='synaptic swc type')
 @click.option("--v-init", type=float, default=-75.0, help='initialization membrane potential (mV)')
-def main(config_file, config_prefix, erev, population, presyn_name, gid, measurements, template_paths, dataset_prefix, results_path, results_file_id, results_namespace_id, syn_mech_name, syn_weight, swc_type, v_init):
+def main(config_file, config_prefix, erev, population, presyn_name, gid, measurements, template_paths, dataset_prefix, results_path, results_file_id, results_namespace_id, syn_mech_name, syn_weight, syn_count, swc_type, v_init):
 
     if results_file_id is None:
         results_file_id = uuid.uuid4()
@@ -617,7 +623,7 @@ def main(config_file, config_prefix, erev, population, presyn_name, gid, measure
         assert(erev is not None)
         assert(syn_weight is not None)
         attr_dict[gid].update(measure_psp (gid, population, presyn_name, syn_mech_name, swc_type,
-                                           env, v_init, erev, weight=syn_weight, cell_dict={}))
+                                           env, v_init, erev, syn_count=syn_count, weight=syn_weight, cell_dict={}))
     #synapse_test(gid, population, v_init, env)
 
     if results_path is not None:
