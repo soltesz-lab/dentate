@@ -2359,7 +2359,7 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
 
 def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid, include='eachPop',
                        time_range=None, time_variable='t', intracellular_variable='v', labels='overlay',
-                       pop_rates=True, spike_hist_bin=5, lowpass_plot_type='overlay',
+                       pop_rates=True, all_spike_hist=False, spike_hist_bin=5, lowpass_plot_type='overlay',
                        n_trials=-1, marker='.', **kwargs):
     """
     Raster plot of target cell intracellular trace + spike raster of presynaptic inputs. Returns the figure handle.
@@ -2533,22 +2533,49 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
         lgd_labels = [pop_name + ' (%i active)' % (len(pop_active_cells[pop_name])) for pop_name in spkpoplst if
                       pop_name in avg_rates]
 
-    # Calculate and plot total spike histogram
     if spktlst:
-        all_trial_spkts = [list() for i in range(len(spktlst[0]))]
-        for i, pop_name in enumerate(include):
-            pop_spkinds, pop_spkts = pop_spk_dict.get(pop_name, ([], []))
-            for trial_i, this_trial_spkts in enumerate(pop_spkts):
-                all_trial_spkts[trial_i].append(this_trial_spkts)
-        merged_trial_spkts = [ np.concatenate(trial_spkts, axis=0)
-                               for trial_spkts in all_trial_spkts ]
-        sphist_x, sphist_y = sphist(merged_trial_spkts)
-        ax2 = axes[len(spkpoplst)]
-        ax2.plot(sphist_x, sphist_y, linewidth=1.0)
-        ax2.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
-        ax2.set_ylabel('Spike count', fontsize=fig_options.fontSize)
-        ax2.set_xlim(time_range)
-
+        if all_spike_hist:
+            # Calculate and plot total spike histogram
+            all_trial_spkts = [list() for i in range(len(spktlst[0]))]
+            for i, pop_name in enumerate(include):
+                pop_spkinds, pop_spkts = pop_spk_dict.get(pop_name, ([], []))
+                for trial_i, this_trial_spkts in enumerate(pop_spkts):
+                    all_trial_spkts[trial_i].append(this_trial_spkts)
+            merged_trial_spkts = [ np.concatenate(trial_spkts, axis=0)
+                                   for trial_spkts in all_trial_spkts ]
+            sphist_x, sphist_y = sphist(merged_trial_spkts)
+            sprate = np.sum(sphist_y) / tsecs            
+            ax2 = axes[len(spkpoplst)]
+            ax2.plot(sphist_x, sphist_y, linewidth=1.0)
+            ax2.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
+            ax2.set_ylabel('Spike count', fontsize=fig_options.fontSize)
+            ax2.set_xlim(time_range)
+            ax2.set_ylim((np.min(sphist_y), np.max(sphist_y)*2))
+            if pop_rates:
+                lgd_label = "mean firing rate: %.3g Hz" % sprate
+                at = AnchoredText(lgd_label, loc='upper right', borderpad=0.01, prop=dict(size=fig_options.fontSize))
+                ax2.add_artist(at)
+        else:
+            # Calculate and plot spike histogram for target gid
+            pop_spkinds, pop_spkts = pop_spk_dict.get(state_pop_name, ([], []))
+            all_trial_spkts = []
+            for this_trial_spkinds, this_trial_spkts in zip_longest(pop_spkinds, pop_spkts):
+                my_inds = np.argwhere(this_trial_spkinds == gid)
+                all_trial_spkts.append(this_trial_spkts[my_inds])
+            sphist_x, sphist_y = sphist(all_trial_spkts)
+            sprate = np.sum(sphist_y) / tsecs            
+            ax2 = axes[len(spkpoplst)]
+            ax2.plot(sphist_x, sphist_y, linewidth=1.0)
+            ax2.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
+            ax2.set_ylabel('Spike count', 
+                           fontsize=fig_options.fontSize)
+            ax2.set_xlim(time_range)
+            ax2.set_ylim((np.min(sphist_y), np.max(sphist_y)*2))
+            if pop_rates:
+                lgd_label = "mean firing rate: %.3g Hz" % sprate
+                at = AnchoredText(lgd_label, loc='upper right', borderpad=0.01, prop=dict(size=fig_options.fontSize))
+                ax2.add_artist(at)
+            
     # Plot intracellular state
     ax3 = axes[len(spkpoplst)+1]
     ax3.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)

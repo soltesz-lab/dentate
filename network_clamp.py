@@ -1,7 +1,7 @@
 """
 Routines for Network Clamp simulation.
 """
-import os, sys, copy, uuid, pprint
+import os, sys, copy, uuid, pprint, time
 from enum import Enum, IntEnum, unique
 from collections import defaultdict, namedtuple
 from mpi4py import MPI
@@ -70,6 +70,13 @@ SynParam = namedtuple('SynParam',
                        'param_name',
                        'param_range'])
 
+def generate_results_file_id(population, gid=None):
+    ts = time.strftime("%Y%m%d_%H%M%S")
+    if gid is not None:
+        results_file_id = f"{population}_{gid}_{ts}"
+    else:
+        results_file_id = f"{population}_all_{ts}"
+    return results_file_id
 
 def distgfs_broker_bcast(broker, tag):
     data_dict = None
@@ -1594,7 +1601,8 @@ def dist_run(init_params, gid):
 
     results_file_id = init_params.get('results_file_id', None)
     if results_file_id is None:
-        results_file_id = uuid.uuid4()
+        population = init_params['population']
+        results_file_id = generate_results_file_id(population, gid)
         init_params['results_file_id'] = results_file_id
 
     global env
@@ -1807,7 +1815,7 @@ def go(config_file, population, dt, gid, arena_id, trajectory_id, generate_weigh
             distwq.run(verbose=True, spawn_workers=True, nprocs_per_worker=1)
     else:
         if results_file_id is None:
-            results_file_id = uuid.uuid4()
+            results_file_id = generate_results_file_id(population, gid)
         init_params['results_file_id'] = results_file_id
         env = Env(**init_params, comm=comm)
         configure_hoc_env(env)
@@ -1908,7 +1916,7 @@ def optimize(config_file, population, dt, gid, gid_selection_file, arena_id, tra
 
     results_file_id = None
     if rank == 0:
-        results_file_id = uuid.uuid4()
+        results_file_id = generate_results_file_id(population, gid)
         
     results_file_id = comm.bcast(results_file_id, root=0)
     
