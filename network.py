@@ -143,7 +143,7 @@ def connect_cells(env):
 
                 expr_closure = weight_dict.get('closure', None)
                 weights_namespaces = weight_dict['namespace']
-a
+
                 if rank == 0:
                     logger.info('*** Reading synaptic weights of population %s from namespaces %s' % (postsyn_name, str(weights_namespaces)))
 
@@ -605,7 +605,7 @@ def make_cells(env):
 
         template_name = env.celltypes[pop_name]['template']
         if template_name.lower() != 'izhikevich':    
-            load_cell_template(env, pop_name)
+            load_cell_template(env, pop_name, bcast_template=True)
 
         recording_set = set([])
         for gid in range(env.celltypes[pop_name]['start'],
@@ -616,6 +616,7 @@ def make_cells(env):
                 
         if 'mech_file_path' in env.celltypes[pop_name]:
             mech_dict = env.celltypes[pop_name]['mech_dict']
+            mech_file_path = env.celltypes[pop_name]['mech_file_path']
             if rank == 0:
                 logger.info('*** Mechanism file for population %s is %s' % (pop_name, str(mech_file_path)))
         else:
@@ -659,6 +660,7 @@ def make_cells(env):
                 else:
                     biophys_cell = cells.make_biophys_cell(gid=gid, pop_name=pop_name,
                                                            hoc_cell=hoc_cell, env=env,
+                                                           tree_dict=tree,
                                                            mech_dict=mech_dict)
                     # cells.init_spike_detector(biophys_cell)
                     cells.register_cell(env, pop_name, gid, biophys_cell)
@@ -740,7 +742,7 @@ def make_cell_selection(env):
 
         template_name = env.celltypes[pop_name]['template']
         if template_name.lower() != 'izhikevich':    
-            load_cell_template(env, pop_name)
+            load_cell_template(env, pop_name, bcast_template=True)
 
         templateClass = getattr(h, env.celltypes[pop_name]['template'])
 
@@ -784,6 +786,7 @@ def make_cell_selection(env):
                 else:
                     biophys_cell = cells.make_biophys_cell(gid=gid, pop_name=pop_name,
                                                            hoc_cell=hoc_cell, env=env,
+                                                           tree_dict=tree,
                                                            mech_dict=mech_dict)
                     # cells.init_spike_detector(biophys_cell)
                     cells.register_cell(env, pop_name, gid, biophys_cell)
@@ -1166,8 +1169,6 @@ def init(env):
     env.simtime = simtime.SimTimeEvent(env.pc, env.tstop, env.max_walltime_hours, env.results_write_time, max_setup_time)
     h.v_init = env.v_init
     h.stdinit()
-    if env.coredat:
-        env.pc.nrnbbcore_write("dentate.coredat")
     if env.optldbal or env.optlptbal:
         cx(env)
         ld_bal(env)

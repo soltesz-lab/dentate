@@ -6,7 +6,6 @@ electrode and extracellular medium resistivity.  The time resolution
 of the LFP calculation may be lower than that of the simulation by
 setting dt_lfp.
 """
-from __future__ import division
 
 import itertools, math
 from builtins import object, range

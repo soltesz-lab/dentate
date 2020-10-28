@@ -962,6 +962,7 @@ def generate_input_spike_trains(env, selectivity_type_names, trajectory, gid, se
     t, x, y, d = trajectory
 
     equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
+    temporal_resolution = float(env.stimulus_config['Temporal Resolution'])
 
     local_random = np.random.RandomState()
     input_spike_train_seed = int(env.model_config['Random Seeds']['Input Spiketrains'])
@@ -987,7 +988,7 @@ def generate_input_spike_trains(env, selectivity_type_names, trajectory, gid, se
     spike_trains = []
     trial_indices = []
     for i in range(n_trials):
-        spike_train = np.asarray(get_inhom_poisson_spike_times_by_thinning(rate_map, t, dt=env.dt,
+        spike_train = np.asarray(get_inhom_poisson_spike_times_by_thinning(rate_map, t, dt=temporal_resolution,
                                                                            generator=local_random),
                                  dtype=np.float32)
         if merge_trials:

@@ -1,5 +1,5 @@
 
-import os, pprint
+import os, pprint, logging
 from collections import defaultdict, namedtuple
 import numpy as np
 from mpi4py import MPI
@@ -56,9 +56,9 @@ class Env(object):
                  configure_nrn=True, dataset_prefix=None, config_prefix=None,
                  results_path=None, results_file_id=None, results_namespace_id=None,
                  node_rank_file=None, io_size=0, recording_profile=None, recording_fraction=1.0,
-                 coredat=False, tstop=0., v_init=-65, stimulus_onset=0.0, n_trials=1,
+                 tstop=0., v_init=-65, stimulus_onset=0.0, n_trials=1,
                  max_walltime_hours=0.5, checkpoint_interval=500.0, checkpoint_clear_data=True, 
-                 results_write_time=0, dt=0.025, ldbal=False, lptbal=False, transfer_debug=False,
+                 results_write_time=0, dt=None, ldbal=False, lptbal=False, transfer_debug=False,
                  cell_selection_path=None, spike_input_path=None, spike_input_namespace=None, spike_input_attr=None,
                  cleanup=True, cache_queries=False, profile_memory=False, use_coreneuron=False,
                  verbose=False, **kwargs):
@@ -75,7 +75,6 @@ class Env(object):
         :param node_rank_file: str; name of file specifying assignment of node gids to MPI ranks
         :param io_size: int; the number of MPI ranks to be used for I/O operations
         :param recording_profile: str; intracellular recording configuration to use
-        :param coredat: bool; Save CoreNEURON data
         :param tstop: int; physical time to simulate (ms)
         :param v_init: float; initialization membrane potential (mV)
         :param stimulus_onset: float; starting time of stimulus (ms)
@@ -133,8 +132,9 @@ class Env(object):
 
         # print verbose diagnostic messages
         self.verbose = verbose
-        config_logging(verbose)
         self.logger = get_root_logger()
+        if self.verbose:
+            self.logger.setLevel(logging.INFO)
 
         # Directories for cell templates
         if template_paths is not None:
@@ -184,7 +184,7 @@ class Env(object):
         self.results_write_time = float(results_write_time)
 
         # time step
-        self.dt = float(dt)
+        self.dt = float(dt if dt is not None else 0.025)
 
         # used to estimate cell complexity
         self.cxvec = None
@@ -195,9 +195,6 @@ class Env(object):
 
         self.transfer_debug = transfer_debug
             
-        # Save CoreNEURON data
-        self.coredat = coredat
-
         # cache queries to filter_synapses
         self.cache_queries = cache_queries
 
@@ -378,6 +375,7 @@ class Env(object):
         self.id_vec = None
         self.t_rec = None
         self.recs_dict = {}  # Intracellular samples on this host
+        self.recs_count = 0
         for pop_name, _ in viewitems(self.Populations):
             self.recs_dict[pop_name] = defaultdict(list)
             
@@ -826,5 +824,6 @@ class Env(object):
         if self.t_rec is not None:
             self.t_rec.resize(0)
         self.recs_dict = {}
+        self.recs_count = 0
         for pop_name, _ in viewitems(self.Populations):
             self.recs_dict[pop_name] = defaultdict(list)

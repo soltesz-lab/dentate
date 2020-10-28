@@ -2,7 +2,7 @@ import sys, math, copy
 from collections import defaultdict
 import numpy as np
 from scipy import interpolate
-from neuroh5.io import read_cell_attributes, read_population_names, read_population_ranges, write_cell_attributes
+from neuroh5.io import scatter_read_cell_attributes, read_cell_attributes, read_population_names, read_population_ranges, write_cell_attributes
 import dentate
 from dentate.utils import get_module_logger, Struct, autocorr, baks, consecutive, mvcorrcoef, viewitems, zip, get_trial_time_ranges
 
@@ -71,7 +71,7 @@ def get_env_spike_dict(env, include_artificial=True):
 
 
 def read_spike_events(input_file, population_names, namespace_id, spike_train_attr_name='t', time_range=None,
-                      max_spikes=None, n_trials=-1, merge_trials=False):
+                      max_spikes=None, n_trials=-1, merge_trials=False, comm=None):
     """
     Reads spike trains from a NeuroH5 file, and returns a dictionary with spike times and cell indices.
     :param input_file: str (path to file)
@@ -86,6 +86,8 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
     """
     assert((n_trials >= 1) | (n_trials == -1))
 
+    trial_index_attr = 'Trial Index'
+    trial_dur_attr = 'Trial Duration'
     
     spkpoplst = []
     spkindlst = []
@@ -104,13 +106,20 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
         else:
             logger.info('Reading spike data for population %s in time range %s...' % (pop_name, str(time_range)))
 
-        spkiter = read_cell_attributes(input_file, pop_name, namespace=namespace_id)
+        spike_train_attr_set = set([spike_train_attr_name, trial_index_attr, trial_dur_attr])
+        spkiter = read_cell_attributes(input_file, pop_name, namespace=namespace_id, 
+                                       mask=spike_train_attr_set)
+        if comm is not None:
+            comm.barrier()
+        
         this_num_cell_spks = 0
         active_set = set([])
 
         pop_spkindlst = []
         pop_spktlst = []
         pop_spktriallst = []
+
+        logger.info('Read spike cell attributes for population %s...' % pop_name)
 
         # Time Range
         if time_range is None or time_range[1] is None:

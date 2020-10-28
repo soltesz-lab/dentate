@@ -536,7 +536,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                              'Field Width',
                              'Peak Rate',
                              'X Offset',
-                             'Y Offset'] }
+                             'Y Offset']}
 
             this_structured_syn_id_count = structured_syn_id_count[destination_gid]
             output_syn_ids = np.empty(this_structured_syn_id_count, dtype='uint32')

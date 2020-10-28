@@ -256,15 +256,15 @@ Synaptic Optimization:
         BC:
           soma:
             GABA_A:
-              weight: [0.01, 1.0]
+              weight: [0.01, 2.0]
         !!python/tuple [BC, HCC, HC, NGFC, MOPP]:
           apical:
             GABA_A:
-              weight: [0.01, 1.0]
+              weight: [0.01, 2.0]
         NGFC:
           apical:
             GABA_B:
-              weight: [0.01, 1.0]
+              weight: [0.01, 2.0]
       Weight inhibitory grp:
         BC:
           apical:

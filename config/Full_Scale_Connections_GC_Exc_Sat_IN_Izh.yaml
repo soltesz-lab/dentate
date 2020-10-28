@@ -695,7 +695,7 @@ Synapses:
           tau_offset: 5.0
           e: 0
           sat: 0.9
-          g_unit: 0.0005
+          g_unit: 0.001
           weight: 1.0
     LPP:
       type: excitatory

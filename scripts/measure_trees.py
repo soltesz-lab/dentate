@@ -79,7 +79,7 @@ def main(config, template_path, output_path, forest_path, populations, io_size, 
         logger.info('Rank %i population: %s' % (rank, population))
         count = 0
         (population_start, _) = pop_ranges[population]
-        template_class = load_cell_template(env, population)
+        template_class = load_cell_template(env, population, bcast_cell_template=True)
         measures_dict = {}
         for gid, morph_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, comm=comm, topology=True):
             if gid is not None:
