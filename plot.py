@@ -2544,11 +2544,10 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
             merged_trial_spkts = [ np.concatenate(trial_spkts, axis=0)
                                    for trial_spkts in all_trial_spkts ]
             sphist_x, sphist_y = sphist(merged_trial_spkts)
-            sprate = np.sum(sphist_y) / tsecs            
+            sprate = np.sum(avg_rates[pop_name] for pop_name in avg_rates) / len(avg_rates)
             ax2 = axes[len(spkpoplst)]
             ax2.plot(sphist_x, sphist_y, linewidth=1.0)
             ax2.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
-            ax2.set_ylabel('Spike count', fontsize=fig_options.fontSize)
             ax2.set_xlim(time_range)
             ax2.set_ylim((np.min(sphist_y), np.max(sphist_y)*2))
             if pop_rates:
@@ -2559,16 +2558,16 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
             # Calculate and plot spike histogram for target gid
             pop_spkinds, pop_spkts = pop_spk_dict.get(state_pop_name, ([], []))
             all_trial_spkts = []
+            spk_count = 0
             for this_trial_spkinds, this_trial_spkts in zip_longest(pop_spkinds, pop_spkts):
-                my_inds = np.argwhere(this_trial_spkinds == gid)
-                all_trial_spkts.append(this_trial_spkts[my_inds])
+                spk_inds = np.argwhere(this_trial_spkinds == gid)
+                all_trial_spkts.append(this_trial_spkts[spk_inds])
+                spk_count += len(spk_inds)
             sphist_x, sphist_y = sphist(all_trial_spkts)
-            sprate = np.sum(sphist_y) / tsecs            
+            sprate = spk_count / n_trials  / tsecs            
             ax2 = axes[len(spkpoplst)]
             ax2.plot(sphist_x, sphist_y, linewidth=1.0)
             ax2.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
-            ax2.set_ylabel('Spike count', 
-                           fontsize=fig_options.fontSize)
             ax2.set_xlim(time_range)
             ax2.set_ylim((np.min(sphist_y), np.max(sphist_y)*2))
             if pop_rates:

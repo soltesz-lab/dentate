@@ -1787,6 +1787,7 @@ def go(config_file, population, dt, gid, arena_id, trajectory_id, generate_weigh
     np.seterr(all='raise')
     verbose = True
     init_params['verbose'] = verbose
+    config_logging(verbose)
     
     cell_index_set = set([])
     if gid is None:
