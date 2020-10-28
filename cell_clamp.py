@@ -500,6 +500,7 @@ def measure_psp (gid, pop_name, presyn_name, syn_mech_name, swc_type, env, v_ini
     stimvec = h.Vector()
     stimvec.append(prelength+1.)
     count = 0
+    target_syn_pps = None
     for target_syn_id, target_syn in iter(syns.items()):
         
         target_syn_pps = syn_attrs.get_pps(gid, target_syn_id, syn_mech_name)
@@ -512,6 +513,9 @@ def measure_psp (gid, pop_name, presyn_name, syn_mech_name, swc_type, env, v_ini
             break
         count += 1
 
+    if target_syn_pps is None:
+        raise RuntimeError("measure_psp: Unable to find %s %s synaptic point process" % (presyn_name, swc_type))
+    
     sec = target_syn_pps.get_segment().sec
 
     v_rec = make_rec('psp', pop_name, gid, biophys_cell.hoc_cell, sec=sec, dt=env.dt, loc=0.5,
