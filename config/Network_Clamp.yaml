@@ -625,21 +625,21 @@ Synaptic Optimization:
         IS:
           !!python/tuple [apical, basal, soma]:
             GABA_A:
-              weight: [0.01, 0.1]
+              weight: [0.005, 1.0]
         HCC:
           !!python/tuple [apical, basal]:
             GABA_A:
-              weight: [0.01, 0.1]
+              weight: [0.005, 1.0]
         NGFC:
           apical:
             GABA_A:
-              weight: [0.005, 0.1]
+              weight: [0.005, 1.0]
             GABA_B:
-              weight: [0.005, 0.1]
+              weight: [0.005, 1.0]
         MOPP:
           apical:
             GABA_A:
-              weight: [0.01, 0.1]
+              weight: [0.005, 1.0]
   NGFC:
     Targets:
       firing rate: 4.0
