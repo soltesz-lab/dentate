@@ -24,7 +24,7 @@ Cell Types:
       density: !include GC_synapse_density.yaml
   MC:
     template: Izhikevich
-    mechanism file: 20200703_DG_MC_Izhi_cell_attrs.yaml
+    mechanism file: 20201022_DG_MC_Izhi_cell_attrs.yaml
     synapses:
       weights: !include MC_SLN_weights.yaml
       density: !include MC_synapse_density.yaml

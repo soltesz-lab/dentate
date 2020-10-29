@@ -2730,6 +2730,8 @@ def init_circuit_context(env, pop_name, gid,
                             cell_weights_dicts.append(cell_weights_dict)
 
                 cell_ns_weights_iter = zip_longest(weights_namespaces, cell_weights_dicts)
+                if len(weights_namespaces) != len(cell_weights_dicts):
+                    raise RuntimeError("init_circuit_context: Unable to load all weights namespaces: %s" % str(weights_namespaces))
 
                 multiple_weights = 'error'
                 append_weights = False

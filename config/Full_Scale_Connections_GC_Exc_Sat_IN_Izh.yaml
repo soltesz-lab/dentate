@@ -218,7 +218,7 @@ Synapses:
           dur_onset: 0.5
           tau_offset: 6.2
           e: 0
-          g_unit: 0.0005
+          g_unit: 0.00035
           weight: 1.0
           sat: 0.9
         NMDA:
@@ -235,7 +235,7 @@ Synapses:
           dur_onset: 0.5
           tau_offset: 3.6
           e: 0
-          g_unit: 0.0005
+          g_unit: 0.00055
           weight: 1.0
           sat: 0.9
         NMDA:
@@ -253,7 +253,7 @@ Synapses:
           tau_offset: 6.2
           e: 0
           sat: 0.9
-          g_unit: 0.0005
+          g_unit: 0.00045
           weight: 1.0
     HC:   
       type: inhibitory
@@ -267,7 +267,7 @@ Synapses:
           tau_offset: 11.0
           e: -75
           g_unit: 0.000175
-          weight: 0.165
+          weight: 1.0
     BC:   
       type: inhibitory
       sections: [soma, apical]
@@ -281,14 +281,14 @@ Synapses:
             tau_offset: 9.0
             e: -75
             g_unit: 0.0005
-            weight: 0.145
+            weight: 1.0
         apical:
           GABA_A:
             dur_onset: 0.6
             tau_offset: 9.0
             e: -75
             g_unit: 0.00012
-            weight: 0.165
+            weight: 1.0
     AAC:  
       type: inhibitory
       sections: [ais]
@@ -301,7 +301,7 @@ Synapses:
           tau_offset: 9.0
           e: -75
           g_unit: 0.00012
-          weight: 0.742
+          weight: 1.0
     HCC:  
       type: inhibitory
       sections: [apical]
@@ -314,7 +314,7 @@ Synapses:
           tau_offset: 10.0
           e: -75
           g_unit: 0.000125
-          weight: 0.165
+          weight: 1.0
   HC:
     GC:   
       type: excitatory

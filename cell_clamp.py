@@ -7,8 +7,9 @@ from neuron import h
 from dentate import cells, synapses, utils, neuron_utils, io_utils
 from dentate.env import Env
 from dentate.synapses import get_syn_filter_dict
-from dentate.utils import Context, get_module_logger, is_interactive
+from dentate.utils import Context, get_module_logger, is_interactive, config_logging
 from dentate.neuron_utils import h, configure_hoc_env, make_rec
+
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
@@ -17,7 +18,7 @@ context = Context()
 
 
 
-def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=True, write_cell=False,
+def init_biophys_cell(env, pop_name, gid, load_weights=True, load_connections=True, register_cell=True, write_cell=False,
                       cell_dict={}):
     """
     Instantiates a BiophysCell instance and all its synapses.
@@ -63,7 +64,7 @@ def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=T
                                           connection_graph=cell_dict.get('connectivity', None),
                                           weight_dict=cell_dict.get('weight', None),
                                           mech_dict=mech_dict,
-                                          load_synapses=True, load_weights=True,
+                                          load_synapses=True, load_weights=load_weights,
                                           load_edges=load_connections)
     else:
         cell = cells.make_biophys_cell(env, pop_name, gid,
@@ -72,7 +73,7 @@ def init_biophys_cell(env, pop_name, gid, load_connections=True, register_cell=T
                                        connection_graph=cell_dict.get('connectivity', None),
                                        weight_dict=cell_dict.get('weight', None),
                                        mech_dict=mech_dict,
-                                       load_synapses=True, load_weights=True,
+                                       load_synapses=True, load_weights=load_weights,
                                        load_edges=load_connections)
         
 
@@ -423,9 +424,9 @@ def measure_gap_junction_coupling (env, template_class, tree, v_init, cell_dict=
     
 
     
-def measure_psc (gid, pop_name, presyn_name, env, v_init, v_holding, cell_dict={}):
+def measure_psc (gid, pop_name, presyn_name, env, v_init, v_holding, load_weights=False, cell_dict={}):
 
-    biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False, cell_dict=cell_dict)
+    biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False, load_weights=load_weights, cell_dict=cell_dict)
     hoc_cell = biophys_cell.hoc_cell
 
     h.dt = env.dt
@@ -480,9 +481,9 @@ def measure_psc (gid, pop_name, presyn_name, env, v_init, v_holding, cell_dict={
     return  amp_i
 
 
-def measure_psp (gid, pop_name, presyn_name, syn_mech_name, swc_type, env, v_init, erev, weight=1, syn_count=1, cell_dict={}):
+def measure_psp (gid, pop_name, presyn_name, syn_mech_name, swc_type, env, v_init, erev, weight=1, syn_count=1, load_weights=False, cell_dict={}):
 
-    biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False, cell_dict=cell_dict)
+    biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False, load_weights=load_weights, cell_dict=cell_dict)
     synapses.config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True, insert_vecstims=True)
 
     hoc_cell = biophys_cell.hoc_cell
@@ -574,6 +575,7 @@ def measure_psp (gid, pop_name, presyn_name, syn_mech_name, swc_type, env, v_ini
 @click.option("--population", '-p', required=True, type=str, default='GC', help='target population')
 @click.option("--presyn-name", type=str, help='presynaptic population')
 @click.option("--gid", '-g', required=True, type=int, default=0, help='target cell gid')
+@click.option("--load-weights", '-w', is_flag=True)
 @click.option("--measurements", '-m', type=str, default="passive,fi,ap,ap_rate", help='measurements to perform')
 @click.option("--template-paths", type=str, required=True,
               help='colon-separated list of paths to directories containing hoc cell templates')
@@ -590,7 +592,9 @@ def measure_psp (gid, pop_name, presyn_name, syn_mech_name, swc_type, env, v_ini
 @click.option("--syn-count", type=int, default=1, help='synaptic count')
 @click.option("--swc-type", type=str, help='synaptic swc type')
 @click.option("--v-init", type=float, default=-75.0, help='initialization membrane potential (mV)')
-def main(config_file, config_prefix, erev, population, presyn_name, gid, measurements, template_paths, dataset_prefix, results_path, results_file_id, results_namespace_id, syn_mech_name, syn_weight, syn_count, swc_type, v_init):
+@click.option("--verbose", '-v', is_flag=True)
+
+def main(config_file, config_prefix, erev, population, presyn_name, gid, load_weights, measurements, template_paths, dataset_prefix, results_path, results_file_id, results_namespace_id, syn_mech_name, syn_weight, syn_count, swc_type, v_init, verbose):
 
     if results_file_id is None:
         results_file_id = uuid.uuid4()
@@ -598,7 +602,6 @@ def main(config_file, config_prefix, erev, population, presyn_name, gid, measure
         results_namespace_id = 'Cell Clamp Results'
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
-    verbose = True
     params = dict(locals())
     env = Env(**params)
     configure_hoc_env(env)
@@ -627,8 +630,8 @@ def main(config_file, config_prefix, erev, population, presyn_name, gid, measure
         assert(erev is not None)
         assert(syn_weight is not None)
         attr_dict[gid].update(measure_psp (gid, population, presyn_name, syn_mech_name, swc_type,
-                                           env, v_init, erev, syn_count=syn_count, weight=syn_weight, cell_dict={}))
-    #synapse_test(gid, population, v_init, env)
+                                           env, v_init, erev, syn_count=syn_count, weight=syn_weight,
+                                           load_weights=load_weights))
 
     if results_path is not None:
         append_cell_attributes(env.results_file_path, population, attr_dict,
