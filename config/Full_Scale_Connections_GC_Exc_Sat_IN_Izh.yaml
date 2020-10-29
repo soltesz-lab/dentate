@@ -280,14 +280,14 @@ Synapses:
             dur_onset: 0.6
             tau_offset: 9.0
             e: -75
-            g_unit: 0.0005
+            g_unit: 0.0001
             weight: 1.0
         apical:
           GABA_A:
             dur_onset: 0.6
             tau_offset: 9.0
             e: -75
-            g_unit: 0.00012
+            g_unit: 0.0001
             weight: 1.0
     AAC:  
       type: inhibitory

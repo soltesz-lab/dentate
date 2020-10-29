@@ -390,6 +390,26 @@ Synaptic Optimization:
           apical:
             GABA_A:
               weight: [0.1, 1.0]
+      Weight inh:
+        BC:
+          apical:
+            GABA_A:
+              weight: [0.01, 1.0]
+          soma:
+            GABA_A:
+              weight: [0.01, 1.0]
+        AAC:
+          ais:
+            GABA_A:
+              weight: [0.01, 1.0]
+        HC:
+          apical:
+            GABA_A:
+              weight: [0.01, 1.0]
+        HCC:
+          apical:
+            GABA_A:
+              weight: [0.01, 1.0]
       Weight all inh soma all-dend:
         BC:
           soma:
@@ -408,7 +428,7 @@ Synaptic Optimization:
         v:
           mean: -68.0
           peak: -50.0
-      firing rate: 1.5
+      firing rate: 5.0
       baseline firing rate: 1.0
       fraction active: 0.3
   AAC:
