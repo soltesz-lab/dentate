@@ -1542,7 +1542,6 @@ def apply_syn_mech_rules(cell, env, syn_name, param_name, rules, node=None, syn_
 
     
     if 'origin' in rules and donor is None:
-        logger.info(rules)
         if node is None:
             donor = None
         else:

@@ -8,7 +8,7 @@
 #SBATCH --mail-type=all    # Send email at begin and end of job
 #SBATCH -A BIR20001
 
-
+module load intel/18.0.5
 module load python3
 module load phdf5
 

@@ -6,7 +6,7 @@ from mpi4py import MPI
 import yaml
 import dentate
 from dentate.synapses import SynapseAttributes, get_syn_filter_dict
-from dentate.utils import IncludeLoader, ExprClosure, config_logging, get_root_logger, str, viewitems, zip, read_from_yaml
+from dentate.utils import IncludeLoader, ExprClosure, get_root_logger, str, viewitems, zip, read_from_yaml
 from neuroh5.io import read_cell_attribute_info, read_population_names, read_population_ranges, read_projection_names
 
 SynapseConfig = namedtuple('SynapseConfig',
@@ -58,10 +58,11 @@ class Env(object):
                  node_rank_file=None, io_size=0, recording_profile=None, recording_fraction=1.0,
                  tstop=0., v_init=-65, stimulus_onset=0.0, n_trials=1,
                  max_walltime_hours=0.5, checkpoint_interval=500.0, checkpoint_clear_data=True, 
-                 results_write_time=0, dt=None, ldbal=False, lptbal=False, transfer_debug=False,
-                 cell_selection_path=None, spike_input_path=None, spike_input_namespace=None, spike_input_attr=None,
+                 results_write_time=0, dt=None, ldbal=False, lptbal=False, 
+                 cell_selection_path=None, microcircuit_inputs=False,
+                 spike_input_path=None, spike_input_namespace=None, spike_input_attr=None,
                  cleanup=True, cache_queries=False, profile_memory=False, use_coreneuron=False,
-                 verbose=False, **kwargs):
+                 transfer_debug=False, verbose=False, **kwargs):
         """
         :param comm: :class:'MPI.COMM_WORLD'
         :param config_file: str; model configuration file name
@@ -251,6 +252,7 @@ class Env(object):
                 with open(cell_selection_path) as fp:
                     self.cell_selection = yaml.load(fp, IncludeLoader)
         self.cell_selection = self.comm.bcast(self.cell_selection, root=0)
+        
 
         # Spike input path
         self.spike_input_path = spike_input_path
@@ -336,6 +338,11 @@ class Env(object):
                 self.projection_dict = dict(projection_dict)
                 self.logger.info('projection_dict = %s' % str(self.projection_dict))
             self.projection_dict = self.comm.bcast(self.projection_dict, root=0)
+
+        # If True, instantiate as spike source those cells that do not
+        # have data in the input data file
+        self.microcircuit_inputs = microcircuit_inputs or (self.cell_selection is not None)
+        self.microcircuit_input_sources = { pop_name: set([]) for pop_name in self.celltypes.keys() }
             
         # Configuration profile for recording intracellular quantities
         assert((recording_fraction >= 0.0) and (recording_fraction <= 1.0))
