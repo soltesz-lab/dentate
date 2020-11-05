@@ -1,7 +1,7 @@
 """
 Routines for Network Clamp simulation.
 """
-import os, sys, copy, uuid, pprint, time
+import os, sys, copy, uuid, pprint, time, gc
 from enum import Enum, IntEnum, unique
 from collections import defaultdict, namedtuple
 from mpi4py import MPI
@@ -375,8 +375,6 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
     ## Attribute namespace that contains recorded spike events
     namespace_id = spike_events_namespace
 
-    ## Determine presynaptic populations that connect to this cell type
-    presyn_names = sorted(env.projection_dict[pop_name])
 
     my_cell_index_list = []
     for i, gid in enumerate(cell_index_set):
@@ -403,8 +401,10 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
         cell = init_biophys_cell(env, pop_name, gid, cell_dict=cell_dict[gid], write_cell=write_cell)
         del cell_dict[gid]
         
-
     pop_index_dict = { ind: name for name, ind in viewitems(env.Populations) }
+
+    ## Determine presynaptic populations that connect to this cell type
+    presyn_names = sorted(env.projection_dict[pop_name])
     
     weight_source_dict = {}
     for presyn_name in presyn_names:
@@ -500,6 +500,7 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
     for gid in my_cell_index_set:
         synapses.config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True, verbose=True)
         record_cell(env, pop_name, gid)
+    gc.collect()
 
     if plot_cell:
         import dentate.plot
@@ -518,11 +519,13 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
                                                      output_dir=env.results_path)
         
         
-
-    if is_cell_registered(env, gid):
-        cell = env.pc.gid2cell(gid)
-        for sec in list(cell.hoc_cell.all if hasattr(cell, 'hoc_cell') else cell.all):
-            h.psection(sec=sec)
+    if env.verbose:
+        for gid in my_cell_index_set:
+            if is_cell_registered(env, gid):
+                cell = env.pc.gid2cell(gid)
+                for sec in list(cell.hoc_cell.all if hasattr(cell, 'hoc_cell') else cell.all):
+                    h.psection(sec=sec)
+            break
         
     mindelay = env.pc.set_maxstep(10)
 
