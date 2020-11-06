@@ -2697,74 +2697,92 @@ def init_circuit_context(env, pop_name, gid,
     if 'weights' in synapse_config:
         has_weights = True
         weight_config = synapse_config['weights']
-        
-    if load_synapses or load_edges:
+
+    init_synapses = False
+    init_weights = False
+    init_edges = False
+    if load_edges or (connection_graph is not None):
+        init_synapses=True
+        init_weights=True
+        init_edges=True
+    if has_weights and (load_weights or (weight_dict is not None)):
+        init_synapses=True
+        init_weights=True
+    if load_synapses or (synapses_dict is not None):
+        init_synapses=True
+
+    if init_synapses:
         if synapses_dict is not None:
             syn_attrs.init_syn_id_attrs(gid, **synapses_dict)
-        elif (pop_name in env.cell_attribute_info) and ('Synapse Attributes' in env.cell_attribute_info[pop_name]):
-            synapses_iter = read_cell_attribute_selection(env.data_file_path, pop_name, [gid], 'Synapse Attributes',
-                                                          comm=env.comm)
-            syn_attrs.init_syn_id_attrs_from_iter(synapses_iter)
-
+        elif load_synapses or load_edges:
+            if (pop_name in env.cell_attribute_info) and ('Synapse Attributes' in env.cell_attribute_info[pop_name]):
+                synapses_iter = read_cell_attribute_selection(env.data_file_path, pop_name, [gid], 'Synapse Attributes',
+                                                              comm=env.comm)
+                syn_attrs.init_syn_id_attrs_from_iter(synapses_iter)
+            else:
+                raise RuntimeError('init_circuit_context: synapse attributes not found for %s: gid: %i' % (pop_name, gid))
         else:
-            logger.error('init_circuit_context: synapse attributes not found for %s: gid: %i' % (pop_name, gid))
-            raise Exception
+            raise RuntimeError("init_circuit_context: invalid synapses parameters")
+            
 
-        if load_weights and has_weights:
+    if init_weights and has_weights:
 
-            for weight_config_dict in weight_config:
+        for weight_config_dict in weight_config:
 
-                expr_closure = weight_config_dict.get('closure', None)
-                weights_namespaces = weight_config_dict['namespace']
-                if weight_dict is not None:
-                    cell_weights_dicts = [ weight_dict[weights_namespace]
-                                           for weights_namespace in weights_namespaces ]
-                else: 
-                    cell_weights_iters = [read_cell_attribute_selection(env.data_file_path, pop_name, [gid],
-                                                                        weights_namespace, comm=env.comm)
-                                          for weights_namespace in weights_namespaces]
-                    cell_weights_dicts = []
-                    for it in cell_weights_iters:
-                        for cell_weights_gid, cell_weights_dict in it:
-                            assert(cell_weights_gid == gid)
-                            cell_weights_dicts.append(cell_weights_dict)
+            expr_closure = weight_config_dict.get('closure', None)
+            weights_namespaces = weight_config_dict['namespace']
+            if weight_dict is not None:
+                cell_weights_dicts = [ weight_dict[weights_namespace]
+                                       for weights_namespace in weights_namespaces ]
+            elif load_weights:
+                if (env.data_file_path is None):
+                    raise RuntimeError('init_circuit_context: load_weights=True but data file path is not specified ')
+                cell_weights_iters = [read_cell_attribute_selection(env.data_file_path, pop_name, [gid],
+                                                                    weights_namespace, comm=env.comm)
+                                      for weights_namespace in weights_namespaces]
+                cell_weights_dicts = []
+                for it in cell_weights_iters:
+                    for cell_weights_gid, cell_weights_dict in it:
+                        assert(cell_weights_gid == gid)
+                        cell_weights_dicts.append(cell_weights_dict)
 
-                cell_ns_weights_iter = zip_longest(weights_namespaces, cell_weights_dicts)
-                if len(weights_namespaces) != len(cell_weights_dicts):
-                    raise RuntimeError("init_circuit_context: Unable to load all weights namespaces: %s" % str(weights_namespaces))
+            else:
+                raise RuntimeError("init_circuit_context: invalid weights parameters")
+            if len(weights_namespaces) != len(cell_weights_dicts):
+                raise RuntimeError("init_circuit_context: Unable to load all weights namespaces: %s" % str(weights_namespaces))
+            cell_ns_weights_iter = zip_longest(weights_namespaces, cell_weights_dicts)
+                
+            multiple_weights = 'error'
+            append_weights = False
+            for weights_namespace, cell_weights_dict in cell_ns_weights_iter:
+                weights_syn_ids = cell_weights_dict['syn_id']
+                for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
+                    weights_values = cell_weights_dict[syn_name]
+                    syn_attrs.add_mech_attrs_from_iter(gid, syn_name,
+                                                       zip_longest(weights_syn_ids,
+                                                                   [{'weight': Promise(expr_closure, [x])} for x in weights_values]
+                                                                   if expr_closure else [{'weight': x} for x in weights_values]),
+                                                       multiple=multiple_weights, append=append_weights)
+                    logger.info('init_circuit_context: gid: %i; found %i %s synaptic weights in namespace %s' %
+                                (gid, len(cell_weights_dict[syn_name]), syn_name, weights_namespace))
+                    logger.info('weight_values min/max/mean: %.02f / %.02f / %.02f' %
+                                (np.min(weights_values), np.max(weights_values), np.mean(weights_values)))
+                expr_closure = None
+                append_weights = True
+                multiple_weights='overwrite'
 
-                multiple_weights = 'error'
-                append_weights = False
-                for weights_namespace, cell_weights_dict in cell_ns_weights_iter:
-                    weights_syn_ids = cell_weights_dict['syn_id']
-                    for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
-                        weights_values = cell_weights_dict[syn_name]
-                        syn_attrs.add_mech_attrs_from_iter(gid, syn_name,
-                                                           zip_longest(weights_syn_ids,
-                                                                       [{'weight': Promise(expr_closure, [x])} for x in weights_values]
-                                                                       if expr_closure else [{'weight': x} for x in weights_values]),
-                                                           multiple=multiple_weights, append=append_weights)
-                        logger.info('init_circuit_context: gid: %i; found %i %s synaptic weights in namespace %s' %
-                                    (gid, len(cell_weights_dict[syn_name]), syn_name, weights_namespace))
-                        logger.info('weight_values min/max/mean: %.02f / %.02f / %.02f' %
-                                    (np.min(weights_values), np.max(weights_values), np.mean(weights_values)))
-                    expr_closure = None
-                    append_weights = True
-                    multiple_weights='overwrite'
 
-
-    if load_edges:
-        if env.connectivity_file_path is None:
-            logger.error('init_circuit_context: load_edges=True but connectivity file path is not specified ')
-            raise Exception
+    if init_edges:
         if connection_graph is not None:
             (graph, a) = connection_graph
-        elif os.path.isfile(env.connectivity_file_path):
-            (graph, a) = read_graph_selection(file_name=env.connectivity_file_path, selection=[gid],
-                                              namespaces=['Synapses', 'Connections'], comm=env.comm)
+        elif load_edges:
+            if env.connectivity_file_path is None:
+                raise RuntimeError('init_circuit_context: load_edges=True but connectivity file path is not specified ')
+            elif os.path.isfile(env.connectivity_file_path):
+                (graph, a) = read_graph_selection(file_name=env.connectivity_file_path, selection=[gid],
+                                                  namespaces=['Synapses', 'Connections'], comm=env.comm)
         else:
-            logger.error('init_circuit_context: connection file %s not found' % env.connectivity_file_path)
-            raise Exception
+            raise RuntimeError('init_circuit_context: connection file %s not found' % env.connectivity_file_path)
     else:
         (graph, a) = None, None
 
@@ -2810,10 +2828,13 @@ def make_biophys_cell(env, pop_name, gid,
     cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env,
                        mech_file_path=mech_file_path, mech_dict=mech_dict)
 
-    init_circuit_context(env, pop_name, gid, synapses_dict=synapses_dict,
-                         load_edges=load_edges, connection_graph=connection_graph,
-                         load_weights=load_weights, weight_dict=weight_dict, 
-                         set_edge_delays=set_edge_delays, **kwargs)
+    circuit_flag = load_edges or load_weights or load_synapses or synapses_dict or weight_dict or connection_graph
+    if circuit_flag:
+        init_circuit_context(env, pop_name, gid, 
+                             load_synapses=load_synapses, synapses_dict=synapses_dict,
+                             load_edges=load_edges, connection_graph=connection_graph,
+                             load_weights=load_weights, weight_dict=weight_dict, 
+                             set_edge_delays=set_edge_delays, **kwargs)
     
     env.biophys_cells[pop_name][gid] = cell
     return cell
@@ -2849,15 +2870,15 @@ def make_izhikevich_cell(env, pop_name, gid, mech_file_path=None, mech_dict=None
                     cell_attrs=IzhiCellAttrs(**mech_dict['izhikevich']),
                     mech_dict={ k: mech_dict[k] for k in mech_dict if k != 'izhikevich' })
 
-    init_circuit_context(env, pop_name, gid, synapses_dict=synapses_dict,
-                         load_edges=load_edges, connection_graph=connection_graph,
-                         load_weights=load_weights, weight_dict=weight_dict, 
-                         set_edge_delays=set_edge_delays, **kwargs)
-    
-    syn_attrs = env.synapse_attributes
-    syn_dict = syn_attrs.syn_id_attr_dict[gid]
-    sec_dict = syn_attrs.sec_dict[gid]
-
+    circuit_flag = load_edges or load_weights or load_synapses or synapses_dict or weight_dict or connection_graph
+    if circuit_flag:
+        init_circuit_context(env, pop_name, gid, 
+                             load_synapses=load_synapses,
+                             synapses_dict=synapses_dict,
+                             load_edges=load_edges, connection_graph=connection_graph,
+                             load_weights=load_weights, weight_dict=weight_dict, 
+                             set_edge_delays=set_edge_delays, **kwargs)
+        
     env.biophys_cells[pop_name][gid] = cell
     return cell
 

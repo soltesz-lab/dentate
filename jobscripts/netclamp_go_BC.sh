@@ -1,4 +1,4 @@
-export DATASET_PREFIX=/media/igr/d865f900-7fcd-45c7-a7a7-bd2a7391bc40/Data/DG
+export DATASET_PREFIX=$SCRATCH/striped/dentate
 
 mpirun -n 1 python3 network_clamp.py go -c 20201022_Network_Clamp_GC_Exc_Sat_SLN_IN_Izh.yaml \
        --template-paths templates \

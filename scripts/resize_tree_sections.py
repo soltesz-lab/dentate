@@ -78,7 +78,7 @@ def main(config, config_prefix, max_section_length, population, forest_path, tem
             logger.info(pprint.pformat(tree_dict))
             new_tree_dict = cells.resize_tree_sections(tree_dict, max_section_length)
             logger.info(pprint.pformat(new_tree_dict))
-            new_trees_dict[gid-forest_population_start] = new_tree_dict
+            new_trees_dict[gid] = new_tree_dict
 
     if not dry_run:
         append_cell_trees(output_path, population, new_trees_dict, io_size=io_size, comm=comm)

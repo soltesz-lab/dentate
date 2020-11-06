@@ -10,9 +10,9 @@
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
-module unload python2 
+module load intel/18.0.5
 module load python3
-module load phdf5/1.8.16
+module load phdf5
 
 set -x
 
@@ -29,9 +29,9 @@ mkdir -p $results_path
 
 export I_MPI_EXTRA_FILESYSTEM=enable
 export I_MPI_EXTRA_FILESYSTEM_LIST=lustre
-export I_MPI_ADJUST_ALLGATHER=4
-export I_MPI_ADJUST_ALLGATHERV=4
-export I_MPI_ADJUST_ALLTOALL=4
+#export I_MPI_ADJUST_ALLGATHER=4
+#export I_MPI_ADJUST_ALLGATHERV=4
+#export I_MPI_ADJUST_ALLTOALL=4
 
 export PYTHON=`which python3`
 
@@ -39,12 +39,12 @@ ibrun python3 ./scripts/cut_slice.py \
     --arena-id=A --trajectory-id=Diag \
     --config=Full_Scale_GC_Exc_Sat_DD_SLN.yaml \
     --config-prefix=./config \
-    --dataset-prefix="$SCRATCH/dentate" \
+    --dataset-prefix="$SCRATCH/striped/dentate" \
     --output-path=$results_path \
     --io-size=96 \
-    --spike-input-path="$SCRATCH/dentate/Full_Scale_Control/DG_input_spike_trains_20190912_compressed.h\
+    --spike-input-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h\
 5" \
     --spike-input-namespace='Input Spikes A Diag' \
-    --distance-limits -50 50 \
+    --distance-limits -150 150 \
     --write-selection \
     --verbose
