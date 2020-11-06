@@ -11,4 +11,5 @@ mpirun -n 1 python3 network_clamp.py go -c 20201022_Network_Clamp_GC_Exc_Sat_SLN
        --input-features-namespaces 'Constant Selectivity' \
        --arena-id A --trajectory-id Diag \
        --results-path results/netclamp \
-       --params-path results/netclamp/network_clamp.optimize.BC_1039000_20201027_164832.yaml
+       --params-path config/20201105_Izhi_compiled.yaml
+
