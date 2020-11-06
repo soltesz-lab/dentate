@@ -695,7 +695,8 @@ Synapses:
           tau_offset: 5.0
           e: 0
           sat: 0.9
-          g_unit: 0.00025
+#          g_unit: 0.00025
+          g_unit: 0.000125
           weight: 1.0
     LPP:
       type: excitatory
@@ -708,7 +709,8 @@ Synapses:
           tau_offset: 5.0
           e: 0
           sat: 0.9
-          g_unit: 0.0003
+#          g_unit: 0.0003
+          g_unit: 0.00015
           weight: 1.0
     GC:   
       type: excitatory
@@ -722,7 +724,8 @@ Synapses:
             tau_offset: 6.2
             e: 0
             sat: 0.9
-            g_unit: 0.0004
+#            g_unit: 0.0004
+            g_unit: 0.0002
             weight: 1.0
         basal:
           AMPA:
@@ -730,7 +733,8 @@ Synapses:
             tau_offset: 6.2
             e: 0
             sat: 0.9
-            g_unit: 0.0004
+#            g_unit: 0.0004
+            g_unit: 0.0002
             weight: 1.0
         soma:
           AMPA:
@@ -738,7 +742,8 @@ Synapses:
             tau_offset: 6.2
             e: 0
             sat: 0.9
-            g_unit: 0.00045
+#            g_unit: 0.00045
+            g_unit: 0.000225
             weight: 1.0
     MC:   
       type: excitatory
@@ -752,7 +757,8 @@ Synapses:
             tau_offset: 3.6
             e: 0
             sat: 0.9
-            g_unit: 0.00045
+#            g_unit: 0.00045
+            g_unit: 0.000225
             weight: 1.0
         basal:
           AMPA:
@@ -760,7 +766,8 @@ Synapses:
             tau_offset: 3.6
             e: 0
             sat: 0.9
-            g_unit: 0.00045
+#            g_unit: 0.00045
+            g_unit: 0.000225
             weight: 1.0
         soma:
           AMPA:
@@ -768,7 +775,8 @@ Synapses:
             tau_offset: 3.6
             e: 0
             sat: 0.9
-            g_unit: 0.0004
+#            g_unit: 0.0004
+            g_unit: 0.0002
             weight: 1.0
     CA3c:   
       type: excitatory
@@ -780,7 +788,8 @@ Synapses:
           dur_onset: 0.3
           tau_offset: 3.6
           e: 0
-          g_unit: 0.00025
+#          g_unit: 0.00025
+          g_unit: 0.000125
           weight: 1.0
           sat: 0.9
     HCC:  
@@ -872,7 +881,7 @@ Synapses:
           tau_offset: 5.0
           e: 0
           sat: 0.9
-          g_unit: 0.0002
+          g_unit: 0.0004
           weight: 1.0
     LPP:
       type: excitatory
@@ -885,7 +894,7 @@ Synapses:
           tau_offset: 5.0
           e: 0
           sat: 0.9
-          g_unit: 0.0002
+          g_unit: 0.0004
           weight: 1.0
     HC:  
       type: inhibitory
