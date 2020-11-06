@@ -72,4 +72,9 @@ Cell Types:
     spike train:
       namespace: Input Spikes
       attribute: Spike Train
+  ConMC:
+    template: ConMCCell
+    spike train:
+      namespace: Input Spikes
+      attribute: Spike Train
 
