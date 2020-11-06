@@ -624,7 +624,8 @@ def make_cells(env):
     data_file_path = env.data_file_path
     pop_names = sorted(env.celltypes.keys())
 
-    logger.info("Population attributes: %s" % str(env.cell_attribute_info))
+    if rank == 0:
+        logger.info("Population attributes: %s" % str(env.cell_attribute_info))
     for pop_name in pop_names:
         if rank == 0:
             logger.info("*** Creating population %s" % pop_name)

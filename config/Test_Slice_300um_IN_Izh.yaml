@@ -1,6 +1,6 @@
 ## Model configuration of dentate gyrus network
 Model Name: dentatenet
-Dataset Name: Test_Slice_300um_IN_Izh
+Dataset Name: Slice
 Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
 Geometry: !include Geometry.yaml

@@ -5,12 +5,12 @@
 #SBATCH --nodes=30
 #SBATCH --ntasks-per-node=56
 #SBATCH -p normal
-#SBATCH -t 2:00:00
+#SBATCH -t 3:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #
 
-
+module load intel/18.0.5
 module load python3
 module load phdf5
 
@@ -35,13 +35,13 @@ mkdir -p $results_path
 
 ibrun env PYTHONPATH=$PYTHONPATH python3 ./scripts/main.py  \
     --arena-id=A --trajectory-id=Diag \
-    --config-file=Test_Slice_300um.yaml \
+    --config-file=Test_Slice_300um_IN_Izh.yaml \
     --config-prefix=./config \
     --template-paths=../dgc/Mateos-Aparicio2014:templates \
     --dataset-prefix="$SCRATCH/striped/dentate" \
     --results-path=$results_path \
     --io-size=8 \
-    --tstop=150 \
+    --tstop=9500 \
     --v-init=-75 \
     --max-walltime-hours=1.9 \
     --spike-input-path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h5" \
