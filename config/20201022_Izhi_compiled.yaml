@@ -7,28 +7,51 @@ MC:
     - apical
     - GABA_A
     - weight
-    - 0.016307987692779823
+    - 0.008049208666357688
   - - MC
     - AAC
     - ais
     - GABA_A
     - weight
-    - 0.7893807234966069
+    - 0.5114586445777161
   - - MC
     - BC
     - soma
     - GABA_A
     - weight
-    - 0.12474817474560891
+    - 0.34692051484191316
 HCC:
   1043250:
+  - - HCC
+    - - MPP
+      - LPP
+    - apical
+    - AMPA
+    - weight
+    - 1.0
+  - - HCC
+    - CA3c
+    - - apical
+      - basal
+      - soma
+    - AMPA
+    - weight
+    - 0.6566451470425374
+  - - HCC
+    - GC
+    - - apical
+      - basal
+      - soma
+    - AMPA
+    - weight
+    - 0.1001589952503415
   - - HCC
     - HCC
     - - apical
       - basal
     - GABA_A
     - weight
-    - 0.8221985271013587
+    - 0.010184933575811338
   - - HCC
     - IS
     - - apical
@@ -36,25 +59,33 @@ HCC:
       - soma
     - GABA_A
     - weight
-    - 1.2574751809660587
+    - 0.010087139798327274
+  - - HCC
+    - MC
+    - - apical
+      - basal
+      - soma
+    - AMPA
+    - weight
+    - 0.1
   - - HCC
     - MOPP
     - apical
     - GABA_A
     - weight
-    - 1.9652505569800767
+    - 0.5219992386275958
   - - HCC
     - NGFC
     - apical
     - GABA_A
     - weight
-    - 0.20681141414913343
+    - 0.44237633809465765
   - - HCC
     - NGFC
     - apical
     - GABA_B
     - weight
-    - 0.013442860753640365
+    - 0.005
 NGFC:
   1044650:
   - - NGFC
