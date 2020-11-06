@@ -11,4 +11,7 @@ mpirun -n 1 python3  network_clamp.py go -c Network_Clamp_GC_Exc_Sat_SLN_IN_Izh_
        --input-features-namespaces 'Constant Selectivity' \
        --arena-id A --trajectory-id Diag \
        --results-path results/netclamp \
+
        --params-path config/20201105_Izhi_compiled.yaml
+
+
