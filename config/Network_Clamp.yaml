@@ -467,7 +467,7 @@ Synaptic Optimization:
             GABA_A:
               weight: [0.01, 1.0]
         IS:
-          !!python/tuple [apical, basal]:
+          !!python/tuple [basal, soma]:
             GABA_A:
               weight: [0.01, 1.0]
       Weight inh:
@@ -490,7 +490,7 @@ Synaptic Optimization:
             GABA_A:
               weight: [0.01, 1.0]
         IS:
-          !!python/tuple [apical, basal]:
+          !!python/tuple [basal, soma]:
             GABA_A:
               weight: [0.01, 1.0]
   BC:
