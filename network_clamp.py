@@ -607,6 +607,8 @@ def update_network_params(env, param_config_dict):
         weights_dict = synapse_config.get('weights', {})
 
         for gid, params_tuples in viewitems(gid_param_config_dict):
+            if gid not in biophys_cell_dict:
+                continue
             biophys_cell = biophys_cell_dict[gid]
             is_reduced = False
             if hasattr(biophys_cell, 'is_reduced'):
