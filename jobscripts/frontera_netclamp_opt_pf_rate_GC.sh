@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #SBATCH -p normal      # Queue (partition) name
-#SBATCH -N 14             # Total # of nodes 
-#SBATCH --ntasks-per-node=7            # # of mpi tasks per node
+#SBATCH -N 1             # Total # of nodes 
+#SBATCH --ntasks-per-node=56          # # of mpi tasks per node
 #SBATCH -t 4:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
@@ -28,11 +28,11 @@ export FI_MLX_ENABLE_SPAWN=1
 cd $SLURM_SUBMIT_DIR
  
 if test "$2" == ""; then
-ibrun -n 3 python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
-    -p GC -g 567808 -t 1500  --n-trials 3 --trial-regime best --problem-regime mean --nprocs-per-worker=4 \
+ibrun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
+    -p GC -t 28250 -g $1  --n-trials 3 --trial-regime best --problem-regime mean --nprocs-per-worker=1 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/dentate \
-    --results-path $SCRATCH/dentate/results/netclamp/20201015 \
+    --results-path $SCRATCH/dentate/results/netclamp/20201104 \
     --config-prefix config  --opt-iter 2000  --opt-epsilon 1 \
     --param-config-name 'Weight all no MC inh soma all-dend' \
     --arena-id A --trajectory-id MainDiags --use-coreneuron \
@@ -43,12 +43,12 @@ ibrun -n 3 python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_ex
     selectivity_rate
 else
 ibrun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
-    -p GC  -t 28250 --n-trials 3 --problem-regime mean --nprocs-per-worker=4 \
+    -p GC  -t 28250 -g $1 --n-trials 3 --problem-regime mean --nprocs-per-worker=1 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/dentate \
-    --results-path $SCRATCH/dentate/results/netclamp/20201015 \
+    --results-path $SCRATCH/dentate/results/netclamp/20201104 \
     --results-file "$2" \
-    --spike-events-path "$SCRATCH/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h5" \
+    --spike-events-path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h5" \
     --spike-events-namespace 'Input Spikes' \
     --spike-events-t 'Spike Train' \
     --config-prefix config  --opt-iter 2000  --opt-epsilon 1 \

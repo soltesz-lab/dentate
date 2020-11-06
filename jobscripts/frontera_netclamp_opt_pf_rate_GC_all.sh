@@ -6,6 +6,8 @@
 #SBATCH -t 12:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
+#SBATCH -J netclamp_opt_pf_rate_GC 
+#SBATCH -o ./results/netclamp_opt_pf_rate_GC_all.%j.o
 #SBATCH -A BIR20001
 
 module load intel/18.0.5
@@ -45,7 +47,7 @@ ibrun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.
     -p GC  -t 28250 --n-trials 1 --problem-regime mean --nprocs-per-worker=16 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/dentate \
-    --results-path $SCRATCH/dentate/results/netclamp/20201015 \
+    --results-path $SCRATCH/dentate/results/netclamp/20201104 \
     --results-file "$1" \
     --spike-events-path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h5" \
     --spike-events-namespace 'Input Spikes' \
