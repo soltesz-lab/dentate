@@ -745,9 +745,17 @@ def make_cells(env):
             raise RuntimeError("make_cells: unknown cell configuration type for cell type %s" % pop_name)
 
                 
-                
+
         h.define_shape()
         logger.info("*** Rank %i: Created %i cells from population %s" % (rank, num_cells, pop_name))
+        
+    # if node rank map has not been created yet, create it now
+    if env.node_ranks is None:
+        env.node_ranks = {}
+        all_gidsets = env.comm.alltoall([env.gidset]*nhosts)
+        for this_rank, this_gidset in enumerate(all_gidsets):
+            for gid in this_gidset:
+                env.node_ranks[gid] = this_rank
 
 
 def make_cell_selection(env):
@@ -868,6 +876,14 @@ def make_cell_selection(env):
         logger.info("*** Rank %i: Created %i cells from population %s" % (rank, num_cells, pop_name))
 
 
+    if env.node_ranks is None:
+        env.node_ranks = {}
+        all_gidsets = env.comm.alltoall([env.gidset]*nhosts)
+        for this_rank, this_gidset in enumerate(all_gidsets):
+            for gid in this_gidset:
+                env.node_ranks[gid] = this_rank
+
+
 def make_input_cell_selection(env):
     """
     Creates cells with predefined spike patterns when only a subset of the network is instantiated.
@@ -913,8 +929,8 @@ def make_input_cell_selection(env):
         input_gid_ranges = env.comm.allreduce(local_input_gid_range, op=mpi_op_set_union)
 
         created_input_gids = []
-        for gid in input_gid_ranges:
-            if (gid % nhosts == rank) and not env.pc.gid_exists(gid):
+        for i, gid in enumerate(input_gid_ranges):
+            if (i % nhosts == rank) and not env.pc.gid_exists(gid):
                 input_cell = cells.make_input_cell(env, gid, pop_index, input_source_dict)
                 cells.register_cell(env, pop_name, gid, input_cell)
                 created_input_gids.append(gid)
@@ -924,6 +940,12 @@ def make_input_cell_selection(env):
         logger.info('*** Rank %i: created %s input sources for gids %s' % (rank, pop_name, str(created_input_gids)))
 
     env.microcircuit_input_sources = created_input_sources
+
+    all_microcircuit_input_sources = env.comm.alltoall([env.microcircuit_input_sources]*nhosts)
+    for this_rank, this_microcircuit_input_sources in enumerate(all_microcircuit_input_sources):
+        for _, this_gidset in viewitems(this_microcircuit_input_sources):
+            for gid in this_gidset:
+                env.node_ranks[gid] = this_rank
 
 
 def init_input_cells(env):
@@ -1240,7 +1262,10 @@ def run(env, output=True, shutdown=True):
 
     env.pc.barrier()
 
-    tsegments = np.concatenate((np.arange(0, env.tstop, env.checkpoint_interval)[1:], np.asarray([env.tstop])))
+    if env.checkpoint_interval is not None:
+        tsegments = np.concatenate((np.arange(0, env.tstop, env.checkpoint_interval)[1:], np.asarray([env.tstop])))
+    else:
+        tsegments = np.asarray([0., env.tstop])
     h.t = 0.
     for tstop in tsegments:
         if (h.t+env.dt) > env.simtime.tstop:
@@ -1250,6 +1275,8 @@ def run(env, output=True, shutdown=True):
         else:
             h.tstop = env.simtime.tstop
         env.pc.psolve(h.tstop)
+        if env.use_coreneuron:
+            h.t = h.tstop
         if output:
             if rank == 0:
                 logger.info("*** Writing spike data up to %.2f ms" % h.t)

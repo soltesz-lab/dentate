@@ -148,9 +148,12 @@ class Env(object):
         self.hoc_lib_path = hoc_lib_path
 
         # Checkpoint interval in ms of simulation time
-        self.checkpoint_interval = max(float(checkpoint_interval), 1.0)
         self.checkpoint_clear_data = checkpoint_clear_data
         self.last_checkpoint = 0.
+        if checkpoint_interval > 0.:
+            self.checkpoint_interval = max(float(checkpoint_interval), 1.0)
+        else:
+            self.checkpoint_interval = None
         
         # The location of all datasets
         self.dataset_prefix = dataset_prefix

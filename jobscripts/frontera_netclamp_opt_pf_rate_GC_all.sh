@@ -35,7 +35,7 @@ ibrun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.
     --dataset-prefix $SCRATCH/dentate \
     --results-path $SCRATCH/dentate/results/netclamp/20201104 \
     --config-prefix config  --opt-iter 2000  --opt-epsilon 1 \
-    --param-config-name 'Weight all no MC inh soma all-dend' \
+    --param-config-name 'Weight inhibitory grp' \
     --arena-id A --trajectory-id MainDiags --use-coreneuron \
     --target-rate-map-path $SCRATCH/dentate/Slice/GC_extent_input_spike_trains_20201001.h5 \
     --spike-events-path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h5" \
@@ -43,7 +43,7 @@ ibrun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.
     --spike-events-t 'Spike Train' \
     selectivity_rate
 else
-ibrun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
+ibrun -n 3 python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
     -p GC  -t 28250 --n-trials 1 --problem-regime mean --nprocs-per-worker=16 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/dentate \
@@ -53,7 +53,7 @@ ibrun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.
     --spike-events-namespace 'Input Spikes' \
     --spike-events-t 'Spike Train' \
     --config-prefix config  --opt-iter 2000  --opt-epsilon 1 \
-    --param-config-name 'Weight all no MC inh soma all-dend' \
+    --param-config-name 'Weight inhibitory grp' \
     --arena-id A --trajectory-id MainDiags --use-coreneuron \
     --target-rate-map-path $SCRATCH/dentate/Slice/GC_extent_input_spike_trains_20201001.h5 \
     selectivity_rate

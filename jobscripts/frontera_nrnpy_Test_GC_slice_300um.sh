@@ -2,10 +2,10 @@
 #
 #SBATCH -J dentate_Test_GC_slice_300um
 #SBATCH -o ./results/dentate_Test_GC_slice_300um.%j.o
-#SBATCH --nodes=30
+#SBATCH --nodes=16
 #SBATCH --ntasks-per-node=56
 #SBATCH -p normal
-#SBATCH -t 3:00:00
+#SBATCH -t 4:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #
@@ -43,11 +43,12 @@ ibrun env PYTHONPATH=$PYTHONPATH python3 ./scripts/main.py  \
     --io-size=8 \
     --tstop=9500 \
     --v-init=-75 \
-    --max-walltime-hours=1.9 \
+    --max-walltime-hours=3.9 \
     --spike-input-path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h5" \
     --spike-input-namespace='Input Spikes A Diag' \
     --spike-input-attr='Spike Train' \
     --microcircuit-inputs \
+    --checkpoint-interval 0. \
     --use-coreneuron \
     --verbose
 

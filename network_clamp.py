@@ -58,8 +58,8 @@ def mpi_excepthook(type, value, traceback):
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
 
-sys_excepthook = sys.excepthook
-sys.excepthook = mpi_excepthook
+#sys_excepthook = sys.excepthook
+#sys.excepthook = mpi_excepthook
 
 
 SynParam = namedtuple('SynParam',
@@ -762,7 +762,7 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
     params = dict(locals())
     env = Env(**params)
     env.results_file_path = None
-    configure_hoc_env(env)
+    configure_hoc_env(env, bcast_template=True)
     
     my_cell_index_set = init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
                              spike_events_path, spike_events_namespace=spike_events_namespace, 
@@ -845,7 +845,8 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
     params = dict(locals())
     env = Env(**params)
     env.results_file_path = None
-    configure_hoc_env(env)
+    configure_hoc_env(env, bcast_template=True)
+
     my_cell_index_set = init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
                              spike_events_path=spike_events_path, spike_events_namespace=spike_events_namespace, 
                              spike_train_attr_name=spike_events_t,
@@ -948,7 +949,8 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
     params = dict(locals())
     env = Env(**params)
     env.results_file_path = None
-    configure_hoc_env(env)
+    configure_hoc_env(env, bcast_template=True)
+
     my_cell_index_set = init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
                              spike_events_path, spike_events_namespace=spike_events_namespace, 
                              spike_train_attr_name=spike_events_t,
@@ -1187,7 +1189,8 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
     params = dict(locals())
     env = Env(**params)
     env.results_file_path = None
-    configure_hoc_env(env)
+    configure_hoc_env(env, bcast_template=True)
+
     my_cell_index_set = init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
                              spike_events_path, spike_events_namespace=spike_events_namespace, 
                              spike_train_attr_name=spike_events_t,
@@ -1412,7 +1415,8 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
     params = dict(locals())
     env = Env(**params)
     env.results_file_path = None
-    configure_hoc_env(env)
+    configure_hoc_env(env, bcast_template=True)
+
     my_cell_index_set = init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
                              spike_events_path, spike_events_namespace=spike_events_namespace, 
                              spike_train_attr_name=spike_events_t,
@@ -1613,7 +1617,7 @@ def dist_run(init_params, gid):
     global env
     if env is None:
         env = Env(**init_params)
-        configure_hoc_env(env)
+        configure_hoc_env(env, bcast_template=True)
     env.clear()
 
     env.results_file_id = results_file_id

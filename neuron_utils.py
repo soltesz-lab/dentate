@@ -122,40 +122,39 @@ def find_template(env, template_name, path=['templates'], template_file=None, bc
     :param template_file: str; file_name containing definition of hoc template
     :param root: int; MPI.COMM_WORLD.rank
     """
-    pc = env.pc
-    rank = int(pc.id())
+    if env.comm is None:
+        bcast_template = false
+    rank = env.comm.rank if env.comm is not None else 0
     found = False
-    foundv = h.Vector(1)
     template_path = ''
     if template_file is None:
         template_file = '%s.hoc' % template_name
-    if (pc is not None) and bcast_template:
-        pc.barrier()
-    if (pc is None) or (not bcast_template) or (bcast_template and (int(pc.id()) == root)):
+    if bcast_template:
+        env.comm.barrier()
+    if (env.comm is None) or (not bcast_template) or (bcast_template and (rank == root)):
         for template_dir in path:
             if template_file is None:
                 template_path = '%s/%s.hoc' % (template_dir, template_name)
             else:
                 template_path = '%s/%s' % (template_dir, template_file)
             found = os.path.isfile(template_path)
-            if found:
+            if found and (rank == 0):
                 logger.info('Loaded %s from %s' % (template_name, template_path))
                 break
-        foundv.x[0] = 1 if found else 0
-    if (pc is not None) and bcast_template:
-        pc.barrier()
-        pc.broadcast(foundv, root)
-    if foundv.x[0] > 0.0:
-        s = h.ref(template_path)
-        if (pc is not None) and bcast_template:
-            pc.broadcast(s, root)
-        h.load_file(s)
+    if bcast_template:
+        found = env.comm.bcast(found, root=root)
+        env.comm.barrier()
+    if found:
+        if bcast_template:
+            template_path = env.comm.bcast(template_path, root=root)
+            env.comm.barrier()
+        h.load_file(template_path)
     else:
         raise Exception('find_template: template %s not found: file %s; path is %s' %
                         (template_name, template_file, str(path)))
 
 
-def configure_hoc_env(env):
+def configure_hoc_env(env, bcast_template=False):
     """
 
     :param env: :class:'Env'
@@ -192,8 +191,9 @@ def configure_hoc_env(env):
     ## sparse parallel transfer
     if hasattr(h, 'nrn_sparse_partrans'):
         h.nrn_sparse_partrans = 1
-    find_template(env, 'StimCell', path=env.template_paths)
-    find_template(env, 'VecStimCell', path=env.template_paths)
+    find_template(env, 'StimCell', path=env.template_paths, bcast_template=bcast_template)
+    find_template(env, 'VecStimCell', path=env.template_paths, bcast_template=bcast_template)
+
 
 def load_cell_template(env, pop_name, bcast_template=False):
     """

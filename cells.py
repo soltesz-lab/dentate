@@ -2803,7 +2803,8 @@ def make_biophys_cell(env, pop_name, gid,
                       load_synapses=False, synapses_dict=None, 
                       load_edges=False, connection_graph=None,
                       load_weights=False, weight_dict=None, 
-                      set_edge_delays=True, **kwargs):
+                      set_edge_delays=True, bcast_template=True,
+                      **kwargs):
     """
     :param env: :class:'Env'
     :param pop_name: str
@@ -2818,7 +2819,7 @@ def make_biophys_cell(env, pop_name, gid,
     :param mech_file_path: str (path)
     :return: :class:'BiophysCell'
     """
-    load_cell_template(env, pop_name)
+    load_cell_template(env, pop_name, bcast_template=bcast_template)
 
     if tree_dict is None:
         tree_attr_iter, _ = read_tree_selection(env.data_file_path, pop_name, [gid], comm=env.comm, topology=True)
