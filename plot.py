@@ -2025,7 +2025,8 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     # sort according to start index        
     include.sort(key=lambda x: pop_start_inds[x])
     
-    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable, time_range=time_range)
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id,
+                                           spike_train_attr_name=time_variable, time_range=time_range)
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
@@ -2040,7 +2041,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
 
     # Calculate spike histogram if requested
     if spike_hist:
-        all_spkts = np.concatenate(spktlst, axis=0)
+        all_spkts = np.concatenate([np.concatenate(lst, axis=0) for lst in spktlst])
         sphist_y, bin_edges = np.histogram(all_spkts, bins = np.arange(time_range[0], time_range[1], spike_hist_bin))
         sphist_x = bin_edges[:-1]+(spike_hist_bin / 2)
 
@@ -2048,7 +2049,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     minN = N
 
     avg_rates = {}
-    tsecs = ((time_range[1]-time_range[0]) / 1e3)
+]    tsecs = ((time_range[1]-time_range[0]) / 1e3)
     for i,pop_name in enumerate(spkpoplst):
         pop_num = len(pop_active_cells[pop_name])
         maxN = max(maxN, max(pop_active_cells[pop_name]))
