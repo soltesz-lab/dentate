@@ -201,6 +201,7 @@ def spikeout(env, output_path, t_start=None, clear_data=False):
                     else:
                         spkdict[gid] = {'t': [t]}
             for gid in spkdict:
+                is_artificial = gid in env.artificial_cells[pop_name]
                 spiketrain = np.array(spkdict[gid]['t'], dtype=np.float32)
                 if gid in env.spike_onset_delay:
                     spiketrain -= env.spike_onset_delay[gid]
@@ -213,6 +214,7 @@ def spikeout(env, output_path, t_start=None, clear_data=False):
                 spkdict[gid]['t'] = np.concatenate(trial_spikes)
                 spkdict[gid]['Trial Duration'] = trial_dur
                 spkdict[gid]['Trial Index'] = np.asarray(trial_bins, dtype=np.uint8)
+                spkdict[gid]['artificial'] = np.asarray([1 if is_artificial else 0], dtype=np.uint8)
         append_cell_attributes(output_path, pop_name, spkdict, namespace=namespace_id, comm=env.comm, io_size=env.io_size)
         del (spkdict)
 
