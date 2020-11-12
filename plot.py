@@ -1985,7 +1985,7 @@ def plot_intracellular_state_in_tree (gid, population, forest_path, state_input_
 
 
 ## Plot spike raster
-def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', max_spikes = int(1e6), labels = 'legend', pop_rates = True, spike_hist = None, spike_hist_bin = 5, marker='.', **kwargs):
+def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', max_spikes = int(1e6), labels = 'legend', pop_rates = True, spike_hist = None, spike_hist_bin = 5, include_artificial=True, marker='.', **kwargs):
     ''' 
     Raster plot of network spike times. Returns the figure handle.
 
@@ -2026,7 +2026,9 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     include.sort(key=lambda x: pop_start_inds[x])
     
     spkdata = spikedata.read_spike_events (input_path, include, namespace_id,
-                                           spike_train_attr_name=time_variable, time_range=time_range)
+                                           include_artificial=include_artificial,
+                                           spike_train_attr_name=time_variable,
+                                           time_range=time_range)
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
@@ -2049,7 +2051,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     minN = N
 
     avg_rates = {}
-]    tsecs = ((time_range[1]-time_range[0]) / 1e3)
+    tsecs = ((time_range[1]-time_range[0]) / 1e3)
     for i,pop_name in enumerate(spkpoplst):
         pop_num = len(pop_active_cells[pop_name])
         maxN = max(maxN, max(pop_active_cells[pop_name]))
