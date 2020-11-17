@@ -1,4 +1,4 @@
-import collections, os, sys, traceback, copy, datetime, math, itertools, pprint
+import collections, os, sys, traceback, copy, datetime, math, pprint
 import numpy as np
 from dentate.neuron_utils import h, d_lambda, default_hoc_sec_lists, default_ordered_sec_types, freq, make_rec, \
     load_cell_template, HocCellInterface, IzhiCellAttrs, default_izhi_cell_attrs_dict
@@ -7,7 +7,6 @@ from neuroh5.io import read_cell_attribute_selection, read_graph_selection, read
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
-
 
 ##
 ## SNode2/STree2 structures from btmorph by B.T.Nielsen.
@@ -626,9 +625,10 @@ class IzhiCell(object):
 
         self.hoc_cell = HocCellInterface(sections=[sec], is_art=lambda: 0, is_reduced=True,
                                          all=[sec], soma=[sec], apical=[], basal=[], 
-                                         axon=[], ais=[], hillock=[])
+                                         axon=[], ais=[], hillock=[], state=[self.izh])
 
         init_spike_detector(self, self.tree.root, loc=0.5, threshold=self.izh.vpeak - 1.)
+
 
     def update_cell_attrs(self, **kwargs):
         for attr_name, attr_val in kwargs.items():
@@ -1173,7 +1173,8 @@ def connect2target(cell, sec, loc=1., param='_ref_v', delay=None, weight=None, t
             weight = 1.
         if threshold is None:
             threshold = -30.
-    this_netcon = h.NetCon(getattr(sec(loc), param), target, sec=sec)
+    ps = getattr(sec(loc), param)
+    this_netcon = h.NetCon(ps, target, sec=sec)
     this_netcon.delay = delay
     this_netcon.weight[0] = weight
     this_netcon.threshold = threshold
@@ -2900,17 +2901,17 @@ def register_cell(env, pop_name, gid, cell):
     env.gidset.add(gid)
     env.pc.set_gid2node(gid, rank)
     hoc_cell = getattr(cell, 'hoc_cell', cell)
-    env.cells[pop_name].append(hoc_cell)
+    env.cells[pop_name][gid] = hoc_cell
     if hoc_cell.is_art() > 0:
         env.artificial_cells[pop_name][gid] = hoc_cell
     # Tell the ParallelContext that this cell is a spike source
     # for all other hosts. NetCon is temporary.
-    if hasattr(cell, 'spike_detector'):
-        nc = cell.spike_detector
-    else:
+    nc = getattr(cell, 'spike_detector', None)
+    if nc is None:
         nc = hoc_cell.connect2target(h.nil)
     nc.delay = max(2*env.dt, nc.delay)
     env.pc.cell(gid, nc, 1)
+    env.pc.outputcell(gid)
     # Record spikes of this cell
     env.pc.spike_record(gid, env.t_vec, env.id_vec)
     # if the spike detector is located in a compartment other than soma,
