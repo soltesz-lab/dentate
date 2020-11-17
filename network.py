@@ -3,7 +3,7 @@ Dentate Gyrus network initialization routines.
 """
 __author__ = 'See AUTHORS.md'
 
-import os, sys, gc, itertools, time
+import os, sys, gc, time
 import numpy as np
 from mpi4py import MPI
 
@@ -290,7 +290,7 @@ def connect_cells(env):
             logger.info('Rank %i: took %.02f s to configure %i synapses, %i synaptic mechanisms, %i network '
                         'connections for gid %d' % \
                         (rank, time.time() - last_time, syn_count, mech_count, nc_count, gid))
-        hoc_cell = env.pc.gid2cell(gid)
+
         env.edge_count[postsyn_name] += syn_count
 
         if gid in env.recording_sets.get(postsyn_name, {}):
@@ -339,9 +339,9 @@ def connect_cell_selection(env):
         logger.info('*** Connectivity file path is %s' % connectivity_file_path)
         logger.info('*** Reading projections: ')
 
-    selection_pop_names = sorted(env.cell_selection.keys())
+    selection_pop_names = sorted(viewkeys(env.cell_selection))
 
-    for postsyn_name in sorted(env.projection_dict.keys()):
+    for postsyn_name in sorted(viewkeys(env.projection_dict)):
 
         if rank == 0:
             logger.info('*** Postsynaptic population: %s' % postsyn_name)
@@ -549,7 +549,7 @@ def connect_gjs(env):
                                  comm=env.comm)
 
         ggid = 2e6
-        for name in sorted(gapjunctions.keys()):
+        for name in sorted(viewkeys(gapjunctions)):
             if rank == 0:
                 logger.info("*** Creating gap junctions %s" % str(name))
             prj = graph[name[0]][name[1]]
@@ -561,7 +561,7 @@ def connect_gjs(env):
             srcsec_idx = attrmap['Location']['Source section']
             srcpos_idx = attrmap['Location']['Source position']
 
-            for src in sorted(prj.keys()):
+            for src in sorted(viewkeys(prj)):
                 edges = prj[src]
                 destinations = edges[0]
                 cc_dict = edges[1]['Coupling strength']
@@ -622,7 +622,7 @@ def make_cells(env):
 
     dataset_path = env.dataset_path
     data_file_path = env.data_file_path
-    pop_names = sorted(env.celltypes.keys())
+    pop_names = sorted(viewkeys(env.celltypes))
 
     if rank == 0:
         logger.info("Population attributes: %s" % str(env.cell_attribute_info))
@@ -752,7 +752,10 @@ def make_cells(env):
     # if node rank map has not been created yet, create it now
     if env.node_ranks is None:
         env.node_ranks = {}
+        req = env.comm.Ibarrier()
         all_gidsets = env.comm.alltoall([env.gidset]*nhosts)
+        req.wait()
+
         for this_rank, this_gidset in enumerate(all_gidsets):
             for gid in this_gidset:
                 env.node_ranks[gid] = this_rank
@@ -772,7 +775,7 @@ def make_cell_selection(env):
     dataset_path = env.dataset_path
     data_file_path = env.data_file_path
 
-    pop_names = sorted(env.cell_selection.keys())
+    pop_names = sorted(viewkeys(env.cell_selection))
 
     for pop_name in pop_names:
         if rank == 0:
@@ -878,7 +881,9 @@ def make_cell_selection(env):
 
     if env.node_ranks is None:
         env.node_ranks = {}
+        req = env.comm.Ibarrier()
         all_gidsets = env.comm.alltoall([env.gidset]*nhosts)
+        req.wait()
         for this_rank, this_gidset in enumerate(all_gidsets):
             for gid in this_gidset:
                 env.node_ranks[gid] = this_rank
@@ -941,7 +946,9 @@ def make_input_cell_selection(env):
 
     env.microcircuit_input_sources = created_input_sources
 
+    req = env.comm.Ibarrier()
     all_microcircuit_input_sources = env.comm.alltoall([env.microcircuit_input_sources]*nhosts)
+    req.wait()
     for this_rank, this_microcircuit_input_sources in enumerate(all_microcircuit_input_sources):
         for _, this_gidset in viewitems(this_microcircuit_input_sources):
             for gid in this_gidset:
@@ -963,7 +970,7 @@ def init_input_cells(env):
     dataset_path = env.dataset_path
     input_file_path = env.data_file_path
 
-    pop_names = sorted(env.celltypes.keys())
+    pop_names = sorted(viewkeys(env.celltypes))
 
     trial_index_attr = 'Trial Index'
     trial_dur_attr = 'Trial Duration'
@@ -1099,7 +1106,7 @@ def init_input_cells(env):
                     elif 'Spike Train' in viewkeys(cell_spikes_attr_info):
                         spike_train_attr_index = cell_spikes_attr_info.get('Spike Train', None)
                     elif len(this_gid_range) > 0:
-                        raise RuntimeError("init_input_cells: unable to determine spike train attribute for population %s in spike input file %s; namespace %s; attr keys %s" % (pop_name, env.spike_input_path, env.spike_input_ns, str(list(cell_spikes_attr_info.keys()))))
+                        raise RuntimeError("init_input_cells: unable to determine spike train attribute for population %s in spike input file %s; namespace %s; attr keys %s" % (pop_name, env.spike_input_path, env.spike_input_ns, str(list(viewkeys(cell_spikes_attr_info)))))
                         
                     for gid, cell_spikes_tuple in cell_spikes_iter:
                         if not (env.pc.gid_exists(gid)):
@@ -1148,7 +1155,7 @@ def init(env):
         lb = h.LoadBalance()
         if not os.path.isfile("mcomplex.dat"):
             lb.ExperimentalMechComplex()
-            
+
     if rank == 0:
         logger.info("Creating results file %s" % env.results_file_path)
         io_utils.mkout(env, env.results_file_path)
@@ -1181,6 +1188,21 @@ def init(env):
         profile_memory(logger)
 
     st = time.time()
+    if (not env.use_coreneuron) and (len(env.LFP_config) > 0):
+        lfp_pop_dict = { pop_name: set(viewkeys(env.cells[pop_name])).difference(set(viewkeys(env.artificial_cells[pop_name])))
+                         for pop_name in viewkeys(env.cells) }
+        for lfp_label, lfp_config_dict in sorted(viewitems(env.LFP_config)):
+            env.lfp[lfp_label] = lfp.LFP(lfp_label, env.pc, lfp_pop_dict,
+                                         lfp_config_dict['position'], rho=lfp_config_dict['rho'],
+                                         dt_lfp=lfp_config_dict['dt'], fdst=lfp_config_dict['fraction'],
+                                         maxEDist=lfp_config_dict['maxEDist'],
+                                         seed=int(env.model_config['Random Seeds']['Local Field Potential']))
+        if rank == 0:
+            logger.info("*** LFP objects instantiated")
+    lfp_time = time.time() - st
+    env.pc.barrier()
+
+    st = time.time()
     if rank == 0:
         logger.info("*** Creating connections: time = %g seconds" % st)
     if env.cell_selection is None:
@@ -1206,17 +1228,6 @@ def init(env):
     env.mkstimtime = time.time() - st
     if rank == 0:
         logger.info("*** Stimuli created in %g seconds" % env.mkstimtime)
-    st = time.time()
-    if env.cell_selection is None:
-        for lfp_label, lfp_config_dict in sorted(viewitems(env.LFP_config)):
-            env.lfp[lfp_label] = \
-                lfp.LFP(lfp_label, env.pc, env.celltypes, lfp_config_dict['position'], rho=lfp_config_dict['rho'],
-                        dt_lfp=lfp_config_dict['dt'], fdst=lfp_config_dict['fraction'],
-                        maxEDist=lfp_config_dict['maxEDist'],
-                        seed=int(env.model_config['Random Seeds']['Local Field Potential']))
-        if rank == 0:
-            logger.info("*** LFP objects instantiated")
-    lfp_time = time.time() - st
     setup_time = env.mkcellstime + env.mkstimtime + env.connectcellstime + env.connectgjstime + lfp_time
     max_setup_time = env.pc.allreduce(setup_time, 2)  ## maximum value
     env.simtime = simtime.SimTimeEvent(env.pc, env.tstop, env.max_walltime_hours, env.results_write_time, max_setup_time)
@@ -1252,6 +1263,7 @@ def run(env, output=True, shutdown=True):
     else:
         env.t_rec.record(h._ref_t, rec_dt)
 
+        
     env.t_rec.resize(0)
     env.t_vec.resize(0)
     env.id_vec.resize(0)
@@ -1266,7 +1278,7 @@ def run(env, output=True, shutdown=True):
         tsegments = np.concatenate((np.arange(0, env.tstop, env.checkpoint_interval)[1:], np.asarray([env.tstop])))
     else:
         tsegments = np.asarray([0., env.tstop])
-    h.t = 0.
+
     for tstop in tsegments:
         if (h.t+env.dt) > env.simtime.tstop:
             break

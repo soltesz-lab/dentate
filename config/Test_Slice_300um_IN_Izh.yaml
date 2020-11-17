@@ -9,6 +9,7 @@ Cell Data: dentatenet_Full_Scale_GC_Exc_Sat_SLN_selection_300um_20201103_compres
 Connection Data: dentatenet_Full_Scale_GC_Exc_Sat_SLN_selection_300um_20201103_compressed.h5
 #Gap Junction Data: DG_gapjunctions_20181228.h5
 Connection Generator: !include Full_Scale_Connections_GC_Exc_Sat_IN_Izh.yaml
+Recording: !include Recording.yaml
 Stimulus: !include Input_Configuration.yaml
 ## Cell types for dentate gyrus model
 Cell Types:
@@ -28,32 +29,32 @@ Cell Types:
       density: !include MC_synapse_density.yaml
   HC:
     template: Izhikevich
-    mechanism file: 20200910_DG_HIPP_Izhi_cell_attrs.yaml    
+    mechanism file: 20201022_DG_HIPP_Izhi_cell_attrs.yaml    
     synapses:
       density: !include HC_synapse_density.yaml
   BC:
     template: Izhikevich
-    mechanism file: 20200804_DG_BC_Izhi_cell_attrs.yaml
+    mechanism file: 20201022_DG_BC_Izhi_cell_attrs.yaml
     synapses:
       density: !include BC_synapse_density.yaml
   AAC:
     template: Izhikevich
-    mechanism file: 20200821_DG_AAC_Izhi_cell_attrs.yaml
+    mechanism file: 20201022_DG_AAC_Izhi_cell_attrs.yaml
     synapses:
       density: !include AAC_synapse_density.yaml
   HCC:
     template: Izhikevich
-    mechanism file: 20200917_DG_HICAP_Izhi_cell_attrs.yaml
+    mechanism file: 20201022_DG_HICAP_Izhi_cell_attrs.yaml
     synapses:
       density: !include HCC_synapse_density.yaml
   NGFC:
     template: Izhikevich
-    mechanism file: 20200918_DG_NGFC_Izhi_cell_attrs.yaml
+    mechanism file: 20201022_DG_NGFC_Izhi_cell_attrs.yaml
     synapses:
       density: !include NGFC_synapse_density.yaml
   MOPP:
     template: Izhikevich
-    mechanism file: 20200821_DG_NGFC_Izhi_cell_attrs.yaml
+    mechanism file: 20201022_DG_NGFC_Izhi_cell_attrs.yaml
     synapses:
       density: !include NGFC_synapse_density.yaml
   IS:
