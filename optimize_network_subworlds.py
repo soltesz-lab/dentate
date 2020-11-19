@@ -23,6 +23,8 @@ def mpi_excepthook(type, value, traceback):
     :return:
     """
     sys_excepthook(type, value, traceback)
+    sys.stdout.flush()
+    sys.stderr.flush()
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
 

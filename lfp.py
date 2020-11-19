@@ -7,10 +7,11 @@ of the LFP calculation may be lower than that of the simulation by
 setting dt_lfp.
 """
 
-import itertools, math
+import itertools, math, logging
 from builtins import object, range
 
 from neuron import h
+logger = logging.getLogger(__name__)
 
 
 def interpxyz(nn, nsegs, xx, yy, zz, ll, xint, yint, zint):
@@ -43,7 +44,7 @@ def interpxyz(nn, nsegs, xx, yy, zz, ll, xint, yint, zint):
 
 class LFP(object):
 
-    def __init__(self, label, pc, celltypes, pos, rho=333.0, fdst=0.1, maxEDist=100., dt_lfp=0.5, seed=1):
+    def __init__(self, label, pc, pop_gid_dict, pos, rho=333.0, fdst=0.1, maxEDist=100., dt_lfp=0.5, seed=1):
         self.label = label
         self.pc = pc
         self.dt_lfp = dt_lfp
@@ -57,13 +58,14 @@ class LFP(object):
         self.lfp_ids = {}
         self.lfp_types = {}
         self.lfp_coeffs = {}
-        self.celltypes = celltypes
+        self.pop_gid_dict = pop_gid_dict
         self.fih_lfp = h.FInitializeHandler(1, self.sample_lfp)
+        self.setup_lfp()
 
     def setup_lfp_coeffs(self):
 
         ex, ey, ez = self.epoint
-        for pop_name in self.celltypes:
+        for pop_name in self.pop_gid_dict:
 
             lfp_ids = self.lfp_ids[pop_name]
             lfp_types = self.lfp_types[pop_name]
@@ -128,13 +130,16 @@ class LFP(object):
                             j = j + 1
 
     def setup_lfp(self):
+        ## Calculate distances from recording electrode to all
+        ## compartments of all cells, calculate scaling coefficients
+        ## for the LFP calculation, and save them in lfp_coeffs.
 
         ex, ey, ez = self.epoint
 
         ##printf ("host %d: entering setup_npole_lfp" % int(self.pc.id()))
 
         ## Determine which cells will be used for the LFP computation and the sizes of their compartments
-        for (ipop, pop_name) in enumerate(self.celltypes):
+        for (ipop, pop_name) in enumerate(sorted(self.pop_gid_dict.keys())):
 
             ranlfp = h.Random(self.seed + ipop)
             ranlfp.uniform(0, 1)
@@ -143,10 +148,7 @@ class LFP(object):
             lfp_types = h.Vector()
             lfp_coeffs = h.List()
 
-            pop_start = self.celltypes[pop_name]['start']
-            pop_num = self.celltypes[pop_name]['num']
-
-            for gid in range(pop_start, pop_start + pop_num):
+            for gid in self.pop_gid_dict[pop_name]:
 
                 ransample = ranlfp.repick()
 
@@ -154,11 +156,23 @@ class LFP(object):
                     continue
 
                 cell = self.pc.gid2cell(gid)
-
-                if cell.is_art() > 0:
+                is_art = False
+                if hasattr(cell, 'is_art'):
+                    is_art = cell.is_art() > 0
+                if is_art:
                     continue
 
-                somasec = list(cell.soma)
+                is_reduced = False
+                if hasattr(cell, 'is_reduced'):
+                    is_reduced = cell.is_reduced
+                if is_reduced:
+                    continue
+
+                try:
+                    somasec = list(cell.soma)
+                except:
+                    logger.info("cell %d = %s (dir: %s)" % (gid, str(cell), str(dir(cell))))
+                    raise
                 x = somasec[0].x3d(0)
                 y = somasec[0].y3d(0)
                 z = somasec[0].z3d(0)
@@ -196,7 +210,7 @@ class LFP(object):
 
         vlfp = 0.
 
-        for pop_name in self.celltypes:
+        for pop_name in self.pop_gid_dict:
             lfp_ids = self.lfp_ids[pop_name]
             lfp_coeffs = self.lfp_coeffs[pop_name]
             ## Iterate over all cell types
@@ -219,13 +233,6 @@ class LFP(object):
 
         ## recording electrode position (um)
         ex, ey, ez = self.epoint
-
-        ## At t=0, calculate distances from recording electrode to all
-        ## compartments of all cells, calculate scaling coefficients
-        ## for the LFP calculation, and save them in lfp_coeffs.
-
-        if (h.t == 0.):
-            self.setup_lfp()
 
         ## Compute LFP across the subset of cells:
         meanlfp = self.pos_lfp()

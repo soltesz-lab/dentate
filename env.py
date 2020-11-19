@@ -99,9 +99,9 @@ class Env(object):
 
         self.gidset = set([])
         self.gjlist = []
-        self.cells = defaultdict(list)
-        self.artificial_cells = defaultdict(dict)
-        self.biophys_cells = defaultdict(dict)
+        self.cells = defaultdict(lambda: dict())
+        self.artificial_cells = defaultdict(lambda: dict())
+        self.biophys_cells = defaultdict(lambda: dict())
         self.spike_onset_delay = {}
         self.recording_sets = {}
 
@@ -821,7 +821,7 @@ class Env(object):
     def clear(self):
         self.gidset = set([])
         self.gjlist = []
-        self.cells = defaultdict(list)
+        self.cells = defaultdict(dict)
         self.artificial_cells = defaultdict(dict)
         self.biophys_cells = defaultdict(dict)
         self.recording_sets = {}

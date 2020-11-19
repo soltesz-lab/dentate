@@ -341,7 +341,7 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
          spike_events_path=None, spike_events_namespace='Spike Events', spike_train_attr_name='t',
          input_features_path=None, input_features_namespaces=None, 
          generate_weights_pops=set([]), t_min=None, t_max=None, write_cell=False, plot_cell=False,
-         worker=None):
+         cooperative_init=False, worker=None):
     """
     Instantiates a cell and all its synapses and connections and loads
     or generates spike times for all synaptic connections.
@@ -385,16 +385,16 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
     data_dict = None
     cell_dict = None
 
-    if worker is not None:
+    if (worker is not None) and cooperative_init:
         if (worker.worker_id == 1):
             cell_dict = load_biophys_cell_dicts(env, pop_name, my_cell_index_set)
             req = worker.parent_comm.isend(cell_dict, tag=InitMessageTag['cell'].value, dest=0)
             req.wait()
         else:
             cell_dict = worker.parent_comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG)
-            
     else:
         cell_dict = load_biophys_cell_dicts(env, pop_name, my_cell_index_set)
+            
 
     ## Load cell gid and its synaptic attributes and connection data
     for gid in my_cell_index_set:
@@ -450,7 +450,7 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
     env.comm.barrier()
 
     input_source_dict = None
-    if worker is not None:
+    if (worker is not None) and cooperative_init:
         if (worker.worker_id == 1):
             if spike_events_path is not None:
                 input_source_dict = init_inputs_from_spikes(env, presyn_sources, t_range,
@@ -757,7 +757,7 @@ def optimize_params(env, pop_name, param_type, param_config_name):
     return param_bounds, param_names, param_initial_dict, param_tuples
 
 
-def init_state_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, n_trials, trial_regime, problem_regime, param_type, param_config_name, recording_profile, state_variable, state_filter, target_value, use_coreneuron, dt, worker,  **kwargs):
+def init_state_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, n_trials, trial_regime, problem_regime, param_type, param_config_name, recording_profile, state_variable, state_filter, target_value, use_coreneuron, cooperative_init, dt, worker,  **kwargs):
 
     params = dict(locals())
     env = Env(**params)
@@ -770,7 +770,8 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
                              input_features_path=input_features_path,
                              input_features_namespaces=input_features_namespaces,
                              generate_weights_pops=set(generate_weights), 
-                             t_min=t_min, t_max=t_max, worker=worker)
+                             t_min=t_min, t_max=t_max, cooperative_init=cooperative_init, 
+                             worker=worker)
 
     time_step = env.stimulus_config['Temporal Resolution']
     equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
@@ -839,7 +840,7 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
     return distgfs_eval_fun(problem_regime, my_cell_index_set, eval_problem)
 
 
-def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, n_trials, trial_regime, problem_regime, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, param_type, param_config_name, recording_profile, target_rate, use_coreneuron, dt, worker, **kwargs):
+def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, n_trials, trial_regime, problem_regime, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, param_type, param_config_name, recording_profile, target_rate, use_coreneuron, cooperative_init, dt, worker, **kwargs):
 
 
     params = dict(locals())
@@ -853,7 +854,8 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
                              input_features_path=input_features_path,
                              input_features_namespaces=input_features_namespaces,
                              generate_weights_pops=set(generate_weights),
-                             t_min=t_min, t_max=t_max, worker=worker)
+                             t_min=t_min, t_max=t_max, cooperative_init=cooperative_init,
+                             worker=worker)
 
     time_step = env.stimulus_config['Temporal Resolution']
     param_bounds, param_names, param_initial_dict, param_tuples = \
@@ -944,7 +946,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
                                  param_type, param_config_name, recording_profile, rate_baseline,
                                  target_rate_map_path, target_rate_map_namespace,
 			         target_rate_map_arena, target_rate_map_trajectory,   
-                                 use_coreneuron, dt, worker, **kwargs):
+                                 use_coreneuron, cooperative_init, dt, worker, **kwargs):
     
     params = dict(locals())
     env = Env(**params)
@@ -957,7 +959,8 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
                              input_features_path=input_features_path,
                              input_features_namespaces=input_features_namespaces,
                              generate_weights_pops=set(generate_weights), 
-                             t_min=t_min, t_max=t_max, worker=worker)
+                             t_min=t_min, t_max=t_max, cooperative_init=cooperative_init,
+                             worker=worker)
 
     time_step = env.stimulus_config['Temporal Resolution']
 
@@ -1183,7 +1186,7 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
                                   state_variable, state_filter, state_baseline,
                                   target_rate_map_path, target_rate_map_namespace,
 			          target_rate_map_arena, target_rate_map_trajectory,  
-                                  use_coreneuron, dt, worker, **kwargs):
+                                  use_coreneuron, cooperative_init, dt, worker, **kwargs):
     
     
     params = dict(locals())
@@ -1197,7 +1200,8 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
                              input_features_path=input_features_path,
                              input_features_namespaces=input_features_namespaces,
                              generate_weights_pops=set(generate_weights), 
-                             t_min=t_min, t_max=t_max, worker=worker)
+                             t_min=t_min, t_max=t_max, cooperative_init=cooperative_init,
+                             worker=worker)
 
     time_step = env.stimulus_config['Temporal Resolution']
     equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
@@ -1410,7 +1414,7 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
                           param_type, param_config_name, recording_profile,
                           target_rate_map_path, target_rate_map_namespace,
 			  target_rate_map_arena, target_rate_map_trajectory,  
-                          use_coreneuron, dt, worker, **kwargs):
+                          use_coreneuron, cooperative_init, dt, worker, **kwargs):
     
     params = dict(locals())
     env = Env(**params)
@@ -1423,7 +1427,8 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
                              input_features_path=input_features_path,
                              input_features_namespaces=input_features_namespaces,
                              generate_weights_pops=set(generate_weights), 
-                             t_min=t_min, t_max=t_max, worker=worker)
+                             t_min=t_min, t_max=t_max, cooperative_init=cooperative_init,
+                             worker=worker)
 
     time_step = env.stimulus_config['Temporal Resolution']
 
@@ -1521,7 +1526,7 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
 
 def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, nprocs_per_worker=1,
                  opt_iter=10, solver_epsilon=1e-2, param_type='synaptic', init_params={}, 
-                 results_file=None, verbose=False):
+                 results_file=None, cooperative_init=False, verbose=False):
     import distgfs
 
     param_bounds, param_names, param_initial_dict, param_tuples = \
@@ -1557,14 +1562,16 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
                       'obj_fun_init_args': init_params,
                       'reduce_fun_name': reduce_fun_name,
                       'reduce_fun_module': 'dentate.network_clamp',
-                      'broker_fun_name': 'distgfs_broker_init',
-                      'broker_module_name': 'dentate.network_clamp',
                       'problem_parameters': {},
                       'space': hyperprm_space,
                       'file_path': file_path,
                       'save': True,
                       'n_iter': opt_iter,
                       'solver_epsilon': solver_epsilon }
+
+    if cooperative_init:
+        distgfs_params['broker_fun_name'] = 'distgfs_broker_init'
+        distgfs_params['broker_module_name'] = 'dentate.network_clamp'
 
     gid_results_dict = distgfs.run(distgfs_params, verbose=verbose,
                                    spawn_workers=True, nprocs_per_worker=nprocs_per_worker)
@@ -1903,9 +1910,8 @@ def go(config_file, population, dt, gid, arena_id, trajectory_id, generate_weigh
 @click.option("--target-state-filter", type=str, required=False, 
               help='optional filter for state values used for state optimization')
 @click.option('--use-coreneuron', is_flag=True, help='enable use of CoreNEURON')
+@click.option('--cooperative-init', is_flag=True, help='use a single worker to read model data then send to the remaining workers')
 @click.argument('target')# help='rate, rate_dist, state'
-
-
 def optimize(config_file, population, dt, gid, gid_selection_file, arena_id, trajectory_id, 
              generate_weights, t_max, t_min, 
              nprocs_per_worker, opt_epsilon, opt_iter, 
@@ -1914,7 +1920,7 @@ def optimize(config_file, population, dt, gid, gid_selection_file, arena_id, tra
              spike_events_path, spike_events_namespace, spike_events_t, 
              input_features_path, input_features_namespaces, n_trials, trial_regime, problem_regime,
              target_rate_map_path, target_rate_map_namespace, target_state_variable,
-             target_state_filter, target, use_coreneuron):
+             target_state_filter, use_coreneuron, cooperative_init, target):
     """
     Optimize the firing rate of the specified cell in a network clamp configuration.
     """
@@ -1952,8 +1958,8 @@ def optimize(config_file, population, dt, gid, gid_selection_file, arena_id, tra
             cell_index = None
             attr_name, attr_cell_index = next(iter(attr_info_dict[population]['Trees']))
             cell_index_set = set(attr_cell_index)
-        comm0.Free()
         cell_index_set = comm.bcast(cell_index_set, root=0)
+        comm.barrier()
     init_params['cell_index_set'] = cell_index_set
     del(init_params['gid'])
     comm.barrier()
@@ -2012,7 +2018,7 @@ def optimize(config_file, population, dt, gid, gid_selection_file, arena_id, tra
     results_config_dict =  optimize_run(env, population, param_config_name, init_objfun_name, problem_regime=problem_regime,
                                         opt_iter=opt_iter, solver_epsilon=opt_epsilon, param_type=param_type,
                                         init_params=init_params, results_file=results_file,
-                                        nprocs_per_worker=nprocs_per_worker,
+                                        nprocs_per_worker=nprocs_per_worker, cooperative_init=cooperative_init,
                                         verbose=verbose)
     if results_config_dict is not None:
         if results_path is not None:

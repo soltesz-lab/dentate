@@ -29,9 +29,9 @@ mkdir -p $results_path
 
 export I_MPI_EXTRA_FILESYSTEM=enable
 export I_MPI_EXTRA_FILESYSTEM_LIST=lustre
-#export I_MPI_ADJUST_ALLGATHER=4
-#export I_MPI_ADJUST_ALLGATHERV=4
-#export I_MPI_ADJUST_ALLTOALL=4
+export I_MPI_ADJUST_ALLGATHER=4
+export I_MPI_ADJUST_ALLGATHERV=4
+export I_MPI_ADJUST_ALLTOALL=4
 
 export PYTHON=`which python3`
 
@@ -45,6 +45,6 @@ ibrun python3 ./scripts/cut_slice.py \
     --spike-input-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h\
 5" \
     --spike-input-namespace='Input Spikes A Diag' \
-    --distance-limits -150 150 \
+    --distance-limits -300 300 \
     --write-selection \
     --verbose

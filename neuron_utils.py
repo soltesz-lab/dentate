@@ -27,7 +27,7 @@ default_izhi_cell_attrs_dict = {
     'RTN': IzhiCellAttrs(C=0.4, k=0.25, vr=-65., vt=-45., vpeak=0., a=0.015, b=10., c=-55., d=50., celltype=7)
 }
 
-HocCellInterface = namedtuple('HocCellInterface', ['sections', 'is_art', 'is_reduced', 'soma', 'hillock', 'ais', 'axon', 'basal', 'apical', 'all'])
+HocCellInterface = namedtuple('HocCellInterface', ['sections', 'is_art', 'is_reduced', 'soma', 'hillock', 'ais', 'axon', 'basal', 'apical', 'all', 'state'])
 
 def hoc_results_to_python(hoc_results):
     results_dict = {}
