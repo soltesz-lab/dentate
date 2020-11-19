@@ -1826,7 +1826,7 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
                     line, = ax.plot(cell_state_mat[0][0].reshape((n,)), cell_state,
                                     label='%s (%s um)' % (cell_state_mat[2][i], cell_state_mat[3][i]))
                     stplots.append(line)
-                    logger.info('plot_state: mean value is of state %d is %.02f' % (i, np.mean(cell_state)))
+                    logger.info('plot_state: mean value of state %d is %.02f' % (i, np.mean(cell_state)))
             ax.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
             ax.set_ylabel(state_variable, fontsize=fig_options.fontSize)
             #ax.legend()
@@ -1985,7 +1985,7 @@ def plot_intracellular_state_in_tree (gid, population, forest_path, state_input_
 
 
 ## Plot spike raster
-def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', max_spikes = int(1e6), labels = 'legend', pop_rates = True, spike_hist = None, spike_hist_bin = 5, marker='.', **kwargs):
+def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', max_spikes = int(1e6), labels = 'legend', pop_rates = True, spike_hist = None, spike_hist_bin = 5, include_artificial=True, marker='.', **kwargs):
     ''' 
     Raster plot of network spike times. Returns the figure handle.
 
@@ -2025,7 +2025,10 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     # sort according to start index        
     include.sort(key=lambda x: pop_start_inds[x])
     
-    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable, time_range=time_range)
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id,
+                                           include_artificial=include_artificial,
+                                           spike_train_attr_name=time_variable,
+                                           time_range=time_range)
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
@@ -2040,7 +2043,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
 
     # Calculate spike histogram if requested
     if spike_hist:
-        all_spkts = np.concatenate(spktlst, axis=0)
+        all_spkts = np.concatenate([np.concatenate(lst, axis=0) for lst in spktlst])
         sphist_y, bin_edges = np.histogram(all_spkts, bins = np.arange(time_range[0], time_range[1], spike_hist_bin))
         sphist_x = bin_edges[:-1]+(spike_hist_bin / 2)
 
@@ -2074,6 +2077,10 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     sctplots = []
     
     for i, pop_name in enumerate(include):
+
+        if pop_name not in pop_spk_dict:
+            continue
+        
         pop_spkinds, pop_spkts = pop_spk_dict[pop_name]
 
         if max_spikes is not None:
@@ -2098,14 +2105,17 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
             
     # set raster plot y tick labels to the middle of the index range for each population
     for pop_name, a in zip_longest(include, fig.axes[:-1]):
-        maxN = max(pop_active_cells[pop_name])
-        minN = min(pop_active_cells[pop_name])
-        loc = pop_start_inds[pop_name] + 0.5 * (maxN - minN)
-        yaxis = a.get_yaxis()
-        yaxis.set_ticks([loc])
-        yaxis.set_ticklabels([pop_name])
-        yaxis.set_tick_params(length=0)
-        a.get_xaxis().set_tick_params(length=0)
+        if pop_name not in pop_active_cells:
+            continue
+        if len(pop_active_cells[pop_name]) > 0:
+            maxN = max(pop_active_cells[pop_name])
+            minN = min(pop_active_cells[pop_name])
+            loc = pop_start_inds[pop_name] + 0.5 * (maxN - minN)
+            yaxis = a.get_yaxis()
+            yaxis.set_ticks([loc])
+            yaxis.set_ticklabels([pop_name])
+            yaxis.set_tick_params(length=0)
+            a.get_xaxis().set_tick_params(length=0)
         
     # Plot spike histogram
     pch = interpolate.pchip(sphist_x, sphist_y)
@@ -2802,7 +2812,7 @@ def plot_spike_rates(input_path, namespace_id, config_path=None, include = ['eac
 
 
 def plot_spike_histogram (input_path, namespace_id, config_path=None, include = ['eachPop'], time_variable='t', time_range = None, 
-                          pop_rates = False, bin_size = 5., smooth = 0, quantity = 'rate', progress = False,
+                          pop_rates = False, bin_size = 5., smooth = 0, quantity = 'rate', include_artificial=True, progress = False,
                           overlay=True, graph_type='bar', **kwargs):
     ''' 
     Plots spike histogram. Returns figure handle.
@@ -2845,7 +2855,7 @@ def plot_spike_histogram (input_path, namespace_id, config_path=None, include = 
         include.reverse()
         
     spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable,
-                                           time_range=time_range)
+                                           time_range=time_range, include_artificial=include_artificial)
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
