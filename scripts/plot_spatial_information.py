@@ -17,6 +17,7 @@ script_name = os.path.basename(__file__)
 @click.option("--spike-events-namespace", '-n', type=str, default='Spike Events')
 @click.option("--spike-train-attr-name", type=str, default='t')
 @click.option("--populations", '-p', type=str, multiple=True, default=None)
+@click.option("--include-artificial/--exclude-artificial", type=bool, default=True, is_flag=True)
 @click.option("--t-max", type=float)
 @click.option("--t-min", type=float)
 @click.option("--trajectory-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -30,7 +31,7 @@ script_name = os.path.basename(__file__)
 @click.option("--fig-size", type=(float,float), default=(15,8))
 @click.option("--fig-format", required=False, type=str, default='svg')
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(config, config_prefix, spike_events_path, spike_events_namespace, spike_train_attr_name, populations, t_max,
+def main(config, config_prefix, spike_events_path, spike_events_namespace, spike_train_attr_name, populations, include_artificial, t_max,
          t_min, trajectory_path, arena_id, trajectory_id, bin_size, output_file_path, save_fig, save_fig_dir, font_size,
          fig_size, fig_format, verbose):
     """
@@ -57,7 +58,7 @@ def main(config, config_prefix, spike_events_path, spike_events_namespace, spike
     utils.config_logging(verbose)
 
     plot.plot_spatial_information(spike_events_path, spike_events_namespace, trajectory_path, arena_id, trajectory_id,
-                                  populations=populations, position_bin_size=bin_size,
+                                  populations=populations, include_artificial=include_artificial, position_bin_size=bin_size,
                                   spike_train_attr_name=spike_train_attr_name, time_range=[t_min, t_max],
                                   fontSize=font_size, verbose=verbose, output_file_path=output_file_path,
                                   saveFig=save_fig, figFormat=fig_format, figSize=fig_size)

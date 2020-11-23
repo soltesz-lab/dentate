@@ -2,7 +2,7 @@
 import numpy as np
 from mpi4py import MPI
 
-from dentate.utils import get_module_logger, zip
+from dentate.utils import get_module_logger, zip, consecutive
 from neuroh5.io import read_cell_attributes, read_cell_attribute_selection, read_cell_attribute_info
 
 ## This logger will inherit its setting from its root logger, dentate,
@@ -14,7 +14,7 @@ def query_state(input_file, population_names, namespace_ids=None):
 
     pop_state_dict = {}
 
-    logger.info('Reading state data...')
+    logger.info('Querying state data...')
 
     attr_info_dict = read_cell_attribute_info(input_file, populations=population_names, read_cell_index=True)
 
@@ -38,7 +38,7 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', st
     logger.info('Reading state data from populations %s, namespace %s gid = %s...' % (str(population_names), namespace_id, str(gid)))
 
     attr_info_dict = read_cell_attribute_info(input_file, populations=population_names, read_cell_index=True)
-
+    
     for pop_name in population_names:
         cell_index = None
         pop_state_dict[pop_name] = {}
@@ -86,14 +86,16 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', st
                         this_n_trials = n_trial_bounds
                     else:
                         this_n_trials = min(n_trial_bounds, n_trials)
-
+                    trial_bounds_consecutive = consecutive(np.asarray(trial_bounds))
+                    trial_bounds_unique = [x[-1] for x in trial_bounds_consecutive]
+                    
                     if this_n_trials > 1:
-                        state_dict[cellind] = (np.split(tvals, trial_bounds[1:n_trials]),
-                                               np.split(svals, trial_bounds[1:n_trials]),
+                        state_dict[cellind] = (np.split(tvals, trial_bounds_unique[1:n_trials]),
+                                               np.split(svals, trial_bounds_unique[1:n_trials]),
                                                distance, section, loc)
                     else:
-                        state_dict[cellind] = ([tvals[:trial_bounds[1]]],
-                                               [svals[:trial_bounds[1]]],
+                        state_dict[cellind] = ([tvals[:trial_bounds_unique[1]]],
+                                               [svals[:trial_bounds_unique[1]]],
                                                distance, section, loc)
                         
         else:
@@ -109,18 +111,21 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', st
                     trial_bounds = list(np.where(np.isclose(tvals, tvals[0], atol=1e-4))[0])
                     n_trial_bounds = len(trial_bounds)
                     trial_bounds.append(len(tvals))
+                    trial_bounds_consecutive = consecutive(np.asarray(trial_bounds))
+                    trial_bounds_unique = [x[-1] for x in trial_bounds_consecutive]
+                    
                     if n_trials == -1:
                         this_n_trials = n_trial_bounds
                     else:
                         this_n_trials = min(n_trial_bounds, n_trials)
 
                     if this_n_trials > 1:
-                        state_dict[cellind] = (np.split(tvals, trial_bounds[1:n_trials]),
-                                               np.split(svals, trial_bounds[1:n_trials]),
+                        state_dict[cellind] = (np.split(tvals, trial_bounds_unique[1:n_trials]),
+                                               np.split(svals, trial_bounds_unique[1:n_trials]),
                                                distance, section, loc)
                     else:
-                        state_dict[cellind] = ([tvals[:trial_bounds[1]]],
-                                               [svals[:trial_bounds[1]]],
+                        state_dict[cellind] = ([tvals[:trial_bounds_unique[1]]],
+                                               [svals[:trial_bounds_unique[1]]],
                                                distance, section, loc)
                         
 

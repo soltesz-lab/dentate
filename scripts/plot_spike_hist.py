@@ -15,6 +15,7 @@ script_name = os.path.basename(__file__)
 @click.option("--spike-events-path", '-p', required=True, type=click.Path())
 @click.option("--spike-events-namespace", '-n', type=str, default='Spike Events')
 @click.option("--populations", '-i', type=str, multiple=True)
+@click.option("--include-artificial/--exclude-artificial", type=bool, default=True, is_flag=True)
 @click.option("--bin-size", type=float, default=5.0)
 @click.option("--smooth", type=int)
 @click.option("--t-variable", type=str, default='t')
@@ -27,7 +28,7 @@ script_name = os.path.basename(__file__)
 @click.option("--save-format", type=str, default='png')
 @click.option("--progress",  type=bool, default=False, is_flag=True)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(spike_events_path, spike_events_namespace, populations, bin_size, smooth, t_variable, t_max, t_min, quantity, font_size, graph_type, overlay, save_format, progress, verbose):
+def main(spike_events_path, spike_events_namespace, populations, include_artificial, bin_size, smooth, t_variable, t_max, t_min, quantity, font_size, graph_type, overlay, save_format, progress, verbose):
 
     utils.config_logging(verbose)
 
@@ -45,7 +46,7 @@ def main(spike_events_path, spike_events_namespace, populations, bin_size, smoot
     plot.plot_spike_histogram (spike_events_path, spike_events_namespace, include=populations, time_variable=t_variable,
                                time_range=time_range, pop_rates=True, bin_size=bin_size,
                                smooth=smooth, quantity=quantity, fontSize=font_size, overlay=overlay, graph_type=graph_type,
-                               progress=progress, saveFig=True, figFormat=save_format)
+                               progress=progress, include_artificial=include_artificial, saveFig=True, figFormat=save_format)
     
 
 if __name__ == '__main__':

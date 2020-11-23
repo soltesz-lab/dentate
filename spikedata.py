@@ -71,7 +71,7 @@ def get_env_spike_dict(env, include_artificial=True):
 
 
 def read_spike_events(input_file, population_names, namespace_id, spike_train_attr_name='t', time_range=None,
-                      max_spikes=None, n_trials=-1, merge_trials=False, comm=None):
+                      max_spikes=None, n_trials=-1, merge_trials=False, comm=None, include_artificial=True):
     """
     Reads spike trains from a NeuroH5 file, and returns a dictionary with spike times and cell indices.
     :param input_file: str (path to file)
@@ -88,6 +88,7 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
 
     trial_index_attr = 'Trial Index'
     trial_dur_attr = 'Trial Duration'
+    artificial_attr = 'artificial'
     
     spkpoplst = []
     spkindlst = []
@@ -106,7 +107,7 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
         else:
             logger.info('Reading spike data for population %s in time range %s...' % (pop_name, str(time_range)))
 
-        spike_train_attr_set = set([spike_train_attr_name, trial_index_attr, trial_dur_attr])
+        spike_train_attr_set = set([spike_train_attr_name, trial_index_attr, trial_dur_attr, artificial_attr])
         spkiter = read_cell_attributes(input_file, pop_name, namespace=namespace_id, 
                                        mask=spike_train_attr_set)
         if comm is not None:
@@ -124,9 +125,14 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
         # Time Range
         if time_range is None or time_range[1] is None:
             for spkind, spkts in spkiter:
+                is_artificial_flag = spkts.get(artificial_attr, None)
+                is_artificial = (is_artificial_flag[0] > 0) if is_artificial_flag is not None else None
+                if is_artificial is not None:
+                    if is_artificial and (not include_artificial):
+                        continue
                 slen = len(spkts[spike_train_attr_name])
-                trial_dur = spkts.get('Trial Duration', np.asarray([0.]))
-                trial_ind = spkts.get('Trial Index', np.zeros((slen,),dtype=np.uint8))
+                trial_dur = spkts.get(trial_dur_attr, np.asarray([0.]))
+                trial_ind = spkts.get(trial_index_attr, np.zeros((slen,),dtype=np.uint8))
                 if n_trials == -1:
                     n_trials = trial_dur.shape[0]
                 for spk_i, spkt in enumerate(spkts[spike_train_attr_name]):
@@ -149,10 +155,15 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
                 time_range[0] = 0.0
             time_span = time_range[1] - time_range[0]
             for spkind, spkts in spkiter:
-                trial_dur = spkts.get('Trial Duration', np.asarray([0.]))
+                is_artificial_flag = spkts.get(artificial_attr, None)
+                is_artificial = (is_artificial_flag[0] > 0) if is_artificial_flag is not None else None
+                if is_artificial is not None:
+                    if is_artificial and (not include_artificial):
+                        continue
+                trial_dur = spkts.get(trial_dur_attr, np.asarray([0.]))
                 trial_dur[1:] = np.asarray([max(x, time_span) for x in trial_dur[1:] ],
                                            dtype=np.float32)
-                trial_ind = spkts.get('Trial Index', np.zeros((len(spkts[spike_train_attr_name])),dtype=np.int))
+                trial_ind = spkts.get(trial_index_attr, np.zeros((len(spkts[spike_train_attr_name])),dtype=np.int))
                 if n_trials == -1:
                     n_trials = trial_dur.shape[0]
                 for spk_i, spkt in enumerate(spkts[spike_train_attr_name]):
@@ -172,11 +183,11 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
                         this_num_cell_spks += 1
                         active_set.add(spkind)
 
-        if not active_set:
-            continue
-
         pop_active_cells[pop_name] = active_set
         num_cell_spks[pop_name] = this_num_cell_spks
+
+        if not active_set:
+            continue
 
         pop_spkts = np.asarray(pop_spktlst, dtype=np.float32)
         del (pop_spktlst)

@@ -16,6 +16,7 @@ script_name = os.path.basename(__file__)
 @click.option("--coords-path", '-c', required=True, type=click.Path())
 @click.option("--distances-namespace", '-d', type=str, default='Arc Distances')
 @click.option("--populations", '-i', type=str, multiple=True)
+@click.option("--include-artificial/--exclude-artificial", type=bool, default=True, is_flag=True)
 @click.option("--max-spikes", type=int, default=int(1e6))
 @click.option("--t-variable", type=str, default='t')
 @click.option("--t-max", type=float)
@@ -24,7 +25,7 @@ script_name = os.path.basename(__file__)
 @click.option("--font-size", type=float, default=14)
 @click.option("--save-fig", type=bool, default=False, is_flag=True)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(spike_events_path, spike_events_namespace, coords_path, distances_namespace, populations, max_spikes, t_variable, t_max, t_min, t_step, font_size, save_fig, verbose):
+def main(spike_events_path, spike_events_namespace, coords_path, distances_namespace, populations, include_artificial, max_spikes, t_variable, t_max, t_min, t_step, font_size, save_fig, verbose):
 
     utils.config_logging(verbose)
     
@@ -40,8 +41,8 @@ def main(spike_events_path, spike_events_namespace, coords_path, distances_names
         populations = ['eachPop']
         
     plot.plot_spatial_spike_raster (spike_events_path, spike_events_namespace, coords_path, distances_namespace, include=populations, \
-                                    time_range=time_range, time_variable=t_variable, time_step=t_step, max_spikes=max_spikes, \
-                                    fontSize=font_size, saveFig=save_fig)
+                                    include_artificial=include_artificial, time_range=time_range, time_variable=t_variable, \
+                                    time_step=t_step, max_spikes=max_spikes, fontSize=font_size, saveFig=save_fig)
     
 
 if __name__ == '__main__':
