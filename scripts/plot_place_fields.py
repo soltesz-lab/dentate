@@ -15,6 +15,7 @@ script_name = os.path.basename(__file__)
 @click.option("--spike-events-namespace", '-n', type=str, default='Spike Events')
 @click.option("--spike-train-attr-name", type=str, default='t')
 @click.option("--populations", '-p', type=str, multiple=True, default=None)
+@click.option("--include-artificial/--exclude-artificial", type=bool, default=True, is_flag=True)
 @click.option("--t-max", type=float)
 @click.option("--t-min", type=float)
 @click.option("--trajectory-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -30,7 +31,7 @@ script_name = os.path.basename(__file__)
 @click.option("--fig-format", required=False, type=str, default='svg')
 @click.option("--progress", type=bool, default=False, is_flag=True)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(config_path, spike_events_path, spike_events_namespace, spike_train_attr_name, populations, t_max, t_min, trajectory_path,
+def main(config_path, spike_events_path, spike_events_namespace, spike_train_attr_name, populations, include_artificial, t_max, t_min, trajectory_path,
          arena_id, trajectory_id, bin_size, min_pf_width, min_pf_rate, font_size, output_file_path, plot_dir_path, save_fig,
          fig_format, progress, verbose):
     """
@@ -57,8 +58,8 @@ def main(config_path, spike_events_path, spike_events_namespace, spike_train_att
     utils.config_logging(verbose)
 
     plot.plot_place_fields(spike_events_path, spike_events_namespace, trajectory_path, arena_id, trajectory_id,
-                           config_path=config_path, populations=populations, bin_size=bin_size,
-                           min_pf_width=min_pf_width, min_pf_rate=min_pf_rate,
+                           config_path=config_path, populations=populations, include_artificial=include_artificial,
+                           bin_size=bin_size, min_pf_width=min_pf_width, min_pf_rate=min_pf_rate,
                            spike_train_attr_name=spike_train_attr_name, time_range=[t_min, t_max],
                            fontSize=font_size, output_file_path=output_file_path, plot_dir_path=plot_dir_path,
                            progress=progress, saveFig=save_fig, figFormat=fig_format, verbose=verbose)

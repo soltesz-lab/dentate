@@ -15,20 +15,20 @@ script_name = os.path.basename(__file__)
 @click.option("--spike-events-path", '-p', required=True, type=click.Path())
 @click.option("--spike-events-namespace", '-n', type=str, default='Spike Events')
 @click.option("--populations", '-i', type=str, multiple=True)
+@click.option("--include-artificial/--exclude-artificial", type=bool, default=True, is_flag=True)
 @click.option("--bin-size", type=float, default=5.0)
 @click.option("--smooth", type=int)
 @click.option("--t-variable", type=str, default='t')
 @click.option("--t-max", type=float)
 @click.option("--t-min", type=float)
 @click.option("--quantity", type=str, default='rate')
-@click.option("--include-artificial/--exclude-artificial", type=bool, default=True, is_flag=True)
 @click.option("--font-size", type=float, default=14)
 @click.option("--graph-type", type=str, default='bar')
 @click.option("--overlay", type=bool, default=False, is_flag=True)
 @click.option("--save-format", type=str, default='png')
 @click.option("--progress",  type=bool, default=False, is_flag=True)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(spike_events_path, spike_events_namespace, populations, bin_size, smooth, t_variable, t_max, t_min, quantity, include_artificial, font_size, graph_type, overlay, save_format, progress, verbose):
+def main(spike_events_path, spike_events_namespace, populations, include_artificial, bin_size, smooth, t_variable, t_max, t_min, quantity, font_size, graph_type, overlay, save_format, progress, verbose):
 
     utils.config_logging(verbose)
 

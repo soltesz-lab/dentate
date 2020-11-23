@@ -15,6 +15,7 @@ script_name = os.path.basename(__file__)
 @click.option("--spike-events-path", '-p', required=True, type=click.Path())
 @click.option("--spike-events-namespace", '-n', type=str, default='Spike Events')
 @click.option("--populations", '-i', type=str, multiple=True)
+@click.option("--include-artificial/--exclude-artificial", type=bool, default=True, is_flag=True)
 @click.option("--bin-size", type=float, default=1.0)
 @click.option("--window-size", type=int, default=1024)
 @click.option("--overlap", type=float, default=0.5)
@@ -24,7 +25,7 @@ script_name = os.path.basename(__file__)
 @click.option("--font-size", type=float, default=14)
 @click.option("--overlay", type=bool, default=False, is_flag=True)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(spike_events_path, spike_events_namespace, populations, bin_size, window_size, overlap, smooth, t_max, t_min, font_size, overlay, verbose):
+def main(spike_events_path, spike_events_namespace, populations, include_artificial, bin_size, window_size, overlap, smooth, t_max, t_min, font_size, overlay, verbose):
 
     utils.config_logging(verbose)
 
@@ -39,9 +40,9 @@ def main(spike_events_path, spike_events_namespace, populations, bin_size, windo
     if not populations:
         populations = ['eachPop']
 
-    plot.plot_spike_PSD (spike_events_path, spike_events_namespace, populations, time_range=time_range, 
-                         bin_size=bin_size, window_size=window_size, smooth=smooth, overlap=overlap,
-                        fontSize=font_size, overlay=overlay, saveFig=True)
+    plot.plot_spike_PSD (spike_events_path, spike_events_namespace, populations, include_artificial=include_artificial,
+                         time_range=time_range, bin_size=bin_size, window_size=window_size, smooth=smooth, overlap=overlap,
+                         fontSize=font_size, overlay=overlay, saveFig=True)
     
 
 if __name__ == '__main__':

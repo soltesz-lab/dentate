@@ -2158,10 +2158,10 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
             lgd_labels = [ '%s (%.02f%% active; %.3g Hz)' % (pop_name, info[0], info[1]) for pop_name, info in zip_longest(include, lgd_info) ]
         else:
             lgd_labels = [ '%s (%.02f%% active)' % (pop_name, info[0]) for pop_name, info in zip_longest(include, lgd_info) ]
-        for i, (pop_name, lgd_info) in enumerate(zip(spkpoplst, lgd_info)):
-                at = AnchoredText(pop_name + ' ' + lgd_label,
-                                  loc='upper right', borderpad=0.01, prop=dict(size=fig_options.fontSize))
-                axes[i].add_artist(at)
+        for i, lgd_label in enumerate(lgd_labels):
+            at = AnchoredText(pop_name + ' ' + lgd_label,
+                              loc='upper right', borderpad=0.01, prop=dict(size=fig_options.fontSize))
+            axes[i].add_artist(at)
         max_label_len = max([len(l) for l in lgd_labels])
         
     elif labels == 'yticks':
@@ -2270,7 +2270,8 @@ spatial_raster_aniplots = []
         
 ## Plot spike raster
 def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_namespace='Arc Distances',
-                               include = ['eachPop'], time_step = 5.0, time_range = None, time_variable='t', max_spikes = int(1e6), marker = 'o', **kwargs): 
+                               include = ['eachPop'], time_step = 5.0, time_range = None, time_variable='t',
+                               include_artificial=True, max_spikes = int(1e6), marker = 'o', **kwargs): 
     ''' 
     Spatial raster plot of network spike times. Returns the figure handle.
 
@@ -2326,7 +2327,8 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
         distance_U_dict[population] = distance_U
         distance_V_dict[population] = distance_V
         
-    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable, time_range=time_range)
+    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable,
+                                           time_range=time_range, include_artificial=include_artificial)
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
@@ -2368,7 +2370,7 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
 
 
 def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid, include='eachPop',
-                       time_range=None, time_variable='t', intracellular_variable='v', labels='overlay',
+                       include_artificial=True, time_range=None, time_variable='t', intracellular_variable='v', labels='overlay',
                        pop_rates=True, all_spike_hist=False, spike_hist_bin=5, lowpass_plot_type='overlay',
                        n_trials=-1, marker='.', **kwargs):
     """
@@ -2427,7 +2429,7 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
 
     spkdata = spikedata.read_spike_events(input_path, include, spike_namespace, \
                                           spike_train_attr_name=time_variable, time_range=time_range,
-                                          n_trials=n_trials)
+                                          n_trials=n_trials, include_artificial=include_artificial )
     logger.info('plot_network_clamp: reading recorded intracellular variable %s for gid %d' % \
                 (intracellular_variable, gid))
     indata = read_state(input_path, [state_pop_name], intracellular_namespace, time_variable=time_variable, \
@@ -2664,7 +2666,7 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
     return fig
 
 
-def plot_spike_rates(input_path, namespace_id, config_path=None, include = ['eachPop'], time_range = None, time_variable='t', meansub=False, max_units = None, labels = 'legend', bin_size = 100., threshold=None, graph_type='raster2d', progress=False, **kwargs):
+def plot_spike_rates(input_path, namespace_id, config_path=None, include = ['eachPop'], include_artificial=True, time_range = None, time_variable='t', meansub=False, max_units = None, labels = 'legend', bin_size = 100., threshold=None, graph_type='raster2d', progress=False, **kwargs):
     ''' 
     Plot of network firing rates. Returns the figure handle.
 
@@ -2699,7 +2701,7 @@ def plot_spike_rates(input_path, namespace_id, config_path=None, include = ['eac
             include.append(pop)
 
     spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable,
-                                           time_range=time_range)
+                                           time_range=time_range, include_artificial=include_artificial)
     
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
@@ -3005,7 +3007,7 @@ def plot_spike_histogram (input_path, namespace_id, config_path=None, include = 
     return fig
 
 
-def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['eachPop'], time_variable='t', time_range = None, overlay=True, quantity = 'rate', graph_type = 'point', **kwargs):
+def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['eachPop'], include_artificial=True, time_variable='t', time_range = None, overlay=True, quantity = 'rate', graph_type = 'point', **kwargs):
     ''' 
     Plots distributions of spike rate/count. Returns figure handle.
 
@@ -3036,7 +3038,7 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
             include.append(pop)
 
     spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable,
-                                           time_range=time_range)
+                                           time_range=time_range, include_artificial=include_artificial)
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
@@ -3140,9 +3142,9 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
 
 
 def plot_spike_distribution_per_time (input_path, namespace_id, config_path=None, include = ['eachPop'],
-                                      time_bin_size = 50.0, binCount = 10,
-                                      time_variable='t', time_range = None, 
-                                      overlay=True, quantity = 'rate', alpha_fill = 0.2, **kwargs):
+                                      include_artificial=True, time_bin_size = 50.0, binCount = 10,
+                                      time_variable='t', time_range = None, overlay=True, quantity = 'rate',
+                                      alpha_fill = 0.2, **kwargs):
     ''' 
     Plots distributions of spike rate/count. Returns figure handle.
 
@@ -3182,7 +3184,7 @@ def plot_spike_distribution_per_time (input_path, namespace_id, config_path=None
             include.append(pop)
 
     spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable,
-                                           time_range=time_range)
+                                           time_range=time_range, include_artificial=include_artificial)
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
@@ -3304,7 +3306,7 @@ def plot_spike_distribution_per_time (input_path, namespace_id, config_path=None
 
 
 def plot_spatial_information(spike_input_path, spike_namespace_id, trajectory_path, arena_id, trajectory_id,
-                             populations=None, position_bin_size=5.0, spike_train_attr_name='t', time_range=None,
+                             populations=None, include_artificial=True, position_bin_size=5.0, spike_train_attr_name='t', time_range=None,
                              alpha_fill=0.2, output_file_path=None, plot_dir_path=None, **kwargs):
     """
     Plots distributions of spatial information per cell. Returns figure handle.
@@ -3341,7 +3343,7 @@ def plot_spatial_information(spike_input_path, spike_namespace_id, trajectory_pa
 
     this_spike_namespace = '%s %s %s' % (spike_namespace_id, arena_id, trajectory_id)
 
-    spkdata = spikedata.read_spike_events(spike_input_path, populations, this_spike_namespace,
+    spkdata = spikedata.read_spike_events(spike_input_path, populations, this_spike_namespace, include_artificial=include_artificial,
                                           spike_train_attr_name=spike_train_attr_name, time_range=time_range)
 
     spkpoplst = spkdata['spkpoplst']
@@ -3468,9 +3470,9 @@ def plot_place_cells(features_path, population, nfields=1, to_plot=100, **kwargs
         plt.show()
 
 
-def plot_place_fields(spike_input_path, spike_namespace_id, trajectory_path, arena_id, trajectory_id, config_path=None, populations=None,
-                      bin_size=10.0, spike_train_attr_name='t', time_range=None, alpha_fill=0.2,
-                      overlay=False, output_file_path=None, plot_dir_path=None, **kwargs):
+def plot_place_fields(spike_input_path, spike_namespace_id, trajectory_path, arena_id, trajectory_id, config_path=None,
+                      populations=None, include_artificial=True, bin_size=10.0, spike_train_attr_name='t', time_range=None,
+                      alpha_fill=0.2, overlay=False, output_file_path=None, plot_dir_path=None, **kwargs):
     """
     Plots distributions of place fields per cell. Returns figure handle.
     :param spike_input_path: str (path to file)
@@ -3519,7 +3521,9 @@ def plot_place_fields(spike_input_path, spike_namespace_id, trajectory_path, are
     this_spike_namespace = spike_namespace_id
     
     spkdata = spikedata.read_spike_events(spike_input_path, populations, this_spike_namespace,
-                                          spike_train_attr_name=spike_train_attr_name, time_range=time_range)
+                                          include_artificial=include_artificial, 
+                                          spike_train_attr_name=spike_train_attr_name,
+                                          time_range=time_range)
 
     spkpoplst = spkdata['spkpoplst']
     spkindlst = spkdata['spkindlst']
@@ -3657,7 +3661,7 @@ def plot_place_fields(spike_input_path, spike_namespace_id, trajectory_path, are
 
 
 
-def plot_spike_PSD (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t',
+def plot_spike_PSD (input_path, namespace_id, include = ['eachPop'], include_artificial=True, time_range = None, time_variable='t',
                     bin_size = 1., window_size = 1024, smooth = 0, frequency_range=(0, 100.), overlap=0.5,
                     overlay = True, **kwargs):
     ''' 
@@ -3693,7 +3697,7 @@ def plot_spike_PSD (input_path, namespace_id, include = ['eachPop'], time_range 
             include.append(pop)
 
     spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable,
-                                           time_range=time_range)
+                                           time_range=time_range, include_artificial=include_artificial)
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
@@ -4056,9 +4060,9 @@ def plot_stimulus_spatial_rate_map(env, input_path, coords_path, arena_id, traje
             show_figure()
 
 
-def plot_spike_histogram_autocorr (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t',
-                                   bin_size = 25, graph_type = 'matrix', lag=1, max_cells = None, xlim = None, 
-                                   marker = '|', **kwargs):
+def plot_spike_histogram_autocorr (input_path, namespace_id, include = ['eachPop'], include_artificial=True,
+                                   time_range = None, time_variable='t', bin_size = 25, graph_type = 'matrix',
+                                   lag=1, max_cells = None, xlim = None, marker = '|', **kwargs):
     """
     Plot of spike histogram correlations. Returns the figure handle.
 
@@ -4087,7 +4091,7 @@ def plot_spike_histogram_autocorr (input_path, namespace_id, include = ['eachPop
             include.append(pop)
 
     spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable,
-                                           time_range=time_range)
+                                           time_range=time_range, include_artificial=include_artificial)
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
@@ -4159,7 +4163,7 @@ def plot_spike_histogram_autocorr (input_path, namespace_id, include = ['eachPop
 
 
 ## Plot spike cross-correlation
-def plot_spike_histogram_corr (input_path, namespace_id, include = ['eachPop'], time_range = None, time_variable='t', bin_size = 25, graph_type = 'matrix', max_cells = None, marker = '|', **kwargs): 
+def plot_spike_histogram_corr (input_path, namespace_id, include = ['eachPop'], include_artificial=True, time_range = None, time_variable='t', bin_size = 25, graph_type = 'matrix', max_cells = None, marker = '|', **kwargs): 
     ''' 
     Plot of spike histogram correlations. Returns the figure handle.
 
@@ -4188,7 +4192,7 @@ def plot_spike_histogram_corr (input_path, namespace_id, include = ['eachPop'], 
             include.append(pop)
 
     spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable,
-                                           time_range=time_range)
+                                           time_range=time_range, include_artificial=include_artificial, )
 
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
