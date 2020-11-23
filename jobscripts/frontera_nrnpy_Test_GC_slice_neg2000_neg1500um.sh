@@ -1,8 +1,8 @@
 #!/bin/bash
 #
-#SBATCH -J dentate_Test_GC_slice_600um
-#SBATCH -o ./results/dentate_Test_GC_slice_600um.%j.o
-#SBATCH --nodes=32
+#SBATCH -J dentate_Test_GC_slice_neg2000_neg1500um
+#SBATCH -o ./results/dentate_Test_GC_slice_neg2000_neg1500um.%j.o
+#SBATCH --nodes=16
 #SBATCH --ntasks-per-node=56
 #SBATCH -p normal
 #SBATCH -t 2:00:00
@@ -22,13 +22,13 @@ export MODEL_HOME=$HOME/model
 export DG_HOME=$MODEL_HOME/dentate
 export LD_PRELOAD=$MKLROOT/lib/intel64_lin/libmkl_core.so:$MKLROOT/lib/intel64_lin/libmkl_sequential.so
 
-export I_MPI_EXTRA_FILESYSTEM=enable
-export I_MPI_ADJUST_ALLGATHER=4
-export I_MPI_ADJUST_ALLGATHERV=4
-export I_MPI_ADJUST_ALLTOALL=4
-export I_MPI_ADJUST_ALLTOALLV=2
+#export I_MPI_EXTRA_FILESYSTEM=enable
+#export I_MPI_ADJUST_ALLGATHER=4
+#export I_MPI_ADJUST_ALLGATHERV=4
+#export I_MPI_ADJUST_ALLTOALL=4
+#export I_MPI_ADJUST_ALLTOALLV=2
 
-results_path=$SCRATCH/striped/dentate/results/Test_GC_slice_600um_$SLURM_JOB_ID
+results_path=$SCRATCH/striped/dentate/results/Test_GC_slice_neg2000_neg1500um_$SLURM_JOB_ID
 export results_path
 
 mkdir -p $results_path
@@ -36,14 +36,14 @@ mkdir -p $results_path
 #git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
 #git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
 
-ibrun env PYTHONPATH=$PYTHONPATH python3 ./scripts/main.py  \
+ibrun python3 ./scripts/main.py  \
     --arena-id=A --trajectory-id=Diag \
-    --config-file=Test_Slice_600um_IN_Izh.yaml \
+    --config-file=Test_Slice_neg2000_neg1500um_IN_Izh.yaml \
     --config-prefix=./config \
     --template-paths=../dgc/Mateos-Aparicio2014:templates \
     --dataset-prefix="$SCRATCH/striped/dentate" \
     --results-path=$results_path \
-    --io-size=16 \
+    --io-size=8 \
     --tstop=9500 \
     --v-init=-75 \
     --max-walltime-hours=1.9 \
@@ -52,6 +52,7 @@ ibrun env PYTHONPATH=$PYTHONPATH python3 ./scripts/main.py  \
     --spike-input-attr='Spike Train' \
     --microcircuit-inputs \
     --checkpoint-interval 0. \
+    --recording-fraction 0.01 \
     --use-coreneuron \
     --verbose
 

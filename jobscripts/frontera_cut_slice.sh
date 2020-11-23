@@ -10,7 +10,6 @@
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
-module load intel/18.0.5
 module load python3
 module load phdf5
 
@@ -18,7 +17,7 @@ set -x
 
 export NEURONROOT=$HOME/bin/nrnpython3
 export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
-export PATH=$NEURONROOT/x86_64/bin:$PATH
+export PATH=$NEURONROOT/bin:$PATH
 
 results_path=$SCRATCH/dentate/results/cut_slice_$SLURM_JOB_ID
 export results_path
@@ -27,11 +26,6 @@ cd $SLURM_SUBMIT_DIR
 
 mkdir -p $results_path
 
-export I_MPI_EXTRA_FILESYSTEM=enable
-export I_MPI_EXTRA_FILESYSTEM_LIST=lustre
-export I_MPI_ADJUST_ALLGATHER=4
-export I_MPI_ADJUST_ALLGATHERV=4
-export I_MPI_ADJUST_ALLTOALL=4
 
 export PYTHON=`which python3`
 
@@ -45,6 +39,6 @@ ibrun python3 ./scripts/cut_slice.py \
     --spike-input-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h\
 5" \
     --spike-input-namespace='Input Spikes A Diag' \
-    --distance-limits -300 300 \
+    --distance-limits -2000 -1500 \
     --write-selection \
     --verbose
