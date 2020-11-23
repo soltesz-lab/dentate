@@ -2101,7 +2101,8 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
         S = pop_start_inds[pop_name]
         axes[i].set_ylim(S, S+N-1)
         
-    lgd_info = [(100. * fraction_active[pop_name], avg_rates[pop_name]) for pop_name in spkpoplst if pop_name in avg_rates]
+    lgd_info = [(100. * fraction_active.get(pop_name, 0.), avg_rates.get(pop_name, 0.))
+                for pop_name in include ]
             
     # set raster plot y tick labels to the middle of the index range for each population
     for pop_name, a in zip_longest(include, fig.axes[:-1]):
