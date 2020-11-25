@@ -637,7 +637,6 @@ def update_network_params(env, param_config_dict):
                                               filters={'sources': sources} if sources is not None else None,
                                               origin=None if is_reduced else 'soma', 
                                               update_targets=True)
-            cell = env.pc.gid2cell(gid)
     
 
 def run_with(env, param_dict, cvode=False, pc_runworker=False):
@@ -712,7 +711,7 @@ def run_with(env, param_dict, cvode=False, pc_runworker=False):
 
 
 
-def optimize_params(env, pop_name, param_type, param_config_name):
+def optimization_params(env, pop_name, param_type, param_config_name):
     """Constructs a flat list representation of synaptic optimization parameters based on network clamp optimization configuration."""
     
     param_bounds = {}
@@ -726,7 +725,7 @@ def optimize_params(env, pop_name, param_type, param_config_name):
             param_ranges = opt_params['Parameter ranges'][param_config_name]
         else:
             raise RuntimeError(
-                "network_clamp.optimize_params: population %s does not have optimization configuration" % pop_name)
+                "network_clamp.optimization_params: population %s does not have optimization configuration" % pop_name)
         keyfun = lambda kv: str(kv[0])
         for source, source_dict in sorted(viewitems(param_ranges), key=keyfun):
             for sec_type, sec_type_dict in sorted(viewitems(source_dict), key=keyfun):
@@ -752,7 +751,7 @@ def optimize_params(env, pop_name, param_type, param_config_name):
                             param_names.append(param_key)
         
     else:
-        raise RuntimeError("network_clamp.optimize_params: unknown parameter type %s" % param_type)
+        raise RuntimeError("network_clamp.optimization_params: unknown parameter type %s" % param_type)
 
     return param_bounds, param_names, param_initial_dict, param_tuples
 
@@ -777,8 +776,8 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
     equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
     
     param_bounds, param_names, param_initial_dict, param_tuples = \
-      optimize_params(env, population, param_type, param_config_name)
-    
+      optimization_params(env, population, param_type, param_config_name)
+   
     def from_param_dict(params_dict):
         result = []
         for param_pattern, param_tuple in zip(param_names, param_tuples):
@@ -859,7 +858,7 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
 
     time_step = env.stimulus_config['Temporal Resolution']
     param_bounds, param_names, param_initial_dict, param_tuples = \
-      optimize_params(env, population, param_type, param_config_name)
+      optimization_params(env, population, param_type, param_config_name)
     
     def from_param_dict(params_dict):
         result = []
@@ -1022,7 +1021,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
             logger.info('selectivity rate objective: target peak/trough rate of gid %i: %.02f %.02f' % (gid, peak_pctile_dict[gid], trough_pctile_dict[gid]))
         
     param_bounds, param_names, param_initial_dict, param_tuples = \
-      optimize_params(env, population, param_type, param_config_name)
+      optimization_params(env, population, param_type, param_config_name)
 
     def from_param_dict(params_dict):
         result = []
@@ -1249,7 +1248,7 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
 
         
     param_bounds, param_names, param_initial_dict, param_tuples = \
-      optimize_params(env, population, param_type, param_config_name)
+      optimization_params(env, population, param_type, param_config_name)
 
     def from_param_dict(params_dict):
         result = []
@@ -1413,7 +1412,7 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
                           input_features_path, input_features_namespaces,
                           param_type, param_config_name, recording_profile,
                           target_rate_map_path, target_rate_map_namespace,
-			  target_rate_map_arena, target_rate_map_trajectory,  
+                          target_rate_map_arena, target_rate_map_trajectory,  
                           use_coreneuron, cooperative_init, dt, worker, **kwargs):
     
     params = dict(locals())
@@ -1451,7 +1450,7 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
     
 
     param_bounds, param_names, param_initial_dict, param_tuples = \
-      optimize_params(env, population, param_type, param_config_name)
+      optimization_params(env, population, param_type, param_config_name)
     
     def from_param_dict(params_dict):
         result = []
@@ -1530,7 +1529,7 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
     import distgfs
 
     param_bounds, param_names, param_initial_dict, param_tuples = \
-      optimize_params(env, pop_name, param_type, param_config_name)
+      optimization_params(env, pop_name, param_type, param_config_name)
     
     hyperprm_space = { param_pattern: [param_tuple.param_range[0], param_tuple.param_range[1]]
                        for param_pattern, param_tuple in 
