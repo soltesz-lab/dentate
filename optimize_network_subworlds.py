@@ -79,6 +79,7 @@ def optimization_params(env, pop_names, param_config_name, param_type='synaptic'
     param_names = []
     param_initial_dict = {}
     param_tuples = []
+    opt_targets = {}
 
     for pop_name in pop_names:
         if param_type == 'synaptic':
@@ -101,31 +102,31 @@ def optimization_params(env, pop_names, param_config_name, param_type='synaptic'
                                     param_tuples.append(SynParam(pop_name, source, sec_type, syn_name, param_path, const_range))
                                     param_key = '%s.%s.%s.%s.%s.%s' % (pop_name, str(source), sec_type, syn_name, param_fst, const_name)
                                     param_initial_value = (const_range[1] - const_range[0]) / 2.0
-                                        param_initial_dict[param_key] = param_initial_value
-                                        param_bounds[param_key] = const_range
-                                        param_names.append(param_key)
+                                    param_initial_dict[param_key] = param_initial_value
+                                    param_bounds[param_key] = const_range
+                                    param_names.append(param_key)
                                 else:
                                     param_name = param_fst
                                     param_range = param_rst
                                     param_tuples.append(SynParam(pop_name, source, sec_type, syn_name, param_name, param_range))
                                     param_key = '%s.%s.%s.%s.%s' % (pop_name, source, sec_type, syn_name, param_name)
                                     param_initial_value = (param_range[1] - param_range[0]) / 2.0
-                                        param_initial_dict[param_key] = param_initial_value
-                                        param_bounds[param_key] = param_range
-                                        param_names.append(param_key)
+                                    param_initial_dict[param_key] = param_initial_value
+                                    param_bounds[param_key] = param_range
+                                    param_names.append(param_key)
         
         else:
             raise RuntimeError("optimization_params: unknown parameter type %s" % param_type)
 
-    return param_bounds, param_names, param_initial_dict, param_tuples
+    return param_bounds, param_names, param_initial_dict, param_tuples, opt_targets
 
 
-def update_network_params(x, context=None):
+def update_network_params(env, param_values):
 
     if context is None:
         raise RuntimeError('update_network: missing required Context object')
     
-    param_tuples = context.from_param_vector(x)
+    param_tuples = context.from_param_vector(param_values)
     for param_tuple in param_tuples:
 
         pop_name = param_tuple.population
@@ -173,22 +174,15 @@ def rate_maps_from_features (env, pop_name, input_features_path, input_features_
                              time_range=None, n_trials=1):
     
     """Initializes presynaptic spike sources from a file with input selectivity features represented as firing rates."""
-
-    it = scatter_read_cell_attribute_selection(rate_map_path, pop_name,
-                                               namespace=features_namespace,,
-                                               selection=list(cell_index_set), 
-                                               io_size=env.io_size)
         
     if time_range is not None:
         if time_range[0] is None:
             time_range[0] = 0.0
 
-    equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
     spatial_resolution = float(env.stimulus_config['Spatial Resolution'])
     temporal_resolution = float(env.stimulus_config['Temporal Resolution'])
-    equilibrate = stimulus.get_equilibration(env)
     
-    this_input_features_namespaces = '%s %s' % (input_features_namespace, env.arena_id)
+    this_input_features_namespace = '%s %s' % (input_features_namespace, env.arena_id)
     
     input_features_attr_names = ['Selectivity Type', 'Num Fields', 'Field Width', 'Peak Rate',
                                  'Module ID', 'Grid Spacing', 'Grid Orientation',
@@ -201,23 +195,19 @@ def rate_maps_from_features (env, pop_name, input_features_path, input_features_
     arena_x, arena_y = stimulus.get_2D_arena_spatial_mesh(arena=arena, spatial_resolution=spatial_resolution)
     
     trajectory = arena.trajectories[env.trajectory_id]
-    t, x, y, d = stimulus.generate_linear_trajectory(trajectory,
-                                                     temporal_resolution=temporal_resolution,
-                                                     equilibration_duration=equilibration_duration)
+    t, x, y, d = stimulus.generate_linear_trajectory(trajectory, temporal_resolution=temporal_resolution)
     if time_range is not None:
-        t_range_inds = np.where((t <= time_range[1]) & (t >= time_range[0] - equilibration_duration))[0] 
+        t_range_inds = np.where((t < time_range[1]) & (t >= time_range[0]))[0] 
         t = t[t_range_inds]
         x = x[t_range_inds]
         y = y[t_range_inds]
         d = d[t_range_inds]
-    trajectory = t, x, y, d
 
     input_rate_map_dict = {}
     pop_index = int(env.Populations[pop_name])
-    #            logger.info("reading input features namespace %s..." % (input_features_namespace))
     input_features_iter = scatter_read_cell_attribute_selection(input_features_path, pop_name,
                                                                 selection=list(cell_index_set),
-                                                                namespace=input_features_namespace,
+                                                                namespace=this_input_features_namespace,
                                                                 mask=set(input_features_attr_names), 
                                                                 comm=env.comm, io_size=env.io_size)
     for gid, selectivity_attr_dict in input_features_iter:
@@ -228,9 +218,6 @@ def rate_maps_from_features (env, pop_name, input_features_path, input_features_
                                                            selectivity_type_names=selectivity_type_names,
                                                            selectivity_attr_dict=selectivity_attr_dict)
         rate_map = input_cell_config.get_rate_map(x=x, y=y)
-        if (selectivity_type_name != 'constant') and (equilibrate is not None):
-            equilibrate_filter, equilibrate_len = equilibrate
-            rate_map[:equilibrate_len] = np.multiply(rate_map[:equilibrate_len], equilibrate_filter)
         input_rate_map_dict[gid] = rate_map
             
     return input_rate_map_dict
@@ -253,41 +240,36 @@ def config_worker():
         except Exception as err:
             context.logger.exception(err)
             raise err
-        
+    if 't_start' not in context():
+        context.t_start = 50.
+        context.t_stop = context.env.tstop
+    time_range = (context.t_start, context.t_stop)
+
     context.target_trj_rate_map_dict = {}
     target_rate_map_path = context.target_rate_map_path
     target_rate_map_namespace = context.target_rate_map_namespace
     target_rate_map_arena = context.env.arena_id
     target_rate_map_trajectory = context.env.trajectory_id
     for pop_name in context.target_populations:
-        my_cell_index_set = set(env.biophys_cells[pop_name].keys())
-        trj_rate_maps = rate_maps_from_features(env, pop_name, target_rate_map_path, 
+        my_cell_index_set = set(context.env.biophys_cells[pop_name].keys())
+        trj_rate_maps = rate_maps_from_features(context.env, pop_name, target_rate_map_path, 
                                                 target_rate_map_namespace,
-                                                cell_index_set=list(my_cell_index_set))
+                                                cell_index_set=list(my_cell_index_set),
+                                                time_range=time_range)
         if len(trj_rate_maps) > 0:
             context.target_trj_rate_map_dict[pop_name] = trj_rate_maps
 
-    time_range = (0., min(np.max(trj_t), t_max))
-    
-    time_bins = np.arange(time_range[0], time_range[1], time_step)
-    target_rate_vector_dict = { gid: np.interp(time_bins, trj_t, trj_rate_maps[gid])
-                                for gid in trj_rate_maps }
+    target_rate_vector_dict = { gid: trj_rate_maps[gid] for gid in trj_rate_maps }
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
         idxs = np.where(np.isclose(target_rate_vector, 0., atol=1e-4, rtol=1e-4))[0]
         target_rate_vector[idxs] = 0.
 
-    param_bounds = {}
-    param_names = []
-    param_initial_dict = {}
-    param_range_tuples = []
-    opt_targets = {}
-
     param_bounds, param_names, param_initial_dict, param_tuples, opt_targets = \
-      optimization_params(env, context.target_populations, context.param_config_name)
+      optimization_params(context.env, context.target_populations, context.param_config_name)
 
     def from_param_vector(param_values):
         result = []
-        assert (len(params) == len(param_tuples))
+        assert (len(param_values) == len(param_tuples))
         for i, param_tuple in enumerate(param_tuples):
             result.append((param_tuple.population,
                            param_tuple.source,
@@ -324,7 +306,7 @@ def config_controller():
     if 'env' not in context():
         try:
             context.comm = MPI.COMM_WORLD
-            init_env()
+            #init_env()
         except Exception as err:
             context.logger.exception(err)
             raise err
@@ -359,7 +341,7 @@ def update_network(x, context=None):
 
 
 
-def compute_network_features(x, export=False):
+def compute_network_features(x, model_id=None, export=False):
     """
 
     :param x: array
@@ -372,32 +354,32 @@ def compute_network_features(x, export=False):
                              (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M%S'))
 
  
+    temporal_resolution = float(context.env.stimulus_config['Temporal Resolution'])
+    time_bins  = np.arange(context.t_start, context.t_stop, temporal_resolution)
+
     network.run(context.env, output=context.output_results, shutdown=False)
 
     pop_spike_dict = spikedata.get_env_spike_dict(context.env, include_artificial=False)
 
-    t_start = 250.
-    t_stop = context.env.tstop
-
-    temporal_resolution = float(context.env.stimulus_config['Temporal Resolution'])
-    time_bins  = np.arange(t_start, t_stop, temporal_resolution)
-
     for pop_name in context.target_populations:
 
-        rate_sum_local = 0.
+        n_active_local = 0
+        mean_rate_sum_local = 0.
         spike_density_dict = spikedata.spike_density_estimate (pop_name, pop_spike_dict[pop_name], time_bins)
         for gid, dens_dict in utils.viewitems(spike_density_dict):
-            rate_sum_local += dens_dict['rate']
-        rate_sum = context.env.comm.allreduce(rate_sum_local, op=MPI.SUM)
+            mean_rate_sum_local += np.mean(dens_dict['rate'])
+            if mean_rate_sum_local > 0.:
+                n_active_local += 1
+        mean_rate_sum = context.env.comm.allreduce(mean_rate_sum_local, op=MPI.SUM)
         context.env.comm.barrier()
         
         n_local = len(context.env.cells[pop_name]) - len(context.env.artificial_cells[pop_name])
         n_total = context.env.comm.allreduce(n_local, op=MPI.SUM)
-        n_active = context.env.comm.allreduce(len(spike_density_dict), op=MPI.SUM)
+        n_active = context.env.comm.allreduce(n_active_local, op=MPI.SUM)
         context.env.comm.barrier()
         
         if n_active > 0:
-            mean_rate = rate_sum / n_active
+            mean_rate = mean_rate_sum / n_active
         else:
             mean_rate = 0.
 
@@ -408,31 +390,33 @@ def compute_network_features(x, export=False):
 
         mean_target_rate_dist_residual = None
         if pop_name in context.target_trj_rate_map_dict:
-            target_trj_rate_map_dict = context.target_trj_rate_map_dict[pop_name]
-            target_rate_dist_residuals = []
-            for gid in spike_density_dict:
-                target_trj_rate_map = target_trj_rate_map_dict[gid]
-                residual = np.sum(target_trj_rate_map - spike_density_dict[gid]['rate'])
-                target_rate_dist_residuals.append(residual)
-            residual_sum_local = np.sum(target_rate_dist_residuals)
-            residual_sum = context.env.comm.allreduce(residual_sum_local, op=MPI.SUM)
-            mean_target_rate_dist_residual = residual_sum / n_active
+            mean_target_rate_dist_residual = 0.
+            if n_active > 0:
+                target_trj_rate_map_dict = context.target_trj_rate_map_dict[pop_name]
+                target_rate_dist_residuals = []
+                for gid in spike_density_dict:
+                    target_trj_rate_map = target_trj_rate_map_dict[gid]
+                    residual = np.sum(target_trj_rate_map - spike_density_dict[gid]['rate'])
+                    target_rate_dist_residuals.append(residual)
+                residual_sum_local = np.sum(target_rate_dist_residuals)
+                residual_sum = context.env.comm.allreduce(residual_sum_local, op=MPI.SUM)
+                mean_target_rate_dist_residual = residual_sum / n_active
             context.env.comm.barrier()
                 
         rank = int(context.env.pc.id())
-        if rank == 0:
-            context.logger.info('population %s: n_active = %d n_total = %d mean rate = %.02f' %
-                                    (pop_name, n_active, n_total, mean_rate))
+        if context.env.comm.rank == 0:
+            context.logger.info('population %s: n_active = %d n_total = %d mean rate = %s' %
+                                    (pop_name, n_active, n_total, str(mean_rate)))
 
         results['%s firing rate' % pop_name] = mean_rate
         results['%s fraction active' % pop_name] = fraction_active
-        if target_rate_dist_residual is not None:
+        if mean_target_rate_dist_residual is not None:
             results['%s target rate dist residual' % pop_name] = mean_target_rate_dist_residual
         
     return results
 
 
-def get_objectives(features, export=False):
+def get_objectives(features, model_id=None, export=False):
     """
 
     :param features: dict
@@ -440,8 +424,14 @@ def get_objectives(features, export=False):
     :return: tuple of dict
     """
     objectives = dict()
+    if context.env.comm.rank == 0:
+        context.logger.info('features: %s' % str(features))
     for key in context.objective_names:
-        objectives[key] = ((features[key] - context.target_val[key]) / context.target_range[key]) ** 2.
+        if key in context.target_val:
+            objectives[key] = ((features[key] - context.target_val[key]) / context.target_range[key]) ** 2.
+        else:
+            objectives[key] = features[key] ** 2.
+            
 
     return features, objectives
 
