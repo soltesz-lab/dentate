@@ -717,6 +717,7 @@ def make_cells(env):
                                                               node_rank_map=env.node_ranks,
                                                               comm=env.comm, io_size=env.io_size,
                                                               return_type='tuple')
+            env.comm.barrier()
             if rank == 0:
                 logger.info("*** Done reading coordinates for population %s" % pop_name)
 
@@ -744,11 +745,10 @@ def make_cells(env):
         else:
             raise RuntimeError("make_cells: unknown cell configuration type for cell type %s" % pop_name)
 
-                
-
         h.define_shape()
         logger.info("*** Rank %i: Created %i cells from population %s" % (rank, num_cells, pop_name))
-        
+        env.comm.barrier()
+
     # if node rank map has not been created yet, create it now
     if env.node_ranks is None:
         env.node_ranks = {}
@@ -941,14 +941,15 @@ def make_input_cell_selection(env):
                 created_input_gids.append(gid)
         created_input_sources[pop_name] = set(created_input_gids)
         
-
         logger.info('*** Rank %i: created %s input sources for gids %s' % (rank, pop_name, str(created_input_gids)))
+        env.comm.barrier()
 
     env.microcircuit_input_sources = created_input_sources
 
     req = env.comm.Ibarrier()
     all_microcircuit_input_sources = env.comm.alltoall([env.microcircuit_input_sources]*nhosts)
     req.wait()
+
     for this_rank, this_microcircuit_input_sources in enumerate(all_microcircuit_input_sources):
         for _, this_gidset in viewitems(this_microcircuit_input_sources):
             for gid in this_gidset:

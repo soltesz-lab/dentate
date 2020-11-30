@@ -14,8 +14,8 @@ module load phdf5
 
 set -x
 
-export NEURONROOT=$HOME/bin/nrnpython3
-export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
+export NEURONROOT=$HOME/bin/nrnpython3/intel18
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel18:$PYTHONPATH
 export PATH=$NEURONROOT/bin:$PATH
 export MODEL_HOME=$HOME/model
 export DG_HOME=$MODEL_HOME/dentate
@@ -42,18 +42,18 @@ ibrun python3 -m nested.optimize  \
     --verbose \
     --procs_per_worker=896 \
     --no_cleanup \
-    --param_config_name "Weight inh microcircuit" \
+    --param_config_name="Weight inh microcircuit" \
     --arena_id=A --trajectory_id=Diag \
     --template_paths=$MODEL_HOME/dgc/Mateos-Aparicio2014:$DG_HOME/templates \
     --dataset_prefix="$SCRATCH/striped/dentate" \
     --config_prefix=$DG_HOME/config \
     --results_path=$results_path \
-    --spike_input_path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h5" \
+    --spike_input_path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h5" \
     --spike_input_namespace='Input Spikes A Diag' \
     --spike_input_attr='Spike Train' \
-    --target_rate_map_path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
-    --target_rate_map_namespace "Place Selectivity" \
-    --max_walltime_hours=1.9 \
+    --target_rate_map_path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
+    --target_rate_map_namespace="Place Selectivity" \
+    --max_walltime_hours=2.0 \
     --io_size=8 \
     --microcircuit_inputs \
     --use_coreneuron \

@@ -191,7 +191,7 @@ def configure_hoc_env(env, bcast_template=False):
     ## sparse parallel transfer
     if hasattr(h, 'nrn_sparse_partrans'):
         h.nrn_sparse_partrans = 1
-    find_template(env, 'StimCell', path=env.template_paths, bcast_template=bcast_template)
+#    find_template(env, 'StimCell', path=env.template_paths, bcast_template=bcast_template)
     find_template(env, 'VecStimCell', path=env.template_paths, bcast_template=bcast_template)
 
 
