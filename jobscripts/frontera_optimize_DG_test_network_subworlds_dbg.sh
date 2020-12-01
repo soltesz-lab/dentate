@@ -10,6 +10,7 @@
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
+module load intel/18.0.5
 module load phdf5
 
 set -x
