@@ -35,11 +35,10 @@ cd $SLURM_SUBMIT_DIR
 ibrun python3 optimize_network.py \
     --config-file-path=$DG_HOME/config/DG_optimize_network.yaml \
     --output-dir=$results_path \
-    --param-config-name="Weight inh microcircuit" \
     --target-rate-map-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
     --target-rate-map-namespace="Place Selectivity" \
     --verbose \
-    --nprocs_per_worker=894 \
+    --nprocs-per-worker=894 \
     --no_cleanup \
     --arena_id=A --trajectory_id=Diag \
     --template_paths=$MODEL_HOME/dgc/Mateos-Aparicio2014:$DG_HOME/templates \

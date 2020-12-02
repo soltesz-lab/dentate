@@ -3,7 +3,7 @@
 Dentate Gyrus model optimization script for optimization with dmosopt
 """
 
-import os, sys, logging
+import os, sys, logging, datetime
 from functools import partial
 import click
 import numpy as np
@@ -44,6 +44,10 @@ SynParam = namedtuple('SynParam',
                        'param_name',
                        'param_range'])
 
+def syn_param_from_dict(d):
+    SynParam(*[d[key] for key in SynParam._fields])
+             
+
 OptConfig = namedtuple("OptConfig",
                        ['param_bounds', 
                         'param_names', 
@@ -58,10 +62,14 @@ OptConfig = namedtuple("OptConfig",
 ))
 @click.option("--config-path", type=str, help='optimization configuration file name',
               default='./config/DG_optimize_network.yaml')
+@click.option("--target-rate-map-path", required=False, type=click.Path(),
+              help='path to neuroh5 file containing target rate maps used for rate optimization')
+@click.option("--target-rate-map-namespace", type=str, required=False, default='Input Spikes',
+              help='namespace containing target rate maps used for rate optimization')
 @click.option("--results-dir", type=click.Path(exists=True, file_okay=False, dir_okay=True), default='results')
 @click.option("--nprocs-per-worker", type=int, default=1)
 @click.option("--verbose", is_flag=True)
-def main(config_path, results_dir, nprocs_per_worker, verbose):
+def main(config_path, target_rate_map_path, target_rate_map_namespace, results_dir, nprocs_per_worker, verbose):
 
     network_args = click.get_current_context().args
     network_config = {}
@@ -75,14 +83,19 @@ def main(config_path, results_dir, nprocs_per_worker, verbose):
             network_config[k.replace('--', '').replace('-', '_')] = True
 
     operational_config = read_from_yaml(config_path)
+    if target_rate_map_path is not None:
+        operational_config['target_rate_map_path'] = target_rate_map_path
+    if target_rate_map_namespace is not None:
+        operational_config['target_rate_map_namespace'] = target_rate_map_namespace
+
     network_config.update(operational_config.get('kwargs', {}))
     env = Env(**network_config)
 
-    param_config_name = network_config['param_config_name']
-    target_populations = network_config['target_populations']
-    print(target_populations)
+    param_config_name = operational_config['param_config_name']
+    target_populations = operational_config['target_populations']
     network_optimization_config = make_optimization_config(env, target_populations, param_config_name)
 
+    opt_targets = network_optimization_config.opt_targets
     param_names = network_optimization_config.param_names
     param_tuples = network_optimization_config.param_tuples
     hyperprm_space = { param_pattern: [param_tuple.param_range[0], param_tuple.param_range[1]]
@@ -92,9 +105,11 @@ def main(config_path, results_dir, nprocs_per_worker, verbose):
 
     init_objfun = 'init_network_objfun'
     init_params = { 'operational_config': operational_config,
-                    'network_optimization_config': network_optimization_config,
+                    'opt_targets': opt_targets,
+                    'param_tuples': [ param_tuple._asdict() for param_tuple in param_tuples ],
                     }
     init_params.update(network_config.items())
+    
 
     # Create an optimizer
     dmosopt_params = {'opt_id': 'dmosopt_optimize_network',
@@ -274,11 +289,16 @@ def rate_maps_from_features (env, pop_name, input_features_path, input_features_
 
 
 
-def init_network_objfun(operational_config, network_optimization_config, worker, **kwargs):
+def init_network_objfun(operational_config, opt_targets, param_tuples, worker, **kwargs):
+
+    param_tuples = [ syn_param_from_dict(param_tuple) for param_tuple in param_tuples ]
 
     target_populations = operational_config['target_populations']
     target_rate_map_path = operational_config['target_rate_map_path']
     target_rate_map_namespace = operational_config['target_rate_map_namespace']
+
+    kwargs['results_file_id'] = 'DG_optimize_network_%s_%s' % \
+                                (worker.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M'))
 
     logger = utils.get_script_logger(os.path.basename(__file__))
     env = init_network(comm=MPI.COMM_WORLD, kwargs=kwargs)
@@ -323,29 +343,29 @@ def init_network_objfun(operational_config, network_optimization_config, worker,
             result.append(param_value)
         return result
 
-    return partial(network_objfun, env, operational_config, network_optimization_config,
+    return partial(network_objfun, env, operational_config, opt_targets,
                    from_param_vector, to_param_vector, t_start, t_stop, target_populations)
 
     
-def init_network(comm, results_file_id, kwargs):
+def init_network(comm, kwargs):
     np.seterr(all='raise')
-    env = Env(comm=comm, results_file_id=results_file_id, **kwargs)
+    env = Env(comm=comm, **kwargs)
     network.init(env)
     return env
 
 
-def network_objfun(env, operational_config, network_optimization_config,
+def network_objfun(env, operational_config, opt_targets,
                    from_param_vector, to_param_vector, t_start, t_stop, target_populations, x):
 
     param_values = from_param_vector(x)
 
     update_network_params(env, param_values)
 
-    return compute_network_features(env, operational_config, network_optimization_config,
+    return compute_network_features(env, operational_config, opt_targets,
                                     t_start, t_stop, target_populations)
 
 
-def compute_network_features(env, operational_config, network_optimization_config, t_start, t_stop):
+def compute_network_features(env, operational_config, opt_targets, t_start, t_stop):
 
     target_populations = operational_config['target_populations']
 
@@ -410,17 +430,17 @@ def compute_network_features(env, operational_config, network_optimization_confi
         if mean_target_rate_dist_residual is not None:
             features_dict['%s target rate dist residual' % pop_name] = mean_target_rate_dist_residual
         
-    return compute_objectives(env, operational_config, network_optimization_config, features_dict)
+    return compute_objectives(env, operational_config, opt_targets, features_dict)
 
 
-def compute_objectives(env, operational_config, network_optimization_config, features):
+def compute_objectives(env, operational_config, opt_targets, features):
 
     objectives = []
     if env.comm.rank == 0:
         env.logger.info('features: %s' % str(features))
     objective_names = operational_config['objective_names']
-    target_val = network_optimization_config.opt_targets
-    target_range = network_optimization_config.opt_targets
+    target_val = opt_targets
+    target_range = opt_targets
     for key in objective_names:
         if key in target_val:
             objective = ((features[key] - target_val[key]) / target_range[key]) ** 2.
