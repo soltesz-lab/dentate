@@ -396,7 +396,8 @@ def compute_network_features(x, model_id=None, export=False):
                 target_rate_dist_residuals = []
                 for gid in spike_density_dict:
                     target_trj_rate_map = target_trj_rate_map_dict[gid]
-                    residual = np.sum(target_trj_rate_map - spike_density_dict[gid]['rate'])
+                    rate_map_len = len(target_trj_rate_map)
+                    residual = np.sum(target_trj_rate_map - spike_density_dict[gid]['rate'][:rate_map_len])
                     target_rate_dist_residuals.append(residual)
                 residual_sum_local = np.sum(target_rate_dist_residuals)
                 residual_sum = context.env.comm.allreduce(residual_sum_local, op=MPI.SUM)
