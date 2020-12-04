@@ -1,12 +1,12 @@
 #!/bin/bash
 
-#SBATCH -J optimize_DG_test_network # Job name
-#SBATCH -o ./results/optimize_DG_network.o%j       # Name of stdout output file
-#SBATCH -e ./results/optimize_DG_network.e%j       # Name of stderr error file
-#SBATCH -p normal      # Queue (partition) name
-#SBATCH -N 160             # Total # of nodes 
+#SBATCH -J optimize_DG_test_network_test # Job name
+#SBATCH -o ./results/optimize_DG_network_test.o%j       # Name of stdout output file
+#SBATCH -e ./results/optimize_DG_network_test.e%j       # Name of stderr error file
+#SBATCH -p development      # Queue (partition) name
+#SBATCH -N 32             # Total # of nodes 
 #SBATCH --ntasks-per-node=56 # # of mpi tasks per node
-#SBATCH -t 6:00:00        # Run time (hh:mm:ss)
+#SBATCH -t 0:30:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
@@ -38,8 +38,8 @@ cd $SLURM_SUBMIT_DIR
 
 export hosts=`scontrol show hostname $SLURM_NODELIST | paste -s -d, -`
 
-MY_MPIRUN_OPTIONS="-rr -hosts $hosts" ibrun -n 11 python3 optimize_network.py \
-    --config-path=$DG_HOME/config/DG_optimize_network.yaml \
+MY_MPIRUN_OPTIONS="-rr -hosts $hosts" ibrun -n 3 python3 optimize_network.py \
+    --config-path=$DG_HOME/config/DG_optimize_network_test.yaml \
     --output-dir=$results_path \
     --target-rate-map-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
     --target-rate-map-namespace="Place Selectivity" \
@@ -58,7 +58,7 @@ MY_MPIRUN_OPTIONS="-rr -hosts $hosts" ibrun -n 11 python3 optimize_network.py \
     --io_size=8 \
     --microcircuit_inputs \
     --use_coreneuron \
-    --verbose
+    -v
 
 
 

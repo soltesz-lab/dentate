@@ -367,8 +367,9 @@ def compute_network_features(x, model_id=None, export=False):
         mean_rate_sum_local = 0.
         spike_density_dict = spikedata.spike_density_estimate (pop_name, pop_spike_dict[pop_name], time_bins)
         for gid, dens_dict in utils.viewitems(spike_density_dict):
-            mean_rate_sum_local += np.mean(dens_dict['rate'])
-            if mean_rate_sum_local > 0.:
+            mean_rate = np.mean(dens_dict['rate'])
+            mean_rate_sum_local += mean_rate
+            if mean_rate > 0.:
                 n_active_local += 1
         mean_rate_sum = context.env.comm.allreduce(mean_rate_sum_local, op=MPI.SUM)
         context.env.comm.barrier()
@@ -394,14 +395,17 @@ def compute_network_features(x, model_id=None, export=False):
             if n_active > 0:
                 target_trj_rate_map_dict = context.target_trj_rate_map_dict[pop_name]
                 target_rate_dist_residuals = []
-                for gid in spike_density_dict:
+                for gid in target_trj_rate_map_dict:
                     target_trj_rate_map = target_trj_rate_map_dict[gid]
                     rate_map_len = len(target_trj_rate_map)
-                    residual = np.sum(target_trj_rate_map - spike_density_dict[gid]['rate'][:rate_map_len])
+                    if gid in spike_density_dict:
+                        residual = np.sum(target_trj_rate_map - spike_density_dict[gid]['rate'][:rate_map_len])
+                    else:
+                        residual = np.sum(target_trj_rate_map)
                     target_rate_dist_residuals.append(residual)
                 residual_sum_local = np.sum(target_rate_dist_residuals)
                 residual_sum = context.env.comm.allreduce(residual_sum_local, op=MPI.SUM)
-                mean_target_rate_dist_residual = residual_sum / n_active
+                mean_target_rate_dist_residual = residual_sum / len(target_trj_rate_map_dict)
             context.env.comm.barrier()
                 
         rank = int(context.env.pc.id())
