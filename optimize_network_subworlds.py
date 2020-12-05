@@ -322,9 +322,10 @@ def init_network():
 
     """
     np.seterr(all='raise')
+    context.comm.barrier()
     context.env = Env(comm=context.comm, results_file_id=context.results_file_id, **context.kwargs)
     network.init(context.env)
-
+    context.comm.barrier()
 
 def update_network(x, context=None):
     """
@@ -357,6 +358,7 @@ def compute_network_features(x, model_id=None, export=False):
     temporal_resolution = float(context.env.stimulus_config['Temporal Resolution'])
     time_bins  = np.arange(context.t_start, context.t_stop, temporal_resolution)
 
+    context.env.tstop = context.t_stop
     network.run(context.env, output=context.output_results, shutdown=False)
 
     pop_spike_dict = spikedata.get_env_spike_dict(context.env, include_artificial=False)
