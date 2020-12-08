@@ -1,21 +1,4 @@
-param_config_name: "Weight inh microcircuit"
-feature_names:
-- GC target rate dist residual
-- MC target rate dist residual
-- AAC firing rate
-- AAC fraction active
-- BC firing rate
-- BC fraction active
-- HC firing rate
-- HC fraction active
-- HCC firing rate
-- HCC fraction active
-- IS firing rate
-- IS fraction active
-- MOPP firing rate
-- MOPP fraction active
-- NGFC firing rate
-- NGFC fraction active
+param_config_name: "Weight exc inh microcircuit"
 objective_names:
 - GC target rate dist residual
 - MC target rate dist residual

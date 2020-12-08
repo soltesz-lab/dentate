@@ -3,20 +3,21 @@
 Dentate Gyrus model optimization script for optimization with dmosopt
 """
 
-import os, sys, logging, datetime
+import os, sys, logging, datetime, gc
 from functools import partial
 import click
 import numpy as np
-from neuroh5.io import scatter_read_cell_attribute_selection, read_cell_attribute_info
 from mpi4py import MPI
+from neuroh5.io import scatter_read_cell_attribute_selection, read_cell_attribute_info
 from collections import defaultdict, namedtuple
 import dentate
 from dentate import network, network_clamp, synapses, spikedata, stimulus, utils
 from dentate.env import Env
-from dentate.utils import Context, read_from_yaml, list_find, viewitems
+from dentate.utils import Context, read_from_yaml, list_find, viewitems, get_module_logger
 import dmosopt
 
 context = Context()
+logger = get_module_logger(__name__)
 
 def mpi_excepthook(type, value, traceback):
     """
@@ -41,11 +42,11 @@ SynParam = namedtuple('SynParam',
                        'source',
                        'sec_type',
                        'syn_name',
-                       'param_name',
+                       'param_path',
                        'param_range'])
 
 def syn_param_from_dict(d):
-    SynParam(*[d[key] for key in SynParam._fields])
+    return SynParam(*[d[key] for key in SynParam._fields])
              
 
 OptConfig = namedtuple("OptConfig",
@@ -56,19 +57,23 @@ OptConfig = namedtuple("OptConfig",
                         'opt_targets'])
 
 
+def dmosopt_broker_init(broker, *args):
+    broker.sub_comm.barrier()
+    broker.group_comm.barrier()
+    logger.info(f"broker_init: broker {broker.group_comm.rank} done")
+
 @click.command(context_settings=dict(
     ignore_unknown_options=True,
     allow_extra_args=True,
 ))
-@click.option("--config-path", type=str, help='optimization configuration file name',
-              default='./config/DG_optimize_network.yaml')
+@click.option("--config-path", required=True, type=str, help='optimization configuration file name')
 @click.option("--target-rate-map-path", required=False, type=click.Path(),
               help='path to neuroh5 file containing target rate maps used for rate optimization')
 @click.option("--target-rate-map-namespace", type=str, required=False, default='Input Spikes',
               help='namespace containing target rate maps used for rate optimization')
 @click.option("--results-dir", type=click.Path(exists=True, file_okay=False, dir_okay=True), default='results')
 @click.option("--nprocs-per-worker", type=int, default=1)
-@click.option("--verbose", is_flag=True)
+@click.option("--verbose", '-v', is_flag=True)
 def main(config_path, target_rate_map_path, target_rate_map_namespace, results_dir, nprocs_per_worker, verbose):
 
     network_args = click.get_current_context().args
@@ -90,7 +95,9 @@ def main(config_path, target_rate_map_path, target_rate_map_namespace, results_d
 
     network_config.update(operational_config.get('kwargs', {}))
     env = Env(**network_config)
+    context.update({'env': env})
 
+    objective_names = operational_config['objective_names']
     param_config_name = operational_config['param_config_name']
     target_populations = operational_config['target_populations']
     network_optimization_config = make_optimization_config(env, target_populations, param_config_name)
@@ -107,6 +114,7 @@ def main(config_path, target_rate_map_path, target_rate_map_namespace, results_d
     init_params = { 'operational_config': operational_config,
                     'opt_targets': opt_targets,
                     'param_tuples': [ param_tuple._asdict() for param_tuple in param_tuples ],
+                    'param_names': param_names
                     }
     init_params.update(network_config.items())
     
@@ -116,16 +124,22 @@ def main(config_path, target_rate_map_path, target_rate_map_namespace, results_d
                       'obj_fun_init_name': init_objfun, 
                       'obj_fun_init_module': 'dentate.optimize_network',
                       'obj_fun_init_args': init_params,
+                      'reduce_fun_name': 'compute_objectives',
+                      'reduce_fun_module': 'dentate.optimize_network',
+                      'reduce_fun_args': (operational_config, opt_targets),
                       'problem_parameters': {},
                       'space': hyperprm_space,
-                      'n_objectives': 3,
-                      'n_initial': 10,
+                      'n_objectives': len(objective_names),
+                      'n_initial': 3,
                       'n_iter': 10,
                       'file_path': f'{results_dir}/dmosopt.optimize_network.h5',
                       'save': True
 
                       }
     
+    dmosopt_params['broker_fun_name'] = 'dmosopt_broker_init'
+    dmosopt_params['broker_module_name'] = 'dentate.optimize_network'
+
     best = dmosopt.run(dmosopt_params, spawn_workers=True, 
                        nprocs_per_worker=nprocs_per_worker, 
                        verbose=True)
@@ -147,18 +161,14 @@ def make_optimization_config(env, pop_names, param_config_name, param_type='syna
                 param_ranges = opt_params['Parameter ranges'][param_config_name]
             else:
                 raise RuntimeError(
-                    "optimization_params: population %s does not have optimization configuration" % pop_name)
+                    "make_optimization_config: population %s does not have optimization configuration" % pop_name)
             for target_name, target_val in viewitems(opt_params['Targets']):
                 opt_targets['%s %s' % (pop_name, target_name)] = target_val
             keyfun = lambda kv: str(kv[0])
-            print(f'opt_targets: {opt_targets}')
-            print(f'param_ranges: {param_ranges}')
             for source, source_dict in sorted(viewitems(param_ranges), key=keyfun):
                 for sec_type, sec_type_dict in sorted(viewitems(source_dict), key=keyfun):
                     for syn_name, syn_mech_dict in sorted(viewitems(sec_type_dict), key=keyfun):
                         for param_fst, param_rst in sorted(viewitems(syn_mech_dict), key=keyfun):
-                            print(f'param_fst: {param_fst}')
-                            print(f'param_rst: {param_rst}')
                             if isinstance(param_rst, dict):
                                 for const_name, const_range in sorted(viewitems(param_rst)):
                                     param_path = (param_fst, const_name)
@@ -189,10 +199,9 @@ def make_optimization_config(env, pop_names, param_config_name, param_type='syna
                      opt_targets=opt_targets)
 
 
-def update_network_params(env, from_param_vector, param_values):
+def update_network_params(env, param_tuple_values):
 
-    param_tuples = from_param_vector(param_values)
-    for param_tuple in param_tuples:
+    for param_tuple, param_value in param_tuple_values:
 
         pop_name = param_tuple.population
         biophys_cell_dict = env.biophys_cells[pop_name]
@@ -222,10 +231,11 @@ def update_network_params(env, from_param_vector, param_values):
             else:
                 if source is not None:
                     sources = [source]
-                if isinstance(sec_type, list) or isinstance(sec_type, tuple):
-                    sec_types = sec_type
-                else:
-                    sec_types = [sec_type]
+
+            if isinstance(sec_type, list) or isinstance(sec_type, tuple):
+                sec_types = sec_type
+            else:
+                sec_types = [sec_type]
             for this_sec_type in sec_types:
                 synapses.modify_syn_param(biophys_cell, env, this_sec_type, syn_name,
                                               param_name=p, 
@@ -289,10 +299,11 @@ def rate_maps_from_features (env, pop_name, input_features_path, input_features_
 
 
 
-def init_network_objfun(operational_config, opt_targets, param_tuples, worker, **kwargs):
+def init_network_objfun(operational_config, opt_targets, param_names, param_tuples, worker, **kwargs):
 
     param_tuples = [ syn_param_from_dict(param_tuple) for param_tuple in param_tuples ]
 
+    objective_names = operational_config['objective_names']
     target_populations = operational_config['target_populations']
     target_rate_map_path = operational_config['target_rate_map_path']
     target_rate_map_namespace = operational_config['target_rate_map_namespace']
@@ -302,6 +313,7 @@ def init_network_objfun(operational_config, opt_targets, param_tuples, worker, *
 
     logger = utils.get_script_logger(os.path.basename(__file__))
     env = init_network(comm=MPI.COMM_WORLD, kwargs=kwargs)
+    gc.collect()
 
     t_start = 50.
     t_stop = env.tstop
@@ -311,40 +323,26 @@ def init_network_objfun(operational_config, opt_targets, param_tuples, worker, *
     target_rate_map_arena = env.arena_id
     target_rate_map_trajectory = env.trajectory_id
     for pop_name in target_populations:
+        if ('%s target rate dist residual' % pop_name) not in objective_names:
+            continue
         my_cell_index_set = set(env.biophys_cells[pop_name].keys())
+        trj_rate_maps = {}
         trj_rate_maps = rate_maps_from_features(env, pop_name, target_rate_map_path, 
                                                 target_rate_map_namespace,
                                                 cell_index_set=list(my_cell_index_set),
                                                 time_range=time_range)
-        if len(trj_rate_maps) > 0:
-            target_trj_rate_map_dict[pop_name] = trj_rate_maps
+        target_trj_rate_map_dict[pop_name] = trj_rate_maps
 
-    target_rate_vector_dict = { gid: trj_rate_maps[gid] for gid in trj_rate_maps }
-    for gid, target_rate_vector in viewitems(target_rate_vector_dict):
-        idxs = np.where(np.isclose(target_rate_vector, 0., atol=1e-4, rtol=1e-4))[0]
-        target_rate_vector[idxs] = 0.
-
-
-    def from_param_vector(param_values):
+    def from_param_dict(params_dict):
         result = []
-        assert (len(param_values) == len(param_tuples))
-        for i, param_tuple in enumerate(param_tuples):
-            result.append((param_tuple.population,
-                           param_tuple.source,
-                           param_tuple.sec_type,
-                           param_tuple.syn_name,
-                           param_tuple.param_name,
-                           param_values[i]))
+        for param_name, param_tuple in zip(param_names, param_tuples):
+            result.append((param_tuple, params_dict[param_name]))
         return result
 
-    def to_param_vector(params):
-        result = []
-        for (source, sec_type, syn_name, param_name, param_value) in params:
-            result.append(param_value)
-        return result
-
+    env.comm.barrier()
+    worker.parent_comm.barrier()
     return partial(network_objfun, env, operational_config, opt_targets,
-                   from_param_vector, to_param_vector, t_start, t_stop, target_populations)
+                   target_trj_rate_map_dict, from_param_dict, t_start, t_stop, target_populations)
 
     
 def init_network(comm, kwargs):
@@ -355,17 +353,17 @@ def init_network(comm, kwargs):
 
 
 def network_objfun(env, operational_config, opt_targets,
-                   from_param_vector, to_param_vector, t_start, t_stop, target_populations, x):
+                   target_trj_rate_map_dict, from_param_dict, t_start, t_stop, target_populations, x):
 
-    param_values = from_param_vector(x)
+    param_tuple_values = from_param_dict(x)
+    update_network_params(env, param_tuple_values)
 
-    update_network_params(env, param_values)
-
-    return compute_network_features(env, operational_config, opt_targets,
+    return compute_network_features(env, operational_config, opt_targets, target_trj_rate_map_dict, 
                                     t_start, t_stop, target_populations)
 
 
-def compute_network_features(env, operational_config, opt_targets, t_start, t_stop):
+def compute_network_features(env, operational_config, opt_targets, target_trj_rate_map_dict, 
+                             t_start, t_stop, target_populations):
 
     target_populations = operational_config['target_populations']
 
@@ -374,29 +372,80 @@ def compute_network_features(env, operational_config, opt_targets, t_start, t_st
     temporal_resolution = float(env.stimulus_config['Temporal Resolution'])
     time_bins  = np.arange(t_start, t_stop, temporal_resolution)
 
+    env.tstop = t_stop
     network.run(env, output=False, shutdown=False)
 
     pop_spike_dict = spikedata.get_env_spike_dict(env, include_artificial=False)
 
     for pop_name in target_populations:
 
-        n_active_local = 0
-        mean_rate_sum_local = 0.
+        n_active = 0
+        sum_mean_rate = 0.
         spike_density_dict = spikedata.spike_density_estimate (pop_name, pop_spike_dict[pop_name], time_bins)
         for gid, dens_dict in utils.viewitems(spike_density_dict):
-            mean_rate_sum_local += np.mean(dens_dict['rate'])
-            if mean_rate_sum_local > 0.:
-                n_active_local += 1
-        mean_rate_sum = env.comm.allreduce(mean_rate_sum_local, op=MPI.SUM)
-        env.comm.barrier()
+            mean_rate = np.mean(dens_dict['rate'])
+            sum_mean_rate += mean_rate
+            if mean_rate > 0.:
+                n_active += 1
         
-        n_local = len(env.cells[pop_name]) - len(env.artificial_cells[pop_name])
-        n_total = env.comm.allreduce(n_local, op=MPI.SUM)
-        n_active = env.comm.allreduce(n_active_local, op=MPI.SUM)
-        env.comm.barrier()
+        n_total = len(env.cells[pop_name]) - len(env.artificial_cells[pop_name])
+
+        n_residual = 0
+        sum_target_rate_dist_residual = None
+        if pop_name in target_trj_rate_map_dict:
+            pop_target_trj_rate_map_dict = target_trj_rate_map_dict[pop_name]
+            n_residual = len(pop_target_trj_rate_map_dict)
+            target_rate_dist_residuals = []
+            for gid in pop_target_trj_rate_map_dict:
+                target_trj_rate_map = pop_target_trj_rate_map_dict[gid]
+                rate_map_len = len(target_trj_rate_map)
+                if gid in spike_density_dict:
+                    residual = np.mean(target_trj_rate_map - spike_density_dict[gid]['rate'][:rate_map_len])
+                else:
+                    residual = np.mean(target_trj_rate_map)
+                target_rate_dist_residuals.append(residual)
+            sum_target_rate_dist_residual = np.sum(target_rate_dist_residuals)
+    
+        pop_features_dict = {}
+        pop_features_dict['n_total'] = n_total
+        pop_features_dict['n_active'] = n_active
+        pop_features_dict['n_residual'] = n_residual
+        pop_features_dict['sum_mean_rate'] = sum_mean_rate
         
+        if sum_target_rate_dist_residual is not None:
+            pop_features_dict['sum_target_rate_dist_residual'] = sum_target_rate_dist_residual
+
+        features_dict[pop_name] = pop_features_dict
+
+    env.comm.barrier()
+    return features_dict
+
+
+def compute_objectives(features, operational_config, opt_targets):
+
+    objectives_dict = {}
+
+    target_populations = operational_config['target_populations']
+    for pop_name in target_populations:
+        
+        pop_features_dicts = [ features_dict[0][pop_name] for features_dict in features ]
+
+        has_rate_dist_residual = 'sum_target_rate_dist_residual' in pop_features_dicts[0]
+        sum_target_rate_dist_residual = 0. if has_rate_dist_residual else None
+        n_total = 0
+        n_active = 0
+        n_residual = 0
+        sum_mean_rate = 0.
+        for pop_feature_dict in pop_features_dicts:
+            n_total += pop_feature_dict['n_total']
+            n_active += pop_feature_dict['n_active']
+            n_residual += pop_feature_dict['n_residual']
+            sum_mean_rate += pop_feature_dict['sum_mean_rate']
+            if has_rate_dist_residual:
+                sum_target_rate_dist_residual += pop_feature_dict['sum_target_rate_dist_residual']
+
         if n_active > 0:
-            mean_rate = mean_rate_sum / n_active
+            mean_rate = sum_mean_rate / n_active
         else:
             mean_rate = 0.
 
@@ -406,50 +455,37 @@ def compute_network_features(env, operational_config, opt_targets, t_start, t_st
             fraction_active = 0.
 
         mean_target_rate_dist_residual = None
-        if pop_name in target_trj_rate_map_dict:
-            mean_target_rate_dist_residual = 0.
-            if n_active > 0:
-                target_trj_rate_map_dict = target_trj_rate_map_dict[pop_name]
-                target_rate_dist_residuals = []
-                for gid in spike_density_dict:
-                    target_trj_rate_map = target_trj_rate_map_dict[gid]
-                    residual = np.sum(target_trj_rate_map - spike_density_dict[gid]['rate'])
-                    target_rate_dist_residuals.append(residual)
-                residual_sum_local = np.sum(target_rate_dist_residuals)
-                residual_sum = env.comm.allreduce(residual_sum_local, op=MPI.SUM)
-                mean_target_rate_dist_residual = residual_sum / n_active
-            env.comm.barrier()
-                
-        rank = int(env.pc.id())
-        if env.comm.rank == 0:
-            logger.info('population %s: n_active = %d n_total = %d mean rate = %s' %
-                        (pop_name, n_active, n_total, str(mean_rate)))
+        if has_rate_dist_residual:
+            mean_target_rate_dist_residual = sum_target_rate_dist_residual / n_residual
 
-        features_dict['%s firing rate' % pop_name] = mean_rate
-        features_dict['%s fraction active' % pop_name] = fraction_active
+        logger.info(f'population {pop_name}: n_active = {n_active} n_total = {n_total} mean rate = {mean_rate}')
+        logger.info(f'population {pop_name}: n_residual = {n_residual} sum_target_rate_dist_residual = {sum_target_rate_dist_residual}')
+
+        objectives_dict['%s fraction active' % pop_name] = fraction_active
+        objectives_dict['%s firing rate' % pop_name] = mean_rate
         if mean_target_rate_dist_residual is not None:
-            features_dict['%s target rate dist residual' % pop_name] = mean_target_rate_dist_residual
-        
-    return compute_objectives(env, operational_config, opt_targets, features_dict)
+            objectives_dict['%s target rate dist residual' % pop_name] = mean_target_rate_dist_residual
 
-
-def compute_objectives(env, operational_config, opt_targets, features):
-
-    objectives = []
-    if env.comm.rank == 0:
-        env.logger.info('features: %s' % str(features))
+    logger.info(f'objectives: {objectives_dict}')
     objective_names = operational_config['objective_names']
-    target_val = opt_targets
-    target_range = opt_targets
+    target_vals = opt_targets
+    target_ranges = opt_targets
+    objectives = []
     for key in objective_names:
-        if key in target_val:
-            objective = ((features[key] - target_val[key]) / target_range[key]) ** 2.
+        objective_val = objectives_dict[key]
+        logger.info(f'objective {key}: {objective_val}')
+        if key in target_vals:
+            logger.info(f'objective {key}: target: {target_vals[key]}')
+            objective = ((objective_val - target_vals[key]) / target_ranges[key]) ** 2.
         else:
-            objective = features[key] ** 2.
-        objectives.append(objectives)
-            
+            objective = objective_val ** 2.
+        logger.info(f'objective {key}: {objective}')
+        objectives.append(objective)
 
-    return np.asarray(objectives)
+    result = np.asarray(objectives)
+    logger.info(f'objectives result: {result}')
+
+    return {0: result}
 
 
 if __name__ == '__main__':

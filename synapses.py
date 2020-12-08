@@ -477,7 +477,7 @@ class SynapseAttributes(object):
         """
         self.add_mech_attrs_from_iter(gid, syn_name, iter({syn_id: params}), multiple='error', append=append)
         
-    def modify_mech_attrs(self, pop_name, gid, syn_id, syn_name, params):
+    def modify_mech_attrs(self, pop_name, gid, syn_id, syn_name, params, expr_param_check='ignore'):
         """
         Modifies mechanism attributes for the given cell id/synapse id/mechanism name. 
 
@@ -533,8 +533,11 @@ class SynapseAttributes(object):
                         for sk, sv in viewitems(new_val):
                             old_val[sk] = sv
                     else:
-                        raise RuntimeError('modify_mech_attrs: dictionary value provided to a non-expression parameter %s' %
-                                           k)
+                        if expr_param_check == 'ignore':
+                            pass
+                        else:
+                            raise RuntimeError('modify_mech_attrs: dictionary value provided to a non-expression parameter %s' %
+                                               k)
                 else:
                     attr_dict[k] = new_val
             elif k in rules[mech_name]['netcon_params']:
@@ -564,8 +567,11 @@ class SynapseAttributes(object):
                         for sk, sv in viewitems(new_val):
                             old_val[sk] = sv
                     else:
-                        raise RuntimeError('modify_mech_attrs: dictionary value provided to a non-expression parameter %s mechanism: %s presynaptic: %s old value: %s' %
-                                           (k, mech_name, presyn_name, old_val))
+                        if expr_param_check == 'ignore':
+                            pass
+                        else:
+                            raise RuntimeError('modify_mech_attrs: dictionary value provided to a non-expression parameter %s mechanism: %s presynaptic: %s old value: %s' %
+                                               (k, mech_name, presyn_name, old_val))
                 else:
                     attr_dict[k] = new_val
                 #logger.debug("modify %s.%s.%s.%s: old_val: %s new val: %s" % (pop_name, presyn_name, syn_name, k, str(old_val), str(new_val)))
@@ -593,6 +599,7 @@ class SynapseAttributes(object):
         for syn_id, params_dict in params_iter:
             syn = syn_id_dict[syn_id]
             if syn is None:
+                print(sorted(syn_id_dict.keys()))
                 raise RuntimeError('add_mech_attrs_from_iter: '
                                    'gid %i synapse id %i has not been created yet' % (gid, syn_id))
             if syn_index in syn.attr_dict:
@@ -1140,7 +1147,13 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
                         if val is None:
                             raise AttributeError('config_syn: netcon attribute %s is None for synaptic mechanism: %s' %
                                                  (param, mech_name))
-                        new = val
+                        if isinstance(val, list):
+                            if len(val) > 1:
+                                raise AttributeError('config_syn: netcon attribute %s is list of length > 1 for synaptic mechanism: %s' %
+                                                     (param, mech_name))
+                            new = val[0]
+                        else:
+                            new = val
                         nc.weight[i] = new
                         nc_param = True
                         failed = False

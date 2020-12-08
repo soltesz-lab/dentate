@@ -39,7 +39,7 @@ SynParam = namedtuple('SynParam',
                        'source',
                        'sec_type',
                        'syn_name',
-                       'param_name',
+                       'param_path',
                        'param_range'])
 
 context = Context()
@@ -105,29 +105,28 @@ def optimization_params(env, pop_names, param_config_name, param_type='synaptic'
                                     param_initial_dict[param_key] = param_initial_value
                                     param_bounds[param_key] = const_range
                                     param_names.append(param_key)
-                                else:
-                                    param_name = param_fst
-                                    param_range = param_rst
-                                    param_tuples.append(SynParam(pop_name, source, sec_type, syn_name, param_name, param_range))
-                                    param_key = '%s.%s.%s.%s.%s' % (pop_name, source, sec_type, syn_name, param_name)
-                                    param_initial_value = (param_range[1] - param_range[0]) / 2.0
-                                    param_initial_dict[param_key] = param_initial_value
-                                    param_bounds[param_key] = param_range
-                                    param_names.append(param_key)
-        
+                            else:
+                                param_name = param_fst
+                                param_range = param_rst
+                                param_tuples.append(SynParam(pop_name, source, sec_type, syn_name, param_name, param_range))
+                                param_key = '%s.%s.%s.%s.%s' % (pop_name, source, sec_type, syn_name, param_name)
+                                param_initial_value = (param_range[1] - param_range[0]) / 2.0
+                                param_initial_dict[param_key] = param_initial_value
+                                param_bounds[param_key] = param_range
+                                param_names.append(param_key)
+                                
         else:
             raise RuntimeError("optimization_params: unknown parameter type %s" % param_type)
 
     return param_bounds, param_names, param_initial_dict, param_tuples, opt_targets
 
 
-def update_network_params(env, param_values):
+def update_network_params(env, param_tuple_values):
 
     if context is None:
         raise RuntimeError('update_network: missing required Context object')
     
-    param_tuples = context.from_param_vector(param_values)
-    for param_tuple in param_tuples:
+    for param_tuple, param_value in param_tuple_values:
 
         pop_name = param_tuple.population
         biophys_cell_dict = env.biophys_cells[pop_name]
@@ -157,10 +156,11 @@ def update_network_params(env, param_values):
             else:
                 if source is not None:
                     sources = [source]
-                if isinstance(sec_type, list) or isinstance(sec_type, tuple):
-                    sec_types = sec_type
-                else:
-                    sec_types = [sec_type]
+
+            if isinstance(sec_type, list) or isinstance(sec_type, tuple):
+                sec_types = sec_type
+            else:
+                sec_types = [sec_type]
             for this_sec_type in sec_types:
                 synapses.modify_syn_param(biophys_cell, env, this_sec_type, syn_name,
                                               param_name=p, 
@@ -271,12 +271,7 @@ def config_worker():
         result = []
         assert (len(param_values) == len(param_tuples))
         for i, param_tuple in enumerate(param_tuples):
-            result.append((param_tuple.population,
-                           param_tuple.source,
-                           param_tuple.sec_type,
-                           param_tuple.syn_name,
-                           param_tuple.param_name,
-                           param_values[i]))
+            result.append((param_tuple, param_values[i]))
         return result
 
     def to_param_vector(params):
@@ -336,9 +331,9 @@ def update_network(x, context=None):
     if context is None:
         raise RuntimeError('update_network: missing required Context object')
 
-    param_values = context.from_param_vector(x)
+    param_tuple_values = context.from_param_vector(x)
 
-    update_network_params(context.env, param_values)
+    update_network_params(context.env, param_tuple_values)
 
 
 

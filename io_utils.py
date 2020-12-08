@@ -503,23 +503,11 @@ def write_connection_selection(env, write_selection_file_path, populations=None,
 
         synapse_config = env.celltypes[postsyn_name]['synapses']
 
+        weight_dicts = []
+        has_weights = False
         if 'weights' in synapse_config:
-            has_weights = synapse_config['weights']
-        else:
-            has_weights = False
-
-        weights_namespaces = []
-        if 'weights' in synapse_config:
-            has_weights = synapse_config['weights']
-            if has_weights:
-                if 'weights namespace' in synapse_config:
-                    weights_namespaces.append(synapse_config['weights namespace'])
-                elif 'weights namespaces' in synapse_config:
-                    weights_namespaces.extend(synapse_config['weights namespaces'])
-                else:
-                    weights_namespaces.append('Weights')
-        else:
-            has_weights = False
+            has_weights = True
+            weight_dicts = synapse_config['weights']
 
         if rank == 0:
             logger.info('*** Reading synaptic attributes for population %s' % (postsyn_name))
@@ -533,17 +521,27 @@ def write_connection_selection(env, write_selection_file_path, populations=None,
         write_cell_attributes(write_selection_file_path, postsyn_name, syn_attributes_output_dict, namespace='Synapse Attributes', **write_kwds)
         del syn_attributes_output_dict
         del syn_attributes_iter
-        
+
         if has_weights:
-            for weights_namespace in sorted(weights_namespaces):
-                weight_attributes_iter = scatter_read_cell_attribute_selection(forest_file_path, postsyn_name,
-                                                                               selection=gid_range,
-                                                                               namespace=weights_namespace, comm=env.comm, 
-                                                                               io_size=env.io_size)
-                weight_attributes_output_dict = dict(list(weight_attributes_iter))
-                write_cell_attributes(write_selection_file_path, postsyn_name, weight_attributes_output_dict, namespace=weights_namespace, **write_kwds)
-                del weight_attributes_output_dict
-                del weight_attributes_iter
+            
+            for weight_dict in weight_dicts:
+
+                weights_namespaces = weight_dict['namespace']
+
+                if rank == 0:
+                    logger.info('*** Reading synaptic weights of population %s from namespaces %s' % (postsyn_name, str(weights_namespaces)))
+
+                for weights_namespace in weights_namespaces:
+                    syn_weights_iter = scatter_read_cell_attribute_selection(forest_file_path, postsyn_name,
+                                                                             namespace=weights_namespace, 
+                                                                             selection=gid_range,
+                                                                             comm=env.comm, io_size=env.io_size)
+
+                    weight_attributes_output_dict = dict(list(syn_weights_iter))
+                    write_cell_attributes(write_selection_file_path, postsyn_name, weight_attributes_output_dict, 
+                                          namespace=weights_namespace, **write_kwds)
+                    del weight_attributes_output_dict
+                    del syn_weights_iter
 
                 
         logger.info('*** Rank %i: reading connectivity selection from file %s for postsynaptic population: %s: selection: %s' % (rank, connectivity_file_path, postsyn_name, str(gid_range)))

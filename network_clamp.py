@@ -4,6 +4,7 @@ Routines for Network Clamp simulation.
 import os, sys, copy, uuid, pprint, time, gc
 from enum import Enum, IntEnum, unique
 from collections import defaultdict, namedtuple
+from neuroh5.io import read_cell_attribute_selection, scatter_read_cell_attribute_selection, read_cell_attribute_info
 from mpi4py import MPI
 import numpy as np
 import click
@@ -14,7 +15,6 @@ from dentate.neuron_utils import h, configure_hoc_env
 from dentate.utils import is_interactive, is_iterable, Context, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger, config_logging, EnumChoice
 from dentate.utils import write_to_yaml, read_from_yaml, get_trial_time_indices, get_trial_time_ranges, get_low_pass_filtered_trace, contiguous_ranges
 from dentate.cell_clamp import init_biophys_cell
-from neuroh5.io import read_cell_attribute_selection, scatter_read_cell_attribute_selection, read_cell_attribute_info
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
@@ -58,8 +58,8 @@ def mpi_excepthook(type, value, traceback):
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
 
-#sys_excepthook = sys.excepthook
-#sys.excepthook = mpi_excepthook
+sys_excepthook = sys.excepthook
+sys.excepthook = mpi_excepthook
 
 
 SynParam = namedtuple('SynParam',
@@ -88,12 +88,11 @@ def distgfs_broker_bcast(broker, tag):
             data = broker.sub_comm.recv(source=MPI.ANY_SOURCE, tag=tag, status=status)
             source = status.Get_source()
             data_dict[source] = data
-    req = broker.group_comm.Ibarrier()
     if broker.worker_id == 1:
         broker.group_comm.bcast(data_dict, root=0)
     else:
         data_dict = broker.group_comm.bcast(None, root=0)
-    req.wait()
+    broker.group_comm.barrier()
     return data_dict
 
 def distgfs_broker_init(broker, *args):
@@ -437,6 +436,7 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
     for presyn_name in presyn_names:
 
         presyn_gid_set = env.comm.reduce(presyn_sources[presyn_name], root=0, op=mpi_op_set_union)
+        env.comm.barrier()
         if env.comm.rank == 0:
             presyn_gid_rank_dict = { rank: set([]) for rank in range(env.comm.size) }
             for i, gid in enumerate(presyn_gid_set):
@@ -446,8 +446,7 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
                                                             for rank in sorted(presyn_gid_rank_dict)], root=0)
         else:
             presyn_sources[presyn_name] = env.comm.scatter(None, root=0)
-
-    env.comm.barrier()
+        env.comm.barrier()
 
     input_source_dict = None
     if (worker is not None) and cooperative_init:
@@ -993,17 +992,16 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
                          for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
     infld_idxs_dict = { gid: range_inds(contiguous_ranges(target_rate_vector > 0, return_indices=True))
                         for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
-    
-    peak_pctile_dict = { gid: np.percentile(target_rate_vector_dict[gid][infld_idxs], 90)
+
+    peak_pctile_dict = { gid: np.percentile(target_rate_vector_dict[gid][infld_idxs], 80)
                          for gid, infld_idxs in viewitems(infld_idxs_dict) }
-    trough_pctile_dict = { gid: np.percentile(target_rate_vector_dict[gid][infld_idxs], 10)
+    trough_pctile_dict = { gid: np.percentile(target_rate_vector_dict[gid][infld_idxs], 20)
                            for gid, infld_idxs in viewitems(infld_idxs_dict) }
 
     peak_idxs_dict = { gid: range_inds(contiguous_ranges(target_rate_vector >= peak_pctile_dict[gid], return_indices=True)) 
                        for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
     trough_idxs_dict = { gid: range_inds(contiguous_ranges(np.logical_and(target_rate_vector > 0., target_rate_vector <= trough_pctile_dict[gid]), return_indices=True))
                          for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
-
 
     for gid in my_cell_index_set:
         infld_idxs = infld_idxs_dict[gid]
@@ -1572,25 +1570,39 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
         distgfs_params['broker_fun_name'] = 'distgfs_broker_init'
         distgfs_params['broker_module_name'] = 'dentate.network_clamp'
 
-    gid_results_dict = distgfs.run(distgfs_params, verbose=verbose,
-                                   spawn_workers=True, nprocs_per_worker=nprocs_per_worker)
-    if gid_results_dict is not None:
-        gid_results_config_dict = {}
-        for gid, opt_result in viewitems(gid_results_dict):
-            params_dict = dict(opt_result[0])
+    opt_results = distgfs.run(distgfs_params, verbose=verbose,
+                               spawn_workers=True, nprocs_per_worker=nprocs_per_worker)
+    if opt_results is not None:
+        if problem_regime == ProblemRegime.every:
+            gid_results_config_dict = {}
+            for gid, opt_result in viewitems(opt_results):
+                params_dict = dict(opt_result[0])
+                result_value = opt_result[1]
+                results_config_tuples = []
+                for param_pattern, param_tuple in zip(param_names, param_tuples):
+                    results_config_tuples.append((param_tuple.population,
+                                                  param_tuple.source,
+                                                  param_tuple.sec_type,
+                                                  param_tuple.syn_name,
+                                                  param_tuple.param_name,
+                                                  params_dict[param_pattern]))
+                gid_results_config_dict[int(gid)] = results_config_tuples
+
+            logger.info('Optimized parameters and objective function: %s @ %s' % (pprint.pformat(gid_results_config_dict), str(result_value)))
+            return {pop_name: gid_results_config_dict}
+        else:
+            params_dict = dict(opt_results[0])
+            result_value = opt_results[1]
             results_config_tuples = []
             for param_pattern, param_tuple in zip(param_names, param_tuples):
                 results_config_tuples.append((param_tuple.population,
-                                            param_tuple.source,
-                                            param_tuple.sec_type,
-                                            param_tuple.syn_name,
-                                            param_tuple.param_name,
-                                            params_dict[param_pattern]))
-            gid_results_config_dict[int(gid)] = results_config_tuples
-
-        logger.info('Optimized parameters and objective function: %s' % pprint.pformat(gid_results_config_dict))
-
-        return {pop_name: gid_results_config_dict}
+                                              param_tuple.source,
+                                              param_tuple.sec_type,
+                                              param_tuple.syn_name,
+                                              param_tuple.param_name,
+                                              params_dict[param_pattern]))
+            logger.info('Optimized parameters and objective function: %s @ %s' % (pprint.pformat(results_config_tuples), str(result_value)))
+            return {pop_name: results_config_tuples}
     else:
         return None
     
@@ -1815,10 +1827,9 @@ def go(config_file, population, dt, gid, arena_id, trajectory_id, generate_weigh
             attr_name, attr_cell_index = next(iter(attr_info_dict[population]['Trees']))
             cell_index_set = set(attr_cell_index)
         cell_index_set = comm.bcast(cell_index_set, root=0)
+        comm.barrier()
     else:
         cell_index_set.add(gid)
-
-    comm.barrier()
         
     if size > 1:
         import distwq
@@ -1934,6 +1945,7 @@ def optimize(config_file, population, dt, gid, gid_selection_file, arena_id, tra
         results_file_id = generate_results_file_id(population, gid)
         
     results_file_id = comm.bcast(results_file_id, root=0)
+    comm.barrier()
     
     np.seterr(all='raise')
     verbose = True
@@ -1949,6 +1961,8 @@ def optimize(config_file, population, dt, gid, gid_selection_file, arena_id, tra
     elif gid is not None:
         cell_index_set.add(gid)
     else:
+        logger.info("rank %d: before  Split" % rank)
+        comm.barrier()
         comm0 = comm.Split(2 if rank == 0 else 1, 0)
         if rank == 0:
             env = Env(**init_params, comm=comm0)
@@ -1957,11 +1971,12 @@ def optimize(config_file, population, dt, gid, gid_selection_file, arena_id, tra
             cell_index = None
             attr_name, attr_cell_index = next(iter(attr_info_dict[population]['Trees']))
             cell_index_set = set(attr_cell_index)
+        comm.barrier()
         cell_index_set = comm.bcast(cell_index_set, root=0)
         comm.barrier()
+        comm0.Free()
     init_params['cell_index_set'] = cell_index_set
     del(init_params['gid'])
-    comm.barrier()
 
     params = dict(locals())
     env = Env(**params)

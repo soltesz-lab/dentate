@@ -42,7 +42,7 @@ get_objectives:
   optimize_network_subworlds: get_objectives
 kwargs:
   config_file: Network_Clamp_Slice_neg2000_neg1500um_IN_Izh.yaml
-  tstop: 1500.
+  tstop: 9500.
   checkpoint_interval: 0.
   v_init: -77.
   vrecord_fraction: 0.05

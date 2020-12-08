@@ -171,7 +171,7 @@ def connect_cells(env):
                     for gid, cell_weights_tuple in syn_weights_iter:
                         if first_gid is None:
                             first_gid = gid
-                            weights_syn_ids = cell_weights_tuple[syn_id_index]
+                        weights_syn_ids = cell_weights_tuple[syn_id_index]
                         for syn_name, syn_name_index in syn_name_inds:
                             if syn_name not in syn_attrs.syn_mech_names:
                                 if rank == 0 and first_gid == gid:
@@ -180,6 +180,7 @@ def connect_cells(env):
                                                    (postsyn_name, gid, syn_name))
                             else:
                                 weights_values = cell_weights_tuple[syn_name_index]
+                                assert(len(weights_syn_ids) == len(weights_values))
                                 syn_attrs.add_mech_attrs_from_iter(gid, syn_name,
                                                                    zip_longest(weights_syn_ids,
                                                                                [{'weight': Promise(expr_closure, [x])} for x in weights_values]
@@ -1265,6 +1266,8 @@ def run(env, output=True, shutdown=True):
         env.t_rec.record(h._ref_t, rec_dt)
 
         
+    env.pc.barrier()
+
     env.t_rec.resize(0)
     env.t_vec.resize(0)
     env.id_vec.resize(0)
@@ -1273,6 +1276,8 @@ def run(env, output=True, shutdown=True):
     env.simtime.reset()
     h.finitialize(env.v_init)
 
+    if rank == 0:
+        logger.info("*** Completed finitialize")
     env.pc.barrier()
 
     if env.checkpoint_interval is not None:
