@@ -73,8 +73,9 @@ def dmosopt_broker_init(broker, *args):
               help='namespace containing target rate maps used for rate optimization')
 @click.option("--results-dir", type=click.Path(exists=True, file_okay=False, dir_okay=True), default='results')
 @click.option("--nprocs-per-worker", type=int, default=1)
+@click.option("--n-iter", type=int, default=1)
 @click.option("--verbose", '-v', is_flag=True)
-def main(config_path, target_rate_map_path, target_rate_map_namespace, results_dir, nprocs_per_worker, verbose):
+def main(config_path, target_rate_map_path, target_rate_map_namespace, results_dir, nprocs_per_worker, n_iter, verbose):
 
     network_args = click.get_current_context().args
     network_config = {}
@@ -108,7 +109,6 @@ def main(config_path, target_rate_map_path, target_rate_map_namespace, results_d
     hyperprm_space = { param_pattern: [param_tuple.param_range[0], param_tuple.param_range[1]]
                        for param_pattern, param_tuple in 
                            zip(param_names, param_tuples) }
-    print(f"hyperprm_space: {hyperprm_space}")
 
     init_objfun = 'init_network_objfun'
     init_params = { 'operational_config': operational_config,
@@ -129,12 +129,12 @@ def main(config_path, target_rate_map_path, target_rate_map_namespace, results_d
                       'reduce_fun_args': (operational_config, opt_targets),
                       'problem_parameters': {},
                       'space': hyperprm_space,
-                      'n_objectives': len(objective_names),
+                      'objective_names': objective_names,
                       'n_initial': 3,
-                      'n_iter': 10,
+                      'n_iter': n_iter,
                       'file_path': f'{results_dir}/dmosopt.optimize_network.h5',
-                      'save': True
-
+                      'save': True,
+                      'save_eval': 5
                       }
     
     dmosopt_params['broker_fun_name'] = 'dmosopt_broker_init'
@@ -191,7 +191,6 @@ def make_optimization_config(env, pop_names, param_config_name, param_type='syna
         else:
             raise RuntimeError("make_optimization_config: unknown parameter type %s" % param_type)
 
-    print(f'param_tuples = {param_tuples}')
     return OptConfig(param_bounds=param_bounds, 
                      param_names=param_names, 
                      param_initial_dict=param_initial_dict, 
@@ -476,10 +475,10 @@ def compute_objectives(features, operational_config, opt_targets):
         logger.info(f'objective {key}: {objective_val}')
         if key in target_vals:
             logger.info(f'objective {key}: target: {target_vals[key]}')
-            objective = ((objective_val - target_vals[key]) / target_ranges[key]) ** 2.
+            objective = (objective_val - target_vals[key]) ** 2.
         else:
             objective = objective_val ** 2.
-        logger.info(f'objective {key}: {objective}')
+        logger.info(f'normalized objective {key}: {objective}')
         objectives.append(objective)
 
     result = np.asarray(objectives)

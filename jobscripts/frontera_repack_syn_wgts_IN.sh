@@ -19,4 +19,6 @@ export prefix=$SCRATCH/striped/dentate/Full_Scale_Control
 export input=$prefix/DG_IN_syn_weights_SLN_20200112.h5
 export output=$prefix/DG_IN_syn_weights_SLN_20200112_compressed.h5
 
+export H5TOOLS_BUFSIZE=$((16 * 1024 * 1024 * 1024))
+
 h5repack -v -f SHUF -f GZIP=9 -i $input -o $output

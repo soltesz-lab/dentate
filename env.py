@@ -53,7 +53,7 @@ class Env(object):
     """
 
     def __init__(self, comm=None, config_file=None, template_paths="templates", hoc_lib_path=None,
-                 configure_nrn=True, dataset_prefix=None, config_prefix=None,
+                 dataset_prefix=None, config_prefix=None,
                  results_path=None, results_file_id=None, results_namespace_id=None,
                  node_rank_file=None, io_size=0, recording_profile=None, recording_fraction=1.0,
                  tstop=0., v_init=-65, stimulus_onset=0.0, n_trials=1,
@@ -120,8 +120,6 @@ class Env(object):
         comm0 = self.comm.Split(color, 0)
 
         self.use_coreneuron = use_coreneuron
-        if configure_nrn:
-            from dentate.neuron_utils import h, find_template
 
         # If true, the biophysical cells and synapses dictionary will be freed
         # as synapses and connections are instantiated.

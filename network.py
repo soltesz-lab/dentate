@@ -994,7 +994,7 @@ def init_input_cells(env):
 
             if has_vecstim:
                 if rank == 0:
-                    logger.info("*** Initializing stimulus population %s" % pop_name)
+                    logger.info("*** Initializing stimulus population %s from namespace %s" % (pop_name, vecstim_namespace))
 
                 if env.cell_selection is None:
                     if env.node_ranks is None:
