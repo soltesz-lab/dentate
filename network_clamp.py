@@ -943,7 +943,7 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
                                  input_features_path, input_features_namespaces,
                                  param_type, param_config_name, recording_profile, rate_baseline,
                                  target_rate_map_path, target_rate_map_namespace,
-			         target_rate_map_arena, target_rate_map_trajectory,   
+                                 target_rate_map_arena, target_rate_map_trajectory,   
                                  use_coreneuron, cooperative_init, dt, worker, **kwargs):
     
     params = dict(locals())
