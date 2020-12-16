@@ -13,6 +13,7 @@ from dentate.cells import make_biophys_cell, make_izhikevich_cell, get_branch_or
 from dentate.env import Env
 from dentate.neuron_utils import h, configure_hoc_env
 from dentate.synapses import config_biophys_cell_syns, init_syn_mech_attrs, modify_syn_param
+from dentate import utils
 from dentate.utils import viewitems, range, str, Context, list_find, basestring
 from dentate.io_utils import set_h5py_attr, get_h5py_group
 
@@ -465,6 +466,9 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     :param correct_for_spines: bool
     :param verbose: bool
     """
+    utils.config_logging(verbose)
+    logger = utils.get_script_logger(os.path.basename(__file__))
+
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
     env = Env(comm=comm, config_file=config_file, template_paths=template_paths, hoc_lib_path=hoc_lib_path,
