@@ -1526,6 +1526,9 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
                  results_file=None, cooperative_init=False, verbose=False):
     import distgfs
 
+    logger.info(f'type(problem_regime) = {type(problem_regime)}')
+    logger.info(f'problem_regime = {problem_regime}')
+
     param_bounds, param_names, param_initial_dict, param_tuples = \
       optimization_params(env, pop_name, param_type, param_config_name)
     
@@ -1550,7 +1553,7 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
     elif ProblemRegime[problem_regime] == ProblemRegime.max:
         reduce_fun_name = "distgfs_reduce_max"
     else:
-        raise RuntimeError("optimize_run: unknown problem regime %d" % str(problem_regime))
+        raise RuntimeError("optimize_run: unknown problem regime %s" % str(problem_regime))
         
     distgfs_params = {'opt_id': 'network_clamp.optimize',
                       'problem_ids': problem_ids,
@@ -1573,7 +1576,7 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
     opt_results = distgfs.run(distgfs_params, verbose=verbose,
                                spawn_workers=True, nprocs_per_worker=nprocs_per_worker)
     if opt_results is not None:
-        if problem_regime == ProblemRegime.every:
+        if ProblemRegime[problem_regime] == ProblemRegime.every:
             gid_results_config_dict = {}
             for gid, opt_result in viewitems(opt_results):
                 params_dict = dict(opt_result[0])
@@ -1591,6 +1594,7 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
             logger.info('Optimized parameters and objective function: %s @ %s' % (pprint.pformat(gid_results_config_dict), str(result_value)))
             return {pop_name: gid_results_config_dict}
         else:
+            logger.info(f'opt_results = {opt_results}')
             params_dict = dict(opt_results[0])
             result_value = opt_results[1]
             results_config_tuples = []
