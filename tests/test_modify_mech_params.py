@@ -50,7 +50,8 @@ def standard_modify_mech_param_tests(cell):
     plot_mech_param_distribution(cell, 'pas', 'g', export='dend_gpas.hdf5', description='leak_config_2', show=False,
                                  sec_types=this_sec_types, param_label='leak conductance',
                                  output_dir=context.output_dir)
-    plot_mech_param_from_file('pas', 'g', 'dend_gpas.hdf5', param_label='leak conductance')
+    plot_mech_param_from_file('pas', 'g', 'dend_gpas.hdf5', param_label='leak conductance',
+                              output_dir=context.output_dir)
 
     modify_mech_param(cell, 'soma', 'kap', 'gkabar', x['soma.gkabar'])
     slope = (x['dend.gkabar'] - x['soma.gkabar']) / 300.
@@ -73,8 +74,8 @@ def standard_modify_mech_param_tests(cell):
     plot_mech_param_distribution(cell, 'kap', 'gkabar', export='dend_ka.hdf5', description='kap_config_2',
                                  param_label='kap conductance', show=False, sec_types=this_sec_types,
                                  output_dir=context.output_dir)
-    plot_mech_param_from_file('kap', 'gkabar', 'dend_ka.hdf5')  # , param_label='kap conductance')
-    plot_mech_param_from_file('kad', 'gkabar', 'dend_ka.hdf5')  # , param_label='kad conductance')
+    plot_mech_param_from_file('kap', 'gkabar', 'dend_ka.hdf5', output_dir=context.output_dir)  # , param_label='kap conductance')
+    plot_mech_param_from_file('kad', 'gkabar', 'dend_ka.hdf5', output_dir=context.output_dir)  # , param_label='kad conductance')
 
     modify_mech_param(cell, 'soma', 'nas', 'gbar', x['soma.gbar_nas'])
     modify_mech_param(cell, 'apical', 'nas', 'gbar', x['dend.gbar_nas'])
@@ -92,7 +93,8 @@ def standard_modify_mech_param_tests(cell):
     plot_mech_param_distribution(cell, 'nas', 'gbar', export='dend_nas.hdf5', description='nas_config_3', show=False,
                                  sec_types=['apical'], output_dir=context.output_dir)
     plot_mech_param_from_file('nas', 'gbar', 'dend_nas.hdf5', param_label='nas conductance',
-                              descriptions=['nas_config_1', 'nas_config_2', 'nas_config_3'])
+                              descriptions=['nas_config_1', 'nas_config_2', 'nas_config_3'],
+                              output_dir=context.output_dir)
 
 
 def count_nseg(cell):

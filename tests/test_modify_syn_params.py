@@ -59,7 +59,8 @@ def standard_modify_syn_param_tests(cell, env, syn_name='AMPA', param_name='g_un
         if context.verbose:
             print('standard_modify_syn_param tests with cache_queries: %s took %.2f s' % \
                   (str(env.cache_queries), time.time() - start_time))
-        plot_syn_attr_from_file(syn_name, param_name, 'syn_attrs.hdf5', param_label=param_label)
+        plot_syn_attr_from_file(syn_name, param_name, 'syn_attrs.hdf5', param_label=param_label,
+                                output_dir=context.output_dir)
     else:
         param_name = 'weight'
         param_label = '%s; %s; %s' % (syn_name, syn_mech_name, param_name)
@@ -81,7 +82,8 @@ def standard_modify_syn_param_tests(cell, env, syn_name='AMPA', param_name='g_un
                   (str(env.cache_queries), time.time() - start_time))
     param_name = 'weight'
     param_label = '%s; %s; %s' % (syn_name, syn_mech_name, param_name)
-    plot_syn_attr_from_file(syn_name, param_name, 'syn_weights.hdf5', param_label=param_label)
+    plot_syn_attr_from_file(syn_name, param_name, 'syn_weights.hdf5', param_label=param_label,
+                            output_dir=context.output_dir)
 
 
 @click.command()
