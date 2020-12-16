@@ -730,6 +730,10 @@ class BiophysCell(object):
             import_morphology_from_hoc(self, hoc_cell)
         if (mech_dict is None) and (mech_file_path is not None):
             import_mech_dict_from_file(self, self.mech_file_path)
+        else:
+            # Allows for a cell to be created and for a new mech_dict to be constructed programmatically from scratch
+            self.init_mech_dict = dict()
+            self.mech_dict = dict()
         init_spike_detector(self)
 
     @property
@@ -973,7 +977,7 @@ def lambda_f(sec, f=freq):
 def d_lambda_nseg(sec, lam=d_lambda, f=freq):
     """
     The AC length constant for this section and the user-defined fraction is used to determine the maximum size of each
-    segment to achieve the d esired spatial and temporal resolution. This method returns the number of segments to set
+    segment to achieve the desired spatial and temporal resolution. This method returns the number of segments to set
     the nseg parameter for this section. For tapered cylindrical sections, the diam parameter will need to be
     reinitialized after nseg changes.
     :param sec : :class:'h.Section'

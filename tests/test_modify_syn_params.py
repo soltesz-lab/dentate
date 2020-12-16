@@ -59,7 +59,8 @@ def standard_modify_syn_param_tests(cell, env, syn_name='AMPA', param_name='g_un
         if context.verbose:
             print('standard_modify_syn_param tests with cache_queries: %s took %.2f s' % \
                   (str(env.cache_queries), time.time() - start_time))
-        plot_syn_attr_from_file(syn_name, param_name, 'syn_attrs.hdf5', param_label=param_label)
+        plot_syn_attr_from_file(syn_name, param_name, 'syn_attrs.hdf5', param_label=param_label,
+                                output_dir=context.output_dir)
     else:
         param_name = 'weight'
         param_label = '%s; %s; %s' % (syn_name, syn_mech_name, param_name)
@@ -81,7 +82,8 @@ def standard_modify_syn_param_tests(cell, env, syn_name='AMPA', param_name='g_un
                   (str(env.cache_queries), time.time() - start_time))
     param_name = 'weight'
     param_label = '%s; %s; %s' % (syn_name, syn_mech_name, param_name)
-    plot_syn_attr_from_file(syn_name, param_name, 'syn_weights.hdf5', param_label=param_label)
+    plot_syn_attr_from_file(syn_name, param_name, 'syn_weights.hdf5', param_label=param_label,
+                            output_dir=context.output_dir)
 
 
 @click.command()
@@ -125,12 +127,13 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     """
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
-    env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, verbose=verbose,
+    env = Env(comm=comm, config_file=config_file, template_paths=template_paths, hoc_lib_path=hoc_lib_path,
+              dataset_prefix=dataset_prefix, config_prefix=config_prefix, verbose=verbose,
               cache_queries=cache_queries)
     configure_hoc_env(env)
     mech_file_path = config_prefix + '/' + mech_file
 
-    cell = get_biophys_cell(env, pop_name=pop_name, gid=gid, load_edges=load_edges, load_weights=load_weights,
+    cell = make_biophys_cell(env, pop_name=pop_name, gid=gid, load_edges=load_edges, load_weights=load_weights,
                             mech_file_path=mech_file_path, load_synapses=load_synapses)
     init_biophysics(cell, reset_cable=True, correct_cm=correct_for_spines,
                     correct_g_pas=correct_for_spines, env=env,
