@@ -41,7 +41,7 @@ ibrun  python3 network_clamp.py optimize  -c Network_Clamp_MC_SLN.yaml \
     --input-features-namespaces 'Place Selectivity' \
     --input-features-namespaces 'Grid Selectivity' \
     --input-features-namespaces 'Constant Selectivity' \
-    --config-prefix config  --opt-iter 4000 --param-config-name 'Weight no GC MC' \
+    --config-prefix config  --opt-iter 100 --param-config-name 'Weight no GC MC' \
     --arena-id A --trajectory-id Diag \
     --target-rate-map-path $SCRATCH/striped/dentate/Slice/DG_MC_input_spike_trains_20200708.h5 \
     selectivity_rate

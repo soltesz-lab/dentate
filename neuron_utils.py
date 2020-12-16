@@ -27,6 +27,7 @@ default_izhi_cell_attrs_dict = {
     'RTN': IzhiCellAttrs(C=0.4, k=0.25, vr=-65., vt=-45., vpeak=0., a=0.015, b=10., c=-55., d=50., celltype=7)
 }
 
+HocCellInterface = namedtuple('HocCellInterface', ['sections', 'is_art', 'is_reduced', 'soma', 'hillock', 'ais', 'axon', 'basal', 'apical', 'all', 'state'])
 
 def hoc_results_to_python(hoc_results):
     results_dict = {}
@@ -112,7 +113,7 @@ def mkgap(env, cell, gid, secpos, secidx, sgid, dgid, w):
     return gj
 
 
-def find_template(env, template_name, path=['templates'], template_file=None, root=0):
+def find_template(env, template_name, path=['templates'], template_file=None, bcast_template=False, root=0):
     """
     Finds and loads a template located in a directory within the given path list.
     :param env: :class:'Env'
@@ -121,40 +122,39 @@ def find_template(env, template_name, path=['templates'], template_file=None, ro
     :param template_file: str; file_name containing definition of hoc template
     :param root: int; MPI.COMM_WORLD.rank
     """
-    pc = env.pc
-    rank = int(pc.id())
+    if env.comm is None:
+        bcast_template = false
+    rank = env.comm.rank if env.comm is not None else 0
     found = False
-    foundv = h.Vector(1)
     template_path = ''
     if template_file is None:
         template_file = '%s.hoc' % template_name
-    if pc is not None:
-        pc.barrier()
-    if (pc is None) or (int(pc.id()) == root):
+    if bcast_template:
+        env.comm.barrier()
+    if (env.comm is None) or (not bcast_template) or (bcast_template and (rank == root)):
         for template_dir in path:
             if template_file is None:
                 template_path = '%s/%s.hoc' % (template_dir, template_name)
             else:
                 template_path = '%s/%s' % (template_dir, template_file)
             found = os.path.isfile(template_path)
-            if found and (rank == root):
+            if found and (rank == 0):
                 logger.info('Loaded %s from %s' % (template_name, template_path))
                 break
-        foundv.x[0] = 1 if found else 0
-    if pc is not None:
-        pc.barrier()
-        pc.broadcast(foundv, root)
-    if foundv.x[0] > 0.0:
-        s = h.ref(template_path)
-        if pc is not None:
-            pc.broadcast(s, root)
-        h.load_file(s)
+    if bcast_template:
+        found = env.comm.bcast(found, root=root)
+        env.comm.barrier()
+    if found:
+        if bcast_template:
+            template_path = env.comm.bcast(template_path, root=root)
+            env.comm.barrier()
+        h.load_file(template_path)
     else:
         raise Exception('find_template: template %s not found: file %s; path is %s' %
                         (template_name, template_file, str(path)))
 
 
-def configure_hoc_env(env):
+def configure_hoc_env(env, bcast_template=False):
     """
 
     :param env: :class:'Env'
@@ -165,10 +165,16 @@ def configure_hoc_env(env):
         path = "%s/rn.hoc" % template_dir
         if os.path.exists(path):
             h.load_file(path)
+    h.cvode.use_fast_imem(1)
+    h.cvode.cache_efficient(1)
     h('objref pc, nc, nil')
     h('strdef dataset_path')
     if hasattr(env, 'dataset_path'):
         h.dataset_path = env.dataset_path if env.dataset_path is not None else ""
+    if env.use_coreneuron:
+        from neuron import coreneuron
+        coreneuron.enable = True
+        coreneuron.verbose = 1 if env.verbose else 0
     h.pc = h.ParallelContext()
     h.pc.gid_clear()
     env.pc = h.pc
@@ -185,11 +191,11 @@ def configure_hoc_env(env):
     ## sparse parallel transfer
     if hasattr(h, 'nrn_sparse_partrans'):
         h.nrn_sparse_partrans = 1
-    find_template(env, 'StimCell', path=env.template_paths)
-    find_template(env, 'VecStimCell', path=env.template_paths)
+#    find_template(env, 'StimCell', path=env.template_paths, bcast_template=bcast_template)
+    find_template(env, 'VecStimCell', path=env.template_paths, bcast_template=bcast_template)
 
 
-def load_cell_template(env, pop_name):
+def load_cell_template(env, pop_name, bcast_template=False):
     """
     :param pop_name: str
     """
@@ -200,18 +206,18 @@ def load_cell_template(env, pop_name):
         raise KeyError('load_cell_templates: unrecognized cell population: %s' % pop_name)
     template_name = env.celltypes[pop_name]['template']
     if 'template file' in env.celltypes[pop_name]:
-            template_file = env.celltypes[pop_name]['template file']
+        template_file = env.celltypes[pop_name]['template file']
     else:
         template_file = None
     if not hasattr(h, template_name):
-        find_template(env, template_name, template_file=template_file, path=env.template_paths)
+        find_template(env, template_name, template_file=template_file, path=env.template_paths, bcast_template=bcast_template)
     assert (hasattr(h, template_name))
     template_class = getattr(h, template_name)
     env.template_dict[pop_name] = template_class
     return template_class
 
 
-def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v', label=None, dt=h.dt, description=''):
+def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v', label=None, dt=None, description=''):
     """
     Makes a recording vector for the specified quantity in the specified section and location.
 
@@ -253,7 +259,10 @@ def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v
                 break
     if label is None:
         label = param
-    vec.record(getattr(hocobj, '_ref_%s' % param), dt)
+    if dt is None:
+        vec.record(getattr(hocobj, '_ref_%s' % param))
+    else:
+        vec.record(getattr(hocobj, '_ref_%s' % param), dt)
     rec_dict = {'name': recid,
                 'gid': gid,
                 'cell': cell,

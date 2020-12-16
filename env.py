@@ -1,12 +1,12 @@
 
-import os, pprint
+import os, pprint, logging
 from collections import defaultdict, namedtuple
 import numpy as np
 from mpi4py import MPI
 import yaml
 import dentate
 from dentate.synapses import SynapseAttributes, get_syn_filter_dict
-from dentate.utils import IncludeLoader, ExprClosure, config_logging, get_root_logger, str, viewitems, zip, read_from_yaml
+from dentate.utils import IncludeLoader, ExprClosure, get_root_logger, str, viewitems, zip, read_from_yaml
 from neuroh5.io import read_cell_attribute_info, read_population_names, read_population_ranges, read_projection_names
 
 SynapseConfig = namedtuple('SynapseConfig',
@@ -56,11 +56,13 @@ class Env(object):
                  configure_nrn=True, dataset_prefix=None, config_prefix=None,
                  results_path=None, results_file_id=None, results_namespace_id=None,
                  node_rank_file=None, io_size=0, recording_profile=None, recording_fraction=1.0,
-                 coredat=False, tstop=0., v_init=-65, stimulus_onset=0.0, n_trials=1,
+                 tstop=0., v_init=-65, stimulus_onset=0.0, n_trials=1,
                  max_walltime_hours=0.5, checkpoint_interval=500.0, checkpoint_clear_data=True, 
-                 results_write_time=0, dt=0.025, ldbal=False, lptbal=False, transfer_debug=False,
-                 cell_selection_path=None, spike_input_path=None, spike_input_namespace=None, spike_input_attr=None,
-                 cleanup=True, cache_queries=False, profile_memory=False, verbose=False, **kwargs):
+                 results_write_time=0, dt=None, ldbal=False, lptbal=False, 
+                 cell_selection_path=None, microcircuit_inputs=False,
+                 spike_input_path=None, spike_input_namespace=None, spike_input_attr=None,
+                 cleanup=True, cache_queries=False, profile_memory=False, use_coreneuron=False,
+                 transfer_debug=False, verbose=False, **kwargs):
         """
         :param comm: :class:'MPI.COMM_WORLD'
         :param config_file: str; model configuration file name
@@ -74,7 +76,6 @@ class Env(object):
         :param node_rank_file: str; name of file specifying assignment of node gids to MPI ranks
         :param io_size: int; the number of MPI ranks to be used for I/O operations
         :param recording_profile: str; intracellular recording configuration to use
-        :param coredat: bool; Save CoreNEURON data
         :param tstop: int; physical time to simulate (ms)
         :param v_init: float; initialization membrane potential (mV)
         :param stimulus_onset: float; starting time of stimulus (ms)
@@ -98,9 +99,9 @@ class Env(object):
 
         self.gidset = set([])
         self.gjlist = []
-        self.cells = defaultdict(list)
-        self.artificial_cells = defaultdict(dict)
-        self.biophys_cells = defaultdict(dict)
+        self.cells = defaultdict(lambda: dict())
+        self.artificial_cells = defaultdict(lambda: dict())
+        self.biophys_cells = defaultdict(lambda: dict())
         self.spike_onset_delay = {}
         self.recording_sets = {}
 
@@ -116,8 +117,9 @@ class Env(object):
         else:
             color = 0
         ## comm0 includes only rank 0
-        comm0 = comm.Split(color, 0)
+        comm0 = self.comm.Split(color, 0)
 
+        self.use_coreneuron = use_coreneuron
         if configure_nrn:
             from dentate.neuron_utils import h, find_template
 
@@ -131,8 +133,9 @@ class Env(object):
 
         # print verbose diagnostic messages
         self.verbose = verbose
-        config_logging(verbose)
         self.logger = get_root_logger()
+        if self.verbose:
+            self.logger.setLevel(logging.INFO)
 
         # Directories for cell templates
         if template_paths is not None:
@@ -145,9 +148,12 @@ class Env(object):
         self.hoc_lib_path = hoc_lib_path
 
         # Checkpoint interval in ms of simulation time
-        self.checkpoint_interval = max(float(checkpoint_interval), 1.0)
         self.checkpoint_clear_data = checkpoint_clear_data
         self.last_checkpoint = 0.
+        if checkpoint_interval > 0.:
+            self.checkpoint_interval = max(float(checkpoint_interval), 1.0)
+        else:
+            self.checkpoint_interval = None
         
         # The location of all datasets
         self.dataset_prefix = dataset_prefix
@@ -182,7 +188,7 @@ class Env(object):
         self.results_write_time = float(results_write_time)
 
         # time step
-        self.dt = float(dt)
+        self.dt = float(dt if dt is not None else 0.025)
 
         # used to estimate cell complexity
         self.cxvec = None
@@ -193,9 +199,6 @@ class Env(object):
 
         self.transfer_debug = transfer_debug
             
-        # Save CoreNEURON data
-        self.coredat = coredat
-
         # cache queries to filter_synapses
         self.cache_queries = cache_queries
 
@@ -248,9 +251,11 @@ class Env(object):
         self.cell_selection_path = cell_selection_path
         if rank == 0:
             self.logger.info('env.cell_selection_path = %s' % str(self.cell_selection_path))
-        if cell_selection_path is not None:
-            with open(cell_selection_path) as fp:
-                self.cell_selection = yaml.load(fp, IncludeLoader)
+            if cell_selection_path is not None:
+                with open(cell_selection_path) as fp:
+                    self.cell_selection = yaml.load(fp, IncludeLoader)
+        self.cell_selection = self.comm.bcast(self.cell_selection, root=0)
+        
 
         # Spike input path
         self.spike_input_path = spike_input_path
@@ -336,6 +341,11 @@ class Env(object):
                 self.projection_dict = dict(projection_dict)
                 self.logger.info('projection_dict = %s' % str(self.projection_dict))
             self.projection_dict = self.comm.bcast(self.projection_dict, root=0)
+
+        # If True, instantiate as spike source those cells that do not
+        # have data in the input data file
+        self.microcircuit_inputs = microcircuit_inputs or (self.cell_selection is not None)
+        self.microcircuit_input_sources = { pop_name: set([]) for pop_name in self.celltypes.keys() }
             
         # Configuration profile for recording intracellular quantities
         assert((recording_fraction >= 0.0) and (recording_fraction <= 1.0))
@@ -356,6 +366,9 @@ class Env(object):
                     filters['sources'] = recdict['sources']
                 syn_filters = get_syn_filter_dict(self, filters, convert=True)
                 recdict['syn_filters'] = syn_filters
+        
+            if self.use_coreneuron:
+                self.recording_profile['dt'] = None
 
         # Configuration profile for recording local field potentials
         self.LFP_config = {}
@@ -372,6 +385,7 @@ class Env(object):
         self.id_vec = None
         self.t_rec = None
         self.recs_dict = {}  # Intracellular samples on this host
+        self.recs_count = 0
         for pop_name, _ in viewitems(self.Populations):
             self.recs_dict[pop_name] = defaultdict(list)
             
@@ -807,7 +821,7 @@ class Env(object):
     def clear(self):
         self.gidset = set([])
         self.gjlist = []
-        self.cells = defaultdict(list)
+        self.cells = defaultdict(dict)
         self.artificial_cells = defaultdict(dict)
         self.biophys_cells = defaultdict(dict)
         self.recording_sets = {}
@@ -820,5 +834,6 @@ class Env(object):
         if self.t_rec is not None:
             self.t_rec.resize(0)
         self.recs_dict = {}
+        self.recs_count = 0
         for pop_name, _ in viewitems(self.Populations):
             self.recs_dict[pop_name] = defaultdict(list)

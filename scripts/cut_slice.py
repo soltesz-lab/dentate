@@ -12,6 +12,8 @@ import h5py
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
+    sys.stdout.flush()
+    sys.stderr.flush()
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
 sys.excepthook = mpi_excepthook
@@ -46,15 +48,15 @@ def main(arena_id, config, config_prefix, dataset_prefix, distances_namespace, d
 
     comm = MPI.COMM_WORLD
     rank = comm.rank
+    if io_size == -1:
+        io_size = comm.size
 
     env = Env(comm=comm, config_file=config, 
               config_prefix=config_prefix, dataset_prefix=dataset_prefix, 
               results_path=output_path, spike_input_path=spike_input_path, 
               spike_input_namespace=spike_input_namespace, spike_input_attr=spike_input_attr,
-              arena_id=arena_id, trajectory_id=trajectory_id)
+              arena_id=arena_id, trajectory_id=trajectory_id, io_size=io_size)
 
-    if io_size == -1:
-        io_size = comm.size
     if rank == 0:
         logger.info('%i ranks have been allocated' % comm.size)
 

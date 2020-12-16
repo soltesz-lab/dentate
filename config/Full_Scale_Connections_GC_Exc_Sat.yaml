@@ -356,9 +356,9 @@ Synapses:
   BC:
     GC:   
       type: excitatory
-      sections: [soma, basal]
-      layers: [Hilus, Hilus]
-      proportions: [1.0, 1.0, 1.0]
+      sections: [soma, basal, basal]
+      layers: [Hilus, Hilus, GCL]
+      proportions: [1.0, 0.85, 1.0]
       contacts: 1.0
       mechanisms:
           AMPA:
@@ -394,6 +394,20 @@ Synapses:
           e:     0
           g_unit: 0.000225
           weight: 1.0
+    CA3c:   
+      type: excitatory
+      sections: [basal]
+      layers: [Hilus]
+      proportions: [0.15]
+      contacts: 1.0
+      mechanisms:
+        AMPA:
+          dur_onset: 0.5
+          tau_offset: 3.6
+          e: 0
+          g_unit: 0.0001
+          weight: 1.0
+          sat: 0.9
     MC:   
       type: excitatory
       sections: [apical, apical]

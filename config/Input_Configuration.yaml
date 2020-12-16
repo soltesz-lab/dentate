@@ -1,5 +1,5 @@
 Number Modules: 10
-Spatial Resolution: 1.0  # cm
+Spatial Resolution: 3.0  # cm
 Temporal Resolution: 1.0  # ms
 Equilibration Duration: 250. # ms
 
@@ -161,28 +161,16 @@ Arena:
       simplices: [[0,1], [1,2], [2,3], [3,0]]
 
     Trajectory:
-      DDiag:
-        path: [[-125, -125], [125, 125]]
-        run velocity: 30.  # cm/s
-
       Diag:
         path: [[-100, -100], [100, 100]]
         run velocity: 30.  # cm/s
 
-      HDiag:
-        path: [[30, 30], [100, 100]]
-        run velocity: 30. # cm/s
-
-      ## upper diagonal offset by 5 cm on Y axis
-      DiagU5:
-        path: [[-100, -95], [95, 100]]
+      ## passing through the main diagonals of the arena
+      MainDiags:
+        path: [[-100, -100], [0, 0], [-100, 100],  [0, 0], [100, 100], [0, 0], [100, -100]]
         run velocity: 30.  # cm/s
-
-      ## lower diagonal offset by 5 cm on X axis
-      DiagL5:
-        path: [[-95, -100], [100, 95]]
-        run velocity: 30.  # cm/s
-
+        
+        
     default run velocity: 30.  # cm/s
 
   Remap A:

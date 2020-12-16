@@ -176,6 +176,7 @@ class SynapseAttributes(object):
                 syn_dict[syn_id] = syn
                 sec_dict[syn_sec].append((syn_id, syn))
 
+
     def init_edge_attrs(self, gid, presyn_name, presyn_gids, edge_syn_ids, delays=None):
         """
         Sets connection edge attributes for the specified synapse ids.
@@ -191,7 +192,7 @@ class SynapseAttributes(object):
         connection_velocity = float(self.env.connection_velocity[presyn_name])
 
         if delays is None:
-            delays = [1.1*h.dt] * len(edge_syn_ids)
+            delays = [2.0*h.dt] * len(edge_syn_ids)
 
         syn_id_dict = self.syn_id_attr_dict[gid]
 
@@ -242,7 +243,7 @@ class SynapseAttributes(object):
             edge_dists = edge_attrs['Connections'][distance_attr_index]
 
             if set_edge_delays:
-                delays = [max((distance / connection_velocity), 1.1*h.dt) for distance in edge_dists]
+                delays = [max((distance / connection_velocity), 2.0*h.dt) for distance in edge_dists]
             else:
                 delays = None
 
@@ -264,6 +265,7 @@ class SynapseAttributes(object):
             raise RuntimeError('add_pps: gid %i Synapse id %i already has mechanism %s' % (gid, syn_id, syn_name))
         else:
             pps_dict.mech[syn_index] = pps
+        return pps
 
     def has_pps(self, gid, syn_id, syn_name):
         """
@@ -317,6 +319,7 @@ class SynapseAttributes(object):
                                (gid, syn_id, syn_name))
         else:
             pps_dict.netcon[syn_index] = nc
+        return nc
 
     def has_netcon(self, gid, syn_id, syn_name):
         """
@@ -389,6 +392,7 @@ class SynapseAttributes(object):
                                (gid, syn_id, syn_name))
         else:
             pps_dict.vecstim[syn_index] = vs
+        return vs
 
     def has_vecstim(self, gid, syn_id, syn_name):
         """
@@ -473,7 +477,7 @@ class SynapseAttributes(object):
         """
         self.add_mech_attrs_from_iter(gid, syn_name, iter({syn_id: params}), multiple='error', append=append)
         
-    def modify_mech_attrs(self, pop_name, gid, syn_id, syn_name, params):
+    def modify_mech_attrs(self, pop_name, gid, syn_id, syn_name, params, expr_param_check='ignore'):
         """
         Modifies mechanism attributes for the given cell id/synapse id/mechanism name. 
 
@@ -529,16 +533,20 @@ class SynapseAttributes(object):
                         for sk, sv in viewitems(new_val):
                             old_val[sk] = sv
                     else:
-                        raise RuntimeError('modify_mech_attrs: dictionary value provided to a non-expression parameter %s' %
-                                           k)
+                        if expr_param_check == 'ignore':
+                            pass
+                        else:
+                            raise RuntimeError('modify_mech_attrs: dictionary value provided to a non-expression parameter %s' %
+                                               k)
                 else:
                     attr_dict[k] = new_val
             elif k in rules[mech_name]['netcon_params']:
+
                 mech_param = mech_params.get(k, None)
                 if isinstance(mech_param, ExprClosure):
                     if mech_param.parameters[0] == 'delay':
                         new_val = mech_param(syn.source.delay)
-                        #print("modify %s.%s.%s: delay: %f new val: %f" % (pop_name, syn_name, k, syn.source.delay, new_val))
+
                     else:
                         raise RuntimeError('modify_mech_attrs: unknown dependent expression parameter %s' %
                                            mech_param.parameters)
@@ -559,11 +567,14 @@ class SynapseAttributes(object):
                         for sk, sv in viewitems(new_val):
                             old_val[sk] = sv
                     else:
-                        raise RuntimeError('modify_mech_attrs: dictionary value provided to a non-expression parameter %s mechanism: %s presynaptic: %s' %
-                                           (k, mech_name, presyn_name))
+                        if expr_param_check == 'ignore':
+                            pass
+                        else:
+                            raise RuntimeError('modify_mech_attrs: dictionary value provided to a non-expression parameter %s mechanism: %s presynaptic: %s old value: %s' %
+                                               (k, mech_name, presyn_name, old_val))
                 else:
                     attr_dict[k] = new_val
-                logger.debug("modify %s.%s.%s: old_val: %s new val: %s" % (pop_name, syn_name, k, str(old_val), str(new_val)))
+                #logger.debug("modify %s.%s.%s.%s: old_val: %s new val: %s" % (pop_name, presyn_name, syn_name, k, str(old_val), str(new_val)))
                 
             else:
                 raise RuntimeError('modify_mech_attrs: unknown type of parameter %s' % k)
@@ -588,6 +599,7 @@ class SynapseAttributes(object):
         for syn_id, params_dict in params_iter:
             syn = syn_id_dict[syn_id]
             if syn is None:
+                print(sorted(syn_id_dict.keys()))
                 raise RuntimeError('add_mech_attrs_from_iter: '
                                    'gid %i synapse id %i has not been created yet' % (gid, syn_id))
             if syn_index in syn.attr_dict:
@@ -641,9 +653,9 @@ class SynapseAttributes(object):
         else:
             source_indexes = set(sources)
 
+        sec_dict = self.sec_dict[gid]
         if syn_sections is not None:
             # Fast path
-            sec_dict = self.sec_dict[gid]
             it = itertools.chain.from_iterable([sec_dict[sec_index] for sec_index in syn_sections])
             syn_dict = {k: v for (k, v) in it}
         else:
@@ -791,7 +803,11 @@ def insert_hoc_cell_syns(env, gid, cell, syn_ids, syn_params, unique=False, inse
                          swc_type_ais: syns_dict_ais,
                          swc_type_hill: syns_dict_hill,
                          swc_type_soma: syns_dict_soma}
+
     py_sections = [sec for sec in cell.sections]
+    is_reduced = False
+    if hasattr(cell, 'is_reduced'):
+        is_reduced = cell.is_reduced
 
     syn_attrs = env.synapse_attributes
     syn_id_attr_dict = syn_attrs.syn_id_attr_dict[gid]
@@ -807,8 +823,11 @@ def insert_hoc_cell_syns(env, gid, cell, syn_ids, syn_params, unique=False, inse
         swc_type = syn.swc_type
         syn_loc = syn.syn_loc
         syn_section = syn.syn_section
-        
-        sec = py_sections[syn_section]
+
+        if is_reduced:
+            sec = py_sections[0]
+        else:
+            sec = py_sections[syn_section]
         if swc_type in syns_dict_by_type:
             syns_dict = syns_dict_by_type[swc_type]
         else:
@@ -1044,12 +1063,14 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
                                                'value set for parameter %s' % (gid, syn_id, presyn_name, param_name))
                         if isinstance(param_val, Promise):
                             new_param_val = param_val.clos(*param_val.args)
+                            #logger.debug("config_hoc_cell_syns: %s param_val = %s new_param_val = %s" % (syn_name, str(param_val), str(new_param_val)))
                         elif param_name in param_closure_dict and isinstance(param_val, list):
                             new_param_val = param_closure_dict[param_name](*param_val)
                         else:
                             new_param_val = param_val
                         upd_params[param_name] = new_param_val
-                        
+
+                    #logger.debug("config_hoc_cell_syns: %s params = %s upd_params = %s" % (syn_name, str(params), str(upd_params)))
                     (mech_set, nc_set) = config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
                                                     mech_names=syn_attrs.syn_mech_names, syn=this_pps,
                                                     nc=this_netcon, **upd_params)
@@ -1088,7 +1109,7 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
 
     nc_param = False
     mech_param = False
-
+    
     for param, val in viewitems(params):
         failed = True
         if param in mech_rules['mech_params']:
@@ -1126,10 +1147,17 @@ def config_syn(syn_name, rules, mech_names=None, syn=None, nc=None, **params):
                         if val is None:
                             raise AttributeError('config_syn: netcon attribute %s is None for synaptic mechanism: %s' %
                                                  (param, mech_name))
-                        new = val
+                        if isinstance(val, list):
+                            if len(val) > 1:
+                                raise AttributeError('config_syn: netcon attribute %s is list of length > 1 for synaptic mechanism: %s' %
+                                                     (param, mech_name))
+                            new = val[0]
+                        else:
+                            new = val
                         nc.weight[i] = new
                         nc_param = True
                         failed = False
+                    #logger.debug("config_syn: syn: %s param: %s: old = %f new = %f" % (syn_name, param, old, new))
         if failed:
             raise AttributeError('config_syn: problem setting attribute: %s for synaptic mechanism: %s' %
                                  (param, mech_name))
@@ -1269,7 +1297,7 @@ def get_syn_filter_dict(env, rules, convert=False, check_valid=True):
                 raise ValueError('get_syn_filter_dict: swc_type: %s not recognized by network configuration' %
                                  syn_type)
             if convert:
-                rules_dict['swc_types'][i] = env.SWC_Types[syn_type]
+                rules_dict['swc_types'][i] = env.SWC_Types[swc_type]
     if layers is not None:
         for i, layer in enumerate(layers):
             if layer not in env.layers:
@@ -1277,12 +1305,14 @@ def get_syn_filter_dict(env, rules, convert=False, check_valid=True):
             if convert:
                 rules_dict['layers'][i] = env.layers[layer]
     if sources is not None:
+        source_idxs = []
         for i, source in enumerate(sources):
             if source not in env.Populations:
                 raise ValueError('get_syn_filter_dict: presynaptic population: %s not recognized by network '
                                  'configuration' % str(source))
-            if convert:
-                rules_dict['sources'][i] = env.Populations[source]
+            source_idxs.append(env.Populations[source])
+        if convert:
+            rules_dict['sources'] = source_idxs
     return rules_dict
 
 
@@ -1375,7 +1405,6 @@ def modify_syn_param(cell, env, sec_type, syn_name, param_name=None, value=None,
     backup_mech_dict = copy.deepcopy(cell.mech_dict)
 
     mech_content = {param_name: rules}
-    
     # No mechanisms have been specified in this type of section yet
     if sec_type not in cell.mech_dict:
         cell.mech_dict[sec_type] = {'synapses': {syn_name: mech_content}}
@@ -1435,6 +1464,8 @@ def update_syn_mech_by_sec_type(cell, env, sec_type, syn_name, mech_content, upd
                                               update_targets, verbose)
 
 
+
+
 def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name, rules, update_targets=False,
                                       verbose=False):
     """For the provided synaptic mechanism and parameter, this method
@@ -1455,57 +1486,35 @@ def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name,
     """
     new_rules = copy.deepcopy(rules)
     if 'filters' in new_rules:
-        filters = get_syn_filter_dict(env, new_rules['filters'], convert=True)
+        synapse_filters = get_syn_filter_dict(env, new_rules['filters'], convert=True)
         del new_rules['filters']
     else:
-        filters = None
+        synapse_filters = None
     if 'origin_filters' in new_rules:
         origin_filters = get_syn_filter_dict(env, new_rules['origin_filters'], convert=True)
         del new_rules['origin_filters']
     else:
         origin_filters = None
-    if sec_type in cell.nodes:
-        for node in cell.nodes[sec_type]:
-            update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, new_rules, filters, origin_filters,
-                                          update_targets, verbose)
 
+    is_reduced = False
+    if hasattr(cell, 'is_reduced'):
+        is_reduced = cell.is_reduced
 
-def update_syn_mech_param_by_node(cell, env, node, syn_name, param_name, rules, filters=None, origin_filters=None,
-                                  update_targets=False, verbose=False):
-    """For the provided synaptic mechanism and parameter, this method
-    first determines the set of placeholder synapses in the provided
-    node that match any provided filters. Then calls
-    apply_syn_mech_rules to interpret the provided rules, and set
-    placeholder values in the syn_mech_attr_dict of a
-    SynapseAttributes object.
-
-
-    :param cell: :class:'BiophysCell'
-    :param env: :class:'Env'
-    :param node: :class:'SHocNode'
-    :param syn_name: str
-    :param param_name: str
-    :param rules: dict
-    :param filters: dict: {category: list of int}
-    :param origin_filters: dict: {category: list of int}
-    :param update_targets: bool
-    :param verbose: bool
-    """
-    gid = cell.gid
-    cache_queries = env.cache_queries
-    syn_attrs = env.synapse_attributes
-    if filters is None:
-        filtered_syns = syn_attrs.filter_synapses(gid, syn_sections=[node.index], cache=cache_queries)
-    else:
-        filtered_syns = syn_attrs.filter_synapses(gid, syn_sections=[node.index], cache=cache_queries, **filters)
-
-    if len(filtered_syns) > 0:
-        syn_ids = list(filtered_syns.keys())
-        apply_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, origin_filters,
+    if is_reduced:
+        synapse_filters['swc_types'] = [env.SWC_Types[sec_type]]
+        apply_syn_mech_rules(cell, env, syn_name, param_name, new_rules, 
+                             synapse_filters=synapse_filters, origin_filters=origin_filters,
                              update_targets=update_targets, verbose=verbose)
+    elif sec_type in cell.nodes:
+        for node in cell.nodes[sec_type]:
+            apply_syn_mech_rules(cell, env, syn_name, param_name, new_rules, node=node,
+                                 synapse_filters=synapse_filters, origin_filters=origin_filters,
+                                 update_targets=update_targets, verbose=verbose)
 
 
-def apply_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, origin_filters=None, donor=None,
+
+def apply_syn_mech_rules(cell, env, syn_name, param_name, rules, node=None, syn_ids=None, 
+                         synapse_filters=None, origin_filters=None, donor=None, 
                          update_targets=False, verbose=False):
     """Provided a synaptic mechanism, a parameter, a node, a list of
     syn_ids, and a dict of rules. Interprets the provided rules,
@@ -1532,17 +1541,33 @@ def apply_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, rules, 
     :param update_targets: bool
     :param verbose: bool
     """
+    if syn_ids is None:
+        syn_attrs = env.synapse_attributes
+        if synapse_filters is None:
+            synapse_filters = {}
+        if node is None:
+            filtered_syns = syn_attrs.filter_synapses(cell.gid, cache=env.cache_queries, 
+                                                      **synapse_filters)
+        else:
+            filtered_syns = syn_attrs.filter_synapses(cell.gid, syn_sections=[node.index], 
+                                                      cache=env.cache_queries, **synapse_filters)
+        syn_ids = list(filtered_syns.keys())
+
+    
     if 'origin' in rules and donor is None:
-        donor = get_donor(cell, node, rules['origin'])
+        if node is None:
+            donor = None
+        else:
+            donor = get_donor(cell, node, rules['origin'])
         if donor is None:
             raise RuntimeError('apply_syn_mech_rules: problem identifying donor of origin_type: %s for synaptic '
                                'mechanism: %s parameter: %s in sec_type: %s' %
-                               (rules['origin'], syn_name, param_name, node.type))
+                               (rules['origin'], syn_name, param_name, node.type if node is not None else "None"))
     if 'value' in rules:
         baseline = rules['value']
     elif donor is None:
         raise RuntimeError('apply_syn_mech_rules: cannot set value of synaptic mechanism: %s parameter: %s in '
-                           'sec_type: %s without a provided origin or value' % (syn_name, param_name, node.type))
+                           'sec_type: %s without a provided origin or value' % (syn_name, param_name, node.type if node is not None else "None"))
     else:
         baseline = inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filters)
     if baseline is None:
@@ -1694,7 +1719,8 @@ def apply_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, 
     new_rules['value'] = baseline
     new_rules = func(cell, node, baseline, new_rules, donor, **custom)
     if new_rules:
-        apply_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, new_rules, donor=donor,
+        apply_syn_mech_rules(cell, env, syn_name, param_name, new_rules, 
+                             node=node, syn_ids=syn_ids, donor=donor,
                              update_targets=update_targets, verbose=verbose)
 
 
@@ -2359,14 +2385,14 @@ def generate_sparse_weights(weights_name, fraction, seed, source_syn_dict):
 
 
     
-def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_dict, syn_count_dict,
+def generate_structured_weights(destination_gid, target_map, initial_weight_dict, input_rate_map_dict, syn_count_dict,
                                 max_delta_weight=10., target_amplitude=3.,
                                 max_weight_decay_fraction = 1.,
                                 arena_x=None, arena_y=None,
                                 non_structured_input_rate_map_dict=None, 
                                 non_structured_weights_dict=None, 
                                 reference_weight_dict=None, reference_weights_are_delta=False,
-                                reference_weights_namespace='', optimize_method='L-BFGS-B',
+                                reference_weights_namespace=None, optimize_method='L-BFGS-B',
                                 optimize_tol=1e-6, max_opt_iter=1000,
                                 optimize_grad=False, verbose=False, plot=False, show_fig=False, save_fig=None,
                                 fig_kwargs={}):
@@ -2390,11 +2416,17 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
     :return: dict: {int: float}
     """
 
+    if len(initial_weight_dict) != len(input_rate_map_dict):
+        logger.info("len(initial_weight_dict) = %d" % len(initial_weight_dict))
+        logger.info("len(input_rate_map_dict) = %d" % len(input_rate_map_dict))
+    assert(len(initial_weight_dict) == len(input_rate_map_dict))
+    if non_structured_input_rate_map_dict is not None:
+        assert(len(non_structured_weights_dict) == len(non_structured_input_rate_map_dict))
+
     assert((max_weight_decay_fraction >= 0.) and (max_weight_decay_fraction <= 1.))
     input_matrix = np.empty((target_map.size, len(input_rate_map_dict)),
                             dtype=np.float32)
     source_gid_array = np.empty(len(input_rate_map_dict), dtype=np.uint32)
-    syn_count_array = np.empty(len(input_rate_map_dict), dtype=np.uint32)
     initial_weight_array = np.empty(len(input_rate_map_dict), dtype=np.float32)
     if reference_weight_dict is None:
         reference_weight_array = None
@@ -2406,15 +2438,14 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
         this_syn_count = syn_count_dict[source_gid]
         this_input = input_rate_map_dict[source_gid].ravel() * this_syn_count
         input_matrix[:, i] = this_input
-        syn_count_array[i] = this_syn_count
         initial_weight_array[i] = initial_weight_dict[source_gid]
         if reference_weight_array is not None:
             reference_weight_array[i] = reference_weight_dict[source_gid]
-
+            
     non_structured_input_matrix = None
     if non_structured_input_rate_map_dict is not None:
         non_structured_input_matrix = np.empty((target_map.size, len(non_structured_input_rate_map_dict)),
-                                    dtype=np.float32)
+                                               dtype=np.float32)
         non_structured_weight_array = np.empty(len(non_structured_input_rate_map_dict), dtype=np.float32)
         for i, source_gid in enumerate(non_structured_input_rate_map_dict):
             this_syn_count = syn_count_dict[source_gid]
@@ -2438,12 +2469,12 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
     scaled_background_map = initial_background_map / mean_initial_background
     scaled_background_map -= 1.
    
-    scaled_input_matrix = np.asarray(input_matrix / mean_initial_background, dtype=np.float32)
+    scaled_input_matrix = np.divide(input_matrix, mean_initial_background, out=input_matrix)
     scaled_non_structured_input_matrix = None
     scaled_non_structured_input_map = None
     if non_structured_input_matrix is not None:
-        scaled_non_structured_input_matrix = np.asarray(non_structured_input_matrix / mean_initial_background,
-                                               dtype=np.float32)
+        scaled_non_structured_input_matrix = np.divide(non_structured_input_matrix, mean_initial_background,
+                                                       out=non_structured_input_matrix)
         scaled_non_structured_input_map = np.dot(scaled_non_structured_input_matrix, non_structured_weight_array)
         
     ## Compute pseudo inverse of scaled_input_matrix
@@ -2524,6 +2555,12 @@ def generate_structured_weights(target_map, initial_weight_dict, input_rate_map_
                               bounds=opt_bounds,
                               tol=optimize_tol,
                               options=method_options)
+        if not result.success:
+            logger.info('initial weights for gid %d: %s' % (destination_gid, str(initial_weight_dict)))
+            logger.info('input rate maps for gid %d: %s' % (destination_gid, str(input_rate_map_dict)))
+            logger.info('non-structured weights for gid %d: %s' % (destination_gid, str(non_structured_weights_dict)))
+            logger.info('non-structured input rate map for gid %d: %s' % (destination_gid, str(non_structured_input_rate_map_dict)))
+            raise RuntimeError("Error in structured weight optimization for gid %d" % destination_gid)
         LS_delta_weights = np.array(result.x)
 
     
@@ -2742,7 +2779,7 @@ def plot_callback_structured_weights(**kwargs):
     fig.colorbar(p, ax=ax)
 
     ax = fig.add_subplot(inner_grid[1])
-    p = ax.pcolormesh(arena_x, arena_y, initial_background_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
+    p = ax.pcolormesh(arena_x, arena_y, initial_background_map.reshape(arena_x.shape)) #, vmin=vmin, vmax=vmax2)
     ax.set_title('Initial', fontsize=font_size)
     fig.colorbar(p, ax=ax)
 

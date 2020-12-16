@@ -10,7 +10,7 @@ from mpi4py import MPI
 import dentate
 from dentate import network
 from dentate.env import Env
-from dentate.utils import list_find
+from dentate.utils import list_find, config_logging
 
 
 def mpi_excepthook(type, value, traceback):
@@ -23,6 +23,7 @@ def mpi_excepthook(type, value, traceback):
     """
     sys_excepthook(type, value, traceback)
     sys.stderr.flush()
+    sys.stdout.flush()
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
 
@@ -57,13 +58,14 @@ sys.excepthook = mpi_excepthook
               help='fraction of cells for intracellular recording')
 @click.option("--recording-profile", type=str, default='Network default',
               help='intracellular recording profile to use')
-@click.option("--coredat", is_flag=True, help='Save CoreNEURON data')
+@click.option("--use-coreneuron", is_flag=True, help='use CoreNEURON for simulation')
 @click.option("--trajectory-id", required=True, type=str,
               help='name of trajectory used for spatial stimulus')
 @click.option("--tstop", type=int, default=1, help='physical time to simulate (ms)')
 @click.option("--v-init", type=float, default=-75.0, help='initialization membrane potential (mV)')
 @click.option("--stimulus-onset", type=float, default=1.0, help='starting time of stimulus (ms)')
 @click.option("--max-walltime-hours", type=float, default=1.0, help='maximum wall time (hours)')
+@click.option('--microcircuit-inputs', is_flag=True, help='initialize intrinsic microcircuit inputs (True by default when cell selection is provided)')
 @click.option("--checkpoint-clear-data", is_flag=True,
               help='delete simulation data from memory after it has been saved')
 @click.option("--checkpoint-interval", type=float, default=500.0,
@@ -86,13 +88,13 @@ sys.excepthook = mpi_excepthook
 @click.option('--debug', is_flag=True, help='enable debug mode')
 @click.option('--dry-run', is_flag=True, help='whether to actually execute simulation after building network')
 def main(arena_id, cell_selection_path, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix,
-         results_path, results_id, node_rank_file, io_size, recording_fraction, recording_profile, coredat, trajectory_id, tstop, v_init,
-         stimulus_onset, max_walltime_hours, checkpoint_clear_data, checkpoint_interval, results_write_time,
+         results_path, results_id, node_rank_file, io_size, recording_fraction, recording_profile, use_coreneuron, trajectory_id, tstop, v_init,
+         stimulus_onset, max_walltime_hours, microcircuit_inputs, checkpoint_clear_data, checkpoint_interval, results_write_time,
          spike_input_path, spike_input_namespace, spike_input_attr, dt, ldbal, lptbal, cleanup, profile_memory, write_selection,
          verbose, debug, dry_run):
 
     profile_time = False
-
+    config_logging(verbose)
 
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')

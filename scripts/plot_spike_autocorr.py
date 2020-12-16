@@ -14,6 +14,7 @@ script_name = os.path.basename(__file__)
 @click.option("--spike-events-path", '-p', required=True, type=click.Path())
 @click.option("--spike-events-namespace", '-n', type=str, default='Spike Events')
 @click.option("--populations", '-i', type=str, multiple=True)
+@click.option("--include-artificial/--exclude-artificial", type=bool, default=True, is_flag=True)
 @click.option("--spike-hist-bin", type=float, default=5.0)
 @click.option("--t-variable", type=str, default='t')
 @click.option("--t-max", type=float)
@@ -23,7 +24,7 @@ script_name = os.path.basename(__file__)
 @click.option("--graph-type", type=str)
 @click.option("--font-size", type=float, default=14)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(spike_events_path, spike_events_namespace, populations, spike_hist_bin, t_variable, t_max, t_min, lag, max_cells, graph_type, font_size, verbose):
+def main(spike_events_path, spike_events_namespace, populations, include_artificial, spike_hist_bin, t_variable, t_max, t_min, lag, max_cells, graph_type, font_size, verbose):
 
     utils.config_logging(verbose)
 
