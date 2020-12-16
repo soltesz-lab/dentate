@@ -90,7 +90,7 @@ def standard_modify_syn_param_tests(cell, env, syn_name='AMPA', param_name='g_un
 @click.option("--gid", required=True, type=int, default=0)
 @click.option("--pop-name", required=True, type=str, default='GC')
 @click.option("--config-file", required=True, type=str,
-              default='Small_Scale_Control_LN_weights_Sat.yaml')
+              default='Small_Scale_Control_tune_GC_synapses.yaml')
 @click.option("--template-paths", type=str, default='../../DGC/Mateos-Aparicio2014:../templates')
 @click.option("--hoc-lib-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='..')
