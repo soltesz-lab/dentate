@@ -971,7 +971,7 @@ def lambda_f(sec, f=freq):
 def d_lambda_nseg(sec, lam=d_lambda, f=freq):
     """
     The AC length constant for this section and the user-defined fraction is used to determine the maximum size of each
-    segment to achieve the d esired spatial and temporal resolution. This method returns the number of segments to set
+    segment to achieve the desired spatial and temporal resolution. This method returns the number of segments to set
     the nseg parameter for this section. For tapered cylindrical sections, the diam parameter will need to be
     reinitialized after nseg changes.
     :param sec : :class:'h.Section'
