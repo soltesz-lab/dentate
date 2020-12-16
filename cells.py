@@ -730,6 +730,10 @@ class BiophysCell(object):
             import_morphology_from_hoc(self, hoc_cell)
         if (mech_dict is None) and (mech_file_path is not None):
             import_mech_dict_from_file(self, self.mech_file_path)
+        else:
+            # Allows for a cell to be created and for a new mech_dict to be constructed programmatically from scratch
+            self.init_mech_dict = dict()
+            self.mech_dict = dict()
         init_spike_detector(self)
 
     @property

@@ -264,11 +264,12 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     """
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
-    env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, verbose=verbose)
+    env = Env(comm=comm, config_file=config_file, template_paths=template_paths, hoc_lib_path=hoc_lib_path,
+              dataset_prefix=dataset_prefix, config_prefix=config_prefix, verbose=verbose)
     configure_hoc_env(env)
     mech_file_path = config_prefix + '/' + mech_file
 
-    cell = get_biophys_cell(env, pop_name=pop_name, gid=gid, load_edges=load_edges)
+    cell = make_biophys_cell(env, pop_name=pop_name, gid=gid, load_edges=load_edges)
     if not os.path.isdir(output_dir):
         os.mkdir(output_dir)
     context.update(locals())
