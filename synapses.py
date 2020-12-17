@@ -1511,7 +1511,6 @@ def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name,
                                  update_targets=update_targets, verbose=verbose)
 
 
-
 def apply_syn_mech_rules(cell, env, syn_name, param_name, rules, node=None, syn_ids=None, 
                          synapse_filters=None, origin_filters=None, donor=None, 
                          update_targets=False, verbose=False):
@@ -1550,9 +1549,14 @@ def apply_syn_mech_rules(cell, env, syn_name, param_name, rules, node=None, syn_
         else:
             filtered_syns = syn_attrs.filter_synapses(cell.gid, syn_sections=[node.index], 
                                                       cache=env.cache_queries, **synapse_filters)
+        if len(filtered_syns) == 0:
+            return
+        syn_distances = []
+        for syn_id, syn in viewitems(filtered_syns):
+            syn_distances.append(get_distance_to_node(cell, cell.tree.root, node, loc=syn.syn_loc))
+        target_distance = min(syn_distances)
         syn_ids = list(filtered_syns.keys())
 
-    
     if 'origin' in rules and donor is None:
         if node is None:
             donor = None
@@ -1562,15 +1566,19 @@ def apply_syn_mech_rules(cell, env, syn_name, param_name, rules, node=None, syn_
             raise RuntimeError('apply_syn_mech_rules: problem identifying donor of origin_type: %s for synaptic '
                                'mechanism: %s parameter: %s in sec_type: %s' %
                                (rules['origin'], syn_name, param_name, node.type if node is not None else "None"))
+
     if 'value' in rules:
         baseline = rules['value']
     elif donor is None:
         raise RuntimeError('apply_syn_mech_rules: cannot set value of synaptic mechanism: %s parameter: %s in '
-                           'sec_type: %s without a provided origin or value' % (syn_name, param_name, node.type if node is not None else "None"))
+                           'sec_type: %s without a provided origin or value' %
+                           (syn_name, param_name, node.type if node is not None else "None"))
     else:
-        baseline = inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filters)
-    if baseline is None:
-        baseline = inherit_syn_mech_param(cell, env, node, syn_name, param_name, origin_filters)
+        baseline = inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filters,
+                                          target_distance=target_distance)
+    if baseline is None and node is not None:
+        baseline = inherit_syn_mech_param(cell, env, node, syn_name, param_name, origin_filters,
+                                          target_distance=target_distance)
     if baseline is not None:
         if 'custom' in rules:
             apply_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor,
@@ -1580,11 +1588,11 @@ def apply_syn_mech_rules(cell, env, syn_name, param_name, rules, node=None, syn_
                                update_targets, verbose)
 
 
-def inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filters=None):
+def inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filters=None, target_distance=None):
     """Follows path from the provided donor node to root until synapses
     are located that match the provided filter. Returns the requested
     parameter value from the synapse closest to the end of the
-    section.
+    section, or if provided, a target_distance from the root node.
 
     :param cell: :class:'BiophysCell'
     :param env: :class:'Env'
@@ -1592,6 +1600,7 @@ def inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filter
     :param syn_name: str
     :param param_name: str
     :param origin_filters: dict: {category: list of int}
+    :param target_distance: float
     :return: float
 
     """
@@ -1609,8 +1618,10 @@ def inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filter
             if syn_attrs.has_mech_attrs(gid, syn_id, syn_name):
                 valid_syns.append((syn_id, syn))
         if len(valid_syns) > 0:
-            valid_syns.sort(key=lambda x: x[1].syn_loc)
-            syn_id = valid_syns[-1][0]
+            valid_syns.sort(
+                key=lambda x: abs(target_distance - get_distance_to_node(cell, cell.tree.root, donor,
+                                                                         loc=x[1].syn_loc)))
+            syn_id = valid_syns[0][0]
             mech_attrs = syn_attrs.get_mech_attrs(gid, syn_id, syn_name)
             if param_name not in mech_attrs:
                 raise RuntimeError('inherit_syn_mech_param: synaptic mechanism: %s at provided donor: %s does not '
@@ -1619,7 +1630,8 @@ def inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filter
     if donor is cell.tree.root:
         return
     else:
-        return inherit_syn_mech_param(cell, env, donor.parent, syn_name, param_name, origin_filters)
+        return inherit_syn_mech_param(cell, env, donor.parent, syn_name, param_name, origin_filters,
+                                      target_distance=target_distance)
 
 
 def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline, rules, donor=None,
