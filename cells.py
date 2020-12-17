@@ -1818,8 +1818,11 @@ def apply_mech_rules(cell, node, mech_name, param_name, rules, donor=None, verbo
     else:
         if (mech_name == 'cable') and (param_name == 'spatial_res'):
             baseline = get_spatial_res(cell, donor)
-        else:
-            baseline = inherit_mech_param(donor, mech_name, param_name)
+        elif node is not None:
+            for target_seg in node.sec:
+                break
+            target_distance = get_distance_to_node(cell, cell.tree.root, node, loc=target_seg.x)
+            baseline = inherit_mech_param(cell, donor, mech_name, param_name, target_distance=target_distance)
     if mech_name == 'cable':  # cable properties can be inherited, but cannot be specified as gradients
         if param_name == 'spatial_res':
             init_nseg(node.sec, baseline, verbose=verbose)
@@ -1833,17 +1836,24 @@ def apply_mech_rules(cell, node, mech_name, param_name, rules, donor=None, verbo
         set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor)
 
 
-def inherit_mech_param(donor, mech_name, param_name):
+def inherit_mech_param(cell, donor, mech_name, param_name, target_distance=None):
     """
     When the mechanism dictionary specifies that a node inherit a parameter value from a donor node, this method
     returns the value of the requested parameter from the segment closest to the end of the section.
+    :param cell: :class:'BiophysCell'
     :param donor: :class:'SHocNode'
     :param mech_name: str
     :param param_name: str
+    :param target_distance: float
     :return: float
     """
-    # accesses the last segment of the section
-    loc = donor.sec.nseg / (donor.sec.nseg + 1.)
+    if target_distance is None:
+        # accesses the last segment of the section
+        loc = donor.sec.nseg / (donor.sec.nseg + 1.)
+    else:
+        locs = [seg.x for seg in donor.sec]
+        locs.sort(key=lambda x: abs(target_distance - get_distance_to_node(cell, cell.tree.root, donor, loc=x)))
+        loc = locs[0]
     try:
         if mech_name in ['cable', 'ions']:
             if mech_name == 'cable' and param_name == 'Ra':

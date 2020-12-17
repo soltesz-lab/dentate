@@ -1618,10 +1618,14 @@ def inherit_syn_mech_param(cell, env, donor, syn_name, param_name, origin_filter
             if syn_attrs.has_mech_attrs(gid, syn_id, syn_name):
                 valid_syns.append((syn_id, syn))
         if len(valid_syns) > 0:
-            valid_syns.sort(
-                key=lambda x: abs(target_distance - get_distance_to_node(cell, cell.tree.root, donor,
-                                                                         loc=x[1].syn_loc)))
-            syn_id = valid_syns[0][0]
+            if target_distance is None:
+                valid_syns.sort(key=lambda x: x[1].syn_loc)
+                syn_id = valid_syns[-1][0]
+            else:
+                valid_syns.sort(
+                    key=lambda x: abs(target_distance - get_distance_to_node(cell, cell.tree.root, donor,
+                                                                             loc=x[1].syn_loc)))
+                syn_id = valid_syns[0][0]
             mech_attrs = syn_attrs.get_mech_attrs(gid, syn_id, syn_name)
             if param_name not in mech_attrs:
                 raise RuntimeError('inherit_syn_mech_param: synaptic mechanism: %s at provided donor: %s does not '
