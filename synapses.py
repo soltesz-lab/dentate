@@ -1070,7 +1070,6 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
                             new_param_val = param_val
                         upd_params[param_name] = new_param_val
 
-                    #logger.debug("config_hoc_cell_syns: %s params = %s upd_params = %s" % (syn_name, str(params), str(upd_params)))
                     (mech_set, nc_set) = config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
                                                     mech_names=syn_attrs.syn_mech_names, syn=this_pps,
                                                     nc=this_netcon, **upd_params)

@@ -4,9 +4,9 @@
 #SBATCH -o ./results/optimize_DG_network.o%j       # Name of stdout output file
 #SBATCH -e ./results/optimize_DG_network.e%j       # Name of stderr error file
 #SBATCH -p normal      # Queue (partition) name
-#SBATCH -N 160             # Total # of nodes 
+#SBATCH -N 192             # Total # of nodes 
 #SBATCH --ntasks-per-node=56 # # of mpi tasks per node
-#SBATCH -t 6:00:00        # Run time (hh:mm:ss)
+#SBATCH -t 8:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
@@ -41,13 +41,13 @@ cd $SLURM_SUBMIT_DIR
 
 #export hosts=`scontrol show hostname $SLURM_NODELIST | paste -s -d, -`
 
-mpirun -n 11 python3 optimize_network.py \
+mpirun -n 25 python3 optimize_network.py \
     --config-path=$DG_HOME/config/DG_optimize_network.yaml \
     --output-dir=$results_path \
     --target-rate-map-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
     --target-rate-map-namespace="Place Selectivity" \
     --verbose \
-    --nprocs-per-worker=894 \
+    --nprocs-per-worker=446 \
     --no_cleanup \
     --arena_id=A --trajectory_id=Diag \
     --template_paths=$MODEL_HOME/dgc/Mateos-Aparicio2014:$DG_HOME/templates \
@@ -57,7 +57,7 @@ mpirun -n 11 python3 optimize_network.py \
     --spike_input_path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h5" \
     --spike_input_namespace='Input Spikes A Diag' \
     --spike_input_attr='Spike Train' \
-    --max_walltime_hours=6.0 \
+    --max_walltime_hours=8.0 \
     --io_size=8 \
     --microcircuit_inputs \
     --verbose

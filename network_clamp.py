@@ -85,9 +85,12 @@ def distgfs_broker_bcast(broker, tag):
         nprocs = broker.nprocs_per_worker
         data_dict = {}
         while len(data_dict) < nprocs:
-            data = broker.sub_comm.recv(source=MPI.ANY_SOURCE, tag=tag, status=status)
-            source = status.Get_source()
-            data_dict[source] = data
+            if broker.sub_comm.Iprobe(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG):
+                data = broker.sub_comm.recv(source=MPI.ANY_SOURCE, tag=tag, status=status)
+                source = status.Get_source()
+                data_dict[source] = data
+            else:
+                time.sleep(1)
     if broker.worker_id == 1:
         broker.group_comm.bcast(data_dict, root=0)
     else:
@@ -1721,7 +1724,7 @@ def cli():
 @click.option('--recording-profile', type=str, default='Network clamp default', help='recording profile to use')
 
 def show(config_file, population, gid, arena_id, trajectory_id, template_paths, dataset_prefix, config_prefix, results_path,
-         spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, use_coreneuron, plot_cell, uwrite_cell, profile_memory, recording_profile):
+         spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, use_coreneuron, plot_cell, write_cell, profile_memory, recording_profile):
     """
     Show configuration for the specified cell.
     """

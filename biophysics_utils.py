@@ -496,6 +496,8 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
                              verbose=verbose)
 
     if verbose:
+        for sec in list(cell.hoc_cell.all if hasattr(cell, 'hoc_cell') else cell.all):
+            h.psection(sec=sec)
         report_topology(cell, env)
 
 

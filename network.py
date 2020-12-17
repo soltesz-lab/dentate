@@ -167,7 +167,8 @@ def connect_cells(env):
                     syn_weights_iter, weight_attr_info = weight_attr_dict[weights_namespace]
                     first_gid = None
                     syn_id_index = weight_attr_info.get('syn_id', None)
-                    syn_name_inds = [(syn_name, attr_index) for syn_name, attr_index in sorted(viewitems(weight_attr_info)) if syn_name != 'syn_id']
+                    syn_name_inds = [(syn_name, attr_index) 
+                                     for syn_name, attr_index in sorted(viewitems(weight_attr_info)) if syn_name != 'syn_id']
                     for gid, cell_weights_tuple in syn_weights_iter:
                         if first_gid is None:
                             first_gid = gid

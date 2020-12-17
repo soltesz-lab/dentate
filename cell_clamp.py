@@ -72,11 +72,10 @@ def init_biophys_cell(env, pop_name, gid, load_weights=True, load_connections=Tr
                                        synapses_dict=cell_dict.get('synapse', None),
                                        connection_graph=cell_dict.get('connectivity', None),
                                        weight_dict=cell_dict.get('weight', None),
-                                       mech_dict=mech_dict,
+                                       mech_dict=mech_dict, 
                                        load_synapses=True, load_weights=load_weights,
                                        load_edges=load_connections)
         
-
     cells.init_biophysics(cell, reset_cable=True, 
                           correct_cm=correct_for_spines_flag,
                           correct_g_pas=correct_for_spines_flag, env=env)

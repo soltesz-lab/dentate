@@ -291,8 +291,9 @@ def rate_maps_from_features (env, pop_name, input_features_path, input_features_
         input_cell_config = stimulus.get_input_cell_config(selectivity_type=this_selectivity_type,
                                                            selectivity_type_names=selectivity_type_names,
                                                            selectivity_attr_dict=selectivity_attr_dict)
-        rate_map = input_cell_config.get_rate_map(x=x, y=y)
-        input_rate_map_dict[gid] = rate_map
+        if input_cell_config.num_fields > 0:
+            rate_map = input_cell_config.get_rate_map(x=x, y=y)
+            input_rate_map_dict[gid] = rate_map
             
     return input_rate_map_dict
 

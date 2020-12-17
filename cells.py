@@ -599,6 +599,7 @@ class IzhiCell(object):
         self.mech_file_path = None
         self.init_mech_dict = dict(mech_dict) if mech_dict is not None else None
         self.mech_dict = dict(mech_dict) if mech_dict is not None else None
+        
         self.random = np.random.RandomState()
         self.random.seed(self.gid)
         self.spike_detector = None
@@ -730,7 +731,7 @@ class BiophysCell(object):
             import_morphology_from_hoc(self, hoc_cell)
         if (mech_dict is None) and (mech_file_path is not None):
             import_mech_dict_from_file(self, self.mech_file_path)
-        else:
+        elif mech_dict is None:
             # Allows for a cell to be created and for a new mech_dict to be constructed programmatically from scratch
             self.init_mech_dict = dict()
             self.mech_dict = dict()
@@ -2708,7 +2709,6 @@ def init_circuit_context(env, pop_name, gid,
     init_edges = False
     if load_edges or (connection_graph is not None):
         init_synapses=True
-        init_weights=True
         init_edges=True
     if has_weights and (load_weights or (weight_dict is not None)):
         init_synapses=True
@@ -2736,42 +2736,47 @@ def init_circuit_context(env, pop_name, gid,
 
             expr_closure = weight_config_dict.get('closure', None)
             weights_namespaces = weight_config_dict['namespace']
+
+            cell_weights_dicts = {}
             if weight_dict is not None:
-                cell_weights_dicts = [ weight_dict[weights_namespace]
-                                       for weights_namespace in weights_namespaces ]
+                for weights_namespace in weights_namespaces:
+                    cell_weights_dicts[weights_namespace] = weight_dict[weights_namespace]
+
             elif load_weights:
                 if (env.data_file_path is None):
                     raise RuntimeError('init_circuit_context: load_weights=True but data file path is not specified ')
-                cell_weights_iters = [read_cell_attribute_selection(env.data_file_path, pop_name, [gid],
-                                                                    weights_namespace, comm=env.comm)
-                                      for weights_namespace in weights_namespaces]
-                cell_weights_dicts = []
-                for it in cell_weights_iters:
-                    for cell_weights_gid, cell_weights_dict in it:
+                
+                for weights_namespace in weights_namespaces:
+                    cell_weights_iter = read_cell_attribute_selection(env.data_file_path, pop_name, 
+                                                                      selection=[gid], 
+                                                                      namespace=weights_namespace, 
+                                                                      comm=env.comm)
+                    for cell_weights_gid, cell_weights_dict in cell_weights_iter:
                         assert(cell_weights_gid == gid)
-                        cell_weights_dicts.append(cell_weights_dict)
+                        cell_weights_dicts[weights_namespace] = cell_weights_dict
 
             else:
                 raise RuntimeError("init_circuit_context: invalid weights parameters")
             if len(weights_namespaces) != len(cell_weights_dicts):
-                raise RuntimeError("init_circuit_context: Unable to load all weights namespaces: %s" % str(weights_namespaces))
-            cell_ns_weights_iter = zip_longest(weights_namespaces, cell_weights_dicts)
-                
+                logger.warning("init_circuit_context: Unable to load all weights namespaces: %s" % str(weights_namespaces))
+
             multiple_weights = 'error'
             append_weights = False
-            for weights_namespace, cell_weights_dict in cell_ns_weights_iter:
-                weights_syn_ids = cell_weights_dict['syn_id']
-                for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
-                    weights_values = cell_weights_dict[syn_name]
-                    syn_attrs.add_mech_attrs_from_iter(gid, syn_name,
-                                                       zip_longest(weights_syn_ids,
-                                                                   [{'weight': Promise(expr_closure, [x])} for x in weights_values]
-                                                                   if expr_closure else [{'weight': x} for x in weights_values]),
-                                                       multiple=multiple_weights, append=append_weights)
-                    logger.info('init_circuit_context: gid: %i; found %i %s synaptic weights in namespace %s' %
-                                (gid, len(cell_weights_dict[syn_name]), syn_name, weights_namespace))
-                    logger.info('weight_values min/max/mean: %.02f / %.02f / %.02f' %
-                                (np.min(weights_values), np.max(weights_values), np.mean(weights_values)))
+            for weights_namespace in weights_namespaces:
+                if weights_namespace in cell_weights_dicts:
+                    cell_weights_dict = cell_weights_dicts[weights_namespace]
+                    weights_syn_ids = cell_weights_dict['syn_id']
+                    for syn_name in (syn_name for syn_name in cell_weights_dict if syn_name != 'syn_id'):
+                        weights_values = cell_weights_dict[syn_name]
+                        syn_attrs.add_mech_attrs_from_iter(gid, syn_name,
+                                                           zip_longest(weights_syn_ids,
+                                                                       [{'weight': Promise(expr_closure, [x])} for x in weights_values]
+                                                                       if expr_closure else [{'weight': x} for x in weights_values]),
+                                                           multiple=multiple_weights, append=append_weights)
+                        logger.info('init_circuit_context: gid: %i; found %i %s synaptic weights in namespace %s' %
+                                    (gid, len(cell_weights_dict[syn_name]), syn_name, weights_namespace))
+                        logger.info('weight_values min/max/mean: %.02f / %.02f / %.02f' %
+                                    (np.min(weights_values), np.max(weights_values), np.mean(weights_values)))
                 expr_closure = None
                 append_weights = True
                 multiple_weights='overwrite'
@@ -2833,7 +2838,6 @@ def make_biophys_cell(env, pop_name, gid,
     hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict)
     cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env,
                        mech_file_path=mech_file_path, mech_dict=mech_dict)
-
     circuit_flag = load_edges or load_weights or load_synapses or synapses_dict or weight_dict or connection_graph
     if circuit_flag:
         init_circuit_context(env, pop_name, gid, 
