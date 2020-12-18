@@ -71,11 +71,12 @@ def dmosopt_broker_init(broker, *args):
               help='path to neuroh5 file containing target rate maps used for rate optimization')
 @click.option("--target-rate-map-namespace", type=str, required=False, default='Input Spikes',
               help='namespace containing target rate maps used for rate optimization')
-@click.option("--results-dir", type=click.Path(exists=True, file_okay=False, dir_okay=True), default='results')
+@click.option("--optimize-file-dir", type=click.Path(exists=True, file_okay=False, dir_okay=True), default='results')
+@click.option("--optimize-file-name", type=click.Path(exists=False, file_okay=True, dir_okay=False), default='dmosopt.optimize_network.h5')
 @click.option("--nprocs-per-worker", type=int, default=1)
 @click.option("--n-iter", type=int, default=1)
 @click.option("--verbose", '-v', is_flag=True)
-def main(config_path, target_rate_map_path, target_rate_map_namespace, results_dir, nprocs_per_worker, n_iter, verbose):
+def main(config_path, target_rate_map_path, target_rate_map_namespace, optimize_file_dir, optimize_file_name, nprocs_per_worker, n_iter, verbose):
 
     network_args = click.get_current_context().args
     network_config = {}
@@ -132,7 +133,7 @@ def main(config_path, target_rate_map_path, target_rate_map_namespace, results_d
                       'objective_names': objective_names,
                       'n_initial': 3,
                       'n_iter': n_iter,
-                      'file_path': f'{results_dir}/dmosopt.optimize_network.h5',
+                      'file_path': f'{optimize_file_dir}/{optimize_file_name}',
                       'save': True,
                       'save_eval': 5
                       }

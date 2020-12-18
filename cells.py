@@ -1286,7 +1286,7 @@ def get_distance_to_node(cell, root, node, loc=None):
     :return: int or float
     """
     length = 0.
-    if node is root:
+    if (node is root) or (node is None):
         return length
     if loc is not None:
         length += loc * node.sec.L
