@@ -233,7 +233,7 @@ Synaptic Optimization:
         AAC:
           ais:
             GABA_A:
-              weight: [0.01, 2.0]
+              weight: [0.005, 2.0]
         BC:
           soma:
             GABA_A:

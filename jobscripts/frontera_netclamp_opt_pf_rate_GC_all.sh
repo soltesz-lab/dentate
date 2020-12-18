@@ -3,7 +3,7 @@
 #SBATCH -p normal      # Queue (partition) name
 #SBATCH -N 24             # Total # of nodes 
 #SBATCH --ntasks-per-node=3          # # of mpi tasks per node
-#SBATCH -t 4:30:00        # Run time (hh:mm:ss)
+#SBATCH -t 8:30:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 #SBATCH -J netclamp_opt_pf_rate_GC 
