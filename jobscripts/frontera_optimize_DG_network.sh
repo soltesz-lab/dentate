@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH -J optimize_DG_test_network # Job name
+#SBATCH -J optimize_DG_network # Job name
 #SBATCH -o ./results/optimize_DG_network.o%j       # Name of stdout output file
 #SBATCH -e ./results/optimize_DG_network.e%j       # Name of stderr error file
 #SBATCH -p normal      # Queue (partition) name
