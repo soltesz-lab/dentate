@@ -1430,8 +1430,8 @@ def modify_syn_param(cell, env, sec_type, syn_name, param_name=None, value=None,
     except Exception as e:
         cell.mech_dict = copy.deepcopy(backup_mech_dict)
         traceback.print_exc(file=sys.stdout)
-        logger.error('modify_syn_mech_param: problem updating mechanism: %s; parameter: %s; in sec_type: %s' %
-              (syn_name, param_name, sec_type))
+        logger.error('modify_syn_mech_param: gid %d: problem updating mechanism: %s; parameter: %s; in sec_type: %s' %
+              (cell.gid, syn_name, param_name, sec_type))
         raise e
 
 
