@@ -1805,6 +1805,8 @@ def apply_mech_rules(cell, node, mech_name, param_name, rules, donor=None, verbo
     :param verbose: bool
     """
     if 'origin' in rules and donor is None:
+        if node is None:
+            donor = None
         donor = get_donor(cell, node, rules['origin'])
         if donor is None:
             raise RuntimeError('apply_mech_rules: problem identifying donor of origin_type: %s for mechanism: '
@@ -1823,6 +1825,9 @@ def apply_mech_rules(cell, node, mech_name, param_name, rules, donor=None, verbo
                 break
             target_distance = get_distance_to_node(cell, cell.tree.root, node, loc=target_seg.x)
             baseline = inherit_mech_param(cell, donor, mech_name, param_name, target_distance=target_distance)
+            if baseline is None:
+                inherit_mech_param(cell, node, mech_name, param_name, target_distance=target_distance)
+
     if mech_name == 'cable':  # cable properties can be inherited, but cannot be specified as gradients
         if param_name == 'spatial_res':
             init_nseg(node.sec, baseline, verbose=verbose)
