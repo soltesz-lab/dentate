@@ -52,11 +52,10 @@ context = Context()
 @click.option("--export", is_flag=True)
 @click.option("--export-file-path", type=str, default=None)
 @click.option("--label", type=str, default=None)
-@click.option("--procs-per-worker", type=int, default=1)
 @click.option("--verbose", is_flag=True)
 @click.option("--debug", is_flag=True)
 @click.pass_context
-def main(cli, optimize_config_file_path, output_dir, export, export_file_path, label, procs_per_worker, verbose):
+def main(cli, optimize_config_file_path, output_dir, export, export_file_path, label, verbose, debug):
     """
 
     :param optimize_config_file_path: str
@@ -65,6 +64,7 @@ def main(cli, optimize_config_file_path, output_dir, export, export_file_path, l
     :param export_file_path: str
     :param label: str
     :param verbose: bool
+    :param debug: bool
     """
     # requires a global variable context: :class:'Context'
     context.update(locals())
