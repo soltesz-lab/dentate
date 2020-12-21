@@ -45,7 +45,7 @@ SynParam = namedtuple('SynParam',
 context = Context()
 
 
-@click.command()
+@click.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True, ))
 @click.option("--optimize-config-file-path", type=str, help='optimization configuration file name',
               default='../config/DG_optimize_network_subworlds_config.yaml')
 @click.option("--output-dir", type=click.Path(exists=True, file_okay=False, dir_okay=True), default='../data')
@@ -54,7 +54,9 @@ context = Context()
 @click.option("--label", type=str, default=None)
 @click.option("--procs-per-worker", type=int, default=1)
 @click.option("--verbose", is_flag=True)
-def main(optimize_config_file_path, output_dir, export, export_file_path, label, procs_per_worker, verbose):
+@click.option("--debug", is_flag=True)
+@click.pass_context
+def main(cli, optimize_config_file_path, output_dir, export, export_file_path, label, procs_per_worker, verbose):
     """
 
     :param optimize_config_file_path: str
@@ -66,10 +68,16 @@ def main(optimize_config_file_path, output_dir, export, export_file_path, label,
     """
     # requires a global variable context: :class:'Context'
     context.update(locals())
-    interface=get_parallel_interface(procs_per_worker=procs_per_worker)
+    kwargs = get_unknown_click_arg_dict(cli.args)
+    context.disp = verbose > 0
+
+    context.interface = get_parallel_interface(source_file=__file__, source_package=__package__, **kwargs)
+    context.interface.start(disp=context.disp)
+    context.interface.ensure_controller()
     config_optimize_interactive(__file__, config_file_path=optimize_config_file_path, output_dir=output_dir,
-                                export=export, export_file_path=export_file_path, label=label, disp=verbose,
-                                interface=interface)
+                                export=export, export_file_path=export_file_path, label=label,
+                                disp=context.disp, interface=context.interface, verbose=verbose,
+                                debug=debug, **kwargs)
 
 
 def optimization_params(env, pop_names, param_config_name, param_type='synaptic'):
