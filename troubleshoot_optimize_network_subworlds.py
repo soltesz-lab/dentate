@@ -79,6 +79,36 @@ def main(cli, optimize_config_file_path, output_dir, export, export_file_path, l
                                 disp=context.disp, interface=context.interface, verbose=verbose,
                                 debug=debug, **kwargs)
 
+    if not context.debug:
+        model_id = 0
+        if 'model_key' in context() and context.model_key is not None:
+            model_label = context.model_key
+        else:
+            model_label = 'test'
+
+        features = dict()
+
+        # Stage 0:
+        sequences = [[context.x0_array], [model_id], [context.export]]
+        primitives = context.interface.map(compute_network_features, *sequences)
+        this_features = {key: value for feature_dict in primitives for key, value in viewitems(feature_dict)}
+        features.update(this_features)
+
+        features, objectives = context.interface.execute(get_objectives, features, model_id, context.export)
+
+        sys.stdout.flush()
+        print('model_id: %i; model_labels: %s' % (model_id, model_label))
+        print('params:')
+        pprint.pprint(context.x0_dict)
+        print('features:')
+        pprint.pprint(features)
+        print('objectives:')
+        pprint.pprint(objectives)
+        sys.stdout.flush()
+        time.sleep(.1)
+
+    context.interface.stop()
+
 
 def optimization_params(env, pop_names, param_config_name, param_type='synaptic'):
     """Constructs a flat list representation of synaptic optimization parameters based on network clamp optimization configuration."""
