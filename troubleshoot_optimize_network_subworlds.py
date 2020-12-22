@@ -452,19 +452,30 @@ def compute_network_features(x, model_id=None, export=False):
             fraction_active = 0.
 
         mean_target_rate_dist_residual = None
-        if pop_name in context.target_trj_rate_map_dict:
-            mean_target_rate_dist_residual = 0.
-            if n_active > 0:
-                target_trj_rate_map_dict = context.target_trj_rate_map_dict[pop_name]
+        if n_active > 0:
+            pop_name_is_in_network = pop_name in context.target_trj_rate_map_dict and \
+                                     len(context.target_trj_rate_map_dict[pop_name] > 0)
+            pop_name_is_in_network_list = None
+            pop_name_is_in_network_list = context.env.comm.gather(pop_name_is_in_network, root=0)
+            if context.env.comm.rank == 0:
+                if any(pop_name_is_in_network_list):
+                    pop_name_is_in_network = True
+            pop_name_is_in_network = context.env.comm.bcast(pop_name_is_in_network, root=0)
+
+            if pop_name_is_in_network:
+                mean_target_rate_dist_residual = 0.
                 target_rate_dist_residuals = []
-                for gid in target_trj_rate_map_dict:
-                    target_trj_rate_map = target_trj_rate_map_dict[gid]
-                    rate_map_len = len(target_trj_rate_map)
-                    if gid in spike_density_dict:
-                        residual = np.sum(target_trj_rate_map - spike_density_dict[gid]['rate'][:rate_map_len])
-                    else:
-                        residual = np.sum(target_trj_rate_map)
-                    target_rate_dist_residuals.append(residual)
+                if pop_name in context.target_trj_rate_map_dict:
+                    target_trj_rate_map_dict = context.target_trj_rate_map_dict[pop_name]
+
+                    for gid in target_trj_rate_map_dict:
+                        target_trj_rate_map = target_trj_rate_map_dict[gid]
+                        rate_map_len = len(target_trj_rate_map)
+                        if gid in spike_density_dict:
+                            residual = np.sum(target_trj_rate_map - spike_density_dict[gid]['rate'][:rate_map_len])
+                        else:
+                            residual = np.sum(target_trj_rate_map)
+                        target_rate_dist_residuals.append(residual)
                 residual_sum_local = np.sum(target_rate_dist_residuals)
                 residual_sum = context.env.comm.allreduce(residual_sum_local, op=MPI.SUM)
                 mean_target_rate_dist_residual = residual_sum / len(target_trj_rate_map_dict)
@@ -498,7 +509,6 @@ def get_objectives(features, model_id=None, export=False):
             objectives[key] = ((features[key] - context.target_val[key]) / context.target_range[key]) ** 2.
         else:
             objectives[key] = features[key] ** 2.
-            
 
     return features, objectives
 
