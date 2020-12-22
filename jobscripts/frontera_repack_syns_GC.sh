@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #SBATCH -J repack_syns_GC        # Job name
-#SBATCH -o ./results/repack_syn_wgts.o%j       # Name of stdout output file
-#SBATCH -e ./results/repack_syn_wgts.e%j       # Name of stderr error file
+#SBATCH -o ./results/repack_syns_GC.o%j       # Name of stdout output file
+#SBATCH -e ./results/repack_syns_GC.e%j       # Name of stderr error file
 #SBATCH -p development      # Queue (partition) name
 #SBATCH -N 1             # Total # of nodes 
 #SBATCH -n 56            # Total # of mpi tasks
