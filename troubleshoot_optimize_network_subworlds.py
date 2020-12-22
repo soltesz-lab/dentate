@@ -256,6 +256,7 @@ def config_worker():
 
     if context.debug:
         if context.comm.rank == 1:
+            print('# of parameters: %i' % len(context.param_names))
             print('param_names: ', context.param_names)
             print('x0: ', context.x0)
             print('target_val: ', context.target_val)
