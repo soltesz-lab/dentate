@@ -265,27 +265,33 @@ def config_worker():
 
     utils.config_logging(context.verbose)
     context.logger = utils.get_script_logger(os.path.basename(__file__))
+    # TODO: Do you want this to be identical on all ranks in a subworld? You can use context.comm.bcast
     if 'results_file_id' not in context():
         context.results_file_id = 'DG_optimize_network_subworlds_%s_%s' % \
                              (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M'))
+
+    if 't_start' not in context():
+        context.t_start = 50.
+    if 't_stop' not in context():
+        context.t_stop = context.env.tstop
+    time_range = (context.t_start, context.t_stop)
 
     # 'env' might be in context on controller, but it needs to be re-built when the controller is in a worker subworld
     try:
         if context.debug:
             print('debug: config_worker; local_comm.rank: %i/%i; global_comm.rank: %i/%i' %
                   (context.comm.rank, context.comm.size, context.global_comm.rank, context.global_comm.size))
+            if context.global_comm.rank == 0:
+                print('t_start: %.1f, t_stop: %.1f' % (context.t_start, context.t_stop))
             sys.stdout.flush()
-        init_network()
         if context.debug:
             raise RuntimeError('config_worker: debug')
+        init_network()
     except Exception as err:
         context.logger.exception(err)
         raise err
 
-    if 't_start' not in context():
-        context.t_start = 50.
-        context.t_stop = context.env.tstop
-    time_range = (context.t_start, context.t_stop)
+
 
     context.target_trj_rate_map_dict = {}
     target_rate_map_path = context.target_rate_map_path
@@ -314,6 +320,8 @@ def config_controller():
     """
     utils.config_logging(context.verbose)
     context.logger = utils.get_script_logger(os.path.basename(__file__))
+
+    # TODO: I don't think the controller needs this
     if 'results_file_id' not in context():
         context.results_file_id = 'DG_optimize_network_subworlds_%s_%s' % \
                              (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M'))
@@ -362,7 +370,6 @@ def update_network(x, context=None):
     update_network_params(context.env, param_tuple_values)
 
 
-
 def compute_network_features(x, model_id=None, export=False):
     """
 
@@ -372,10 +379,10 @@ def compute_network_features(x, model_id=None, export=False):
     """
     results = dict()
     update_source_contexts(x, context)
+    # TODO: Do you want this to be identical on all ranks in a subworld? You can use context.comm.bcast
     context.env.results_file_id = '%s_%s' % \
                              (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M%S'))
 
- 
     temporal_resolution = float(context.env.stimulus_config['Temporal Resolution'])
     time_bins  = np.arange(context.t_start, context.t_stop, temporal_resolution)
 
