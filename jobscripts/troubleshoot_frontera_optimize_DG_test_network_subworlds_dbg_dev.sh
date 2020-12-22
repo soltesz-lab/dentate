@@ -21,7 +21,8 @@ ibrun -n 2240 python3 -m nested.optimize \
   --config-file-path=config/troubleshoot_DG_optimize_network_subworlds_config_dbg.yaml \
   --output-dir=$SCRATCH/data/dentate/results \
   --framework=pc \
-  --verbose \
+  --verbose=True \
+  --disp \
   --procs_per_worker=112 \
   --no_cleanup \
   --param_config_name="Weight exc inh microcircuit" \
