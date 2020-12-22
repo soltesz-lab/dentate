@@ -17,7 +17,7 @@ set -x
 
 cd $WORK/dentate
 
-ibrun -n 224 python3 -m nested.optimize \
+ibrun -n 2240 python3 -m nested.optimize \
   --config-file-path=config/troubleshoot_DG_optimize_network_subworlds_config_dbg.yaml \
   --output-dir=$SCRATCH/data/dentate/results \
   --framework=pc \
