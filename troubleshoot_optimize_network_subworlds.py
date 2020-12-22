@@ -270,12 +270,6 @@ def config_worker():
         context.results_file_id = 'DG_optimize_network_subworlds_%s_%s' % \
                              (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M'))
 
-    if 't_start' not in context():
-        context.t_start = 50.
-    if 't_stop' not in context():
-        context.t_stop = context.env.tstop
-    time_range = (context.t_start, context.t_stop)
-
     # 'env' might be in context on controller, but it needs to be re-built when the controller is in a worker subworld
     try:
         if context.debug:
@@ -291,7 +285,15 @@ def config_worker():
         context.logger.exception(err)
         raise err
 
-
+    if 't_start' not in context():
+        context.t_start = 50.
+    else:
+        context.t_start = float(context.t_start)
+    if 't_stop' not in context():
+        context.t_stop = context.env.tstop
+    else:
+        context.t_stop = float(context.t_stop)
+    time_range = (context.t_start, context.t_stop)
 
     context.target_trj_rate_map_dict = {}
     target_rate_map_path = context.target_rate_map_path
