@@ -271,7 +271,6 @@ def config_worker():
 
     # 'env' might be in context on controller, but it needs to be re-built when the controller is in a worker subworld
     try:
-        context.comm = MPI.COMM_WORLD
         if context.debug:
             print('debug: config_worker; context.comm.rank: %i; context.comm.size: %i' %
                   (context.comm.rank, context.comm.size))
