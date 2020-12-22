@@ -258,7 +258,6 @@ def config_worker():
         if context.comm.rank == 1:
             print('# of parameters: %i' % len(context.param_names))
             print('param_names: ', context.param_names)
-            print('x0: ', context.x0)
             print('target_val: ', context.target_val)
             print('target_range: ', context.target_range)
             print('param_tuples: ', context.param_tuples)
