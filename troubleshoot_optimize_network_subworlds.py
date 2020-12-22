@@ -276,7 +276,8 @@ def config_worker():
                   (context.comm.rank, context.comm.size))
             sys.stdout.flush()
         init_network()
-        raise RuntimeError('config_worker: debug')
+        if context.debug:
+            raise RuntimeError('config_worker: debug')
     except Exception as err:
         context.logger.exception(err)
         raise err
