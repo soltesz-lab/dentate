@@ -257,7 +257,6 @@ def config_worker():
     if context.debug:
         if context.comm.rank == 1:
             print('param_names: ', context.param_names)
-            print('param_bounds: ', context.bounds)
             print('x0: ', context.x0)
             print('target_val: ', context.target_val)
             print('target_range: ', context.target_range)
