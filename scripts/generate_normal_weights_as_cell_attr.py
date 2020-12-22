@@ -86,7 +86,7 @@ def main(config, config_prefix, weights_path, weights_namespace, weights_name, c
     for source in sources:
         connection_gen_list.append(NeuroH5ProjectionGen(connections_path, source, destination, \
                                                         namespaces=['Synapses'], \
-                                                        comm=comm))
+                                                        comm=comm, io_size=io_size))
 
     weights_dict = {}
     for itercount, attr_gen_package in enumerate(utils.zip_longest(*connection_gen_list)):
@@ -117,7 +117,7 @@ def main(config, config_prefix, weights_path, weights_namespace, weights_name, c
         else:
             logger.info('Rank: %i received destination_gid as None' % rank)
         gid_count += 1
-        if gid_count % write_size == 0:
+        if (write_size > 0) and (gid_count % write_size == 0):
             if not dry_run:
                 append_cell_attributes(weights_path, destination, weights_dict, namespace=weights_namespace,
                                        comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)

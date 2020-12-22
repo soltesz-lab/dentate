@@ -558,7 +558,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             gc.collect()
 
         env.comm.barrier()
-        if iter_count % write_size == 0:
+        if (write_size > 0) and (iter_count % write_size == 0):
             if not dry_run:
                 append_cell_attributes(output_weights_path, destination, LTD_output_weights_dict,
                                        namespace=LTD_output_weights_namespace, comm=env.comm, io_size=env.io_size,

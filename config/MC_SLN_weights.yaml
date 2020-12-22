@@ -4,3 +4,7 @@
   const:
    a: 10.0
 - namespace: ['Normal Weights']
+  expr: a*nw
+  parameter: [nw]
+  const:
+   a: 1.0

@@ -900,7 +900,7 @@ def make_input_cell_selection(env):
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
-    created_input_sources = {}
+    created_input_sources = { pop_name: set([]) for pop_name in env.celltypes.keys() }
     for pop_name, input_gid_range in sorted(viewitems(env.microcircuit_input_sources)):
 
         pop_index = int(env.Populations[pop_name])
@@ -1046,11 +1046,13 @@ def init_input_cells(env):
                                 trial_spiketrains.append(trial_spiketrain_i)
                             spiketrain = np.concatenate(trial_spiketrains)
                         spiketrain += float(env.stimulus_config['Equilibration Duration'])
-                        logger.info("*** Spike train for %s gid %i is of length %i (%g : %g ms)" %
-                                    (pop_name, gid, len(spiketrain), spiketrain[0], spiketrain[-1]))
+                        if len(spiketrain) > 0:
+                            logger.info("*** Spike train for %s gid %i is of length %i (%g : %g ms)" %
+                                        (pop_name, gid, len(spiketrain), spiketrain[0], spiketrain[-1]))
                     else:
-                        logger.info("*** Spike train for %s gid %i is of length %i" %
-                                    (pop_name, gid, len(spiketrain)))
+                        if len(spiketrain > 0):
+                            logger.info("*** Spike train for %s gid %i is of length %i" %
+                                        (pop_name, gid, len(spiketrain)))
 
                     spiketrain += env.stimulus_onset
                     cell = env.artificial_cells[pop_name][gid]
@@ -1077,7 +1079,7 @@ def init_input_cells(env):
                 if (pop_name in env.cell_attribute_info) and \
                         (env.spike_input_ns in env.cell_attribute_info[pop_name]):
                     has_spike_train = True
-                    spike_input_source_loc.append((input_file_path,env.spike_input_ns))
+                    spike_input_source_loc.append((input_file_path, env.spike_input_ns))
 
                     
             if has_spike_train:
@@ -1096,6 +1098,8 @@ def init_input_cells(env):
                     namespace=input_ns, mask=vecstim_attr_set,
                     comm=env.comm, io_size=env.io_size, return_type='tuple')
                     for (input_path, input_ns) in spike_input_source_loc ]
+
+                env.comm.barrier()
 
                 for cell_spikes_iter, cell_spikes_attr_info in cell_spikes_items:
                     trial_index_attr_index = cell_spikes_attr_info.get(trial_index_attr, None)
@@ -1126,18 +1130,20 @@ def init_input_cells(env):
                                 spiketrain += float(env.stimulus_config['Equilibration Duration'])
 
                             input_cell.pp.play(h.Vector(spiketrain))
-                            logger.info("*** Spike train for %s input source gid %i is of length %i (%g : %g ms)" %
-                                        (pop_name, gid, len(spiketrain), spiketrain[0], spiketrain[-1]))
+                            if len(spiketrain) > 0:
+                                logger.info("*** Spike train for %s input source gid %i is of length %i (%g : %g ms)" %
+                                            (pop_name, gid, len(spiketrain), spiketrain[0], spiketrain[-1]))
                         else:
-                            logger.info("*** Spike train for %s input source gid %i is of length %i" %
-                                        (pop_name, gid, len(spiketrain)))
+                            if len(spiketrain) > 0:
+                                logger.info("*** Spike train for %s input source gid %i is of length %i" %
+                                            (pop_name, gid, len(spiketrain)))
                             continue
 
             else:
                 if rank == 0:
                     logger.warning('No spike train data found for population %s in spike input file %s; namespace: %s' % (pop_name, env.spike_input_path, env.spike_input_ns))
             
-            env.comm.barrier()
+    env.comm.barrier()
                     
 
 def init(env):
@@ -1266,7 +1272,6 @@ def run(env, output=True, shutdown=True):
     else:
         env.t_rec.record(h._ref_t, rec_dt)
 
-        
     env.pc.barrier()
 
     env.t_rec.resize(0)

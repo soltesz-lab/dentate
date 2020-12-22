@@ -14,8 +14,8 @@
 module load python3
 module load phdf5
 
-export NEURONROOT=$HOME/bin/nrnpython3
-export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
+export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
 
 set -x
 
@@ -28,15 +28,15 @@ ibrun python3 ./scripts/generate_structured_weights_as_cell_attr.py \
     -d GC -s MPP -s LPP -n MC \
     --config=./config/Full_Scale_GC_Exc_Sat_DD_SLN.yaml \
     --initial-weights-namespace='Log-Normal Weights' \
-    --initial-weights-path=$DATA_PREFIX/DG_GC_syn_weights_LN_20200708_compressed.h5 \
+    --initial-weights-path=$DATA_PREFIX/DG_GC_syn_weights_LN_20201220_compressed.h5 \
     --non-structured-weights-namespace='Normal Weights' \
-    --non-structured-weights-path=$DATA_PREFIX/DG_GC_syn_weights_LN_20200708_compressed.h5 \
+    --non-structured-weights-path=$DATA_PREFIX/DG_GC_syn_weights_LN_20201220_compressed.h5 \
     --output-weights-namespace='Structured Weights' \
-    --output-weights-path=$DATA_PREFIX/DG_GC_syn_weights_S_20200911.h5 \
-    --connections-path=$DATA_PREFIX/DG_GC_connections_20200703_compressed.h5 \
+    --output-weights-path=$DATA_PREFIX/DG_GC_syn_weights_S_20201220.h5 \
+    --connections-path=$DATA_PREFIX/DG_GC_connections_20201217_compressed.h5 \
     --input-features-path=$DATA_PREFIX/DG_input_features_20200910_compressed.h5 \
     --arena-id=A --optimize-tol 1e-3 --optimize-grad --arena-margin=0.3 \
     --max-delta-weight=10 --max-weight-decay-fraction=0.5 --target-amplitude=10 \
-    --io-size=48 --value-chunk-size=100000 --chunk-size=20000 --write-size=4 -v --dry-run --debug
+    --io-size=48 --value-chunk-size=100000 --chunk-size=20000 --write-size=0 -v
 
 

@@ -6,16 +6,15 @@
 #SBATCH -t 8:30:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
-#SBATCH -J netclamp_opt_pf_rate_GC 
+#SBATCH -J netclamp_opt_pf_rate_GC_all
 #SBATCH -o ./results/netclamp_opt_pf_rate_GC_all.%j.o
 #SBATCH -A BIR20001
 
-module load python3
 module load phdf5
 
 set -x
 
-export NEURONROOT=$HOME/bin/nrnpython3_intel19
+export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
 export PYTHONPATH=$SCRATCH/site-packages/intel19:$HOME/model:$NEURONROOT/lib/python:$PYTHONPATH
 export PATH=$NEURONROOT/bin:$PATH
 export MODEL_HOME=$HOME/model
@@ -28,21 +27,23 @@ export FI_MLX_ENABLE_SPAWN=1
 #export I_MPI_ADJUST_ALLGATHERV=4
 #export I_MPI_ADJUST_ALLTOALL=4
 #export I_MPI_ADJUST_ALLTOALLV=2
+export I_MPI_ADJUST_ALLTOALL=4
+export I_MPI_ADJUST_ALLTOALLV=2
 
 
 # 28250
 #cd $SLURM_SUBMIT_DIR
 ## --cooperative-init  
-## gdb -batch -x $HOME/src/gdb_backtrace --args
+mkdir -p $SCRATCH/dentate/results/netclamp/20201221
 
 if test "$1" == ""; then
 mpirun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
-    -p GC -t 28250 --n-trials 1 --trial-regime best --problem-regime mean --nprocs-per-worker=24 \
+    -p GC -t 28250 --n-trials 1 --trial-regime best --problem-regime mean --nprocs-per-worker=16 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/striped/dentate \
-    --results-path $SCRATCH/dentate/results/netclamp/20201216 \
+    --results-path $SCRATCH/dentate/results/netclamp/20201221 \
     --config-prefix config  --opt-iter 600  --opt-epsilon 1 \
-    --param-config-name 'Weight inh soma pd-dend' \
+    --param-config-name 'Weight all inh soma pd-dend' \
     --arena-id A --trajectory-id MainDiags --use-coreneuron \
     --target-rate-map-path $SCRATCH/dentate/Slice/GC_extent_input_spike_trains_20201001.h5 \
     --spike-events-path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h5" \
@@ -51,7 +52,7 @@ mpirun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent
     selectivity_rate
 else
 mpirun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
-    -p GC  -t 28250 --n-trials 1  --trial-regime best --problem-regime mean --nprocs-per-worker=24 \
+    -p GC  -t 28250 --n-trials 1  --trial-regime best --problem-regime mean --nprocs-per-worker=16 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/striped/dentate \
     --results-path $SCRATCH/dentate/results/netclamp/20201216 \
@@ -60,7 +61,7 @@ mpirun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent
     --spike-events-namespace 'Input Spikes' \
     --spike-events-t 'Spike Train' \
     --config-prefix config  --opt-iter 600  --opt-epsilon 1 \
-    --param-config-name 'Weight inh soma pd-dend' \
+    --param-config-name 'Weight all inh soma pd-dend' \
     --arena-id A --trajectory-id MainDiags --use-coreneuron \
     --target-rate-map-path $SCRATCH/dentate/Slice/GC_extent_input_spike_trains_20201001.h5 \
     selectivity_rate

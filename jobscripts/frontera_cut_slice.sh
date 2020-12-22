@@ -15,7 +15,7 @@ module load phdf5
 
 set -x
 
-export NEURONROOT=$HOME/bin/nrnpython3_intel19
+export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
 export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
 export PATH=$NEURONROOT/bin:$PATH
 
@@ -37,6 +37,6 @@ ibrun python3 ./scripts/cut_slice.py \
     --spike-input-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h\
 5" \
     --spike-input-namespace='Input Spikes A Diag' \
-    --distance-limits -50 50 \
+    --distance-limits -2000 -1500 \
     --write-selection \
     --verbose

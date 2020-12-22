@@ -15,7 +15,7 @@ module load phdf5
 
 set -x
 
-export NEURONROOT=$HOME/bin/nrnpython3_intel19
+export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
 export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
 export PATH=$NEURONROOT/x86_64/bin:$PATH
 export MODEL_HOME=$HOME/model

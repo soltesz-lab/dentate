@@ -143,7 +143,7 @@ def main(config_path, target_rate_map_path, target_rate_map_namespace, optimize_
 
     best = dmosopt.run(dmosopt_params, spawn_workers=True, 
                        nprocs_per_worker=nprocs_per_worker, 
-                       verbose=True)
+                       verbose=True, worker_debug=True)
     
 
 def make_optimization_config(env, pop_names, param_config_name, param_type='synaptic'):
