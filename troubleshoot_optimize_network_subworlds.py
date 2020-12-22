@@ -47,7 +47,7 @@ context = Context()
 
 @click.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True, ))
 @click.option("--optimize-config-file-path", type=str, help='optimization configuration file name',
-              default='../config/DG_optimize_network_subworlds_config.yaml')
+              default='../config/troubleshoot_DG_optimize_network_subworlds_config.yaml')
 @click.option("--output-dir", type=click.Path(exists=True, file_okay=False, dir_okay=True), default='../data')
 @click.option("--export", is_flag=True)
 @click.option("--export-file-path", type=str, default=None)
@@ -272,8 +272,8 @@ def config_worker():
     # 'env' might be in context on controller, but it needs to be re-built when the controller is in a worker subworld
     try:
         if context.debug:
-            print('debug: config_worker; context.comm.rank: %i; context.comm.size: %i' %
-                  (context.comm.rank, context.comm.size))
+            print('debug: config_worker; local_comm.rank: %i/%i; global_comm.rank: %i/%i' %
+                  (context.comm.rank, context.comm.size, context.global_comm.rank, context.global_comm.size))
             sys.stdout.flush()
         init_network()
         if context.debug:
