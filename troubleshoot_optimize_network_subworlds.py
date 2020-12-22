@@ -232,27 +232,57 @@ def rate_maps_from_features (env, pop_name, input_features_path, input_features_
     return input_rate_map_dict
 
 
+def from_param_vector(param_values, param_tuples):
+    result = []
+    assert (len(param_values) == len(param_tuples))
+    for i, param_tuple in enumerate(param_tuples):
+        result.append((param_tuple, param_values[i]))
+    return result
+
+
+def to_param_vector(params):
+    result = []
+    for (source, sec_type, syn_name, param_name, param_value) in params:
+        result.append(param_value)
+    return result
+
 
 def config_worker():
     """
 
     """
+    if 'debug' not in context():
+        context.debug = False
+
+    if context.debug:
+        if context.comm.rank == 1:
+            print('param_names: ', context.param_names)
+            print('param_bounds: ', context.bounds)
+            print('x0: ', context.x0)
+            print('target_val: ', context.target_val)
+            print('target_range: ', context.target_range)
+            print('param_tuples: ', context.param_tuples)
+            sys.stdout.flush()
+
     utils.config_logging(context.verbose)
     context.logger = utils.get_script_logger(os.path.basename(__file__))
     if 'results_file_id' not in context():
         context.results_file_id = 'DG_optimize_network_subworlds_%s_%s' % \
                              (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M'))
-    if 'env' not in context():
-        try:
-            context.comm = MPI.COMM_WORLD
+
+    # 'env' might be in context on controller, but it needs to be re-built when the controller is in a worker subworld
+    try:
+        context.comm = MPI.COMM_WORLD
+        if context.debug:
             print('debug: config_worker; context.comm.rank: %i; context.comm.size: %i' %
                   (context.comm.rank, context.comm.size))
             sys.stdout.flush()
-            init_network()
-        except Exception as err:
-            context.logger.exception(err)
-            raise err
-    raise RuntimeError()
+            raise RuntimeError('config_worker: debug')
+        init_network()
+    except Exception as err:
+        context.logger.exception(err)
+        raise err
+
     if 't_start' not in context():
         context.t_start = 50.
         context.t_stop = context.env.tstop
@@ -272,36 +302,13 @@ def config_worker():
         if len(trj_rate_maps) > 0:
             context.target_trj_rate_map_dict[pop_name] = trj_rate_maps
 
+    # TODO: This is not put in context or used elsewhere
     target_rate_vector_dict = { gid: trj_rate_maps[gid] for gid in trj_rate_maps }
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
         idxs = np.where(np.isclose(target_rate_vector, 0., atol=1e-4, rtol=1e-4))[0]
         target_rate_vector[idxs] = 0.
 
-    param_bounds, param_names, param_initial_dict, param_tuples, opt_targets = \
-      optimization_params(context.env, context.target_populations, context.param_config_name)
 
-    def from_param_vector(param_values):
-        result = []
-        assert (len(param_values) == len(param_tuples))
-        for i, param_tuple in enumerate(param_tuples):
-            result.append((param_tuple, param_values[i]))
-        return result
-
-    def to_param_vector(params):
-        result = []
-        for (source, sec_type, syn_name, param_name, param_value) in params:
-            result.append(param_value)
-        return result
-
-    context.param_names = param_names
-    context.bounds = [ param_bounds[key] for key in param_names ]
-    context.x0 = param_initial_dict
-    context.from_param_vector = from_param_vector
-    context.to_param_vector = to_param_vector
-    context.target_val = opt_targets
-    context.target_range = opt_targets
-
-    
 def config_controller():
     """
 
@@ -311,20 +318,26 @@ def config_controller():
     if 'results_file_id' not in context():
         context.results_file_id = 'DG_optimize_network_subworlds_%s_%s' % \
                              (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M'))
-    if 'env' not in context():
-        try:
-            context.comm = MPI.COMM_WORLD
-            #init_env()
-        except Exception as err:
-            context.logger.exception(err)
-            raise err
-        
-def init_env():
-    """
 
-    """
-    context.env = Env(comm=context.comm, results_file_id=context.results_file_id, **context.kwargs)
-    
+    try:
+        context.env = Env(comm=context.controller_comm, results_file_id=context.results_file_id, **context.kwargs)
+    except Exception as err:
+        context.logger.exception(err)
+        raise err
+
+    param_bounds, param_names, param_initial_dict, param_tuples, opt_targets = \
+        optimization_params(context.env, context.target_populations, context.param_config_name)
+
+    context.param_names = param_names
+    context.bounds = [param_bounds[key] for key in param_names]
+    context.x0 = param_initial_dict
+    context.target_val = opt_targets
+    context.target_range = opt_targets
+    context.param_tuples = param_tuples
+    # These kwargs will be sent from the controller to each worker context
+    context.kwargs['param_tuples'] = param_tuples
+
+
 def init_network():
     """
 
@@ -335,6 +348,7 @@ def init_network():
     network.init(context.env)
     context.comm.barrier()
 
+
 def update_network(x, context=None):
     """
 
@@ -344,7 +358,7 @@ def update_network(x, context=None):
     if context is None:
         raise RuntimeError('update_network: missing required Context object')
 
-    param_tuple_values = context.from_param_vector(x)
+    param_tuple_values = from_param_vector(x, context.param_tuples)
 
     update_network_params(context.env, param_tuple_values)
 
