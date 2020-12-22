@@ -455,7 +455,6 @@ def compute_network_features(x, model_id=None, export=False):
         if n_active > 0:
             pop_name_is_in_network = pop_name in context.target_trj_rate_map_dict and \
                                      len(context.target_trj_rate_map_dict[pop_name] > 0)
-            pop_name_is_in_network_list = None
             pop_name_is_in_network_list = context.env.comm.gather(pop_name_is_in_network, root=0)
             if context.env.comm.rank == 0:
                 if any(pop_name_is_in_network_list):
@@ -505,6 +504,10 @@ def get_objectives(features, model_id=None, export=False):
     if context.env.comm.rank == 0:
         context.logger.info('features: %s' % str(features))
     for key in context.objective_names:
+        if key not in features:
+            if context.env.comm.rank == 0:
+                context.logger.info('get_objectives: model_id: %i failed - missing feature: %s' % (model_id, key))
+            return dict(), dict()
         if key in context.target_val:
             objectives[key] = ((features[key] - context.target_val[key]) / context.target_range[key]) ** 2.
         else:
