@@ -14,7 +14,7 @@ module load phdf5
 
 set -x
 
-export NEURONROOT=$HOME/bin/nrnpython3_intel19
+export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
 export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
 export PATH=$NEURONROOT/bin:$PATH
 export MODEL_HOME=$HOME/model
@@ -33,20 +33,16 @@ export results_path
 
 mkdir -p $results_path
 
-#git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
-#git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
-
 cd $SLURM_SUBMIT_DIR
 
-#export hosts=`scontrol show hostname $SLURM_NODELIST | paste -s -d, -`
 
-mpirun -n 3 python3 optimize_network.py \
+mpirun -n 4 python3 optimize_network.py \
     --config-path=$DG_HOME/config/DG_optimize_network_test.yaml \
     --output-dir=$results_path \
     --target-rate-map-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
     --target-rate-map-namespace="Place Selectivity" \
     --verbose \
-    --nprocs-per-worker=894 \
+    --nprocs-per-worker=440 \
     --no_cleanup \
     --arena_id=A --trajectory_id=Diag \
     --template_paths=$MODEL_HOME/dgc/Mateos-Aparicio2014:$DG_HOME/templates \

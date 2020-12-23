@@ -2,7 +2,7 @@
 
 #SBATCH -p normal      # Queue (partition) name
 #SBATCH -N 24             # Total # of nodes 
-#SBATCH --ntasks-per-node=3          # # of mpi tasks per node
+#SBATCH --ntasks-per-node=56          # # of mpi tasks per node
 #SBATCH -t 8:30:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
@@ -35,9 +35,10 @@ export I_MPI_ADJUST_ALLTOALLV=2
 #cd $SLURM_SUBMIT_DIR
 ## --cooperative-init  
 mkdir -p $SCRATCH/dentate/results/netclamp/20201221
+export ntasks=$((24 * 3))
 
 if test "$1" == ""; then
-mpirun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
+mpirun -n $ntasks python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
     -p GC -t 28250 --n-trials 1 --trial-regime best --problem-regime mean --nprocs-per-worker=16 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/striped/dentate \
@@ -51,7 +52,7 @@ mpirun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent
     --spike-events-t 'Spike Train' \
     selectivity_rate
 else
-mpirun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
+mpirun -n $ntasks network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
     -p GC  -t 28250 --n-trials 1  --trial-regime best --problem-regime mean --nprocs-per-worker=16 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/striped/dentate \

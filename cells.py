@@ -2617,7 +2617,7 @@ def make_input_cell(env, gid, pop_id, input_source_dict, spike_train_attr_name='
     return cell
 
 
-def load_biophys_cell_dicts(env, pop_name, gid_set, load_connections=True):
+def load_biophys_cell_dicts(env, pop_name, gid_set, load_connections=True, validate_tree=True):
     """
     Loads the data necessary to instantiate BiophysCell into the given dictionary.
 
@@ -2625,7 +2625,7 @@ def load_biophys_cell_dicts(env, pop_name, gid_set, load_connections=True):
     :param pop_name: population name
     :param gid: gid
     :param load_connections: bool
-    :param cell_dict: dict
+    :param validate_tree: bool
 
     Environment can be instantiated as:
     env = Env(config_file, template_paths, dataset_prefix, config_prefix)
@@ -2652,7 +2652,8 @@ def load_biophys_cell_dicts(env, pop_name, gid_set, load_connections=True):
     
     gid_list = list(gid_set)
     tree_attr_iter, _ = read_tree_selection(env.data_file_path, pop_name,
-                                            gid_list, comm=env.comm, topology=True)
+                                            gid_list, comm=env.comm, 
+                                            topology=True, validate=validate_tree)
     for gid, tree_dict in tree_attr_iter:
         tree_dicts[gid] = tree_dict
 
@@ -2829,6 +2830,7 @@ def make_biophys_cell(env, pop_name, gid,
                       load_edges=False, connection_graph=None,
                       load_weights=False, weight_dict=None, 
                       set_edge_delays=True, bcast_template=True,
+                      validate_tree=True,
                       **kwargs):
     """
     :param env: :class:'Env'
@@ -2847,7 +2849,8 @@ def make_biophys_cell(env, pop_name, gid,
     load_cell_template(env, pop_name, bcast_template=bcast_template)
 
     if tree_dict is None:
-        tree_attr_iter, _ = read_tree_selection(env.data_file_path, pop_name, [gid], comm=env.comm, topology=True)
+        tree_attr_iter, _ = read_tree_selection(env.data_file_path, pop_name, [gid], comm=env.comm, 
+                                                topology=True, validate=validate_tree)
         _, tree_dict = next(tree_attr_iter)
         
     hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict)

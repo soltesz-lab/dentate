@@ -18,8 +18,7 @@ context = Context()
 
 
 
-def init_biophys_cell(env, pop_name, gid, load_weights=True, load_connections=True, register_cell=True, write_cell=False,
-                      cell_dict={}):
+def init_biophys_cell(env, pop_name, gid, load_weights=True, load_connections=True, register_cell=True, write_cell=False, validate_tree=True, cell_dict={}):
     """
     Instantiates a BiophysCell instance and all its synapses.
 
@@ -28,6 +27,7 @@ def init_biophys_cell(env, pop_name, gid, load_weights=True, load_connections=Tr
     :param gid: gid
     :param load_connections: bool
     :param register_cell: bool
+    :param validate_tree: bool
     :param write_cell: bool
     :param cell_dict: dict
 
@@ -74,7 +74,8 @@ def init_biophys_cell(env, pop_name, gid, load_weights=True, load_connections=Tr
                                        weight_dict=cell_dict.get('weight', None),
                                        mech_dict=mech_dict, 
                                        load_synapses=True, load_weights=load_weights,
-                                       load_edges=load_connections)
+                                       load_edges=load_connections,
+                                       validate_tree=validate_tree)
         
     cells.init_biophysics(cell, reset_cable=True, 
                           correct_cm=correct_for_spines_flag,
