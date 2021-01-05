@@ -3,7 +3,7 @@
 #SBATCH -p normal      # Queue (partition) name
 #SBATCH -N 2             # Total # of nodes 
 #SBATCH --ntasks-per-node=28          # # of mpi tasks per node
-#SBATCH -t 4:00:00        # Run time (hh:mm:ss)
+#SBATCH -t 2:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 #SBATCH -A BIR20001
@@ -26,35 +26,40 @@ export FI_MLX_ENABLE_SPAWN=1
 # 'Weight all inh soma pd-dend'
 
 cd $SLURM_SUBMIT_DIR
- 
+
+mkdir -p $SCRATCH/dentate/results/netclamp/20210103_Weight_all_inh_soma_pd_dend
+
+
 if test "$3" == ""; then
-mpirun -n 4 python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
-    -p GC -t 28250 -g $1  --n-trials 1 --trial-regime best --problem-regime mean --nprocs-per-worker=1 \
+mpirun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
+    -p GC -t 9500 -g $1  --n-trials 1 --trial-regime best --problem-regime mean --nprocs-per-worker=1 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/striped/dentate \
-    --results-path $SCRATCH/dentate/results/netclamp/20201221 \
-    --config-prefix config  --opt-iter 600  --opt-epsilon 1 \
+    --results-path $SCRATCH/dentate/results/netclamp/20210103_Weight_all_inh_soma_pd_dend \
+    --config-prefix config  --opt-iter 2000  --opt-epsilon 1 \
     --param-config-name "$2" \
-    --arena-id A --trajectory-id MainDiags --use-coreneuron \
-    --target-rate-map-path $SCRATCH/dentate/Slice/GC_extent_input_spike_trains_20201001.h5 \
+    --arena-id A --trajectory-id Diag --use-coreneuron \
+    --target-features-path $SCRATCH/striped/dentate/Slice/dentatenet_Full_Scale_GC_Exc_Sat_SLN_extent_arena_margin_20201223_compressed.h5 \
+    --target-features-namespace 'Place Selectivity' \
     --spike-events-path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h5" \
     --spike-events-namespace 'Input Spikes' \
     --spike-events-t 'Spike Train' \
     selectivity_rate
 else
 mpirun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
-    -p GC  -t 28250 -g $1 --n-trials 1 --trial-regime best --problem-regime mean --nprocs-per-worker=1 \
+    -p GC  -t 9500 -g $1 --n-trials 1 --trial-regime best --problem-regime mean --nprocs-per-worker=1 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/striped/dentate \
-    --results-path $SCRATCH/dentate/results/netclamp/20201221 \
+    --results-path $SCRATCH/dentate/results/netclamp/20210103_Weight_all_inh_soma_pd_dend \
     --results-file "$3" \
     --spike-events-path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h5" \
     --spike-events-namespace 'Input Spikes' \
     --spike-events-t 'Spike Train' \
-    --config-prefix config  --opt-iter 600  --opt-epsilon 1 \
+    --config-prefix config  --opt-iter 2000  --opt-epsilon 1 \
     --param-config-name "$2" \
-    --arena-id A --trajectory-id MainDiags --use-coreneuron --cooperative-init  \
-    --target-rate-map-path $SCRATCH/dentate/Slice/GC_extent_input_spike_trains_20201001.h5 \
+    --arena-id A --trajectory-id Diag --use-coreneuron  \
+    --target-features-path $SCRATCH/striped/dentate/Slice/dentatenet_Full_Scale_GC_Exc_Sat_SLN_extent_arena_margin_20201223_compressed.h5 \
+    --target-features-namespace 'Place Selectivity' \
     selectivity_rate
 fi
 

@@ -153,11 +153,7 @@ def config_worker():
         if context.debug:
             print('debug: config_worker; local_comm.rank: %i/%i; global_comm.rank: %i/%i' %
                   (context.comm.rank, context.comm.size, context.global_comm.rank, context.global_comm.size))
-            if context.global_comm.rank == 0:
-                print('t_start: %.1f, t_stop: %.1f' % (context.t_start, context.t_stop))
             sys.stdout.flush()
-        if context.debug:
-            raise RuntimeError('config_worker: debug')
         init_network()
     except Exception as err:
         context.logger.exception(err)
@@ -172,6 +168,14 @@ def config_worker():
     else:
         context.t_stop = float(context.t_stop)
     time_range = (context.t_start, context.t_stop)
+
+    try:
+        if context.debug:
+            if context.global_comm.rank == 0:
+                print('t_start: %.1f, t_stop: %.1f' % (context.t_start, context.t_stop))
+    except Exception as err:
+        context.logger.exception(err)
+        raise err
 
     context.target_trj_rate_map_dict = {}
     target_rate_map_path = context.target_rate_map_path
@@ -231,6 +235,8 @@ def init_network():
     context.comm.barrier()
     context.env = Env(comm=context.comm, results_file_id=context.results_file_id, **context.kwargs)
     network.init(context.env)
+    if context.debug:
+        raise RuntimeError('config_worker: after network.init')
     context.comm.barrier()
 
 

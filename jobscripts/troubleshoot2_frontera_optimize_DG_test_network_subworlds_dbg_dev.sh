@@ -22,13 +22,15 @@ export DG_HOME=$MODEL_HOME/dentate
 
 cd $WORK/dentate
 
-ibrun -n 112 python3 -m nested.optimize \
+
+mpirun -n 10 python3 -m nested.optimize \
   --config-file-path=$DG_HOME/config/troubleshoot2_DG_optimize_network_subworlds_config_dbg.yaml \
   --output-dir=$SCRATCH/dentate/results \
   --framework=pc \
   --verbose=True \
+  --debug \
   --disp \
-  --procs_per_worker=112 \
+  --procs_per_worker=10 \
   --no_cleanup \
   --param_config_name="Weight exc inh microcircuit" \
   --arena_id=A --trajectory_id=Diag \

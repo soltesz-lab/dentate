@@ -30,6 +30,6 @@ mpirun_rsh  -export-all -hostfile $SLURM_NODEFILE  -np 96 \
     --config-prefix config  --opt-iter 6000 --opt-epsilon 1 \
     --param-config-name 'Weight all no MC inh soma all-dend' \
     --arena-id A --trajectory-id Diag \
-    --target-rate-map-path $SCRATCH/dentate/Slice/GC_extent_input_spike_trains_20200901.h5 \
+    --target-features-path $SCRATCH/dentate/Slice/GC_extent_input_spike_trains_20200901.h5 \
     --use-coreneuron \
     selectivity_rate

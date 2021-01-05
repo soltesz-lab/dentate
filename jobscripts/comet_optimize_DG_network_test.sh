@@ -31,8 +31,8 @@ mkdir -p $results_path
 ibrun -n 1 python3 optimize_network.py \
     --config-path=$DG_HOME/config/DG_optimize_network_test.yaml \
     --results-dir=$results_path \
-    --target-rate-map-path="$SCRATCH/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
-    --target-rate-map-namespace="Place Selectivity" \
+    --target-features-path="$SCRATCH/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
+    --target-features-namespace="Place Selectivity" \
     --verbose \
     --nprocs-per-worker=190 \
     --no_cleanup \

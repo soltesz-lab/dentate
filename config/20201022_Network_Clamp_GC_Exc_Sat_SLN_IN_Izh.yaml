@@ -65,17 +65,17 @@ Cell Types:
     synapses:
       density: !include IS_synapse_density.yaml
   MPP:
-    template: MPPCell
+    template: VecStim
     spike train:
       namespace: Input Spikes
       attribute: Spike Train
   LPP:
-    template: LPPCell
+    template: VecStim
     spike train:
       namespace: Input Spikes
       attribute: Spike Train
   CA3c:
-    template: CA3Cell
+    template: VecStim
     spike train:
       namespace: Input Spikes
       attribute: Spike Train

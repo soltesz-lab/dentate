@@ -16,7 +16,7 @@ objective_names:
 - NGFC fraction active
 target_populations: ['GC', 'MC', 'AAC', 'BC', 'HC', 'HCC', 'IS', 'MOPP', 'NGFC']
 kwargs:
-  config_file: Network_Clamp_Slice_neg50_pos50um_IN_Izh.yaml
+  config_file: Network_Clamp_Slice_neg25_pos25um_IN_Izh.yaml
   tstop: 150.
   checkpoint_interval: 0.
   v_init: -77.

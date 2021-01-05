@@ -2,7 +2,7 @@
 #
 #SBATCH -J dentate_Test_GC_slice_neg50_pos50um
 #SBATCH -o ./results/dentate_Test_GC_slice_neg50_pos50um.%j.o
-#SBATCH --nodes=16
+#SBATCH --nodes=5
 #SBATCH --ntasks-per-node=56
 #SBATCH -p normal
 #SBATCH -t 2:00:00

@@ -56,9 +56,9 @@ Cell Types:
     synapses:
       density: !include IS_synapse_density.yaml
   MPP:
-    template: MPPCell
+    template: VecStim
     Vector Stimulus: Vector Stimulus 0
   LPP:
-    template: LPPCell
+    template: VecStim
     Vector Stimulus: Vector Stimulus 0
 

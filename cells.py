@@ -2598,12 +2598,12 @@ def make_input_cell(env, gid, pop_id, input_source_dict, spike_train_attr_name='
 
     input_sources = input_source_dict[pop_id]
     if 'spiketrains' in input_sources:
-        cell = h.VecStimCell(gid)
+        cell = h.VecStim()
         spk_attr_dict = input_sources['spiketrains'].get(gid, None)
         if spk_attr_dict is not None:
             spk_ts = spk_attr_dict[spike_train_attr_name]
             if len(spk_ts) > 0:
-                cell.pp.play(h.Vector(spk_ts))
+                cell.play(h.Vector(spk_ts))
     elif 'generator' in input_sources:
         input_gen = input_sources['generator']
         template_name = input_gen['template']
@@ -2934,7 +2934,12 @@ def register_cell(env, pop_name, gid, cell):
     # for all other hosts. NetCon is temporary.
     nc = getattr(cell, 'spike_detector', None)
     if nc is None:
-        nc = hoc_cell.connect2target(h.nil)
+        if hasattr(cell, 'connect2target'):
+            nc = hoc_cell.connect2target(h.nil)
+        elif cell.is_art() > 0:
+            nc = h.NetCon(cell, None)
+        else:
+            raise RuntimeError('register_cell: unknown cell type')
     nc.delay = max(2*env.dt, nc.delay)
     env.pc.cell(gid, nc, 1)
     env.pc.outputcell(gid)

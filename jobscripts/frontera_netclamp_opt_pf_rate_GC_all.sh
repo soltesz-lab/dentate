@@ -23,10 +23,10 @@ export LD_PRELOAD=$MKLROOT/lib/intel64_lin/libmkl_core.so:$MKLROOT/lib/intel64_l
 export FI_MLX_ENABLE_SPAWN=1
 
 #export I_MPI_EXTRA_FILESYSTEM=enable
-#export I_MPI_ADJUST_ALLGATHER=4
-#export I_MPI_ADJUST_ALLGATHERV=4
-#export I_MPI_ADJUST_ALLTOALL=4
-#export I_MPI_ADJUST_ALLTOALLV=2
+export I_MPI_ADJUST_SCATTER=2
+export I_MPI_ADJUST_SCATTERV=2
+export I_MPI_ADJUST_ALLGATHER=2
+export I_MPI_ADJUST_ALLGATHERV=2
 export I_MPI_ADJUST_ALLTOALL=4
 export I_MPI_ADJUST_ALLTOALLV=2
 
@@ -34,37 +34,42 @@ export I_MPI_ADJUST_ALLTOALLV=2
 # 28250
 #cd $SLURM_SUBMIT_DIR
 ## --cooperative-init  
-mkdir -p $SCRATCH/dentate/results/netclamp/20201221
-export ntasks=$((24 * 3))
+mkdir -p $SCRATCH/dentate/results/netclamp/20210102
+export nworkers=$((2 * 3))
+
+#source $VT_ROOT/bin/itacvars.sh
 
 if test "$1" == ""; then
-mpirun -n $ntasks python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
-    -p GC -t 28250 --n-trials 1 --trial-regime best --problem-regime mean --nprocs-per-worker=16 \
+mpirun -rr -n $nworkers  \
+    python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
+    -p GC -t 9500 --n-trials 1 --trial-regime best --problem-regime mean --nprocs-per-worker=16 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/striped/dentate \
-    --results-path $SCRATCH/dentate/results/netclamp/20201221 \
-    --config-prefix config  --opt-iter 600  --opt-epsilon 1 \
-    --param-config-name 'Weight all inh soma pd-dend' \
-    --arena-id A --trajectory-id MainDiags --use-coreneuron \
-    --target-rate-map-path $SCRATCH/dentate/Slice/GC_extent_input_spike_trains_20201001.h5 \
+    --results-path $SCRATCH/dentate/results/netclamp/20210102 \
+    --config-prefix config  --opt-iter 6  --opt-epsilon 1 \
+    --param-config-name 'Weight all' \
+    --arena-id A --trajectory-id Diag --use-coreneuron \
+    --target-features-path $SCRATCH/striped/dentate/Slice/dentatenet_Full_Scale_GC_Exc_Sat_SLN_extent_arena_margin_20201223_compressed.h5 \
+    --target-features-namespace 'Place Selectivity' \
     --spike-events-path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h5" \
     --spike-events-namespace 'Input Spikes' \
     --spike-events-t 'Spike Train' \
     selectivity_rate
 else
-mpirun -n $ntasks network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
-    -p GC  -t 28250 --n-trials 1  --trial-regime best --problem-regime mean --nprocs-per-worker=16 \
+mpirun -n $ntasks python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
+    -p GC  -t 9500 --n-trials 1  --trial-regime best --problem-regime mean --nprocs-per-worker=16 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/striped/dentate \
-    --results-path $SCRATCH/dentate/results/netclamp/20201216 \
+    --results-path $SCRATCH/dentate/results/netclamp/20210102 \
     --results-file "$1" \
     --spike-events-path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h5" \
     --spike-events-namespace 'Input Spikes' \
     --spike-events-t 'Spike Train' \
-    --config-prefix config  --opt-iter 600  --opt-epsilon 1 \
-    --param-config-name 'Weight all inh soma pd-dend' \
-    --arena-id A --trajectory-id MainDiags --use-coreneuron \
-    --target-rate-map-path $SCRATCH/dentate/Slice/GC_extent_input_spike_trains_20201001.h5 \
+    --config-prefix config  --opt-iter 800  --opt-epsilon 1 \
+    --param-config-name 'Weight all' \
+    --arena-id A --trajectory-id Diag --use-coreneuron \
+    --target-features-path $SCRATCH/striped/dentate/Slice/dentatenet_Full_Scale_GC_Exc_Sat_SLN_extent_arena_margin_20201223_compressed.h5 \
+    --target-features-namespace 'Place Selectivity' \
     selectivity_rate
 fi
 

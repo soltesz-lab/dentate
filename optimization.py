@@ -12,7 +12,7 @@ import numpy as np
 from mpi4py import MPI
 from collections import defaultdict, namedtuple
 import dentate
-from dentate import network, network_clamp, synapses, spikedata, stimulus, utils
+from dentate import synapses, spikedata, stimulus, utils
 from dentate.env import Env
 from dentate.utils import viewitems
 from neuroh5.io import scatter_read_cell_attribute_selection, read_cell_attribute_info
@@ -140,7 +140,7 @@ def update_network_params(env, param_tuple_values):
 
 
 def rate_maps_from_features (env, pop_name, input_features_path, input_features_namespace, cell_index_set,
-                             time_range=None, n_trials=1):
+                             arena_id=None, trajectory_id=None, time_range=None, n_trials=1):
     
     """Initializes presynaptic spike sources from a file with input selectivity features represented as firing rates."""
         
@@ -148,10 +148,15 @@ def rate_maps_from_features (env, pop_name, input_features_path, input_features_
         if time_range[0] is None:
             time_range[0] = 0.0
 
+    if arena_id is None:
+        arena_id = env.arena_id
+    if trajectory_id is None:
+        trajectory_id = env.trajectory_id
+
     spatial_resolution = float(env.stimulus_config['Spatial Resolution'])
     temporal_resolution = float(env.stimulus_config['Temporal Resolution'])
     
-    this_input_features_namespace = '%s %s' % (input_features_namespace, env.arena_id)
+    this_input_features_namespace = '%s %s' % (input_features_namespace, arena_id)
     
     input_features_attr_names = ['Selectivity Type', 'Num Fields', 'Field Width', 'Peak Rate',
                                  'Module ID', 'Grid Spacing', 'Grid Orientation',
@@ -160,10 +165,10 @@ def rate_maps_from_features (env, pop_name, input_features_path, input_features_
     
     selectivity_type_names = { i: n for n, i in viewitems(env.selectivity_types) }
 
-    arena = env.stimulus_config['Arena'][env.arena_id]
+    arena = env.stimulus_config['Arena'][arena_id]
     arena_x, arena_y = stimulus.get_2D_arena_spatial_mesh(arena=arena, spatial_resolution=spatial_resolution)
     
-    trajectory = arena.trajectories[env.trajectory_id]
+    trajectory = arena.trajectories[trajectory_id]
     t, x, y, d = stimulus.generate_linear_trajectory(trajectory, temporal_resolution=temporal_resolution)
     if time_range is not None:
         t_range_inds = np.where((t < time_range[1]) & (t >= time_range[0]))[0] 
@@ -175,7 +180,7 @@ def rate_maps_from_features (env, pop_name, input_features_path, input_features_
     input_rate_map_dict = {}
     pop_index = int(env.Populations[pop_name])
     input_features_iter = scatter_read_cell_attribute_selection(input_features_path, pop_name,
-                                                                selection=list(cell_index_set),
+                                                                selection=cell_index_set,
                                                                 namespace=this_input_features_namespace,
                                                                 mask=set(input_features_attr_names), 
                                                                 comm=env.comm, io_size=env.io_size)
@@ -188,6 +193,7 @@ def rate_maps_from_features (env, pop_name, input_features_path, input_features_
                                                            selectivity_attr_dict=selectivity_attr_dict)
         if input_cell_config.num_fields > 0:
             rate_map = input_cell_config.get_rate_map(x=x, y=y)
+            rate_map[np.isclose(rate_map, 0., atol=1e-3, rtol=1e-3)] = 0.
             input_rate_map_dict[gid] = rate_map
             
     return input_rate_map_dict
@@ -244,5 +250,4 @@ def network_features(env, target_trj_rate_map_dict, t_start, t_stop, target_popu
 
         features_dict[pop_name] = pop_features_dict
 
-    env.comm.barrier()
     return features_dict

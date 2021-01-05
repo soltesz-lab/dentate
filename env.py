@@ -54,8 +54,8 @@ class Env(object):
 
     def __init__(self, comm=None, config_file=None, template_paths="templates", hoc_lib_path=None,
                  dataset_prefix=None, config_prefix=None,
-                 results_path=None, results_file_id=None, results_namespace_id=None,
-                 node_rank_file=None, io_size=0, recording_profile=None, recording_fraction=1.0,
+                 results_path=None, results_file_id=None, results_namespace_id=None, 
+                 node_rank_file=None, node_allocation=None, io_size=0, recording_profile=None, recording_fraction=1.0,
                  tstop=0., v_init=-65, stimulus_onset=0.0, n_trials=1,
                  max_walltime_hours=0.5, checkpoint_interval=500.0, checkpoint_clear_data=True, 
                  results_write_time=0, dt=None, ldbal=False, lptbal=False, 
@@ -74,6 +74,7 @@ class Env(object):
         :param results_file_id: str; label for neuroh5 files to write spike and voltage trace data
         :param results_namespace_id: str; label for neuroh5 namespaces to write spike and voltage trace data
         :param node_rank_file: str; name of file specifying assignment of node gids to MPI ranks
+        :param node_allocation: iterable; gids assigned to the current MPI ranks; cannot be specified together with node_rank_file
         :param io_size: int; the number of MPI ranks to be used for I/O operations
         :param recording_profile: str; intracellular recording configuration to use
         :param tstop: int; physical time to simulate (ms)
@@ -200,6 +201,8 @@ class Env(object):
         # cache queries to filter_synapses
         self.cache_queries = cache_queries
 
+        self.logger.info('rank %d: before bcast model_config' % rank)
+        
         self.config_prefix = config_prefix
         if config_file is not None:
             if config_prefix is not None:
@@ -243,6 +246,8 @@ class Env(object):
 
         if rank == 0:
             self.logger.info('env.dataset_prefix = %s' % str(self.dataset_prefix))
+
+        self.logger.info('rank %d: before bcast cell selection' % rank)
 
         # Cell selection for simulations of subsets of the network
         self.cell_selection = None
@@ -309,9 +314,13 @@ class Env(object):
             self.forest_file_path = None
             self.gapjunctions_file_path = None
 
-        self.node_ranks = None
+        self.node_allocation = None
+        if node_rank_file and node_allocation:
+            raise RuntimeError("Only one of node_rank_file and node_allocation must be specified.")
         if node_rank_file:
-            self.load_node_ranks(node_rank_file)
+            self.load_node_rank_map(node_rank_file)
+        if node_allocation:
+            self.node_allocation = set(node_allocation)
 
         self.netclamp_config = None
         if 'Network Clamp' in self.model_config:
@@ -714,13 +723,13 @@ class Env(object):
             self.gapjunctions = None
 
             
-    def load_node_ranks(self, node_rank_file):
+    def load_node_rank_map(self, node_rank_file):
 
         rank = 0
         if self.comm is not None:
             rank = self.comm.Get_rank()
 
-        self.node_ranks = None
+        node_rank_map = None
         if rank == 0:
             with open(node_rank_file) as fp:
                 dval = {}
@@ -728,26 +737,27 @@ class Env(object):
                 for l in lines:
                     a = l.split(' ')
                     dval[int(a[0])] = int(a[1])
-                self.node_ranks = dval
-        self.node_ranks = self.comm.bcast(self.node_ranks, root=0)
+                node_rank_map = dval
+        node_rank_map = self.comm.bcast(node_rank_map, root=0)
 
         pop_names = sorted(self.celltypes.keys())
 
+        self.node_allocation = set([])
         for pop_name in pop_names:
             present = False
             num = self.celltypes[pop_name]['num']
             start = self.celltypes[pop_name]['start']
             for gid in range(start, start+num):
-                if gid in self.node_ranks:
+                if gid in node_rank_map:
                     present = True
-                    break
+                if node_rank_map[gid] == rank:
+                    self.node_allocation.add(gid)
             if not present:
                 if rank == 0:
-                    self.logger.warning('load_node_ranks: gids assigned to population %s are not present in node ranks file %s; '
+                    self.logger.warning('load_node_rank_map: gids assigned to population %s are not present in node ranks file %s; '
                                         'gid to rank assignment will not be used'  % (pop_name, node_rank_file))
-                self.node_ranks = None
+                self.node_allocation = None
                 break
-        
 
             
     def load_celltypes(self):
