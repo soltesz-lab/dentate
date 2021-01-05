@@ -484,7 +484,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
             logger.info('Rank %i took %i s to compute %d edges for destination: %s, gid: %i' % (
             rank, time.time() - last_time, count, destination_population, destination_gid))
 
-        if gid_count % write_size == 0:
+        if (write_size > 0) and (gid_count % write_size == 0):
             last_time = time.time()
             if len(connection_dict) > 0:
                 projection_dict = {destination_population: connection_dict}

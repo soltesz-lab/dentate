@@ -15,8 +15,8 @@ module load phdf5
 
 set -x
 
-export NEURONROOT=$HOME/bin/nrnpython3
-export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
+export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
 export PATH=$NEURONROOT/bin:$PATH
 
 results_path=$SCRATCH/dentate/results/cut_slice_$SLURM_JOB_ID
@@ -26,8 +26,6 @@ cd $SLURM_SUBMIT_DIR
 
 mkdir -p $results_path
 
-
-export PYTHON=`which python3`
 
 ibrun python3 ./scripts/cut_slice.py \
     --arena-id=A --trajectory-id=Diag \

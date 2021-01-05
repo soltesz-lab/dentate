@@ -11,6 +11,9 @@ apical:
       mean: 2.02
       variance: 0.28
   inhibitory: # Inhibitory https://www.ncbi.nlm.nih.gov/pubmed/20034063
+    GCL: # layer
+      mean: 1.0
+      variance: 0.01
     IML: # layer
       mean: 0.7
       variance: 0.01

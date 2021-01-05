@@ -123,7 +123,7 @@ def find_template(env, template_name, path=['templates'], template_file=None, bc
     :param root: int; MPI.COMM_WORLD.rank
     """
     if env.comm is None:
-        bcast_template = false
+        bcast_template = False
     rank = env.comm.rank if env.comm is not None else 0
     found = False
     template_path = ''
@@ -191,8 +191,6 @@ def configure_hoc_env(env, bcast_template=False):
     ## sparse parallel transfer
     if hasattr(h, 'nrn_sparse_partrans'):
         h.nrn_sparse_partrans = 1
-    find_template(env, 'StimCell', path=env.template_paths, bcast_template=bcast_template)
-    find_template(env, 'VecStimCell', path=env.template_paths, bcast_template=bcast_template)
 
 
 def load_cell_template(env, pop_name, bcast_template=False):

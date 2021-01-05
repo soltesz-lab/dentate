@@ -37,7 +37,7 @@ ibrun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_IN_Izh_
     --config-prefix config  --opt-iter 2000  --opt-epsilon 1 \
     --param-config-name 'Weight all inh soma all-dend' \
     --arena-id A --trajectory-id Diag \
-    --target-rate-map-path $SCRATCH/dentate/Slice/MC_extent_input_spike_trains_20201001.h5 \
+    --target-features-path $SCRATCH/dentate/Slice/MC_extent_input_spike_trains_20201001.h5 \
     selectivity_rate
 else
 ibrun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_IN_Izh_extent.yaml \
@@ -53,6 +53,6 @@ ibrun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_IN_Izh_
     --config-prefix config  --opt-iter 2000  --opt-epsilon 1 \
     --param-config-name 'Weight all no MC inh soma all-dend' \
     --arena-id A --trajectory-id Diag \
-    --target-rate-map-path $SCRATCH/dentate/Slice/MC_extent_input_spike_trains_20201001.h5 \
+    --target-features-path $SCRATCH/dentate/Slice/MC_extent_input_spike_trains_20201001.h5 \
     selectivity_rate
 fi

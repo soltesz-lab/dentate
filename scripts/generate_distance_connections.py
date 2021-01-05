@@ -9,9 +9,6 @@ import h5py
 import numpy as np
 import dentate
 import dentate.utils as utils
-import rbf
-import rbf.basis
-from rbf.interpolate import RBFInterpolant
 from dentate.connection_generator import ConnectionProb, generate_uv_distance_connections
 from dentate.env import Env
 from dentate.geometry import make_distance_interpolant, measure_distances
@@ -44,7 +41,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
-@click.option("--cache-size", type=int, default=50)
+@click.option("--cache-size", type=int, default=1)
 @click.option("--write-size", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)

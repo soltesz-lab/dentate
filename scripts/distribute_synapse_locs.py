@@ -1,5 +1,6 @@
 import os, sys, gc, logging, string, time, itertools
 from mpi4py import MPI
+from neuroh5.io import NeuroH5TreeGen, append_cell_attributes, read_population_ranges
 import click
 from collections import defaultdict
 import numpy as np
@@ -9,7 +10,6 @@ from dentate.env import Env
 from dentate.neuron_utils import configure_hoc_env
 from dentate.cells import load_cell_template
 from dentate.utils import *
-from neuroh5.io import NeuroH5TreeGen, append_cell_attributes, read_population_ranges
 import h5py
 
 sys_excepthook = sys.excepthook
@@ -133,12 +133,12 @@ def check_syns(gid, morph_dict, syn_stats_dict, seg_density_per_sec, layer_set_d
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
-@click.option("--cache-size", type=int, default=10000)
 @click.option("--write-size", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
+@click.option("--debug", is_flag=True)
 def main(config, config_prefix, template_path, output_path, forest_path, populations, distribution, io_size, chunk_size, value_chunk_size,
-         cache_size, write_size, verbose, dry_run):
+         write_size, verbose, dry_run, debug):
     """
 
     :param config:
@@ -150,7 +150,6 @@ def main(config, config_prefix, template_path, output_path, forest_path, populat
     :param io_size:
     :param chunk_size:
     :param value_chunk_size:
-    :param cache_size:
     """
 
     utils.config_logging(verbose)
@@ -162,7 +161,7 @@ def main(config, config_prefix, template_path, output_path, forest_path, populat
     if rank == 0:
         logger.info('%i ranks have been allocated' % comm.size)
 
-    env = Env(comm=MPI.COMM_WORLD, config_file=config, config_prefix=config_prefix, template_paths=template_path)
+    env = Env(comm=comm, config_file=config, config_prefix=config_prefix, template_paths=template_path)
 
     configure_hoc_env(env)
     
@@ -242,19 +241,23 @@ def main(config, config_prefix, template_path, output_path, forest_path, populat
                 gid_count += 1
             else:
                 logger.info('Rank %i gid is None' % rank)
-            if (not dry_run) and (gid_count % write_size == 0):
+            gc.collect()
+            if (not dry_run) and (write_size > 0) and (gid_count % write_size == 0):
                 append_cell_attributes(output_path, population, synapse_dict,
-                                       namespace='Synapse Attributes', comm=comm, io_size=io_size, chunk_size=chunk_size,
-                                       value_chunk_size=value_chunk_size, cache_size=cache_size)
+                                       namespace='Synapse Attributes', comm=comm, io_size=io_size, 
+                                       chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+                comm.barrier()
                 synapse_dict = {}
-                gc.collect()
             syn_stats[population] = syn_stats_dict
             count += 1
+            if debug and count == 5:
+                break
 
         if not dry_run:
             append_cell_attributes(output_path, population, synapse_dict,
-                                   namespace='Synapse Attributes', comm=comm, io_size=io_size, chunk_size=chunk_size,
-                                   value_chunk_size=value_chunk_size, cache_size=cache_size)
+                                   namespace='Synapse Attributes', comm=comm, io_size=io_size, 
+                                   chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+            comm.barrier()
 
         global_count = comm.gather(gid_count, root=0)
 
@@ -263,6 +266,7 @@ def main(config, config_prefix, template_path, output_path, forest_path, populat
         else:
             color = 0
             
+        comm.barrier()
         comm0 = comm.Split(color, 0)
         if color == 1:
             summary = global_syn_summary(comm0, syn_stats, np.sum(global_count), root=0)

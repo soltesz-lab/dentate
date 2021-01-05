@@ -2,7 +2,11 @@
 #export FI_MLX_ENABLE_SPAWN=yes
 export DATA_PREFIX=/media/igr/d865f900-7fcd-45c7-a7a7-bd2a7391bc40/Data
 
+<<<<<<< HEAD
 mpirun.mpich -n 8 python3  network_clamp.py optimize -c 20201022_Network_Clamp_GC_Exc_Sat_SLN_IN_Izh.yaml \
+=======
+mpirun -n 8 python3  network_clamp.py optimize -c 20201022_Network_Clamp_GC_Exc_Sat_SLN_IN_Izh.yaml \
+>>>>>>> staging/tacc
     --template-paths templates \
     -p HCC -g 1043250 -t 9500 \
     --dataset-prefix $DATA_PREFIX/DG \
@@ -14,5 +18,9 @@ mpirun.mpich -n 8 python3  network_clamp.py optimize -c 20201022_Network_Clamp_G
     --arena-id A --trajectory-id Diag \
     --results-path results/netclamp \
     --param-config-name "Weight inh" \
+<<<<<<< HEAD
     --cooperative-init \
     --opt-iter 400 rate
+=======
+    --opt-iter 8 rate
+>>>>>>> staging/tacc

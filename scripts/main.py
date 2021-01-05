@@ -23,6 +23,7 @@ def mpi_excepthook(type, value, traceback):
     """
     sys_excepthook(type, value, traceback)
     sys.stderr.flush()
+    sys.stdout.flush()
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
 

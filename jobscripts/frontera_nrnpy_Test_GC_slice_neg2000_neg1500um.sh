@@ -15,8 +15,8 @@ module load phdf5
 
 set -x
 
-export NEURONROOT=$HOME/bin/nrnpython3
-export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
+export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
 export PATH=$NEURONROOT/x86_64/bin:$PATH
 export MODEL_HOME=$HOME/model
 export DG_HOME=$MODEL_HOME/dentate
@@ -25,8 +25,8 @@ export LD_PRELOAD=$MKLROOT/lib/intel64_lin/libmkl_core.so:$MKLROOT/lib/intel64_l
 #export I_MPI_EXTRA_FILESYSTEM=enable
 #export I_MPI_ADJUST_ALLGATHER=4
 #export I_MPI_ADJUST_ALLGATHERV=4
-#export I_MPI_ADJUST_ALLTOALL=4
-#export I_MPI_ADJUST_ALLTOALLV=2
+export I_MPI_ADJUST_ALLTOALL=4
+export I_MPI_ADJUST_ALLTOALLV=2
 
 results_path=$SCRATCH/striped/dentate/results/Test_GC_slice_neg2000_neg1500um_$SLURM_JOB_ID
 export results_path

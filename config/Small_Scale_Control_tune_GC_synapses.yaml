@@ -16,8 +16,7 @@ Cell Types:
     mechanism file: 20190205_DG_GC_tuned_NMDA_mech.yaml
     synapses:
       correct_for_spines: True
-      weights:
-        namespace: Log-Normal Weights
+      weights: !include GC_SLN_weights.yaml
       density: !include GC_synapse_density.yaml
   MC:
     template: MossyCell
@@ -51,9 +50,9 @@ Cell Types:
     synapses:
       density: !include IS_synapse_density.yaml
   MPP:
-    template: MPPCell
+    template: VecStim
     Vector Stimulus: Vector Stimulus 0
   LPP:
-    template: LPPCell
+    template: VecStim
     Vector Stimulus: Vector Stimulus 0
 

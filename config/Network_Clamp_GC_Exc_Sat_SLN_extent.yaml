@@ -5,8 +5,8 @@ Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-Cell Data: dentatenet_Full_Scale_GC_Exc_Sat_SLN_extent_arena_margin_20201001_compressed.h5
-Connection Data: dentatenet_Full_Scale_GC_Exc_Sat_SLN_extent_arena_margin_20201001_compressed.h5
+Cell Data: dentatenet_Full_Scale_GC_Exc_Sat_SLN_extent_arena_margin_20201223_compressed.h5
+Connection Data: dentatenet_Full_Scale_GC_Exc_Sat_SLN_extent_arena_margin_20201223_compressed.h5
 #Gap Junction Data: DG_gapjunctions_20191112.h5
 Connection Generator: !include Network_Clamp_Connections_GC_Exc_Sat_S_extent.yaml
 Recording: !include Recording.yaml
@@ -58,17 +58,17 @@ Cell Types:
     synapses:
       density: !include IS_synapse_density.yaml
   MPP:
-    template: MPPCell
+    template: VecStim
     spike train:
       namespace: Input Spikes
       attribute: Spike Train
   LPP:
-    template: LPPCell
+    template: VecStim
     spike train:
       namespace: Input Spikes
       attribute: Spike Train
   CA3c:
-    template: CA3Cell
+    template: VecStim
     spike train:
       namespace: Input Spikes
       attribute: Spike Train

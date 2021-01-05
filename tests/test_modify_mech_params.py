@@ -50,7 +50,8 @@ def standard_modify_mech_param_tests(cell):
     plot_mech_param_distribution(cell, 'pas', 'g', export='dend_gpas.hdf5', description='leak_config_2', show=False,
                                  sec_types=this_sec_types, param_label='leak conductance',
                                  output_dir=context.output_dir)
-    plot_mech_param_from_file('pas', 'g', 'dend_gpas.hdf5', param_label='leak conductance')
+    plot_mech_param_from_file('pas', 'g', 'dend_gpas.hdf5', param_label='leak conductance',
+                              output_dir=context.output_dir)
 
     modify_mech_param(cell, 'soma', 'kap', 'gkabar', x['soma.gkabar'])
     slope = (x['dend.gkabar'] - x['soma.gkabar']) / 300.
@@ -73,8 +74,8 @@ def standard_modify_mech_param_tests(cell):
     plot_mech_param_distribution(cell, 'kap', 'gkabar', export='dend_ka.hdf5', description='kap_config_2',
                                  param_label='kap conductance', show=False, sec_types=this_sec_types,
                                  output_dir=context.output_dir)
-    plot_mech_param_from_file('kap', 'gkabar', 'dend_ka.hdf5')  # , param_label='kap conductance')
-    plot_mech_param_from_file('kad', 'gkabar', 'dend_ka.hdf5')  # , param_label='kad conductance')
+    plot_mech_param_from_file('kap', 'gkabar', 'dend_ka.hdf5', output_dir=context.output_dir)  # , param_label='kap conductance')
+    plot_mech_param_from_file('kad', 'gkabar', 'dend_ka.hdf5', output_dir=context.output_dir)  # , param_label='kad conductance')
 
     modify_mech_param(cell, 'soma', 'nas', 'gbar', x['soma.gbar_nas'])
     modify_mech_param(cell, 'apical', 'nas', 'gbar', x['dend.gbar_nas'])
@@ -92,7 +93,8 @@ def standard_modify_mech_param_tests(cell):
     plot_mech_param_distribution(cell, 'nas', 'gbar', export='dend_nas.hdf5', description='nas_config_3', show=False,
                                  sec_types=['apical'], output_dir=context.output_dir)
     plot_mech_param_from_file('nas', 'gbar', 'dend_nas.hdf5', param_label='nas conductance',
-                              descriptions=['nas_config_1', 'nas_config_2', 'nas_config_3'])
+                              descriptions=['nas_config_1', 'nas_config_2', 'nas_config_3'],
+                              output_dir=context.output_dir)
 
 
 def count_nseg(cell):
@@ -234,7 +236,7 @@ def count_spines(cell, env):
 @click.option("--gid", required=True, type=int, default=0)
 @click.option("--pop-name", required=True, type=str, default='GC')
 @click.option("--config-file", required=True, type=str,
-              default='Small_Scale_Control_LN_weights_Sat.yaml')
+              default='Small_Scale_Control_tune_GC_synapses.yaml')
 @click.option("--template-paths", type=str, default='../../DGC/Mateos-Aparicio2014:../templates')
 @click.option("--hoc-lib-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='..')
@@ -264,11 +266,12 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     """
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
-    env = Env(comm, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix, verbose=verbose)
+    env = Env(comm=comm, config_file=config_file, template_paths=template_paths, hoc_lib_path=hoc_lib_path,
+              dataset_prefix=dataset_prefix, config_prefix=config_prefix, verbose=verbose)
     configure_hoc_env(env)
     mech_file_path = config_prefix + '/' + mech_file
 
-    cell = get_biophys_cell(env, pop_name=pop_name, gid=gid, load_edges=load_edges)
+    cell = make_biophys_cell(env, pop_name=pop_name, gid=gid, load_edges=load_edges)
     if not os.path.isdir(output_dir):
         os.mkdir(output_dir)
     context.update(locals())

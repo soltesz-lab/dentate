@@ -1,5 +1,4 @@
 import h5py
-import dentate
 from dentate.utils import viewitems
 
 h5types_file = 'dentate_h5types.h5'
@@ -8,8 +7,8 @@ DG_populations = ["AAC", "BC", "GC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC", "M
 DG_IN_populations = ["AAC", "BC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC"]
 DG_EXT_populations = ["MPP", "LPP", "CA3c"]
 
-DG_cells_file = "DG_Cells_Full_Scale_20201030.h5"
-DG_connections_file = "DG_Connections_Full_Scale_20201030.h5"
+DG_cells_file = "DG_Cells_Full_Scale_20201221.h5"
+DG_connections_file = "DG_Connections_Full_Scale_20201221.h5"
 
 DG_GC_coordinate_file  = "DG_coords_20190717_compressed.h5"
 DG_IN_coordinate_file  = "DG_coords_20190717_compressed.h5"
@@ -18,15 +17,15 @@ DG_EXT_coordinate_file = "DG_coords_20190717_compressed.h5"
 DG_GC_forest_file = "DGC_forest_normalized_20200628_compressed.h5"
 DG_IN_forest_file = "DG_IN_forest_syns_20201029_compressed.h5"
 
-DG_GC_forest_syns_file = "DGC_forest_syns_20200628_compressed.h5"
+DG_GC_forest_syns_file = "DGC_forest_syns_20201217_compressed.h5"
 DG_IN_forest_syns_file = "DG_IN_forest_syns_20201029_compressed.h5"
 
-DG_GC_syn_weights_LN_file = "DG_GC_syn_weights_LN_20200708_compressed.h5"
-DG_GC_syn_weights_S_file = "DG_GC_syn_weights_S_20200911_compressed.h5"
+DG_GC_syn_weights_LN_file = "DG_GC_syn_weights_LN_20201220_compressed.h5"
+DG_GC_syn_weights_S_file = "DG_GC_syn_weights_S_20201220_compressed.h5"
 DG_IN_syn_weights_LN_file = "DG_IN_syn_weights_20201029_compressed.h5"
 DG_IN_syn_weights_S_file = "DG_IN_syn_weights_20201029_compressed.h5"
 
-DG_GC_connectivity_file = "DG_GC_connections_20200703_compressed.h5"
+DG_GC_connectivity_file = "DG_GC_connections_20201217_compressed.h5"
 DG_IN_connectivity_file = "DG_IN_connections_20201029_compressed.h5"
 
 connectivity_files = {

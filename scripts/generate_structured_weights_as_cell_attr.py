@@ -7,7 +7,6 @@ import neuroh5
 from neuroh5.io import append_cell_attributes, read_population_ranges, \
     scatter_read_cell_attribute_selection, scatter_read_cell_attributes, \
     scatter_read_graph_selection, read_graph_info
-import dentate
 from dentate.env import Env
 from dentate import utils, stimulus, synapses
 from dentate.utils import Context, is_interactive, viewitems, zip_longest
@@ -258,6 +257,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
         logger.info('%s: %i ranks have been allocated' % (__file__, comm.size))
 
     env = Env(comm=comm, config_file=config, io_size=io_size)
+    env.comm.barrier()
 
     if plot and (not save_fig) and (not show_fig):
         show_fig = True
@@ -321,7 +321,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     for this_input_features_namespace in this_input_features_namespaces:
         feature_count = 0
         gid_count = 0
-        logger.info('Rank %d: reading %s feature data for population %s' % (rank, this_input_features_namespace, destination))
+        logger.info('Rank %d: reading %s feature data for %d cells in population %s' % (rank, this_input_features_namespace, len(dst_gids), destination))
         input_features_iter = scatter_read_cell_attribute_selection(input_features_path, destination, 
                                                                     namespace=this_input_features_namespace,
                                                                     mask=set(target_features_attr_names),
@@ -555,9 +555,10 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             logger.info('Rank %i; destination: %s; gid %i; generated structured weights for %i inputs in %.2f '
                         's' % (rank, destination, destination_gid, len(output_syn_ids), time.time() - local_time))
             gid_count += 1
+            gc.collect()
 
         env.comm.barrier()
-        if iter_count % write_size == 0:
+        if (write_size > 0) and (iter_count % write_size == 0):
             if not dry_run:
                 append_cell_attributes(output_weights_path, destination, LTD_output_weights_dict,
                                        namespace=LTD_output_weights_namespace, comm=env.comm, io_size=env.io_size,
