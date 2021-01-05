@@ -3,55 +3,7 @@ Synapse Mechanisms:
   NMDA: FacilNMDA
   SatGABA_A: SatExp2Syn
   SatGABA_B: SatExp2Syn
-Synapse Parameter Rules:
-  SatExp2Syn:
-    mech_file: sat_exp2syn.mod
-    mech_params:
-      - sat
-      - dur_onset
-      - tau_offset
-      - e
-    netcon_params:
-      weight: 0
-      g_unit: 1
-  FacilExp2Syn:
-    mech_file: facil_exp2syn.mod
-    mech_params:
-      - sat
-      - dur_onset
-      - tau_offset
-      - e
-      - f_inc
-      - f_max
-      - f_tau
-    netcon_params:
-      weight: 0
-      g_unit: 1
-  FacilNMDA:
-    mech_file: facil_NMDA.mod
-    mech_params:
-      - sat
-      - dur_onset
-      - tau_offset
-      - e
-      - f_inc
-      - f_max
-      - f_tau
-      - mg
-      - Kd
-      - gamma
-      - vshift
-    netcon_params:
-      weight: 0
-      g_unit: 1
-  Exp2Syn:
-    mech_file: exp2syn.mod
-    mech_params:
-      - tau1
-      - tau2
-      - e
-    netcon_params:
-      weight: 0
+Synapse Parameter Rules: !include Synapse_Parameter_Rules.yaml
 Axon Extent: !include Axon_Extent.yaml      
 Synapses:
   GC:

@@ -375,14 +375,15 @@ class SynapseAttributes(object):
                                    (gid, syn_id, syn_name))
 
 
-    def add_vecstim(self, gid, syn_id, syn_name, vs):
+    def add_vecstim(self, gid, syn_id, syn_name, vs, nc):
         """
-        Adds a VecStim object for the specified cell/synapse id/mechanism name.
+        Adds a VecStim object and associated NetCon for the specified cell/synapse id/mechanism name.
 
         :param gid: cell id
         :param syn_id: synapse id
         :param syn_name: synapse mechanism name
         :param vs: :class:'h.VecStim'
+        :param nc: :class:'h.NetCon'
         """
         syn_index = self.syn_name_index_dict[syn_name]
         gid_pps_dict = self.pps_dict[gid]
@@ -391,7 +392,7 @@ class SynapseAttributes(object):
             raise RuntimeError('add_vecstim: gid %i synapse id %i mechanism %s already has vecstim' %
                                (gid, syn_id, syn_name))
         else:
-            pps_dict.vecstim[syn_index] = vs
+            pps_dict.vecstim[syn_index] = vs, nc
         return vs
 
     def has_vecstim(self, gid, syn_id, syn_name):
@@ -410,12 +411,12 @@ class SynapseAttributes(object):
 
     def get_vecstim(self, gid, syn_id, syn_name, throw_error=True):
         """
-        Returns the VecStim object associated with the specified cell/synapse id/mechanism name.
+        Returns the VecStim and NetCon objects associated with the specified cell/synapse id/mechanism name.
 
         :param gid: cell id
         :param syn_id: synapse id
         :param syn_name: synapse mechanism name
-        :return: :class:'h.VecStim'
+        :return: tuple of :class:'h.VecStim' :class:'h.NetCon'
         """
         syn_index = self.syn_name_index_dict[syn_name]
         gid_pps_dict = self.pps_dict[gid]
@@ -843,15 +844,14 @@ def insert_hoc_cell_syns(env, gid, cell, syn_ids, syn_params, unique=False, inse
 
             if insert_netcons or insert_vecstims:
                 syn_pps = syn_attrs.get_pps(gid, syn_id, syn_name)
-                if insert_netcons and insert_vecstims:
-                    this_nc, this_vecstim = mknetcon_vecstim(syn_pps, delay=syn.source.delay)
-                else:
-                    this_vecstim = None
-                    this_nc = mknetcon(env.pc, syn.source.gid, syn_pps, delay=syn.source.delay)
-                if insert_netcons:
-                    syn_attrs.add_netcon(gid, syn_id, syn_name, this_nc)
+                this_vecstim, this_vecstim_nc = None, None
+                this_nc = None
                 if insert_vecstims:
-                    syn_attrs.add_vecstim(gid, syn_id, syn_name, this_vecstim)
+                    this_vecstim_nc, this_vecstim = mknetcon_vecstim(syn_pps, delay=syn.source.delay)
+                    syn_attrs.add_vecstim(gid, syn_id, syn_name, this_vecstim, this_vecstim_nc)
+                if insert_netcons:
+                    this_nc = mknetcon(env.pc, syn.source.gid, syn_pps, delay=syn.source.delay)
+                    syn_attrs.add_netcon(gid, syn_id, syn_name, this_nc)
                 config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
                            mech_names=syn_attrs.syn_mech_names,
                            syn=syn_mech, nc=this_nc, **params)
