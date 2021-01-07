@@ -102,7 +102,7 @@ Synapses:
       type: excitatory
       sections: [apical]
       layers: [IML]
-      proportions: [1.0]
+      proportions: [0.5]
       contacts: 1.
       mechanisms:
         AMPA:
@@ -115,6 +115,21 @@ Synapses:
         NMDA:
           g_unit: 0.0022
           weight: 1.0
+    ConMC:   
+      type: excitatory
+      sections: [apical]
+      layers: [IML]
+      proportions: [0.5]
+      mechanisms:
+        AMPA:
+          dur_onset: 0.5
+          tau_offset: 5.5
+          e: 0
+          g_unit: 0.002
+          weight: 1.0
+          sat: 0.9
+        NMDA:
+          g_unit: 0.00035
     AAC:
       type: inhibitory
       sections: [ais]

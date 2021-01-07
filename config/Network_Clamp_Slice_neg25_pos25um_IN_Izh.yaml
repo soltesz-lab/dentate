@@ -78,3 +78,8 @@ Cell Types:
     spike train:
       namespace: Input Spikes
       attribute: Spike Train
+#  ConMC:
+#    template: VecStim
+#    spike train:
+#      namespace: Input Spikes
+#      attribute: Spike Train

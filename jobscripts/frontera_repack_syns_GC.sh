@@ -16,8 +16,8 @@ module load phdf5
 set -x
 
 export prefix=$SCRATCH/striped/dentate/Full_Scale_Control
-export input=$prefix/DGC_forest_syns_20201217.h5
-export output=$prefix/DGC_forest_syns_20201217_compressed.h5
+export input=$prefix/DGC_forest_syns_20210106.h5
+export output=$prefix/DGC_forest_syns_20210106_compressed.h5
 
 export H5TOOLS_BUFSIZE=$(( 64 * 1024 * 1024 * 1024))
 

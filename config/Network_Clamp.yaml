@@ -166,7 +166,7 @@ Synaptic Optimization:
             AMPA:
               weight:
                 a: [1.0, 10.0]
-        MC:
+        !!python/tuple [MC, ConMC]:
           apical:
             AMPA:
               weight: 
@@ -211,6 +211,11 @@ Synaptic Optimization:
               weight:
                 a: [1.0, 10.0]
         MC:
+          apical:
+            AMPA:
+              weight: 
+                a: [0.1, 2.0]
+        !!python/tuple [MC, ConMC]:
           apical:
             AMPA:
               weight: 

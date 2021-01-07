@@ -201,7 +201,6 @@ def connect_cells(env):
         env.edge_count[postsyn_name] = 0
         for presyn_name in presyn_names:
             env.comm.barrier()
-
             if rank == 0:
                 logger.info('Rank %i: Reading projection %s -> %s' % (rank, presyn_name, postsyn_name))
             if env.node_allocation is None:
@@ -1173,14 +1172,14 @@ def init(env):
     if rank == 0:
         logger.info("*** Creating cells...")
     st = time.time()
-    env.pc.barrier()
+
     if env.cell_selection is None:
         make_cells(env)
     else:
         make_cell_selection(env)
     if env.profile_memory and rank == 0:
         profile_memory(logger)
-    env.pc.barrier()
+
     env.mkcellstime = time.time() - st
     if rank == 0:
         logger.info("*** Cells created in %g seconds" % env.mkcellstime)
@@ -1190,7 +1189,6 @@ def init(env):
         st = time.time()
         connect_gjs(env)
         env.pc.setup_transfer()
-        env.pc.barrier()
         env.connectgjstime = time.time() - st
         if rank == 0:
             logger.info("*** Gap junctions created in %g seconds" % env.connectgjstime)
@@ -1211,7 +1209,6 @@ def init(env):
         if rank == 0:
             logger.info("*** LFP objects instantiated")
     lfp_time = time.time() - st
-    env.pc.barrier()
 
     st = time.time()
     if rank == 0:
@@ -1221,7 +1218,7 @@ def init(env):
     else:
         connect_cell_selection(env)
     env.pc.set_maxstep(10.0)
-    env.pc.barrier()
+
     env.connectcellstime = time.time() - st
 
     if rank == 0:

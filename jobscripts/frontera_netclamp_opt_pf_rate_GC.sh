@@ -8,13 +8,14 @@
 #SBATCH --mail-type=all    # Send email at begin and end of job
 #SBATCH -A BIR20001
 
+module load intel/18.0.5
 module load python3
 module load phdf5
 
 set -x
 
-export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
-export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
+export NEURONROOT=$SCRATCH/bin/nrnpython3_intel18
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel18:$PYTHONPATH
 export PATH=$NEURONROOT/bin:$PATH
 export MODEL_HOME=$HOME/model
 export DG_HOME=$MODEL_HOME/dentate
@@ -27,7 +28,7 @@ export FI_MLX_ENABLE_SPAWN=1
 
 cd $SLURM_SUBMIT_DIR
 
-mkdir -p $SCRATCH/dentate/results/netclamp/20210103_Weight_all_inh_soma_pd_dend
+mkdir -p $SCRATCH/dentate/results/netclamp/20210106_Weight_all
 
 
 if test "$3" == ""; then
@@ -35,7 +36,7 @@ mpirun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent
     -p GC -t 9500 -g $1  --n-trials 1 --trial-regime best --problem-regime mean --nprocs-per-worker=1 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/striped/dentate \
-    --results-path $SCRATCH/dentate/results/netclamp/20210103_Weight_all_inh_soma_pd_dend \
+    --results-path $SCRATCH/dentate/results/netclamp/20210106_Weight_all \
     --config-prefix config  --opt-iter 2000  --opt-epsilon 1 \
     --param-config-name "$2" \
     --arena-id A --trajectory-id Diag --use-coreneuron \
@@ -50,7 +51,7 @@ mpirun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent
     -p GC  -t 9500 -g $1 --n-trials 1 --trial-regime best --problem-regime mean --nprocs-per-worker=1 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/striped/dentate \
-    --results-path $SCRATCH/dentate/results/netclamp/20210103_Weight_all_inh_soma_pd_dend \
+    --results-path $SCRATCH/dentate/results/netclamp/20210106_Weight_all \
     --results-file "$3" \
     --spike-events-path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h5" \
     --spike-events-namespace 'Input Spikes' \
