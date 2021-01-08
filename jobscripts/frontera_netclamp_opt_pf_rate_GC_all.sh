@@ -3,19 +3,22 @@
 #SBATCH -p normal      # Queue (partition) name
 #SBATCH -N 24             # Total # of nodes 
 #SBATCH --ntasks-per-node=56          # # of mpi tasks per node
-#SBATCH -t 8:30:00        # Run time (hh:mm:ss)
+#SBATCH -t 3:30:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 #SBATCH -J netclamp_opt_pf_rate_GC_all
 #SBATCH -o ./results/netclamp_opt_pf_rate_GC_all.%j.o
 #SBATCH -A BIR20001
 
+
+module load intel/18.0.5
+module load python3
 module load phdf5
 
 set -x
 
-export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
-export PYTHONPATH=$SCRATCH/site-packages/intel19:$HOME/model:$NEURONROOT/lib/python:$PYTHONPATH
+export NEURONROOT=$SCRATCH/bin/nrnpython3_intel18
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel18:$PYTHONPATH
 export PATH=$NEURONROOT/bin:$PATH
 export MODEL_HOME=$HOME/model
 export DG_HOME=$MODEL_HOME/dentate
@@ -34,10 +37,10 @@ export I_MPI_ADJUST_ALLTOALLV=2
 # 28250
 #cd $SLURM_SUBMIT_DIR
 ## --cooperative-init  
-mkdir -p $SCRATCH/dentate/results/netclamp/20210102
-export nworkers=$((2 * 3))
+mkdir -p $SCRATCH/dentate/results/netclamp/20210106
+export nworkers=$((24 * 3))
 
-#source $VT_ROOT/bin/itacvars.sh
+export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=off
 
 if test "$1" == ""; then
 mpirun -rr -n $nworkers  \
@@ -45,8 +48,8 @@ mpirun -rr -n $nworkers  \
     -p GC -t 9500 --n-trials 1 --trial-regime best --problem-regime mean --nprocs-per-worker=16 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/striped/dentate \
-    --results-path $SCRATCH/dentate/results/netclamp/20210102 \
-    --config-prefix config  --opt-iter 6  --opt-epsilon 1 \
+    --results-path $SCRATCH/dentate/results/netclamp/20210106 \
+    --config-prefix config  --opt-iter 600  --opt-epsilon 1 \
     --param-config-name 'Weight all' \
     --arena-id A --trajectory-id Diag --use-coreneuron \
     --target-features-path $SCRATCH/striped/dentate/Slice/dentatenet_Full_Scale_GC_Exc_Sat_SLN_extent_arena_margin_20201223_compressed.h5 \
@@ -60,7 +63,7 @@ mpirun -n $ntasks python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat
     -p GC  -t 9500 --n-trials 1  --trial-regime best --problem-regime mean --nprocs-per-worker=16 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/striped/dentate \
-    --results-path $SCRATCH/dentate/results/netclamp/20210102 \
+    --results-path $SCRATCH/dentate/results/netclamp/20210106 \
     --results-file "$1" \
     --spike-events-path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h5" \
     --spike-events-namespace 'Input Spikes' \

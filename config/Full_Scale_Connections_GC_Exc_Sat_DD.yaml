@@ -45,7 +45,7 @@ Synapses:
       type: excitatory
       sections: [apical]
       layers: [IML]
-      proportions: [1.0]
+      proportions: [0.5]
       contacts: 1.
       mechanisms:
         AMPA:
@@ -55,6 +55,23 @@ Synapses:
           g_unit: 0.002
           weight: 1.0
           sat: 0.9
+        NMDA:
+          g_unit: 0.0022
+          weight: 1.0
+    ConMC:   
+      type: excitatory
+      sections: [apical]
+      layers: [IML]
+      proportions: [0.5]
+      contacts: 1.0
+      mechanisms:
+        AMPA:
+          dur_onset: 0.5
+          tau_offset: 5.5
+          e: 0
+          sat: 0.9
+          g_unit: 0.0022
+          weight: 1.0
         NMDA:
           g_unit: 0.0022
           weight: 1.0
@@ -220,21 +237,7 @@ Synapses:
       type: excitatory
       sections: [apical]
       layers: [Hilus]
-      proportions: [0.115]
-      contacts: 3.0
-      mechanisms:
-        AMPA:
-          dur_onset: 0.5
-          tau_offset: 3.6
-          e: 0
-          sat: 0.9
-          g_unit: 0.0055
-          weight: 1.0
-    ConMC:   
-      type: excitatory
-      sections: [apical]
-      layers: [Hilus]
-      proportions: [0.115]
+      proportions: [0.23]
       contacts: 3.0
       mechanisms:
         AMPA:

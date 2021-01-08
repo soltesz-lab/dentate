@@ -37,7 +37,20 @@ Synapses:
       type: excitatory
       sections: [apical]
       layers: [IML]
-      proportions: [1.0]
+      proportions: [0.5]
+      mechanisms:
+        AMPA:
+          tau_rise: 0.5
+          tau_decay: 5.5
+          e: 0
+          g_unit: 0.00035
+        NMDA:
+          g_unit: 0.00035
+    ConMC:   
+      type: excitatory
+      sections: [apical]
+      layers: [IML]
+      proportions: [0.5]
       mechanisms:
         AMPA:
           tau_rise: 0.5

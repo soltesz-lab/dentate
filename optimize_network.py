@@ -138,7 +138,7 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
 
     best = dmosopt.run(dmosopt_params, spawn_workers=True, sequential_spawn=False,
                        nprocs_per_worker=nprocs_per_worker,
-                       collective_mode="sendrecv",
+                       collective_mode="gather",
                        verbose=True, worker_debug=True)
 
 
@@ -189,7 +189,6 @@ def init_network(comm, kwargs):
     np.seterr(all='raise')
     env = Env(comm=comm, **kwargs)
     network.init(env)
-    env.comm.barrier()
     return env
 
 

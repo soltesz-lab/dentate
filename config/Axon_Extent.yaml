@@ -54,4 +54,6 @@ ConMC:
   IML:
     width:  [5000., 4000.]
     offset: [0., 0.]
-    
+  Hilus:
+    width:  [1500., 1500.]
+    offset: [0., 0.]

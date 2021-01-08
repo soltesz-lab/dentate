@@ -23,14 +23,17 @@ export MODEL_HOME=$HOME/model
 export DG_HOME=$MODEL_HOME/dentate
 export FI_MLX_ENABLE_SPAWN=1
 
-#export I_MPI_ADJUST_BCAST=6
+
+#export I_MPI_ADJUST_BARRIER=4
 export I_MPI_ADJUST_SCATTER=2
 export I_MPI_ADJUST_SCATTERV=2
 export I_MPI_ADJUST_ALLGATHER=2
 export I_MPI_ADJUST_ALLGATHERV=2
 export I_MPI_ADJUST_ALLTOALL=4
 export I_MPI_ADJUST_ALLTOALLV=2
- 
+export I_MPI_ADJUST_ALLREDUCE=6
+
+export I_MPI_HYDRA_TOPOLIB=ipl
 
 results_path=$SCRATCH/dentate/results/optimize_DG_network
 export results_path
@@ -40,7 +43,10 @@ mkdir -p $results_path
 #git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
 #git --git-dir=../dgc/.git ls-files | grep Mateos-Aparicio2014 | tar -C ../dgc -zcf ${results_path}/dgc.tgz --files-from=/dev/stdin
 
-cd $SLURM_SUBMIT_DIR
+#cd $SLURM_SUBMIT_DIR
+cd $HOME/model/dentate
+
+export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=off
 
 mpirun -rr -n 15 \
     python3 optimize_network.py \

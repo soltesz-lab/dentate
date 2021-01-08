@@ -107,8 +107,7 @@ class ConnectionProb(object):
         elif 'default' in self.width[source_population]:
             layer_key = 'default'
         else:
-            raise RuntimeError('connection_generator.filter_by_distance: missing configuration for layer %s' % \
-                               str(source_layer))
+            raise RuntimeError(f'connection_generator.get_prob: gid {destination_gid}: missing configuration for {source_population} layer {source_layer}')
 
         source_width = self.width[source_population][layer_key]
         source_offset = self.offset[source_population][layer_key]
@@ -155,8 +154,7 @@ class ConnectionProb(object):
             elif 'default' in self.p_dist[source]:
                 layer_key = 'default'
             else:
-                raise RuntimeError('connection_generator.get_prob: missing configuration for layer %s' % \
-                                   str(layer))
+                raise RuntimeError(f'connection_generator.get_prob: gid {destination_gid}: missing configuration for {source} layer {layer}')
             p = self.p_dist[source][layer_key](distance_u, distance_v)
             psum = np.sum(p)
             assert ((p >= 0.).all() and (p <= 1.).all())
@@ -482,7 +480,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
             total_count += count
 
             logger.info('Rank %i took %i s to compute %d edges for destination: %s, gid: %i' % (
-            rank, time.time() - last_time, count, destination_population, destination_gid))
+                rank, time.time() - last_time, count, destination_population, destination_gid))
 
         if (write_size > 0) and (gid_count % write_size == 0):
             last_time = time.time()
@@ -504,6 +502,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
 
         gid_count += 1
 
+    gc.collect()
     last_time = time.time()
     if len(connection_dict) > 0:
         projection_dict = {destination_population: connection_dict}

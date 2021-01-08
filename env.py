@@ -201,8 +201,6 @@ class Env(object):
         # cache queries to filter_synapses
         self.cache_queries = cache_queries
 
-        self.logger.info('rank %d: before bcast model_config' % rank)
-        
         self.config_prefix = config_prefix
         if config_file is not None:
             if config_prefix is not None:
@@ -246,8 +244,6 @@ class Env(object):
 
         if rank == 0:
             self.logger.info('env.dataset_prefix = %s' % str(self.dataset_prefix))
-
-        self.logger.info('rank %d: before bcast cell selection' % rank)
 
         # Cell selection for simulations of subsets of the network
         self.cell_selection = None
