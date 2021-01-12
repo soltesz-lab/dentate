@@ -33,7 +33,7 @@ mkdir -p $SCRATCH/dentate/results/netclamp/20210106_Weight_all
 
 if test "$3" == ""; then
 mpirun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
-    -p GC -t 9500 -g $1  --n-trials 1 --trial-regime best --problem-regime mean --nprocs-per-worker=1 \
+    -p GC -t 9500 -g $1  --n-trials 1 --trial-regime best --problem-regime every --nprocs-per-worker=1 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/striped/dentate \
     --results-path $SCRATCH/dentate/results/netclamp/20210106_Weight_all \
@@ -48,7 +48,7 @@ mpirun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent
     selectivity_rate
 else
 mpirun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
-    -p GC  -t 9500 -g $1 --n-trials 1 --trial-regime best --problem-regime mean --nprocs-per-worker=1 \
+    -p GC  -t 9500 -g $1 --n-trials 1 --trial-regime best --problem-regime every --nprocs-per-worker=1 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/striped/dentate \
     --results-path $SCRATCH/dentate/results/netclamp/20210106_Weight_all \

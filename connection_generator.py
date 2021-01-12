@@ -373,7 +373,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                      synapse_seed, connectivity_seed, cluster_seed,
                                      synapse_namespace, connectivity_namespace, connectivity_path,
                                      io_size, chunk_size, value_chunk_size, cache_size, write_size=1,
-                                     dry_run=False):
+                                     dry_run=False, debug=False):
     """
     Generates connectivity based on U, V distance-weighted probabilities.
 
@@ -426,6 +426,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
     
     comm.barrier()
 
+    it_count = 0
     total_count = 0
     gid_count = 0
     connection_dict = defaultdict(lambda: {})
@@ -492,8 +493,6 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                 append_graph(connectivity_path, projection_dict, io_size=io_size, comm=comm)
             if rank == 0:
                 if connection_dict:
-                    for (prj, prj_dict) in viewitems(connection_dict):
-                        logger.info("%s: %s" % (prj, str(list(prj_dict.keys()))))
                     logger.info('Appending connectivity for %i projections took %i s' % (
                     len(connection_dict), time.time() - last_time))
             projection_dict.clear()
@@ -501,6 +500,10 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
             gc.collect()
 
         gid_count += 1
+        it_count += 1
+        if (it_count > 250) and debug:
+            break
+
 
     gc.collect()
     last_time = time.time()
@@ -512,9 +515,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
         append_graph(connectivity_path, projection_dict, io_size=io_size, comm=comm)
     if rank == 0:
         if connection_dict:
-            for (prj, prj_dict) in viewitems(connection_dict):
-                logger.info("%s: %s" % (prj, str(list(prj_dict.keys()))))
-                logger.info('Appending connectivity for %i projections took %i s' % (
+            logger.info('Appending connectivity for %i projections took %i s' % (
                 len(connection_dict), time.time() - last_time))
 
     global_count = comm.gather(total_count, root=0)

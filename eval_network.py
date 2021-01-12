@@ -17,7 +17,7 @@ from dentate.env import Env
 from dentate.utils import read_from_yaml, write_to_yaml, list_find, viewitems, get_module_logger, config_logging
 from dentate.optimization import (SynParam, syn_param_from_dict, optimization_params, 
                                   update_network_params, rate_maps_from_features, network_features)
-import sampling
+from dmosopt import sampling
 
 ParamSpec = namedtuple("ParamSpec", ['param_names',  'param_tuples', ])
 

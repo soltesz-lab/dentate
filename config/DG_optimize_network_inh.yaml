@@ -1,7 +1,11 @@
 param_config_name: "Weight inh microcircuit"
 objective_names:
 - GC target rate dist residual
+- GC firing rate
+- GC fraction active
 - MC target rate dist residual
+- MC firing rate
+- MC fraction active
 - BC firing rate
 - BC fraction active
 - HC firing rate

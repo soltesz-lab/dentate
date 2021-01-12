@@ -45,9 +45,10 @@ sys.excepthook = mpi_excepthook
 @click.option("--write-size", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
+@click.option("--debug", is_flag=True)
 def main(config, config_prefix, include, forest_path, connectivity_path, connectivity_namespace, coords_path, 
          coords_namespace, synapses_namespace, distances_namespace, resolution, interp_chunk_size, io_size,
-         chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run):
+         chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, debug):
 
     utils.config_logging(verbose)
     logger = utils.get_script_logger(os.path.basename(__file__))
@@ -130,7 +131,7 @@ def main(config, config_prefix, include, forest_path, connectivity_path, connect
                                          synapse_seed, connectivity_seed, cluster_seed,
                                          synapses_namespace, connectivity_namespace, connectivity_path,
                                          io_size, chunk_size, value_chunk_size, cache_size, write_size,
-                                         dry_run=dry_run)
+                                         dry_run=dry_run, debug=debug)
     MPI.Finalize()
 
 if __name__ == '__main__':

@@ -6,7 +6,7 @@
 #SBATCH -p normal      # Queue (partition) name
 #SBATCH -N 184             # Total # of nodes 
 #SBATCH --ntasks-per-node=56 # # of mpi tasks per node
-#SBATCH -t 2:00:00        # Run time (hh:mm:ss)
+#SBATCH -t 10:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
@@ -46,7 +46,7 @@ cd $SLURM_SUBMIT_DIR
 
 export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=off
 
-mpirun -rr -n 38 \
+mpirun -rr -n 37 \
     python3 optimize_network.py \
     --config-path=$DG_HOME/config/DG_optimize_network.yaml \
     --optimize-file-dir=$results_path \
@@ -54,8 +54,8 @@ mpirun -rr -n 38 \
     --target-features-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
     --target-features-namespace="Place Selectivity" \
     --verbose \
-    --nprocs-per-worker=275 \
-    --n-iter=3 \
+    --nprocs-per-worker=280 \
+    --n-iter=5 \
     --num-generations=100 \
     --no_cleanup \
     --arena_id=A --trajectory_id=Diag \

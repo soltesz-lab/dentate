@@ -16,7 +16,7 @@ from dentate.env import Env
 from dentate.utils import read_from_yaml, list_find, viewitems, get_module_logger
 from dentate.optimization import (SynParam, OptConfig, syn_param_from_dict, optimization_params, 
                                   update_network_params, rate_maps_from_features, network_features)
-import dmosopt
+from dmosopt import dmosopt
 
 logger = get_module_logger(__name__)
 
@@ -59,8 +59,9 @@ def dmosopt_broker_init(broker, *args):
 @click.option("--n-initial", type=int, default=3)
 @click.option("--population-size", type=int, default=100)
 @click.option("--num-generations", type=int, default=200)
+@click.option("--collective-mode", type=str, default='gather')
 @click.option("--verbose", '-v', is_flag=True)
-def main(config_path, target_features_path, target_features_namespace, optimize_file_dir, optimize_file_name, nprocs_per_worker, n_iter, n_initial, population_size, num_generations, verbose):
+def main(config_path, target_features_path, target_features_namespace, optimize_file_dir, optimize_file_name, nprocs_per_worker, n_iter, n_initial, population_size, num_generations, collective_mode, verbose):
 
     network_args = click.get_current_context().args
     network_config = {}
@@ -138,7 +139,7 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
 
     best = dmosopt.run(dmosopt_params, spawn_workers=True, sequential_spawn=False,
                        nprocs_per_worker=nprocs_per_worker,
-                       collective_mode="gather",
+                       collective_mode=collective_mode,
                        verbose=True, worker_debug=True)
 
 

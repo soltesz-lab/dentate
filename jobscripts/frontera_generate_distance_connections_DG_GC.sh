@@ -5,7 +5,7 @@
 #SBATCH -N 40
 #SBATCH --ntasks-per-node=56
 #SBATCH -p normal      # Queue (partition) name
-#SBATCH -t 4:00:00
+#SBATCH -t 4:30:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #SBATCH --mail-type=BEGIN
@@ -32,9 +32,10 @@ ibrun python3 ./scripts/generate_distance_connections.py \
     --config-prefix=./config \
     --config=Full_Scale_Basis.yaml \
     --forest-path=$SCRATCH/striped/dentate/Full_Scale_Control/DGC_forest_syns_20210106_compressed.h5 \
-    --connectivity-path=$SCRATCH/striped/dentate/Full_Scale_Control/DG_GC_connections_20210106.h5 \
+    --connectivity-path=$SCRATCH/striped/dentate/Full_Scale_Control/DG_GC_connections_20210107.h5 \
     --connectivity-namespace=Connections \
     --coords-path=$SCRATCH/striped/dentate/Full_Scale_Control/DG_coords_20190717_compressed.h5 \
     --coords-namespace=Coordinates \
-    --io-size=96 --cache-size=1 --write-size=0 -v
+    --io-size=40 --cache-size=5 --write-size=250 --value-chunk-size=10000 --chunk-size=10000 -v
+
 

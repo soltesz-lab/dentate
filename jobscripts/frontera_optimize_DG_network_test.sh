@@ -56,6 +56,7 @@ mpirun -rr -n 15 \
     --target-features-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
     --target-features-namespace="Place Selectivity" \
     --verbose \
+    --collective-mode="gather" \
     --nprocs-per-worker=154 \
     --n-iter=3 \
     --num-generations=10 \
