@@ -528,8 +528,8 @@ Synaptic Optimization:
       fraction active: 0.33
   AAC:
     Targets:
-      firing rate: 21.0
-      fraction active: 0.8
+      firing rate: 25.0
+      fraction active: 0.9
     Parameter ranges:
       Weight all:
         GC:
@@ -614,7 +614,7 @@ Synaptic Optimization:
   BC:
     Targets:
       firing rate: 21.0
-      fraction active: 0.8
+      fraction active: 0.9
     Parameter ranges:
       Weight all:
         GC:
@@ -710,8 +710,8 @@ Synaptic Optimization:
               weight: [0.005, 1.0]
   HC:
     Targets:
-      firing rate: 16.0
-      fraction active: 0.6
+      firing rate: 14.0
+      fraction active: 0.9
     Parameter ranges:
       Weight all:
         GC:
@@ -759,8 +759,8 @@ Synaptic Optimization:
               weight: [0.01, 0.1]
   HCC:
     Targets:
-      firing rate: 10.0
-      fraction active: 0.6
+      firing rate: 6.0
+      fraction active: 0.9
     Parameter ranges:
       Weight all:
         !!python/tuple [MPP, LPP]:
@@ -841,7 +841,7 @@ Synaptic Optimization:
   NGFC:
     Targets:
       firing rate: 4.0
-      fraction active: 0.5
+      fraction active: 0.75
     Parameter ranges:
       Weight all:
         !!python/tuple [MPP, LPP]:
@@ -902,7 +902,7 @@ Synaptic Optimization:
   MOPP:
     Targets:
       firing rate: 4.0
-      fraction active: 0.5
+      fraction active: 0.75
     Parameter ranges:
       Weight all:
         !!python/tuple [MPP, LPP]:
@@ -975,7 +975,7 @@ Synaptic Optimization:
   IS:
     Targets:
       firing rate: 2.0
-      fraction active: 0.3
+      fraction active: 0.6
     Parameter ranges:
       Weight all:
         GC:
