@@ -1,0 +1,80 @@
+## Model configuration of dentate gyrus network
+Network Clamp:  !include Network_Clamp.yaml
+Model Name: dentatenet
+Dataset Name: Slice
+Definitions: !include Definitions.yaml
+Global Parameters: !include Global.yaml
+Geometry: !include Geometry.yaml
+Random Seeds: !include Random.yaml
+Cell Data: dentatenet_Full_Scale_GC_Exc_Sat_SLN_selection_neg50_pos50um_20201220_compressed.h5
+Connection Data: dentatenet_Full_Scale_GC_Exc_Sat_SLN_selection_neg50_pos50um_20201220_compressed.h5
+#Gap Junction Data: DG_gapjunctions_20181228.h5
+Connection Generator: !include Full_Scale_Connections_GC_Exc_Sat_IN_Izh_opt20201221.yaml
+Recording: !include Recording.yaml
+Stimulus: !include Input_Configuration.yaml
+## Cell types for dentate gyrus model
+Cell Types:
+  GC:
+    template: DGC
+    template file: DGC_Template_minimal.hoc
+    mechanism file: 20200219_DG_GC_excitability_synint_combined_gid_0_mech.yaml
+    synapses:
+      correct_for_spines: True
+      weights: !include GC_SLN_weights_opt20201221.yaml
+      density: !include GC_synapse_density.yaml
+  MC:
+    template: Izhikevich
+    mechanism file: 20201022_DG_MC_Izhi_cell_attrs.yaml
+    synapses:
+      weights: !include MC_SLN_weights_opt20201221.yaml
+      density: !include MC_synapse_density.yaml
+  HC:
+    template: Izhikevich
+    mechanism file: 20201022_DG_HIPP_Izhi_cell_attrs.yaml    
+    synapses:
+      density: !include HC_synapse_density.yaml
+  BC:
+    template: Izhikevich
+    mechanism file: 20201022_DG_BC_Izhi_cell_attrs.yaml
+    synapses:
+      density: !include BC_synapse_density.yaml
+  AAC:
+    template: Izhikevich
+    mechanism file: 20201022_DG_AAC_Izhi_cell_attrs.yaml
+    synapses:
+      density: !include AAC_synapse_density.yaml
+  HCC:
+    template: Izhikevich
+    mechanism file: 20201022_DG_HICAP_Izhi_cell_attrs.yaml
+    synapses:
+      density: !include HCC_synapse_density.yaml
+  NGFC:
+    template: Izhikevich
+    mechanism file: 20201022_DG_NGFC_Izhi_cell_attrs.yaml
+    synapses:
+      density: !include NGFC_synapse_density.yaml
+  MOPP:
+    template: Izhikevich
+    mechanism file: 20201022_DG_NGFC_Izhi_cell_attrs.yaml
+    synapses:
+      density: !include NGFC_synapse_density.yaml
+  IS:
+    template: Izhikevich
+    mechanism file: 20200910_DG_IS_Izhi_cell_attrs.yaml
+    synapses:
+      density: !include IS_synapse_density.yaml
+  MPP:
+    template: VecStim
+    spike train:
+      namespace: Input Spikes
+      attribute: Spike Train
+  LPP:
+    template: VecStim
+    spike train:
+      namespace: Input Spikes
+      attribute: Spike Train
+  CA3c:
+    template: VecStim
+    spike train:
+      namespace: Input Spikes
+      attribute: Spike Train

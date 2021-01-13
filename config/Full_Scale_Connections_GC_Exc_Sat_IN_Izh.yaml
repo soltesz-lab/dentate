@@ -102,7 +102,7 @@ Synapses:
       type: excitatory
       sections: [apical]
       layers: [IML]
-      proportions: [1.0]
+      proportions: [0.5]
       contacts: 1.
       mechanisms:
         AMPA:
@@ -473,9 +473,9 @@ Synapses:
           weight: 1.0
     ConMC:   
       type: excitatory
-      sections: [apical, apical]
-      layers: [Hilus, IML]
-      proportions: [1.0, 0.5]
+      sections: [apical]
+      layers: [IML]
+      proportions: [0.5]
       contacts: 1.0
       mechanisms:
         AMPA:

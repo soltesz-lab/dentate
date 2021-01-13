@@ -362,9 +362,9 @@ Synapses:
           g_unit: 0.0003
     ConMC:   
       type: excitatory
-      sections: [apical, apical]
-      layers: [Hilus, IML]
-      proportions: [1.0, 0.5]
+      sections: [apical]
+      layers: [IML]
+      proportions: [0.5]
       mechanisms:
         AMPA:
           tau_rise: 0.9

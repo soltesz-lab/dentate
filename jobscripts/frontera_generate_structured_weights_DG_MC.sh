@@ -11,14 +11,12 @@
 #SBATCH --mail-type=BEGIN
 #
 
-
+module load intel/18.0.5
 module load python3
 module load phdf5
 
-export LD_PRELOAD=$MKLROOT/lib/intel64_lin/libmkl_core.so:$MKLROOT/lib/intel64_lin/libmkl_sequential.so
-export NEURONROOT=$HOME/bin/nrnpython3
-export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
-export PATH=$NEURONROOT/x86_64/bin:$PATH
+export NEURONROOT=$SCRATCH/bin/nrnpython3_intel18
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel18:$PYTHONPATH
 export DATA_PREFIX=$SCRATCH/striped/dentate/Full_Scale_Control
 
 set -x
@@ -30,14 +28,14 @@ ibrun python3 ./scripts/generate_structured_weights_as_cell_attr.py \
     -d MC -s CA3c -n GC -n MC \
     --config=./config/Full_Scale_GC_Exc_Sat_DD_SLN.yaml \
     --initial-weights-namespace='Log-Normal Weights' \
-    --initial-weights-path=$DATA_PREFIX/DG_MC_syn_weights_LN_20201008.h5 \
+    --initial-weights-path=$DATA_PREFIX/DG_MC_syn_weights_LN_20210107.h5 \
     --non-structured-weights-namespace='Normal Weights' \
-    --non-structured-weights-path=$DATA_PREFIX/DG_MC_syn_weights_LN_20201008.h5 \
+    --non-structured-weights-path=$DATA_PREFIX/DG_MC_syn_weights_LN_20210107.h5 \
     --output-weights-namespace='Structured Weights' \
-    --output-weights-path=$DATA_PREFIX/DG_MC_syn_weights_S_20201008.h5 \
-    --connections-path=$DATA_PREFIX/DG_MC_connections_20200708_compressed.h5 \
-    --input-features-path=$DATA_PREFIX/DG_input_features_20200611_compressed.h5 \
+    --output-weights-path=$DATA_PREFIX/DG_MC_syn_weights_S_20210107.h5 \
+    --connections-path=$DATA_PREFIX/DG_IN_connections_20210107.h5 \
+    --input-features-path=$DATA_PREFIX/DG_input_features_20200910_compressed.h5 \
     --arena-id=A --optimize-tol 1e-3 --optimize-grad --arena-margin=0.3 \
     --max-delta-weight=10 --max-weight-decay-fraction=0.5 --target-amplitude=10 \
-    --io-size=40 --value-chunk-size=100000 --chunk-size=20000 --write-size=4 -v
+    --io-size=96 --value-chunk-size=10000 --chunk-size=10000 --write-size=0 -v --dry-run
 

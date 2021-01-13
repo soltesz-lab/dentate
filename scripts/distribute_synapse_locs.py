@@ -27,11 +27,6 @@ def update_syn_stats(env, syn_stats_dict, syn_dict):
     syn_type_excitatory = env.Synapse_Types['excitatory']
     syn_type_inhibitory = env.Synapse_Types['inhibitory']
 
-    this_syn_stats_dict = { 'section': defaultdict(lambda: { 'excitatory': 0, 'inhibitory': 0 }), \
-                            'layer': defaultdict(lambda: { 'excitatory': 0, 'inhibitory': 0 }), \
-                            'swc_type': defaultdict(lambda: { 'excitatory': 0, 'inhibitory': 0 }), \
-                            'total': { 'excitatory': 0, 'inhibitory': 0 } }
-
     for (syn_id,syn_sec,syn_type,swc_type,syn_layer) in \
         zip(syn_dict['syn_ids'],
                        syn_dict['syn_secs'],
@@ -51,17 +46,14 @@ def update_syn_stats(env, syn_stats_dict, syn_dict):
         syn_stats_dict['swc_type'][swc_type][syn_type_str] += 1
         syn_stats_dict['total'][syn_type_str] += 1
 
-        this_syn_stats_dict['section'][syn_sec][syn_type_str] += 1
-        this_syn_stats_dict['layer'][syn_layer][syn_type_str] += 1
-        this_syn_stats_dict['swc_type'][swc_type][syn_type_str] += 1
-        this_syn_stats_dict['total'][syn_type_str] += 1
-
-    return this_syn_stats_dict
+    return syn_stats_dict
 
 
-def global_syn_summary(comm, syn_stats, global_count, root):
+def global_syn_summary(comm, syn_stats, gid_count, root):
+    global_count = comm.gather(gid_count, root=root)
+    global_count = np.sum(global_count)
     res = []
-    for population in syn_stats:
+    for population in sorted(syn_stats):
         pop_syn_stats = syn_stats[population]
         for part in ['layer', 'swc_type']:
             syn_stats_dict = pop_syn_stats[part]
@@ -76,7 +68,7 @@ def global_syn_summary(comm, syn_stats, global_count, root):
             if comm.rank == root:
                 res.append("%s: mean %s synapses per cell: %f" % (population, syn_type, np.sum(global_syn_count) / global_count))
         
-    return str.join('\n', res)
+    return global_count, str.join('\n', res)
 
 def local_syn_summary(syn_stats_dict):
     res = []
@@ -183,7 +175,14 @@ def main(config, config_prefix, template_path, output_path, forest_path, populat
         
     (pop_ranges, _) = read_population_ranges(forest_path, comm=comm)
     start_time = time.time()
-    syn_stats = {}
+    syn_stats = dict()
+    for population in populations:
+        syn_stats[population] = { 'section': defaultdict(lambda: { 'excitatory': 0, 'inhibitory': 0 }), \
+                                  'layer': defaultdict(lambda: { 'excitatory': 0, 'inhibitory': 0 }), \
+                                  'swc_type': defaultdict(lambda: { 'excitatory': 0, 'inhibitory': 0 }), \
+                                  'total': { 'excitatory': 0, 'inhibitory': 0 } }
+
+
     for population in populations:
         logger.info('Rank %i population: %s' % (rank, population))
         (population_start, _) = pop_ranges[population]
@@ -246,7 +245,6 @@ def main(config, config_prefix, template_path, output_path, forest_path, populat
                 append_cell_attributes(output_path, population, synapse_dict,
                                        namespace='Synapse Attributes', comm=comm, io_size=io_size, 
                                        chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-                comm.barrier()
                 synapse_dict = {}
             syn_stats[population] = syn_stats_dict
             count += 1
@@ -257,23 +255,12 @@ def main(config, config_prefix, template_path, output_path, forest_path, populat
             append_cell_attributes(output_path, population, synapse_dict,
                                    namespace='Synapse Attributes', comm=comm, io_size=io_size, 
                                    chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-            comm.barrier()
 
-        global_count = comm.gather(gid_count, root=0)
+        global_count, summary = global_syn_summary(comm, syn_stats, gid_count, root=0)
+        if rank == 0:
+            logger.info('target: %s, %i ranks took %i s to compute synapse locations for %i cells' % (population, comm.size,time.time() - start_time, np.sum(global_count)))
+            logger.info(summary)
 
-        if gid_count > 0:
-            color = 1
-        else:
-            color = 0
-            
-        comm.barrier()
-        comm0 = comm.Split(color, 0)
-        if color == 1:
-            summary = global_syn_summary(comm0, syn_stats, np.sum(global_count), root=0)
-            if rank == 0:
-                logger.info('target: %s, %i ranks took %i s to compute synapse locations for %i cells' % (population, comm.size,time.time() - start_time,np.sum(global_count)))
-                logger.info(summary)
-        comm0.Free()
         comm.barrier()
             
     MPI.Finalize()

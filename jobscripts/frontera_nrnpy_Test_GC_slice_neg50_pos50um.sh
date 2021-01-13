@@ -10,17 +10,16 @@
 #SBATCH --mail-type=END
 #
 
+module load intel/18.0.5 
 module load python3
 module load phdf5
 
 set -x
 
-export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
-export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
-export PATH=$NEURONROOT/x86_64/bin:$PATH
+export NEURONROOT=$SCRATCH/bin/nrnpython3_intel18
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel18:$PYTHONPATH
 export MODEL_HOME=$HOME/model
 export DG_HOME=$MODEL_HOME/dentate
-export LD_PRELOAD=$MKLROOT/lib/intel64_lin/libmkl_core.so:$MKLROOT/lib/intel64_lin/libmkl_sequential.so
 
 #export I_MPI_EXTRA_FILESYSTEM=enable
 export I_MPI_ADJUST_ALLGATHER=4
@@ -38,7 +37,7 @@ mkdir -p $results_path
 
 ibrun python3 ./scripts/main.py  \
     --arena-id=A --trajectory-id=Diag \
-    --config-file=Test_Slice_neg50_pos50um_IN_Izh.yaml \
+    --config-file=Network_Clamp_Slice_neg50_pos50um_IN_Izh_opt20201221.yaml \
     --config-prefix=./config \
     --template-paths=../dgc/Mateos-Aparicio2014:templates \
     --dataset-prefix="$SCRATCH/striped/dentate" \
