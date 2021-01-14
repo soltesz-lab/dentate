@@ -1248,7 +1248,7 @@ def init(env):
             lpt_bal(env)
 
 
-def run(env, output=True, shutdown=True):
+def run(env, output=True, shutdown=True, output_syn_spike_count=False):
     """
     Runs network simulation. Assumes that procedure `init` has been
     called with the network configuration provided by the `env`
@@ -1256,9 +1256,13 @@ def run(env, output=True, shutdown=True):
 
     :param env: an instance of the `dentate.Env` class
     :param output: if True, output spike and cell voltage trace data
+    :param output_syn_spike_count: if True, output spike counts per pre-synaptic source for each gid
     """
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
+
+    if output_syn_spike_count and env.cleanup:
+        raise RuntimeError("Unable to compute synapse spike counts when cleanup is True")
 
     if rank == 0:
         if output:
@@ -1311,6 +1315,12 @@ def run(env, output=True, shutdown=True):
                     logger.info("*** Writing intracellular data up to %.2f ms" % h.t)
                 io_utils.recsout(env, env.results_file_path, t_start=env.last_checkpoint, clear_data=env.checkpoint_clear_data)
             env.last_checkpoint = h.t
+        if output_syn_spike_count:
+            for pop_name in sorted(viewkeys(env.biophys_cells)):
+                presyn_names = sorted(viewitems(env.projection_dict[pop_name])):
+                synapses.write_syn_spike_count(env, pop_name, env.results_file_path,
+                                               filters={'sources': presyn_names},
+                                               {'io_size': env.io_size})
             
     if rank == 0:
         logger.info("*** Simulation completed")

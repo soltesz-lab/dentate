@@ -656,6 +656,8 @@ def run_with(env, param_dict, cvode=False, pc_runworker=False):
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
+    if rank == 0:
+        logger.info(f'run_with: param_dict = {param_dict}')
     update_network_params(env, param_dict)
 
     rec_dt = None
@@ -1584,7 +1586,6 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
             logger.info('Optimized parameters and objective function: %s @ %s' % (pprint.pformat(gid_results_config_dict), str(result_value)))
             return {pop_name: gid_results_config_dict}
         else:
-            logger.info(f'opt_results = {opt_results}')
             params_dict = dict(opt_results[0])
             result_value = opt_results[1]
             results_config_tuples = []
@@ -1672,7 +1673,14 @@ def write_output(env):
     io_utils.recsout(env, env.results_file_path,
                      write_cell_location_data=True,
                      write_trial_data=True)
-
+    if rank == 0:
+        logger.info("*** Writing synapse spike counts")
+        for pop_name in sorted(env.biophys_cells.keys()):
+            presyn_names = sorted(env.projection_dict[pop_name])
+            synapses.write_syn_spike_count(env, pop_name, env.results_file_path,
+                                           filters={'sources': presyn_names},
+                                           write_kwds={'io_size': env.io_size})
+         
 
 @click.group()
 def cli():

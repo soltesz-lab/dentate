@@ -375,14 +375,15 @@ class SynapseAttributes(object):
                                    (gid, syn_id, syn_name))
 
 
-    def add_vecstim(self, gid, syn_id, syn_name, vs):
+    def add_vecstim(self, gid, syn_id, syn_name, vs, nc):
         """
-        Adds a VecStim object for the specified cell/synapse id/mechanism name.
+        Adds a VecStim object and associated NetCon for the specified cell/synapse id/mechanism name.
 
         :param gid: cell id
         :param syn_id: synapse id
         :param syn_name: synapse mechanism name
         :param vs: :class:'h.VecStim'
+        :param nc: :class:'h.NetCon'
         """
         syn_index = self.syn_name_index_dict[syn_name]
         gid_pps_dict = self.pps_dict[gid]
@@ -391,7 +392,7 @@ class SynapseAttributes(object):
             raise RuntimeError('add_vecstim: gid %i synapse id %i mechanism %s already has vecstim' %
                                (gid, syn_id, syn_name))
         else:
-            pps_dict.vecstim[syn_index] = vs
+            pps_dict.vecstim[syn_index] = vs, nc
         return vs
 
     def has_vecstim(self, gid, syn_id, syn_name):
@@ -410,12 +411,12 @@ class SynapseAttributes(object):
 
     def get_vecstim(self, gid, syn_id, syn_name, throw_error=True):
         """
-        Returns the VecStim object associated with the specified cell/synapse id/mechanism name.
+        Returns the VecStim and NetCon objects associated with the specified cell/synapse id/mechanism name.
 
         :param gid: cell id
         :param syn_id: synapse id
         :param syn_name: synapse mechanism name
-        :return: :class:'h.VecStim'
+        :return: tuple of :class:'h.VecStim' :class:'h.NetCon'
         """
         syn_index = self.syn_name_index_dict[syn_name]
         gid_pps_dict = self.pps_dict[gid]
@@ -850,15 +851,14 @@ def insert_hoc_cell_syns(env, gid, cell, syn_ids, syn_params, unique=False, inse
 
             if insert_netcons or insert_vecstims:
                 syn_pps = syn_attrs.get_pps(gid, syn_id, syn_name)
-                if insert_netcons and insert_vecstims:
-                    this_nc, this_vecstim = mknetcon_vecstim(syn_pps, delay=syn.source.delay)
-                else:
-                    this_vecstim = None
-                    this_nc = mknetcon(env.pc, syn.source.gid, syn_pps, delay=syn.source.delay)
-                if insert_netcons:
-                    syn_attrs.add_netcon(gid, syn_id, syn_name, this_nc)
+                this_vecstim, this_vecstim_nc = None, None
+                this_nc = None
                 if insert_vecstims:
-                    syn_attrs.add_vecstim(gid, syn_id, syn_name, this_vecstim)
+                    this_vecstim_nc, this_vecstim = mknetcon_vecstim(syn_pps, delay=syn.source.delay)
+                    syn_attrs.add_vecstim(gid, syn_id, syn_name, this_vecstim, this_vecstim_nc)
+                if insert_netcons:
+                    this_nc = mknetcon(env.pc, syn.source.gid, syn_pps, delay=syn.source.delay)
+                    syn_attrs.add_netcon(gid, syn_id, syn_name, this_nc)
                 config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
                            mech_names=syn_attrs.syn_mech_names,
                            syn=syn_mech, nc=this_nc, **params)
@@ -1824,6 +1824,7 @@ def write_syn_mech_attrs(env, pop_name, gids, output_path, filters=None, syn_nam
                     attr_dict[gid] = {'syn_ids': np.asarray(attr_vals, dtype='uint32')}
                 else:
                     attr_dict[gid] = {attr_name: np.asarray(attr_vals, dtype='float32')}
+                    
         logger.info("write_syn_mech_attrs: rank %d: population %s: writing mechanism %s attributes for %d gids" % (rank, pop_name, syn_name, len(attr_dict)))
         write_cell_attributes(output_path, pop_name, attr_dict,
                               namespace='%s Attributes' % syn_name,
@@ -1844,6 +1845,72 @@ def sample_syn_mech_attrs(env, pop_name, gids, comm=None):
 
     write_syn_mech_attrs(env, pop_name, gids, env.results_file_path, write_kwds={'comm': comm, 'io_size': env.io_size})
 
+
+
+def write_syn_spike_count(env, pop_name, output_path, filters=None, syn_names=None, write_kwds={}):
+    """
+    Writes spike counts per presynaptic source for each cell in the given population to a NeuroH5 file.
+    Assumes that attributes have been set via config_syn.
+    
+    :param env: instance of env.Env
+    :param pop_name: population name
+    :param output_path: path to NeuroH5 file
+    :param filters: optional filter for synapses
+    """
+
+    rank = int(env.pc.id())
+
+    syn_attrs = env.synapse_attributes
+    rules = syn_attrs.syn_param_rules
+
+    filters_dict = None
+    if filters is not None:
+        filters_dict = get_syn_filter_dict(env, filters, convert=True)
+    
+    if syn_names is None:
+        syn_names = list(syn_attrs.syn_name_index_dict.keys())
+
+    output_dict = {syn_name: defaultdict(lambda: defaultdict(int)) for syn_name in syn_names}
+
+    gids = []
+    if pop_name in env.biophys_cells:
+       gids = list(env.biophys_cells[pop_name].keys())
+
+    for gid in gids:
+        if filters_dict is None:
+            syns_dict = syn_attrs.syn_id_attr_dict[gid]
+        else:
+            syns_dict = syn_attrs.filter_synapses(gid, **filters_dict)
+        logger.info(f"write_syn_mech_spike_counts: rank {rank}: population {pop_name}: gid {gid}: {len(syns_dict)} synapses")
+        
+        for syn_id, syn in viewitems(syns_dict):
+            source_population = syn.source.population
+            syn_netcon_dict = syn_attrs.pps_dict[gid][syn_id].netcon
+            for syn_name in syn_names:
+                mech_name = syn_attrs.syn_mech_names[syn_name]
+                syn_index = syn_attrs.syn_name_index_dict[syn_name]
+                if syn_index in syn_netcon_dict and 'count' in rules[mech_name]['netcon_state']:
+                    count_index = rules[mech_name]['netcon_state']['count']
+                    nc = syn_netcon_dict[syn_index]
+                    spike_count = nc.weight[count_index]
+                    output_dict[syn_name][gid][source_population] += spike_count
+
+    for syn_name in sorted(output_dict):
+
+        syn_attrs_dict = output_dict[syn_name]
+        attr_dict = defaultdict(lambda: dict())
+
+        for gid, gid_syn_spk_count_dict in viewitems(syn_attrs_dict):
+            for source_index, source_count in viewitems(gid_syn_spk_count_dict):
+                source_pop_name = syn_attrs.presyn_names[source_index]
+                attr_dict[gid][source_pop_name] = np.asarray([source_count], dtype='uint32')
+                    
+        logger.info(f"write_syn_mech_spike_counts: rank {rank}: population {pop_name}: writing mechanism {syn_name} spike counts for {len(attr_dict)} gids")
+        write_cell_attributes(output_path, pop_name, attr_dict,
+                              namespace=f'{syn_name} Spike Counts',
+                              **write_kwds)
+
+    
 
 # ------------------------- Methods to distribute synapse locations -------------------------------------------------- #
 

@@ -125,10 +125,6 @@ def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, edge_color=None, 
     from mayavi import mlab
     if edge_color is not None:
         kwargs['color'] = edge_color
-    mlab.points3d(x[0],y[0],z[0],
-                  mode='cone',
-                  scale_factor=10,
-                  **kwargs)
     vec = mlab.quiver3d(x[start_idx],
                         y[start_idx],
                         z[start_idx],
@@ -139,6 +135,10 @@ def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, edge_color=None, 
                         scale_factor=1,
                         mode='2ddash',
                         **kwargs)
+    b = mlab.points3d(x[0],y[0],z[0],
+                      mode='cone',
+                      scale_factor=10,
+                      **kwargs)
     if edge_scalars is not None:
         vec.glyph.color_mode = 'color_by_scalar'
         cb = mlab.colorbar(vec, label_fmt='%.1f')
@@ -985,11 +985,12 @@ def plot_coords_in_volume(populations, coords_path, coords_namespace, config, sc
 
 
     
-def plot_cell_tree(population, gid, tree_dict, line_width=1., sample=0.05, color_edge_scalars=True, mst=False):
+def plot_cell_tree(population, gid, tree_dict, line_width=1., sample=0.05, color_edge_scalars=True, mst=False, conn_loc=True):
     
     import networkx as nx
     from mayavi import mlab
-
+    import vtk
+    
     mlab.figure(bgcolor=(0,0,0))
 
     xcoords = tree_dict['x']
@@ -1002,31 +1003,42 @@ def plot_cell_tree(population, gid, tree_dict, line_width=1., sample=0.05, color
     dst      = tree_dict['section_topology']['dst']
     loc      = tree_dict['section_topology']['loc']
     
+    x = xcoords.reshape(-1,)
+    y = ycoords.reshape(-1,)
+    z = zcoords.reshape(-1,)
+
     edges = []
     for sec, nodes in viewitems(secnodes):
         for i in range(1, len(nodes)):
             srcnode = nodes[i-1]
             dstnode = nodes[i]
             edges.append((srcnode, dstnode))
-            
+
+    loc_x = []
+    loc_y = []
+    loc_z = []
     for (s,d,l) in zip(src,dst,loc):
         srcnode = secnodes[s][l]
         dstnode = secnodes[d][0]
         edges.append((srcnode, dstnode))
-                
-    x = xcoords.reshape(-1,)
-    y = ycoords.reshape(-1,)
-    z = zcoords.reshape(-1,)
+        loc_x.append(x[srcnode])
+        loc_y.append(y[srcnode])
+        loc_z.append(z[srcnode])
 
+    conn_loc_x = np.asarray(loc_x, dtype=np.float64)
+    conn_loc_y = np.asarray(loc_y, dtype=np.float64)
+    conn_loc_z = np.asarray(loc_z, dtype=np.float64)
+        
     # Make a NetworkX graph out of our point and edge data
     g = make_geometric_graph(x, y, z, edges)
 
+    edges = g.edges
     # Compute minimum spanning tree using networkx
     # nx.mst returns an edge generator
     if mst:
         edges = nx.minimum_spanning_tree(g).edges(data=True)
 
-    edge_array = np.array(list(g.edges)).T
+    edge_array = np.array(list(edges)).T
     start_idx = edge_array[0, :]
     end_idx = edge_array[1, :]
 
@@ -1040,12 +1052,20 @@ def plot_cell_tree(population, gid, tree_dict, line_width=1., sample=0.05, color
         edge_scalars = None
         edge_color = hex2rgb(rainbow_colors[gid%len(rainbow_colors)])
         
+    fig = mlab.gcf()
+    
     # Plot this with Mayavi
-    plot_graph(x, y, z, start_idx, end_idx, edge_scalars=edge_scalars, edge_color=edge_color, \
-               opacity=0.8, colormap='summer', line_width=line_width)
+    g = plot_graph(x, y, z, start_idx, end_idx, edge_scalars=edge_scalars, edge_color=edge_color, \
+                   opacity=0.8, colormap='summer', line_width=line_width, figure=fig)
 
-    mlab.gcf().scene.x_plus_view()
-    mlab.savefig('%s_cell_tree.tiff' % population, magnification=10)
+    if conn_loc:
+       conn_pts = mlab.points3d(conn_loc_x, conn_loc_y, conn_loc_z, figure=fig,
+                                mode='2dcross', colormap='copper', scale_factor=10)
+
+    
+    fig.scene.x_plus_view()
+    mlab.savefig('%s_cell_tree.tiff' % population, figure=fig, magnification=10)
+    mlab.savefig('%s_cell_tree.x3d' % population, figure=fig, magnification=10)
     mlab.show()
     
 
