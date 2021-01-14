@@ -4,7 +4,7 @@
 #SBATCH -o ./results/eval_DG_network.o%j       # Name of stdout output file
 #SBATCH -e ./results/eval_DG_network.e%j       # Name of stderr error file
 #SBATCH -p normal      # Queue (partition) name
-#SBATCH -N 10             # Total # of nodes 
+#SBATCH -N 16             # Total # of nodes 
 #SBATCH --ntasks-per-node=56 # # of mpi tasks per node
 #SBATCH -t 2:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
@@ -45,7 +45,7 @@ cd $HOME/model/dentate
 ibrun python3 eval_network.py \
     --config-path=$DG_HOME/config/DG_eval_network_exc_inh_20210114.yaml \
     --output-file-dir=$results_path \
-    --output-file-name='DG_eval_network_20210107.h5' \
+    --output-file-name='DG_eval_network_20210114.h5' \
     --target-features-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
     --target-features-namespace="Place Selectivity" \
     --params-id $1 \
@@ -57,7 +57,7 @@ ibrun python3 eval_network.py \
     --spike_input_path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h5" \
     --spike_input_namespace='Input Spikes A Diag' \
     --spike_input_attr='Spike Train' \
-    --max_walltime_hours=12.0 \
+    --max_walltime_hours=2.0 \
     --io_size=8 \
     --microcircuit_inputs \
     --verbose
