@@ -62,8 +62,8 @@ def init_selectivity_config(destination_gid, spatial_resolution,
                             dst_input_features_attr_dict, target_selectivity_features_dict,
                             target_selectivity_config_dict, target_field_width_dict, logger=None):
 
-
-    this_target_selectivity_features_dict = dst_input_features_attr_dict.get(destination_gid, {})
+    assert(destination_gid in dst_input_features_attr_dict)
+    this_target_selectivity_features_dict = dst_input_features_attr_dict[destination_gid]
     if logger is not None:
         logger.info("init_selectivity_config: feature_dict for gid %i is %s" % (destination_gid, this_target_selectivity_features_dict))
     this_target_selectivity_features_dict['Selectivity Type'] = np.asarray([target_selectivity_type], dtype=np.uint8)
@@ -181,19 +181,21 @@ def init_syn_weight_dicts(destination, non_structured_sources,
 
     return syn_counts_by_source
 
-def exchange_input_features(comm, pop_name, pop_gids, input_features_attr_dict):
+def exchange_input_features(comm, requested_gids, input_features_attr_dict):
 
     my_gids = list(input_features_attr_dict.keys())
-    all_gids_per_rank = comm.allgather(my_gids)
-    gid_rank_map = {}
-    for rank, gids in enumerate(all_gids_per_rank):
+    requested_gids_per_rank = comm.allgather(requested_gids)
+    gid_rank_map = defaultdict(list)
+    for rank, gids in enumerate(requested_gids_per_rank):
         for gid in gids:
-            gid_rank_map[gid] = rank
+            gid_rank_map[gid].append(rank)
 
-    nranks = len(all_gids_per_rank)
+    nranks = comm.size
     input_features_sendbuf = [list() for i in range(nranks)]
     for gid, features_dict in viewitems(input_features_attr_dict):
-        input_features_sendbuf[gid_rank_map[gid]].append((gid, features_dict))
+        if gid in gid_rank_map:
+            for dst_rank in gid_rank_map[gid]:
+                input_features_sendbuf[dst_rank].append((gid, features_dict))
 
     input_features_recvbuf = comm.alltoall(input_features_sendbuf)
     comm.barrier()
@@ -356,7 +358,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
         src_input_features_attr_dict[source] = this_src_input_features_attr_dict
         source_gid_count = env.comm.reduce(len(this_src_input_features_attr_dict), op=MPI.SUM, root=0)
         if rank == 0:
-            logger.info('Rank %i: Read %s feature data for %i cells in population %s' % (rank, this_input_features_namespace, source_gid_count, source))
+            logger.info('Rank %i: Read feature data for %i cells in population %s' % (rank, source_gid_count, source))
 
     dst_gids = []
     if target_gid_set is not None:
@@ -389,13 +391,17 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     feature_dst_gids = list(dst_input_features_attr_dict.keys())
     all_feature_gids_per_rank = comm.allgather(feature_dst_gids)
     all_feature_gids = sorted([item for sublist in all_feature_gids_per_rank for item in sublist])
-    dst_gids = []
+    request_dst_gids = []
     for i, gid in enumerate(all_feature_gids):
             if i%nranks == rank:
-                dst_gids.append(gid)
+                request_dst_gids.append(gid)
 
-    dst_input_features_attr_dict = exchange_input_features(env.comm, destination, dst_gids, 
+    dst_input_features_attr_dict = exchange_input_features(env.comm, request_dst_gids, 
                                                            dst_input_features_attr_dict)
+    dst_gids = list(dst_input_features_attr_dict.keys())
+    
+    if rank == 0:
+        logger.info("Rank %d feature dict is %s" % (rank, str(dst_input_features_attr_dict)))
 
     dst_count = env.comm.reduce(len(dst_gids), op=MPI.SUM, root=0)
 
@@ -416,10 +422,12 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
 
         local_time = time.time()
         selection = []
-        if  len(dst_gids) > 0:
+        if len(dst_gids) > 0:
             dst_gid = dst_gids.pop()
             selection.append(dst_gid)
             logger.info('Rank %i received %d' % (rank, dst_gid))
+
+        env.comm.barrier()
 
         arena_margin_size = 0.
         arena_margin = max(arena_margin, 0.)
@@ -510,10 +518,12 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             source_gids = list(source_gid_set_dict[source])
             if rank == 0:
                 logger.info('Rank %i: Getting feature data for %i cells in population %s' % (rank, len(source_gids), source))
-            this_src_input_features = exchange_input_features(env.comm, source, source_gids, 
+            this_src_input_features = exchange_input_features(env.comm, source_gids, 
                                                               src_input_features_attr_dict[source])
+
             count = 0
-            for this_gid, attr_dict in viewitems(this_src_input_features):
+            for this_gid in source_gids:
+                attr_dict = this_src_input_features[this_gid]
                 this_selectivity_type = attr_dict['Selectivity Type'][0]
                 this_selectivity_type_name = selectivity_type_index[this_selectivity_type]
                 input_cell_config = stimulus.get_input_cell_config(this_selectivity_type,

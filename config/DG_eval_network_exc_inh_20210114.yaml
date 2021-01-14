@@ -31,7 +31,7 @@ param_spec:
           apical:
             AMPA:
               weight: 
-	        a: [1.0, 5.0]
+                a: [1.0, 5.0]
         CA3c:
           apical:
             AMPA:
@@ -134,7 +134,7 @@ param_spec:
             GABA_A:
               weight: [0.01, 1.0]
 
-param_values: !include DG_eval_network_params_exc_inh_20210114.yaml
+#param_values: !include DG_eval_network_params_exc_inh_20210114.yaml
 feature_names:
 - GC target rate dist residual
 - MC target rate dist residual
@@ -154,7 +154,7 @@ feature_names:
 - NGFC fraction active
 target_populations: ['GC', 'MC', 'AAC', 'BC', 'HC', 'HCC', 'IS', 'MOPP', 'NGFC']
 kwargs:
-  config_file: Network_Clamp_Slice_neg50_pos50um_IN_Izh.yaml
+  config_file: Network_Clamp_Slice_neg2000_neg1500um_IN_Izh.yaml
   tstop: 9500.
   checkpoint_interval: 0.
   v_init: -77.

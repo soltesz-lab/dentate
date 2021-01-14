@@ -1,19 +1,18 @@
 param_config_name: "Weight exc inh microcircuit"
 objective_names:
 - GC target rate dist residual
+- GC firing rate
+- GC fraction active
 - MC target rate dist residual
+- MC firing rate
+- MC fraction active
+- AAC firing rate
 - BC firing rate
-- BC fraction active
 - HC firing rate
-- HC fraction active
 - HCC firing rate
-- HCC fraction active
 - IS firing rate
-- IS fraction active
 - MOPP firing rate
-- MOPP fraction active
 - NGFC firing rate
-- NGFC fraction active
 target_populations: ['GC', 'MC', 'AAC', 'BC', 'HC', 'HCC', 'IS', 'MOPP', 'NGFC']
 kwargs:
   config_file: Network_Clamp_Slice_neg25_pos25um_IN_Izh.yaml

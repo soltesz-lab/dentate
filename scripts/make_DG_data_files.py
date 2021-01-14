@@ -22,8 +22,8 @@ DG_IN_forest_syns_file = "DG_IN_forest_syns_20210107_compressed.h5"
 
 DG_GC_syn_weights_LN_file = "DG_GC_syn_weights_LN_20210107_compressed.h5"
 DG_GC_syn_weights_S_file = "DG_GC_syn_weights_S_20210107_compressed.h5"
-DG_IN_syn_weights_LN_file = "DG_IN_syn_weights_LN_20210107_compressed.h5"
-DG_IN_syn_weights_S_file = "DG_IN_syn_weights_S_20210107_compressed.h5"
+DG_MC_syn_weights_LN_file = "DG_MC_syn_weights_LN_20210107_compressed.h5"
+DG_MC_syn_weights_S_file = "DG_MC_syn_weights_S_20210107_compressed.h5"
 
 DG_GC_connectivity_file = "DG_GC_connections_20210107_compressed.h5"
 DG_IN_connectivity_file = "DG_IN_connections_20210107_compressed.h5"
@@ -65,7 +65,7 @@ coordinate_files = {
      'NGFC': DG_IN_coordinate_file,
      'CA3c':  DG_EXT_coordinate_file,
      'MPP':  DG_EXT_coordinate_file,
-     'LPP':  DG_EXT_coordinate_file
+     'LPP':  DG_EXT_coordinate_file,
      'ConMC':  DG_EXT_coordinate_file
 }
 
@@ -85,7 +85,7 @@ coordinate_namespaces = {
      'NGFC': coordinate_ns,
      'CA3c':  coordinate_ns,
      'MPP':  coordinate_ns,
-     'LPP':  coordinate_ns
+     'LPP':  coordinate_ns,
      'ConMC':  coordinate_ns
 }
     
@@ -124,10 +124,10 @@ syn_weight_files = {
      },
 
      'MC': { 
-             "LTP Structured Weights A": DG_IN_syn_weights_S_file,
-             "LTD Structured Weights A": DG_IN_syn_weights_S_file,
-             "Log-Normal Weights": DG_IN_syn_weights_LN_file,
-             "Normal Weights": DG_IN_syn_weights_LN_file,
+             "LTP Structured Weights A": DG_MC_syn_weights_S_file,
+             "LTD Structured Weights A": DG_MC_syn_weights_S_file,
+             "Log-Normal Weights": DG_MC_syn_weights_LN_file,
+             "Normal Weights": DG_MC_syn_weights_LN_file,
      }
 
 

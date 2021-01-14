@@ -56,7 +56,7 @@ def dmosopt_broker_init(broker, *args):
 @click.option("--optimize-file-name", type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--nprocs-per-worker", type=int, default=1)
 @click.option("--n-iter", type=int, default=1)
-@click.option("--n-initial", type=int, default=3)
+@click.option("--n-initial", type=int, default=15)
 @click.option("--population-size", type=int, default=100)
 @click.option("--num-generations", type=int, default=200)
 @click.option("--collective-mode", type=str, default='gather')

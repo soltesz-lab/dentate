@@ -51,7 +51,7 @@ ibrun python3 ./scripts/main.py  \
     --spike-input-attr='Spike Train' \
     --microcircuit-inputs \
     --checkpoint-interval 0. \
-    --recording-fraction 0.01 \
+    --recording-fraction 0.04 \
     --use-coreneuron \
     --verbose
 

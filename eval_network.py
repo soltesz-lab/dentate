@@ -74,13 +74,15 @@ def h5_get_dataset (g, dsetname, **kwargs):
 @click.option("--verbose", '-v', is_flag=True)
 def main(config_path, params_id, n_samples, target_features_path, target_features_namespace, output_file_dir, output_file_name, verbose):
 
+    config_logging(verbose)
+    logger = utils.get_script_logger(os.path.basename(__file__))
+
     if params_id is None:
         if n_samples is None:
             raise RuntimeError("Neither params_id nor n_samples is provided")
+        logger.info("Generating parameter lattice ...")
         generate_param_lattice(config_path, n_samples, output_file_dir, output_file_name, verbose)
         return
-
-    config_logging(verbose)
 
     network_args = click.get_current_context().args
     network_config = {}
@@ -109,14 +111,13 @@ def main(config_path, params_id, n_samples, target_features_path, target_feature
     network_param_spec_src = eval_config['param_spec']
     network_param_values = eval_config['param_values']
 
-    objective_names = eval_config['objective_names']
+    feature_names = eval_config['feature_names']
     target_populations = eval_config['target_populations']
 
     network_config.update(eval_config.get('kwargs', {}))
     network_config['results_file_id'] = 'DG_eval_network_%d_%s' % \
                                         (params_id, eval_config['run_ts'])
 
-    logger = utils.get_script_logger(os.path.basename(__file__))
     env = init_network(comm=MPI.COMM_WORLD, kwargs=network_config)
     gc.collect()
 
@@ -128,7 +129,7 @@ def main(config_path, params_id, n_samples, target_features_path, target_feature
     target_features_arena = env.arena_id
     target_features_trajectory = env.trajectory_id
     for pop_name in target_populations:
-        if ('%s target rate dist residual' % pop_name) not in objective_names:
+        if ('%s target rate dist residual' % pop_name) not in feature_names:
             continue
         my_cell_index_set = set(env.biophys_cells[pop_name].keys())
         trj_rate_maps = {}
@@ -155,7 +156,7 @@ def main(config_path, params_id, n_samples, target_features_path, target_feature
 
 
 
-def generate_param_lattice(config_path, n_samples, output_file_dir, output_file_name, verbose):
+def generate_param_lattice(config_path, n_samples, output_file_dir, output_file_name, maxiter=5, verbose=False):
 
     logger = utils.get_script_logger(os.path.basename(__file__))
 
@@ -172,7 +173,7 @@ def generate_param_lattice(config_path, n_samples, output_file_dir, output_file_
     n_params = len(param_tuples)
 
     n_init = n_params * n_samples
-    Xinit = sampling.glp(n_init, n_params, maxiter=3)
+    Xinit = sampling.glp(n_init, n_params, maxiter=maxiter)
 
     ub = []
     lb = []

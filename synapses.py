@@ -2432,8 +2432,7 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
     """
 
     if len(initial_weight_dict) != len(input_rate_map_dict):
-        logger.info("len(initial_weight_dict) = %d" % len(initial_weight_dict))
-        logger.info("len(input_rate_map_dict) = %d" % len(input_rate_map_dict))
+        logger.warning(f"len(initial_weight_dict) = {len(initial_weight_dict)} len(input_rate_map_dict) = {len(input_rate_map_dict)}")
     assert(len(initial_weight_dict) == len(input_rate_map_dict))
     if non_structured_input_rate_map_dict is not None:
         assert(len(non_structured_weights_dict) == len(non_structured_input_rate_map_dict))

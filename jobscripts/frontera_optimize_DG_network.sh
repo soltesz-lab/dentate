@@ -6,7 +6,7 @@
 #SBATCH -p normal      # Queue (partition) name
 #SBATCH -N 184             # Total # of nodes 
 #SBATCH --ntasks-per-node=56 # # of mpi tasks per node
-#SBATCH -t 10:00:00        # Run time (hh:mm:ss)
+#SBATCH -t 18:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
@@ -50,7 +50,7 @@ mpirun -rr -n 37 \
     python3 optimize_network.py \
     --config-path=$DG_HOME/config/DG_optimize_network.yaml \
     --optimize-file-dir=$results_path \
-    --optimize-file-name='dmosopt.optimize_network_20201221.h5' \
+    --optimize-file-name='dmosopt.optimize_network_20210114.h5' \
     --target-features-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
     --target-features-namespace="Place Selectivity" \
     --verbose \
