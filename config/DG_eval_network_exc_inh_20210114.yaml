@@ -134,7 +134,7 @@ param_spec:
             GABA_A:
               weight: [0.01, 1.0]
 
-#param_values: !include DG_eval_network_params_exc_inh_20210114.yaml
+param_values: !include DG_eval_network_params_exc_inh_20210114.yaml
 feature_names:
 - GC target rate dist residual
 - MC target rate dist residual
