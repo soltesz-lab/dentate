@@ -1317,10 +1317,10 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
             env.last_checkpoint = h.t
         if output_syn_spike_count:
             for pop_name in sorted(viewkeys(env.biophys_cells)):
-                presyn_names = sorted(viewitems(env.projection_dict[pop_name])):
+                presyn_names = sorted(viewkeys(env.projection_dict[pop_name]))
                 synapses.write_syn_spike_count(env, pop_name, env.results_file_path,
                                                filters={'sources': presyn_names},
-                                               {'io_size': env.io_size})
+                                               write_kwds={'io_size': env.io_size})
             
     if rank == 0:
         logger.info("*** Simulation completed")
