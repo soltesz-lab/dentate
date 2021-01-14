@@ -108,16 +108,17 @@ def main(arena_id, bin_sample_count, bin_sample_proximal_pf, config, config_pref
                     else:
                         this_features_namespace = input_features_namespace
                     input_features_iter = read_cell_attributes(input_features_path, population, 
-                                                            namespace=this_features_namespace,
-                                                            mask=set(['Num Fields']), 
-                                                            comm=comm0)
+                                                               namespace=this_features_namespace,
+                                                               mask=set(['Num Fields', 'Field Width',
+                                                                         'X Offset', 'Y Offset']), 
+                                                               comm=comm0)
                     count = 0
                     for gid, attr_dict in input_features_iter:
                         num_fields_dict[gid] = attr_dict['Num Fields']
                         field_width_dict[gid] = attr_dict['Field Width']
                         field_xy_dict[gid] = (attr_dict['X Offset'], attr_dict['Y Offset'])
                         count += 1
-                        logger.info('Read feature data from namespace %s for %i cells in population %s' % (this_features_namespace, count, population))
+                    logger.info('Read feature data from namespace %s for %i cells in population %s' % (this_features_namespace, count, population))
 
                 for (gid, v) in distances:
                     num_fields = num_fields_dict.get(gid, 0)
@@ -161,18 +162,21 @@ def main(arena_id, bin_sample_count, bin_sample_proximal_pf, config, config_pref
             for bin_index in range(len(distance_bins)+1):
                 bin_gids = gid_array[np.where(distance_bin_array == bin_index)[0]]
                 if len(bin_gids) > 0:
-                    if bin_sample_count:
-                        selected_bin_gids = local_random.choice(bin_gids, replace=False, size=bin_sample_count)
-                    elif bin_sample_proximal_pf:
-                        selected_bin_gids = []
+                    if bin_sample_proximal_pf:
+                        proximal_bin_gids = []
                         for gid in bin_gids:
                             x, y = field_xy_dict[gid]
                             fw = field_width_dict[gid]
                             dist_origin = euclidean_distance(np.column_stack((x,y)), np.asarray([0., 0.]))
                             if np.any(dist_origin < fw):
-                               selected_bin_gids.append(gid)
+                               proximal_bin_gids.append(gid)
+                        proximal_bin_gids = np.asarray(proximal_bin_gids)
+                        selected_bin_gids = local_random.choice(proximal_bin_gids, replace=False, size=bin_sample_count)
+                    elif bin_sample_count:
+                        selected_bin_gids = local_random.choice(bin_gids, replace=False, size=bin_sample_count)
                     for gid in selected_bin_gids:
                         selection_set.add(int(gid))
+            logger.info('selected %i cells from population %s' % (len(selection_set), population))
             selection_dict[population] = selection_set
 
         yaml_output_dict = {}
