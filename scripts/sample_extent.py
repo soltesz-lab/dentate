@@ -16,11 +16,17 @@ def mpi_excepthook(type, value, traceback):
         MPI.COMM_WORLD.Abort(1)
 sys.excepthook = mpi_excepthook
 
+def euclidean_distance(a, b):
+    """Row-wise euclidean distance.
+    a, b are row vectors of points.
+    """
+    return np.sqrt(np.sum((a - b) ** 2, axis=1))
 
 @click.command()
 @click.option("--arena-id", required=False, type=str,
               help='name of arena used for spatial stimulus')
-@click.option("--bin-sample-count", type=int, required=True, help='Number of samples per spatial bin')
+@click.option("--bin-sample-count", type=int, required=False, help='Number of samples per spatial bin')
+@click.option("--bin-sample-proximal-pf", is_flag=True, required=False, help='Only sample with a place field overlapping the origin')
 @click.option("--config", '-c', required=True, type=str)
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='config', help='path to directory containing network config files')
@@ -43,7 +49,7 @@ sys.excepthook = mpi_excepthook
               help='name of trajectory used for spatial stimulus')
 @click.option("--write-selection", is_flag=True)
 @click.option("--verbose", "-v", is_flag=True)
-def main(arena_id, bin_sample_count, config, config_prefix, dataset_prefix, distances_namespace, distance_bin_extent, input_features_path, input_features_namespaces, populations, spike_input_path, spike_input_namespace, spike_input_attr, output_path, io_size, trajectory_id, write_selection, verbose):
+def main(arena_id, bin_sample_count, bin_sample_proximal_pf, config, config_prefix, dataset_prefix, distances_namespace, distance_bin_extent, input_features_path, input_features_namespaces, populations, spike_input_path, spike_input_namespace, spike_input_attr, output_path, io_size, trajectory_id, write_selection, verbose):
 
     utils.config_logging(verbose)
     logger = utils.get_script_logger(os.path.basename(__file__))
@@ -51,6 +57,13 @@ def main(arena_id, bin_sample_count, config, config_prefix, dataset_prefix, dist
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
+    if (bin_sample_count is None) and (bin_sample_proximal_pf is None):
+        raise RuntimeError("Neither --bin-sample-count nor --bin-sample-proximal-pf is specified.")
+
+    if (bin_sample_proximal_pf is not None) and (input_features_path is None):
+        raise RuntimeError("--input-features-path must be specified when --bin-sample-proximal-pf is given.")
+
+    
     env = Env(comm=comm, config_file=config, 
               config_prefix=config_prefix, dataset_prefix=dataset_prefix, 
               results_path=output_path, spike_input_path=spike_input_path, 
@@ -79,13 +92,16 @@ def main(arena_id, bin_sample_count, config, config_prefix, dataset_prefix, dist
     if len(populations) == 0:
         populations = sorted(pop_ranges.keys())
     
+    
     if rank == 0:
         for population in populations:
             distances = read_cell_attributes(env.data_file_path, population, namespace=distances_namespace, comm=comm0)
 
             soma_distances = {}
+            num_fields_dict = {}
+            field_xy_dict = {}
+            field_width_dict = {}
             if input_features_path is not None:
-                num_fields_dict = {}
                 for input_features_namespace in input_features_namespaces:
                     if arena_id is not None:
                         this_features_namespace = '%s %s' % (input_features_namespace, arena_id)
@@ -98,8 +114,10 @@ def main(arena_id, bin_sample_count, config, config_prefix, dataset_prefix, dist
                     count = 0
                     for gid, attr_dict in input_features_iter:
                         num_fields_dict[gid] = attr_dict['Num Fields']
+                        field_width_dict[gid] = attr_dict['Field Width']
+                        field_xy_dict[gid] = (attr_dict['X Offset'], attr_dict['Y Offset'])
                         count += 1
-                    logger.info('Read feature data from namespace %s for %i cells in population %s' % (this_features_namespace, count, population))
+                        logger.info('Read feature data from namespace %s for %i cells in population %s' % (this_features_namespace, count, population))
 
                 for (gid, v) in distances:
                     num_fields = num_fields_dict.get(gid, 0)
@@ -143,7 +161,16 @@ def main(arena_id, bin_sample_count, config, config_prefix, dataset_prefix, dist
             for bin_index in range(len(distance_bins)+1):
                 bin_gids = gid_array[np.where(distance_bin_array == bin_index)[0]]
                 if len(bin_gids) > 0:
-                    selected_bin_gids = local_random.choice(bin_gids, replace=False, size=bin_sample_count)
+                    if bin_sample_count:
+                        selected_bin_gids = local_random.choice(bin_gids, replace=False, size=bin_sample_count)
+                    elif bin_sample_proximal_pf:
+                        selected_bin_gids = []
+                        for gid in bin_gids:
+                            x, y = field_xy_dict[gid]
+                            fw = field_width_dict[gid]
+                            dist_origin = euclidean_distance(np.column_stack((x,y)), np.asarray([0., 0.]))
+                            if np.any(dist_origin < fw):
+                               selected_bin_gids.append(gid)
                     for gid in selected_bin_gids:
                         selection_set.add(int(gid))
             selection_dict[population] = selection_set
