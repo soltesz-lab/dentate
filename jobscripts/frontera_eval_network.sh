@@ -4,7 +4,7 @@
 #SBATCH -o ./results/eval_DG_network.o%j       # Name of stdout output file
 #SBATCH -e ./results/eval_DG_network.e%j       # Name of stderr error file
 #SBATCH -p normal      # Queue (partition) name
-#SBATCH -N 5             # Total # of nodes 
+#SBATCH -N 10             # Total # of nodes 
 #SBATCH --ntasks-per-node=56 # # of mpi tasks per node
 #SBATCH -t 2:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
@@ -43,13 +43,12 @@ cd $HOME/model/dentate
 
 
 ibrun python3 eval_network.py \
-    --config-path=$DG_HOME/config/DG_eval_network_exc_inh_20210107.yaml \
+    --config-path=$DG_HOME/config/DG_eval_network_exc_inh_20210114.yaml \
     --output-file-dir=$results_path \
     --output-file-name='DG_eval_network_20210107.h5' \
     --target-features-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
     --target-features-namespace="Place Selectivity" \
-    --params-id 0 \
-    --nprocs-per-worker=154 \
+    --params-id $1 \
     --arena_id=A --trajectory_id=Diag \
     --template_paths=$MODEL_HOME/dgc/Mateos-Aparicio2014:$DG_HOME/templates \
     --dataset_prefix="$SCRATCH/striped/dentate" \
