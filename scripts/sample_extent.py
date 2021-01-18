@@ -168,7 +168,7 @@ def main(arena_id, bin_sample_count, bin_sample_proximal_pf, config, config_pref
                             x, y = field_xy_dict[gid]
                             fw = field_width_dict[gid]
                             dist_origin = euclidean_distance(np.column_stack((x,y)), np.asarray([0., 0.]))
-                            if np.any(dist_origin < fw):
+                            if np.any(dist_origin < (0.5 * fw)):
                                proximal_bin_gids.append(gid)
                         proximal_bin_gids = np.asarray(proximal_bin_gids)
                         selected_bin_gids = local_random.choice(proximal_bin_gids, replace=False, size=bin_sample_count)

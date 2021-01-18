@@ -58,6 +58,7 @@ sys.excepthook = mpi_excepthook
               help='fraction of cells for intracellular recording')
 @click.option("--recording-profile", type=str, default='Network default',
               help='intracellular recording profile to use')
+@click.option("--output-syn-spike-count", is_flag=True, help='record the per-cell number of spikes received from each pre-synaptic source')
 @click.option("--use-coreneuron", is_flag=True, help='use CoreNEURON for simulation')
 @click.option("--trajectory-id", required=True, type=str,
               help='name of trajectory used for spatial stimulus')
@@ -88,10 +89,10 @@ sys.excepthook = mpi_excepthook
 @click.option('--debug', is_flag=True, help='enable debug mode')
 @click.option('--dry-run', is_flag=True, help='whether to actually execute simulation after building network')
 def main(arena_id, cell_selection_path, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix,
-         results_path, results_id, node_rank_file, io_size, recording_fraction, recording_profile, use_coreneuron, trajectory_id, tstop, v_init,
-         stimulus_onset, max_walltime_hours, microcircuit_inputs, checkpoint_clear_data, checkpoint_interval, results_write_time,
-         spike_input_path, spike_input_namespace, spike_input_attr, dt, ldbal, lptbal, cleanup, profile_memory, write_selection,
-         verbose, debug, dry_run):
+         results_path, results_id, node_rank_file, io_size, recording_fraction, recording_profile, output_syn_spike_count,
+         use_coreneuron, trajectory_id, tstop, v_init, stimulus_onset, max_walltime_hours, microcircuit_inputs, 
+         checkpoint_clear_data, checkpoint_interval, results_write_time, spike_input_path, spike_input_namespace, 
+         spike_input_attr, dt, ldbal, lptbal, cleanup, profile_memory, write_selection, verbose, debug, dry_run):
 
     profile_time = False
     config_logging(verbose)
@@ -111,7 +112,7 @@ def main(arena_id, cell_selection_path, config_file, template_paths, hoc_lib_pat
     else:
         network.init(env)
         if not dry_run:
-            network.run(env)
+            network.run(env, output_syn_spike_count=output_syn_spike_count)
 
 
 if __name__ == '__main__':

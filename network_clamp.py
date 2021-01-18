@@ -968,8 +968,11 @@ def init_selectivity_rate_objfun(config_file, population, cell_index_set, arena_
 
     time_step = float(env.stimulus_config['Temporal Resolution'])
 
-    target_rate_vector_dict = rate_maps_from_features (env, population, target_features_path, target_features_namespace, my_cell_index_set,
-                                                       time_range=None, n_trials=n_trials)
+    target_rate_vector_dict = rate_maps_from_features (env, population, target_features_path, target_features_namespace, 
+                                                       my_cell_index_set, time_range=None, n_trials=n_trials, arena_id=arena_id)
+
+    logger.info(f"target_rate_vector_dict = {target_rate_vector_dict}")
+    
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
         target_rate_vector[np.isclose(target_rate_vector, 0., atol=1e-3, rtol=1e-3)] = 0.
 
@@ -1208,7 +1211,7 @@ def init_selectivity_state_objfun(config_file, population, cell_index_set, arena
     equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
 
     target_rate_vector_dict = rate_maps_from_features (env, population, target_features_path, target_features_namespace, my_cell_index_set,
-                                                       time_range=None, n_trials=n_trials)
+                                                       time_range=None, n_trials=n_trials, arena_id=arena_id)
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
         target_rate_vector[np.isclose(target_rate_vector, 0., atol=1e-3, rtol=1e-3)] = 0.
 
@@ -1430,7 +1433,7 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
 
 
     target_rate_vector_dict = rate_maps_from_features (env, population, target_features_path, target_features_namespace, my_cell_index_set,
-                                                       time_range=None, n_trials=n_trials)
+                                                       time_range=None, n_trials=n_trials, arena_id=arena_id)
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
         target_rate_vector[np.isclose(target_rate_vector, 0., atol=1e-3, rtol=1e-3)] = 0.
 
@@ -1517,9 +1520,6 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
                  opt_iter=10, solver_epsilon=1e-2, param_type='synaptic', init_params={}, 
                  results_file=None, cooperative_init=False, verbose=False):
     import distgfs
-
-    logger.info(f'type(problem_regime) = {type(problem_regime)}')
-    logger.info(f'problem_regime = {problem_regime}')
 
     param_bounds, param_names, param_initial_dict, param_tuples = \
       optimization_params(env, pop_name, param_type, param_config_name)
@@ -1963,7 +1963,6 @@ def optimize(config_file, population, dt, gid, gid_selection_file, arena_id, tra
     elif gid is not None:
         cell_index_set.add(gid)
     else:
-        logger.info("rank %d: before  Split" % rank)
         comm.barrier()
         comm0 = comm.Split(2 if rank == 0 else 1, 0)
         if rank == 0:

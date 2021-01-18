@@ -651,12 +651,6 @@ def make_cells(env):
         if template_name_lower != 'izhikevich' and template_name_lower != 'vecstim':    
             load_cell_template(env, pop_name, bcast_template=True)
 
-        recording_set = set([])
-        for gid in range(env.celltypes[pop_name]['start'],
-                         env.celltypes[pop_name]['start'] + env.celltypes[pop_name]['num']):
-            if ranstream_recording.uniform() <= env.recording_fraction:
-                recording_set.add(gid)
-        env.recording_sets[pop_name] = recording_set
                 
         if 'mech_file_path' in env.celltypes[pop_name]:
             mech_dict = env.celltypes[pop_name]['mech_dict']
@@ -760,6 +754,18 @@ def make_cells(env):
             raise RuntimeError("make_cells: unknown cell configuration type for cell type %s" % pop_name)
 
         h.define_shape()
+
+        recording_set = set([])
+        pop_biophys_gids = list(env.biophys_cells[pop_name].keys())
+        pop_biophys_gids_per_rank = env.comm.gather(pop_biophys_gids, root=0)
+        if rank == 0:
+            all_pop_biophys_gids = sorted([item for sublist in pop_biophys_gids_per_rank for item in sublist])
+            for gid in all_pop_biophys_gids:
+                if ranstream_recording.uniform() <= env.recording_fraction:
+                    recording_set.add(gid)
+        recording_set = env.comm.bcast(recording_set, root=0)
+        env.recording_sets[pop_name] = recording_set
+        del pop_biophys_gids_per_rank
         logger.info("*** Rank %i: Created %i cells from population %s" % (rank, num_cells, pop_name))
 
     # if node rank map has not been created yet, create it now

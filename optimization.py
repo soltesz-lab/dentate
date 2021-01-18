@@ -179,6 +179,7 @@ def rate_maps_from_features (env, pop_name, input_features_path, input_features_
 
     input_rate_map_dict = {}
     pop_index = int(env.Populations[pop_name])
+
     input_features_iter = scatter_read_cell_attribute_selection(input_features_path, pop_name,
                                                                 selection=cell_index_set,
                                                                 namespace=this_input_features_namespace,
