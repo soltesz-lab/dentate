@@ -134,7 +134,7 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
                 trial_dur = spkts.get(trial_dur_attr, np.asarray([0.]))
                 trial_ind = spkts.get(trial_index_attr, np.zeros((slen,),dtype=np.uint8))
                 if n_trials == -1:
-                    n_trials = trial_dur.shape[0]
+                    n_trials = len(set(trial_ind))
                 for spk_i, spkt in enumerate(spkts[spike_train_attr_name]):
                     trial_i = trial_ind[spk_i]
                     if trial_i >= n_trials:
@@ -229,7 +229,7 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
             spktlst.append(pop_trial_spktlst)
             
 
-        logger.info(' Read %i spikes for population %s' % (this_num_cell_spks, pop_name))
+        logger.info(' Read %i spikes and %i trials for population %s' % (this_num_cell_spks, n_trials, pop_name))
 
     return {'spkpoplst': spkpoplst, 'spktlst': spktlst, 'spkindlst': spkindlst, 'tmin': tmin, 'tmax': tmax,
             'pop_active_cells': pop_active_cells, 'num_cell_spks': num_cell_spks,
@@ -517,8 +517,10 @@ def place_fields(population, bin_size, rate_dict, trajectory, arena_id=None, tra
         pf_ibins = []
         for ibin in range(1, len(bins)):
             binx = np.linspace(bins[ibin - 1], bins[ibin], binsteps)
-            r_n = np.mean(np.interp(binx, t, rate1))
-            r = np.mean(np.interp(binx, t, rate))
+            interp_rate1 = np.interp(binx, t, np.asarray(rate1, dtype=np.float64))
+            interp_rate = np.interp(binx, t, np.asarray(rate, dtype=np.float64))
+            r_n = np.mean(interp_rate1)
+            r = np.mean(interp_rate)
             bin_rates.append(r)
             bin_norm_rates.append(r_n)
             if r_n > nstdev * s:

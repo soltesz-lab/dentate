@@ -1,4 +1,4 @@
-import numbers, os, copy, pprint
+import numbers, os, copy, pprint, sys
 from collections import defaultdict
 from scipy import interpolate, signal
 import numpy as np
@@ -46,7 +46,7 @@ logger = get_module_logger(__name__)
 
 # Default figure configuration
 default_fig_options = Struct(figFormat='png', lw=2, figSize=(15,8), fontSize=14, saveFig=None, showFig=True,
-                             colormap='viridis', saveFigDir=None)
+                             colormap='jet', saveFigDir=None)
 
 dflt_colors = ["#009BFF", "#E85EBE", "#00FF00", "#0000FF", "#FF0000", "#01FFFE", "#FFA6FE", 
               "#FFDB66", "#006401", "#010067", "#95003A", "#007DB5", "#FF00F6", "#FFEEE8", "#774D00",
@@ -1839,14 +1839,14 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
                     cell_state += np.asarray(cell_state_mat[1][i,:]).reshape((n,))
                 line, = ax.plot(cell_state_mat[0][0].reshape((n,)), cell_state)
                 stplots.append(line)
-                logger.info('plot_state: mean value is %.02f' % np.mean(cell_state))
+                logger.info('plot_state: min/max/mean value is %.02f / %.02f / %.02f' % (np.min(cell_state), np.max(cell_state), np.mean(cell_state)))
             else:
                 for i in range(m):
                     cell_state = np.asarray(cell_state_mat[1][i,:]).reshape((n,))
                     line, = ax.plot(cell_state_mat[0][0].reshape((n,)), cell_state,
                                     label='%s (%s um)' % (cell_state_mat[2][i], cell_state_mat[3][i]))
                     stplots.append(line)
-                    logger.info('plot_state: mean value of state %d is %.02f' % (i, np.mean(cell_state)))
+                    logger.info('plot_state: min/max/mean value of state %d is %.02f / %.02f / %.02f' % (i, np.min(cell_state), np.max(cell_state), np.mean(cell_state)))
             ax.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
             ax.set_ylabel(state_variable, fontsize=fig_options.fontSize)
             #ax.legend()
@@ -2096,7 +2096,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
 
     sctplots = []
     
-    for i, pop_name in enumerate(include):
+    for i, pop_name in enumerate(spkpoplst):
 
         if pop_name not in pop_spk_dict:
             continue
@@ -2110,7 +2110,9 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
                pop_spkts   = pop_spkts[sample_inds]
                pop_spkinds = pop_spkinds[sample_inds]
 
-        sct = axes[i].scatter(pop_spkts, pop_spkinds, s=10, linewidths=fig_options.lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name)
+        sct = None
+        if len(pop_spkinds) > 0:
+            sct = axes[i].scatter(pop_spkts, pop_spkinds, s=10, linewidths=fig_options.lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name)
         axes[i].spines["top"].set_visible(False)
         axes[i].spines["bottom"].set_visible(False)
         axes[i].spines["left"].set_visible(False)
@@ -2122,10 +2124,10 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
         axes[i].set_ylim(S, S+N-1)
         
     lgd_info = [(100. * fraction_active.get(pop_name, 0.), avg_rates.get(pop_name, 0.))
-                for pop_name in include ]
+                for pop_name in spkpoplst ]
             
     # set raster plot y tick labels to the middle of the index range for each population
-    for pop_name, a in zip_longest(include, fig.axes[:-1]):
+    for pop_name, a in zip_longest(spkpoplst, fig.axes[:-1]):
         if pop_name not in pop_active_cells:
             continue
         if len(pop_active_cells[pop_name]) > 0:
@@ -2165,9 +2167,9 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
             box = ax.get_position()
             ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
         if pop_rates:
-            lgd_labels = [ '%s (%.02f%% active; %.3g Hz)' % (pop_name, info[0], info[1]) for pop_name, info in zip_longest(include, lgd_info) ]
+            lgd_labels = [ '%s (%.02f%% active; %.3g Hz)' % (pop_name, info[0], info[1]) for pop_name, info in zip_longest(spkpoplst, lgd_info) ]
         else:
-            lgd_labels = [ '%s (%.02f%% active)' % (pop_name, info[0]) for pop_name, info in zip_longest(include, lgd_info) ]
+            lgd_labels = [ '%s (%.02f%% active)' % (pop_name, info[0]) for pop_name, info in zip_longest(spkpoplst, lgd_info) ]
         # Add legend
         lgd = fig.legend(sctplots, lgd_labels, loc = 'center right', 
                          fontsize='small', scatterpoints=1, markerscale=5.,
@@ -2176,9 +2178,9 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
        
     elif labels == 'overlay':
         if pop_rates:
-            lgd_labels = [ '%s (%.02f%% active; %.3g Hz)' % (pop_name, info[0], info[1]) for pop_name, info in zip_longest(include, lgd_info) ]
+            lgd_labels = [ '%s (%.02f%% active; %.3g Hz)' % (pop_name, info[0], info[1]) for pop_name, info in zip_longest(spkpoplst, lgd_info) ]
         else:
-            lgd_labels = [ '%s (%.02f%% active)' % (pop_name, info[0]) for pop_name, info in zip_longest(include, lgd_info) ]
+            lgd_labels = [ '%s (%.02f%% active)' % (pop_name, info[0]) for pop_name, info in zip_longest(spkpoplst, lgd_info) ]
         for i, lgd_label in enumerate(lgd_labels):
             at = AnchoredText(pop_name + ' ' + lgd_label,
                               loc='upper right', borderpad=0.01, prop=dict(size=fig_options.fontSize))
@@ -2186,7 +2188,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
         max_label_len = max([len(l) for l in lgd_labels])
         
     elif labels == 'yticks':
-        for pop_name, info, a in zip_longest(include, lgd_info, fig.axes[:-1]):
+        for pop_name, info, a in zip_longest(spkpoplst, lgd_info, fig.axes[:-1]):
             if pop_rates:
                 label = '%.02f%%\n%.2g Hz' % (info[0], info[1])
             else:
