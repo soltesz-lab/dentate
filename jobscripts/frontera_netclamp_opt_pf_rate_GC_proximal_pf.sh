@@ -32,7 +32,7 @@ mkdir -p $SCRATCH/dentate/results/netclamp/20210106_Weight_all
 
 
 if test "$3" == ""; then
-mpirun -n 2 python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_IN_Izh.yaml \
+mpirun -n 2 python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_IN_Izh_proximal_pf.yaml \
     -p GC -t 9500 -g $1  --n-trials 1 --trial-regime best --problem-regime every --nprocs-per-worker=1 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/striped/dentate \
@@ -40,7 +40,7 @@ mpirun -n 2 python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_I
     --config-prefix config  --opt-iter 2000  --opt-epsilon 1 \
     --param-config-name "$2" \
     --arena-id A --trajectory-id Diag --use-coreneuron \
-    --target-features-path $SCRATCH/striped/dentate/Slice/dentatenet_Full_Scale_GC_Exc_Sat_SLN_extent_arena_margin_2020107_compressed.h5 \
+    --target-features-path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
     --target-features-namespace 'Place Selectivity' \
     --spike-events-path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h5" \
     --spike-events-namespace 'Input Spikes' \
@@ -59,7 +59,7 @@ mpirun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_IN_Izh
     --config-prefix config  --opt-iter 2000  --opt-epsilon 1 \
     --param-config-name "$2" \
     --arena-id A --trajectory-id Diag --use-coreneuron  \
-    --target-features-path $SCRATCH/striped/dentate/Slice/dentatenet_Full_Scale_GC_Exc_Sat_SLN_extent_arena_margin_2020107_compressed.h5 \
+    --target-features-path $SCRATCH/striped/dentate/Slice/dentatenet_Full_Scale_GC_Exc_Sat_SLN_extent_arena_margin_20201223_compressed.h5 \
     --target-features-namespace 'Place Selectivity' \
     selectivity_rate
 fi

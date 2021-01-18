@@ -17,7 +17,6 @@ from dentate.env import Env
 from dentate.utils import read_from_yaml, write_to_yaml, list_find, viewitems, get_module_logger, config_logging
 from dentate.optimization import (SynParam, syn_param_from_dict, optimization_params, 
                                   update_network_params, rate_maps_from_features, network_features)
-from dmosopt import sampling
 
 ParamSpec = namedtuple("ParamSpec", ['param_names',  'param_tuples', ])
 
@@ -157,6 +156,7 @@ def main(config_path, params_id, n_samples, target_features_path, target_feature
 
 
 def generate_param_lattice(config_path, n_samples, output_file_dir, output_file_name, maxiter=5, verbose=False):
+    from dmosopt import sampling
 
     logger = utils.get_script_logger(os.path.basename(__file__))
 
