@@ -1311,6 +1311,7 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
             h.tstop = tstop
         else:
             h.tstop = env.simtime.tstop
+        env.pc.timeout(60.)
         env.pc.psolve(h.tstop)
         if env.use_coreneuron:
             h.t = h.tstop
