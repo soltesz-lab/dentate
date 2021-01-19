@@ -39,7 +39,7 @@ Synaptic Optimization:
             AMPA:
               weight:
                 a: [1.0, 10.0]
-        MC:
+        !!python/tuple [MC, ConMC]:
           apical:
             AMPA:
               weight: 
@@ -71,7 +71,7 @@ Synaptic Optimization:
             AMPA:
               weight:
                 a: [7.0, 10.0]
-        MC:
+        !!python/tuple [MC, ConMC]:
           apical:
             AMPA:
               weight:
@@ -165,7 +165,7 @@ Synaptic Optimization:
           apical:
             AMPA:
               weight:
-                a: [1.0, 10.0]
+                a: [1.0, 20.0]
         !!python/tuple [MC, ConMC]:
           apical:
             AMPA:
@@ -209,17 +209,12 @@ Synaptic Optimization:
           apical:
             AMPA:
               weight:
-                a: [1.0, 10.0]
-        MC:
-          apical:
-            AMPA:
-              weight: 
-                a: [0.1, 2.0]
+                a: [1.0, 20.0]
         !!python/tuple [MC, ConMC]:
           apical:
             AMPA:
               weight: 
-                a: [0.1, 2.0]
+                a: [1.0, 5.0]
         BC:
           apical:
             GABA_A:
@@ -230,25 +225,25 @@ Synaptic Optimization:
         AAC:
           ais:
             GABA_A:
-              weight: [0.1, 1.0]
+              weight: [0.01, 1.0]
         HCC:
           apical:
             GABA_A:
-              weight: [0.1, 1.0]
+              weight: [0.01, 1.0]
         HC:
           apical:
             GABA_A:
-              weight: [0.1, 1.0]
+              weight: [0.01, 1.0]
         NGFC:
           apical:
             GABA_A:
-              weight: [0.1, 1.0]
+              weight: [0.01, 1.0]
             GABA_B:
-              weight: [0.1, 1.0]
+              weight: [0.01, 1.0]
         MOPP:
           apical:
             GABA_A:
-              weight: [0.1, 1.0]
+              weight: [0.01, 1.0]
     Targets:
       state:
         v:
@@ -774,11 +769,11 @@ Synaptic Optimization:
               weight: [0.005, 0.1]
       Weight exc inh microcircuit:
         !!python/tuple [MPP, LPP, MC]:
-          !!python/tuple [basal, apical]:
+          !!python/tuple [soma, basal, apical]:
             AMPA:
               weight: [0.1, 2.0]
         !!python/tuple [HC, HCC, MOPP, NGFC]:
-          !!python/tuple [apical, basal]:
+          !!python/tuple [apical, basal, soma]:
             GABA_A:
               weight: [0.005, 1.0]
         NGFC:
@@ -787,7 +782,7 @@ Synaptic Optimization:
               weight: [0.005, 1.0]
       Weight inh microcircuit:
         !!python/tuple [HC, HCC, MOPP, NGFC]:
-          !!python/tuple [apical, basal]:
+          !!python/tuple [apical, basal, soma]:
             GABA_A:
               weight: [0.005, 1.0]
         NGFC:

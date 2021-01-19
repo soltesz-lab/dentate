@@ -2,10 +2,10 @@
 #
 #SBATCH -J dentate_Test_GC_slice_neg50_pos50um
 #SBATCH -o ./results/dentate_Test_GC_slice_neg50_pos50um.%j.o
-#SBATCH --nodes=5
+#SBATCH --nodes=15
 #SBATCH --ntasks-per-node=56
 #SBATCH -p normal
-#SBATCH -t 2:00:00
+#SBATCH -t 1:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #

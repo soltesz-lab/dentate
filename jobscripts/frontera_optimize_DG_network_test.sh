@@ -1,12 +1,12 @@
 #!/bin/bash
 
-#SBATCH -J optimize_DG_network # Job name
-#SBATCH -o ./results/optimize_DG_network.o%j       # Name of stdout output file
-#SBATCH -e ./results/optimize_DG_network.e%j       # Name of stderr error file
+#SBATCH -J optimize_DG_network_test # Job name
+#SBATCH -o ./results/optimize_DG_network_test.o%j       # Name of stdout output file
+#SBATCH -e ./results/optimize_DG_network_test.e%j       # Name of stderr error file
 #SBATCH -p normal      # Queue (partition) name
-#SBATCH -N 184             # Total # of nodes 
+#SBATCH -N 40             # Total # of nodes 
 #SBATCH --ntasks-per-node=56 # # of mpi tasks per node
-#SBATCH -t 12:00:00        # Run time (hh:mm:ss)
+#SBATCH -t 2:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
@@ -48,7 +48,7 @@ cd $HOME/model/dentate
 
 export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=off
 
-mpirun -rr -n 15 \
+mpirun -rr -n 9 \
     python3 optimize_network.py \
     --config-path=$DG_HOME/config/DG_optimize_network_test.yaml \
     --optimize-file-dir=$results_path \
@@ -69,7 +69,7 @@ mpirun -rr -n 15 \
     --spike_input_path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h5" \
     --spike_input_namespace='Input Spikes A Diag' \
     --spike_input_attr='Spike Train' \
-    --max_walltime_hours=12.0 \
+    --max_walltime_hours=2.0 \
     --io_size=8 \
     --microcircuit_inputs \
     --verbose

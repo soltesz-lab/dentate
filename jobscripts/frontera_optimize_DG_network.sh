@@ -4,9 +4,9 @@
 #SBATCH -o ./results/optimize_DG_network.o%j       # Name of stdout output file
 #SBATCH -e ./results/optimize_DG_network.e%j       # Name of stderr error file
 #SBATCH -p normal      # Queue (partition) name
-#SBATCH -N 184             # Total # of nodes 
+#SBATCH -N 406             # Total # of nodes 
 #SBATCH --ntasks-per-node=56 # # of mpi tasks per node
-#SBATCH -t 18:00:00        # Run time (hh:mm:ss)
+#SBATCH -t 24:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
@@ -46,15 +46,15 @@ cd $SLURM_SUBMIT_DIR
 
 export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=off
 
-mpirun -rr -n 37 \
+mpirun -rr -n 46 \
     python3 optimize_network.py \
     --config-path=$DG_HOME/config/DG_optimize_network.yaml \
     --optimize-file-dir=$results_path \
-    --optimize-file-name='dmosopt.optimize_network_20210114.h5' \
+    --optimize-file-name='dmosopt.optimize_network_20210118.h5' \
     --target-features-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
     --target-features-namespace="Place Selectivity" \
     --verbose \
-    --nprocs-per-worker=280 \
+    --nprocs-per-worker=504 \
     --n-iter=5 \
     --num-generations=100 \
     --no_cleanup \
@@ -66,7 +66,7 @@ mpirun -rr -n 37 \
     --spike_input_path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h5" \
     --spike_input_namespace='Input Spikes A Diag' \
     --spike_input_attr='Spike Train' \
-    --max_walltime_hours=12.0 \
+    --max_walltime_hours=24.0 \
     --io_size=8 \
     --microcircuit_inputs \
     --verbose
