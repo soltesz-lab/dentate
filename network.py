@@ -219,9 +219,10 @@ def connect_cells(env):
             last_time = time.time()
             
             if env.microcircuit_inputs:
-                presyn_input_sources = env.microcircuit_input_sources[presyn_name]
+                presyn_input_sources = env.microcircuit_input_sources.get(presyn_name, set([]))
                 syn_edge_iter = compose_iter(lambda edgeset: presyn_input_sources.update(edgeset[1][0]), \
                                              edge_iter)
+                env.microcircuit_input_sources[presyn_name] = presyn_input_sources
             else:
                 syn_edge_iter = edge_iter
 
@@ -456,11 +457,11 @@ def connect_cell_selection(env):
 
                 edge_iter = graph[postsyn_name][presyn_name]
                 
-                presyn_input_sources = env.microcircuit_input_sources[presyn_name]
-                syn_edge_iter = compose_iter(lambda edgeset: presyn_input_sources.update(edgeset[1][0]), \
+                presyn_input_sources = env.microcircuit_input_sources.get(presyn_name, set([]))
+                syn_edge_iter = compose_iter(lambda edgeset: presyn_input_sources.update(edgeset[1][0]),
                                              edge_iter)
                 syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, syn_edge_iter)
-
+                env.microcircuit_input_sources[presyn_name] = presyn_input_sources
                 del graph[postsyn_name][presyn_name]
 
 
@@ -1070,7 +1071,7 @@ def init_input_cells(env):
 
     if env.microcircuit_inputs:
 
-        for pop_name in pop_names:
+        for pop_name in sorted(viewkeys(env.microcircuit_input_sources)):
 
             gid_range = env.microcircuit_input_sources.get(pop_name, set([]))
 
@@ -1100,8 +1101,9 @@ def init_input_cells(env):
                 vecstim_attr_set = set(['t', trial_index_attr, trial_dur_attr])
                 if env.spike_input_attr is not None:
                     vecstim_attr_set.add(env.spike_input_attr)
-                if 'spike train' in env.celltypes[pop_name]:
-                    vecstim_attr_set.add(env.celltypes[pop_name]['spike train']['attribute'])
+                if pop_name in env.celltypes:
+                    if 'spike train' in env.celltypes[pop_name]:
+                        vecstim_attr_set.add(env.celltypes[pop_name]['spike train']['attribute'])
                     
                 cell_spikes_items = []
                 for (input_path, input_ns) in spike_input_source_loc:
@@ -1323,7 +1325,7 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
             env.last_checkpoint = h.t
         if output_syn_spike_count:
             for pop_name in sorted(viewkeys(env.biophys_cells)):
-                presyn_names = sorted(viewkeys(env.projection_dict[pop_name]))
+                presyn_names = sorted(env.projection_dict[pop_name])
                 synapses.write_syn_spike_count(env, pop_name, env.results_file_path,
                                                filters={'sources': presyn_names},
                                                write_kwds={'io_size': env.io_size})
