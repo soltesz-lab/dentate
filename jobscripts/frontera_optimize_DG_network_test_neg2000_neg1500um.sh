@@ -47,7 +47,7 @@ export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=off
 
 mpirun -rr -n 3 \
     python3 optimize_network.py \
-    --config-path=$DG_HOME/config/DG_optimize_network_neg2000_neg1500um.yaml \
+    --config-path=$DG_HOME/config/DG_optimize_network_test_neg2000_neg1500um.yaml \
     --optimize-file-dir=$results_path \
     --optimize-file-name='dmosopt.optimize_network_test_neg2000_neg1500um_20210119.h5' \
     --target-features-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
