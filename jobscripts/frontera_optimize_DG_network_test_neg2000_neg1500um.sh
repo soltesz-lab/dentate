@@ -1,12 +1,12 @@
 #!/bin/bash
 
-#SBATCH -J optimize_DG_network # Job name
-#SBATCH -o ./results/optimize_DG_network.o%j       # Name of stdout output file
-#SBATCH -e ./results/optimize_DG_network.e%j       # Name of stderr error file
+#SBATCH -J optimize_DG_network_neg2000_neg1500um # Job name
+#SBATCH -o ./results/optimize_DG_network_neg2000_neg1500um.o%j       # Name of stdout output file
+#SBATCH -e ./results/optimize_DG_network_neg2000_neg1500um.e%j       # Name of stderr error file
 #SBATCH -p normal      # Queue (partition) name
-#SBATCH -N 406             # Total # of nodes 
+#SBATCH -N 40             # Total # of nodes 
 #SBATCH --ntasks-per-node=56 # # of mpi tasks per node
-#SBATCH -t 24:00:00        # Run time (hh:mm:ss)
+#SBATCH -t 2:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
@@ -33,7 +33,7 @@ export I_MPI_ADJUST_ALLREDUCE=4
 
 export I_MPI_HYDRA_TOPOLIB=ipl
 
-results_path=$SCRATCH/dentate/results/optimize_DG_network
+results_path=$SCRATCH/dentate/results/optimize_DG_network_neg2000_neg1500um
 export results_path
 
 mkdir -p $results_path
@@ -45,16 +45,16 @@ cd $SLURM_SUBMIT_DIR
 
 export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=off
 
-mpirun -rr -n 46 \
+mpirun -rr -n 3 \
     python3 optimize_network.py \
-    --config-path=$DG_HOME/config/DG_optimize_network.yaml \
+    --config-path=$DG_HOME/config/DG_optimize_network_neg2000_neg1500um.yaml \
     --optimize-file-dir=$results_path \
-    --optimize-file-name='dmosopt.optimize_network_20210118.h5' \
+    --optimize-file-name='dmosopt.optimize_network_test_neg2000_neg1500um_20210119.h5' \
     --target-features-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
     --target-features-namespace="Place Selectivity" \
     --verbose \
-    --nprocs-per-worker=504 \
-    --n-iter=5 \
+    --nprocs-per-worker=1092 \
+    --n-iter=1 \
     --num-generations=100 \
     --no_cleanup \
     --arena_id=A --trajectory_id=Diag \

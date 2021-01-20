@@ -20,7 +20,6 @@ export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/inte
 export PATH=$NEURONROOT/x86_64/bin:$PATH
 export MODEL_HOME=$HOME/model
 export DG_HOME=$MODEL_HOME/dentate
-export LD_PRELOAD=$MKLROOT/lib/intel64_lin/libmkl_core.so:$MKLROOT/lib/intel64_lin/libmkl_sequential.so
 
 #export I_MPI_EXTRA_FILESYSTEM=enable
 #export I_MPI_ADJUST_ALLGATHER=4
