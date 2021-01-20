@@ -23,8 +23,8 @@ cd $SLURM_SUBMIT_DIR
 export DATA_PREFIX=$SCRATCH/striped/dentate
 
 ibrun -n 8 python3 ./scripts/generate_structured_weights_as_cell_attr.py \
-    -d GC -s MPP -s LPP -n MC \
-    --config=./config/Network_Clamp_GC_Exc_Sat_SLN_extent.yaml \
+    -d GC -s MPP -s LPP -n MC -n ConMC \
+    --config=./config/Network_Clamp_GC_Exc_Sat_SLN_IN_Izh_extent.yaml \
     --output-weights-namespace='Structured Weights' \
     --h5types-path=$DATA_PREFIX/Full_Scale_Control/dentate_h5types.h5 \
     --initial-weights-namespace="Log-Normal Weights" \
