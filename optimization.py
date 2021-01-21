@@ -169,7 +169,10 @@ def rate_maps_from_features (env, pop_name, input_features_path, input_features_
     arena_x, arena_y = stimulus.get_2D_arena_spatial_mesh(arena=arena, spatial_resolution=spatial_resolution)
     
     trajectory = arena.trajectories[trajectory_id]
-    t, x, y, d = stimulus.generate_linear_trajectory(trajectory, temporal_resolution=temporal_resolution)
+    equilibration_duration = float(env.stimulus_config.get('Equilibration Duration', 0.))
+
+    t, x, y, d = stimulus.generate_linear_trajectory(trajectory, temporal_resolution=temporal_resolution,
+                                                     equlibration_duration=equilibration_duration)
     if time_range is not None:
         t_range_inds = np.where((t < time_range[1]) & (t >= time_range[0]))[0] 
         t = t[t_range_inds]
