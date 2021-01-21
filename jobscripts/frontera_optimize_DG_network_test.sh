@@ -33,6 +33,7 @@ export I_MPI_ADJUST_ALLTOALLV=2
 export I_MPI_ADJUST_ALLREDUCE=6
 
 export I_MPI_HYDRA_TOPOLIB=ipl
+export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=off
 
 results_path=$SCRATCH/dentate/results/optimize_DG_network
 export results_path
@@ -45,18 +46,17 @@ mkdir -p $results_path
 #cd $SLURM_SUBMIT_DIR
 cd $HOME/model/dentate
 
-export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=off
 
-mpirun -rr -n 9 \
+mpirun -rr -n 4 \
     python3 optimize_network.py \
     --config-path=$DG_HOME/config/DG_optimize_network_test.yaml \
     --optimize-file-dir=$results_path \
-    --optimize-file-name='dmosopt.optimize_network_test_20201227.h5' \
+    --optimize-file-name='dmosopt.optimize_network_test_20210120.h5' \
     --target-features-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
     --target-features-namespace="Place Selectivity" \
     --verbose \
     --collective-mode="gather" \
-    --nprocs-per-worker=154 \
+    --nprocs-per-worker=560 \
     --n-iter=3 \
     --num-generations=10 \
     --no_cleanup \

@@ -1054,9 +1054,9 @@ def init_input_cells(env):
                     cell = env.artificial_cells[pop_name][gid]
 
                     spiketrain = vecstim_tuple[vecstim_attr_index]
-                    if trial_index_attr_index is None:
-                        trial_index = None
-                    else:
+                    trial_index = None
+                    trial_duration = None
+                    if trial_index_attr_index is not None:
                         trial_index = vecstim_tuple[trial_index_attr_index]
                         trial_duration = vecstim_tuple[trial_dur_attr_index]
                     if len(spiketrain) > 0:
