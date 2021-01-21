@@ -10,7 +10,6 @@
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
-module load intel/18.0.5
 module load python3
 module load phdf5
 
@@ -54,7 +53,7 @@ mpirun -rr -n 19 \
     --target-features-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
     --target-features-namespace="Place Selectivity" \
     --verbose \
-    --nprocs-per-worker=1568 \
+    --nprocs-per-worker=1567 \
     --n-iter=5 \
     --num-generations=100 \
     --no_cleanup \
