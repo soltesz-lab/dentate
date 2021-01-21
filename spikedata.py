@@ -71,7 +71,7 @@ def get_env_spike_dict(env, include_artificial=True):
 
 
 def read_spike_events(input_file, population_names, namespace_id, spike_train_attr_name='t', time_range=None,
-                      max_spikes=None, n_trials=-1, merge_trials=False, comm=None, include_artificial=True):
+                      max_spikes=None, n_trials=-1, merge_trials=False, comm=None, io_size=-1, include_artificial=True):
     """
     Reads spike trains from a NeuroH5 file, and returns a dictionary with spike times and cell indices.
     :param input_file: str (path to file)
@@ -108,10 +108,9 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
             logger.info('Reading spike data for population %s in time range %s...' % (pop_name, str(time_range)))
 
         spike_train_attr_set = set([spike_train_attr_name, trial_index_attr, trial_dur_attr, artificial_attr])
-        spkiter = read_cell_attributes(input_file, pop_name, namespace=namespace_id, 
-                                       mask=spike_train_attr_set)
-        if comm is not None:
-            comm.barrier()
+        spkiter_dict = scatter_read_cell_attributes(input_file, pop_name, namespaces=[namespace_id], 
+                                                    mask=spike_train_attr_set, comm=comm, io_size=io_size)
+        spkiter = spkiter_dict[namespace_id]
         
         this_num_cell_spks = 0
         active_set = set([])
@@ -231,7 +230,8 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
 
         logger.info(' Read %i spikes and %i trials for population %s' % (this_num_cell_spks, n_trials, pop_name))
 
-    return {'spkpoplst': spkpoplst, 'spktlst': spktlst, 'spkindlst': spkindlst, 'tmin': tmin, 'tmax': tmax,
+    return {'spkpoplst': spkpoplst, 'spktlst': spktlst, 'spkindlst': spkindlst,
+            'tmin': tmin, 'tmax': tmax,
             'pop_active_cells': pop_active_cells, 'num_cell_spks': num_cell_spks,
             'n_trials': n_trials}
 

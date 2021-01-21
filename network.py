@@ -646,8 +646,11 @@ def make_cells(env):
         if rank == 0:
             logger.info("*** Creating population %s" % pop_name)
             
-
-        template_name = env.celltypes[pop_name]['template']
+        
+        template_name = env.celltypes[pop_name].get('template', None)
+        if template_name is None:
+            continue
+        
         template_name_lower = template_name.lower()
         if template_name_lower != 'izhikevich' and template_name_lower != 'vecstim':    
             load_cell_template(env, pop_name, bcast_template=True)
@@ -964,6 +967,15 @@ def make_input_cell_selection(env):
         for gid in this_gidset:
             env.node_allocation.add(gid)
 
+def merge_spiketrain_trials(spiketrain, trial_index, trial_duration, n_trials):
+    if trial_index is not None:
+        trial_spiketrains = []
+        for trial_i in range(n_trials):
+            trial_spiketrain_i = spiketrain[np.where(trial_index == trial_i)[0]]
+            trial_spiketrain_i += np.sum(trial_duration[:trial_i])
+            trial_spiketrains.append(trial_spiketrain_i)
+            spiketrain = np.concatenate(trial_spiketrains)
+    return np.sort(spiketrain)
 
 def init_input_cells(env):
     """
@@ -1039,6 +1051,8 @@ def init_input_cells(env):
                     if not (env.pc.gid_exists(gid)):
                         continue
 
+                    cell = env.artificial_cells[pop_name][gid]
+
                     spiketrain = vecstim_tuple[vecstim_attr_index]
                     if trial_index_attr_index is None:
                         trial_index = None
@@ -1046,26 +1060,13 @@ def init_input_cells(env):
                         trial_index = vecstim_tuple[trial_index_attr_index]
                         trial_duration = vecstim_tuple[trial_dur_attr_index]
                     if len(spiketrain) > 0:
-                        if trial_index is not None:
-                            trial_spiketrains = []
-                            for trial_i in range(env.n_trials):
-                                trial_spiketrain_i = spiketrain[np.where(trial_index == trial_i)[0]]
-                                trial_spiketrain_i += trial_duration*float(trial_i)
-                                trial_spiketrains.append(trial_spiketrain_i)
-                            spiketrain = np.concatenate(trial_spiketrains)
-                        spiketrain += float(env.stimulus_config['Equilibration Duration'])
+                        spiketrain = merge_spiketrain_trials(spiketrain, trial_index, trial_duration, env.n_trials)
+                        spiketrain += float(env.stimulus_config['Equilibration Duration']) + env.stimulus_onset
                         if len(spiketrain) > 0:
+                            cell.play(h.Vector(spiketrain))
                             logger.info("*** Spike train for %s gid %i is of length %i (%g : %g ms)" %
                                         (pop_name, gid, len(spiketrain), spiketrain[0], spiketrain[-1]))
-                    else:
-                        if len(spiketrain > 0):
-                            logger.info("*** Spike train for %s gid %i is of length %i" %
-                                        (pop_name, gid, len(spiketrain)))
 
-                    spiketrain += env.stimulus_onset
-                    cell = env.artificial_cells[pop_name][gid]
-                    if len(spiketrain) > 0:
-                        cell.play(h.Vector(spiketrain))
 
     gc.collect()
 
@@ -1118,8 +1119,6 @@ def init_input_cells(env):
                     trial_dur_attr_index = cell_spikes_attr_info.get(trial_dur_attr, None)
                     if (env.spike_input_attr is not None) and (env.spike_input_attr in cell_spikes_attr_info):
                         spike_train_attr_index = cell_spikes_attr_info.get(env.spike_input_attr, None)
-                    elif vecstim_attr in viewkeys(cell_spikes_attr_info):
-                        spike_train_attr_index = cell_spikes_attr_info.get(vecstim_attr, None)
                     elif 't' in viewkeys(cell_spikes_attr_info):
                         spike_train_attr_index = cell_spikes_attr_info.get('t', None)
                     elif 'Spike Train' in viewkeys(cell_spikes_attr_info):
@@ -1135,21 +1134,20 @@ def init_input_cells(env):
                         input_cell = env.artificial_cells[pop_name][gid]
 
                         spiketrain = cell_spikes_tuple[spike_train_attr_index]
-                        
+                        if trial_index_attr_index is None:
+                            trial_index = None
+                        else:
+                            trial_index = cell_spikes_tuple[trial_index_attr_index]
+                            trial_duration = cell_spikes_tuple[trial_dur_attr_index]
+
                         if len(spiketrain) > 0:
-                            spiketrain = np.sort(spiketrain)
-                            if np.min(spiketrain) < 0.:
-                                spiketrain += float(env.stimulus_config['Equilibration Duration'])
+                            spiketrain = merge_spiketrain_trials(spiketrain, trial_index, trial_duration, env.n_trials)
+                            spiketrain += float(env.stimulus_config['Equilibration Duration']) + env.stimulus_onset
 
                             input_cell.play(h.Vector(spiketrain))
                             if len(spiketrain) > 0:
                                 logger.info("*** Spike train for %s input source gid %i is of length %i (%g : %g ms)" %
                                             (pop_name, gid, len(spiketrain), spiketrain[0], spiketrain[-1]))
-                        else:
-                            if len(spiketrain) > 0:
-                                logger.info("*** Spike train for %s input source gid %i is of length %i" %
-                                            (pop_name, gid, len(spiketrain)))
-                            continue
 
             else:
                 if rank == 0:
@@ -1246,7 +1244,9 @@ def init(env):
         logger.info("*** Stimuli created in %g seconds" % env.mkstimtime)
     setup_time = env.mkcellstime + env.mkstimtime + env.connectcellstime + env.connectgjstime + lfp_time
     max_setup_time = env.pc.allreduce(setup_time, 2)  ## maximum value
-    env.simtime = simtime.SimTimeEvent(env.pc, env.tstop, env.max_walltime_hours, env.results_write_time, max_setup_time)
+    equilibration_duration = float(env.stimulus_config.get('Equilibration Duration', 0.))
+    tstop = (env.tstop + equilibration_duration)*float(env.n_trials)
+    env.simtime = simtime.SimTimeEvent(env.pc, tstop, env.max_walltime_hours, env.results_write_time, max_setup_time)
     h.v_init = env.v_init
     h.stdinit()
     if env.optldbal or env.optlptbal:
@@ -1299,18 +1299,23 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
     if rank == 0:
         logger.info("*** Completed finitialize")
 
-    if env.checkpoint_interval is not None:
-        tsegments = np.concatenate((np.arange(0, env.tstop, env.checkpoint_interval)[1:], np.asarray([env.tstop])))
-    else:
-        tsegments = np.asarray([0., env.tstop])
+    equilibration_duration = float(env.stimulus_config.get('Equilibration Duration', 0.))
+    tstop = (env.tstop + equilibration_duration)*float(env.n_trials)
 
-    for tstop in tsegments:
+    if (env.checkpoint_interval is not None):
+        tsegments = np.concatenate((np.arange(0, tstop, env.checkpoint_interval)[1:], np.asarray([tstop])))
+    else:
+        tsegments = np.asarray([tstop])
+
+    for tstop_i in tsegments:
         if (h.t+env.dt) > env.simtime.tstop:
             break
-        elif tstop < env.simtime.tstop:
-            h.tstop = tstop
+        elif tstop_i < env.simtime.tstop:
+            h.tstop = tstop_i
         else:
             h.tstop = env.simtime.tstop
+        if rank == 0:
+            logger.info("*** Running simulation up to %.2f ms" % h.tstop)
         env.pc.timeout(60.)
         env.pc.psolve(h.tstop)
         if env.use_coreneuron:
@@ -1324,12 +1329,12 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
                     logger.info("*** Writing intracellular data up to %.2f ms" % h.t)
                 io_utils.recsout(env, env.results_file_path, t_start=env.last_checkpoint, clear_data=env.checkpoint_clear_data)
             env.last_checkpoint = h.t
-        if output_syn_spike_count:
-            for pop_name in sorted(viewkeys(env.biophys_cells)):
-                presyn_names = sorted(env.projection_dict[pop_name])
-                synapses.write_syn_spike_count(env, pop_name, env.results_file_path,
-                                               filters={'sources': presyn_names},
-                                               write_kwds={'io_size': env.io_size})
+    if output_syn_spike_count:
+       for pop_name in sorted(viewkeys(env.biophys_cells)):
+           presyn_names = sorted(env.projection_dict[pop_name])
+           synapses.write_syn_spike_count(env, pop_name, env.results_file_path,
+                                          filters={'sources': presyn_names},
+                                          write_kwds={'io_size': env.io_size})
             
     if rank == 0:
         logger.info("*** Simulation completed")

@@ -227,16 +227,18 @@ def init_inputs_from_spikes(env, presyn_sources, time_range,
     """Initializes presynaptic spike sources from a file with spikes times."""
     populations = sorted(presyn_sources.keys())
     
-    equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
-
+    equilibration_duration = float(env.stimulus_config.get('Equilibration Duration', 0.))
+    if time_range is not None:
+        spkdata_time_range = (time_range[0] - equilibration_duration, time_range[1])
+    
     this_spike_events_namespace = '%s %s %s' % (spike_events_namespace, arena_id, trajectory_id)
     ## Load spike times of presynaptic cells
     spkdata = spikedata.read_spike_events(spike_events_path,
                                           populations,
                                           this_spike_events_namespace,
                                           spike_train_attr_name=spike_train_attr_name,
-                                          time_range=time_range, n_trials=n_trials,
-                                          merge_trials=True, comm=env.comm)
+                                          time_range=spkdata_time_range, n_trials=n_trials,
+                                          merge_trials=True, comm=env.comm, io_size=env.io_size)
 
     spkindlst = spkdata['spkindlst']
     spktlst = spkdata['spktlst']
@@ -686,7 +688,6 @@ def run_with(env, param_dict, cvode=False, pc_runworker=False):
     if 'Equilibration Duration' in env.stimulus_config:
         tstop += float(env.stimulus_config['Equilibration Duration'])
     h.tstop = float(env.n_trials) * tstop
-
 
     h.finitialize(env.v_init)
 

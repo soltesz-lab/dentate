@@ -764,7 +764,6 @@ class Env(object):
         rank = self.comm.Get_rank()
         size = self.comm.Get_size()
         celltypes = self.celltypes
-        typenames = sorted(celltypes.keys())
 
         if rank == 0:
             color = 1
@@ -779,21 +778,26 @@ class Env(object):
         self.cell_attribute_info = None
         population_ranges = None
         population_names = None
+        type_names = None
         if rank == 0:
             population_names = read_population_names(self.data_file_path, comm0)
             (population_ranges, _) = read_population_ranges(self.data_file_path, comm0)
+            type_names = sorted(population_ranges.keys())
             self.cell_attribute_info = read_cell_attribute_info(self.data_file_path, population_names, comm=comm0)
             self.logger.info('population_names = %s' % str(population_names))
             self.logger.info('population_ranges = %s' % str(population_ranges))
             self.logger.info('attribute info: %s' % str(self.cell_attribute_info))
         population_ranges = self.comm.bcast(population_ranges, root=0)
         population_names = self.comm.bcast(population_names, root=0)
+        type_names = self.comm.bcast(type_names, root=0)
         self.cell_attribute_info = self.comm.bcast(self.cell_attribute_info, root=0)
         comm0.Free()
 
-        for k in typenames:
+        for k in type_names:
             population_range = population_ranges.get(k, None)
             if population_range is not None:
+                if k not in celltypes:
+                    celltypes[k] = {}
                 celltypes[k]['start'] = population_ranges[k][0]
                 celltypes[k]['num'] = population_ranges[k][1]
                 if 'mechanism file' in celltypes[k]:
