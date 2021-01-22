@@ -15,7 +15,8 @@ from dentate import network, network_clamp, synapses, spikedata, stimulus, utils
 from dentate.env import Env
 from dentate.utils import read_from_yaml, write_to_yaml, list_find, viewitems, get_module_logger
 from dentate.optimization import (SynParam, OptConfig, syn_param_from_dict, optimization_params, 
-                                  update_network_params, rate_maps_from_features, network_features)
+                                  update_network_params, network_features)
+from dentate.stimulus import rate_maps_from_features
 from dmosopt import dmosopt
 
 logger = get_module_logger(__name__)

@@ -2392,9 +2392,10 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
     return fig
 
 
-def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid, include='eachPop',
-                       include_artificial=True, time_range=None, time_variable='t', intracellular_variable='v', labels='overlay',
-                       pop_rates=True, all_spike_hist=False, spike_hist_bin=5, lowpass_plot_type='overlay',
+def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid,
+                       target_input_features_path=None, target_input_features_namespace=None, config_file=None, config_prefix="config",
+                       include='eachPop', include_artificial=True, time_range=None, time_variable='t', intracellular_variable='v',
+                       labels='overlay', pop_rates=True, all_spike_hist=False, spike_hist_bin=5, lowpass_plot_type='overlay',
                        n_trials=-1, marker='.', **kwargs):
     """
     Raster plot of target cell intracellular trace + spike raster of presynaptic inputs. Returns the figure handle.
@@ -2402,6 +2403,9 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
     input_path: file with spike data
     spike_namespace: attribute namespace for spike events
     intracellular_namespace: attribute namespace for intracellular trace
+    target_input_features_path: optional file with input features
+    target_input_features_namespaces: optional attribute namespace for input features
+    config_path: path to network configuration file; required when target_input_features_path is given
     time_range ([start:stop]): Time range of spikes shown; if None shows all (default: None)
     time_variable: Name of variable containing spike times (default: 't')
     labels = ('legend', 'overlay'): Show population labels in a legend or overlayed on one side of raster (default: 'legend')
@@ -2440,17 +2444,24 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
                 break
 
     include = list(include)
+    
     # Replace 'eachPop' with list of populations
     if 'eachPop' in include:
         include.remove('eachPop')
         for pop in population_names:
             include.append(pop)
 
+    spk_include = include
+    if state_pop_name not in spk_include:
+        spk_include.append(state_pop_name)
+
     # sort according to start index
     include.sort(key=lambda x: pop_start_inds[x])
     include.reverse()
 
-    spkdata = spikedata.read_spike_events(input_path, include, spike_namespace, \
+    print(f"spk_include = {spk_include}")
+    sys.stdout.flush()
+    spkdata = spikedata.read_spike_events(input_path, spk_include, spike_namespace, \
                                           spike_train_attr_name=time_variable, time_range=time_range,
                                           n_trials=n_trials, include_artificial=include_artificial )
     logger.info('plot_network_clamp: reading recorded intracellular variable %s for gid %d' % \
@@ -2474,6 +2485,21 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
     if time_range[0] == time_range[1] or time_range[0] == float('inf') or time_range[1] == float('inf'):
         raise RuntimeError('plot_network_clamp: invalid time_range: %s' % time_range)
 
+    target_rate = None
+    target_rate_time = None
+    if (target_input_features_path is not None) and (target_input_features_namespaces is not None):
+        if config_path is None:
+            raise RuntimeError("plot_network_clamp: config_file must be provided with target_input_features_path.") 
+        env = Env(config_file=config_file, config_prefix=config_prefix)
+        target_trj_rate_maps = rate_maps_from_features(env, state_pop_name,
+                                                       target_input_features_path, 
+                                                       target_input_features_namespace,
+                                                       cell_index_set=list(gid),
+                                                       time_range=time_range,
+                                                       include_time=True)
+        target_rate_time, target_rate = target_trj_rate_maps[gid]
+
+    
 
     maxN = 0
     minN = N
@@ -2609,18 +2635,24 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
                 lgd_label = "mean firing rate: %.3g Hz" % sprate
                 at = AnchoredText(lgd_label, loc='upper right', borderpad=0.01, prop=dict(size=fig_options.fontSize))
                 ax2.add_artist(at)
-            
+
+    if target_rate is not None:
+        ax2.fill_between(target_rate_time, 0, target_rate, alpha=0.5)
+                
     # Plot intracellular state
     ax3 = axes[len(spkpoplst)+1]
     ax3.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
     ax3.set_ylabel(intracellular_variable, fontsize=fig_options.fontSize)
     ax3.set_xlim(time_range)
+    if target_rate is not None:
+        ax3.fill_between(target_rate_time, 0, target_rate, alpha=0.5)
 
     # Plot lowpass-filtered intracellular state if lowpass_plot_type is set to subplot
     if lowpass_plot_type == 'subplot':
         ax4 = axes[len(spkpoplst)+2]
     else:
         ax4 = None
+
 
     states = indata['states']
     stvplots = []
@@ -2632,14 +2664,6 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
             st_ys = [ y[:st_len] for y in cell_states[1] ]
             filtered_st_ys = [get_low_pass_filtered_trace(st_y, st_x)
                               for st_x, st_y in zip(st_xs, st_ys)]
-            """
-            pch = interpolate.pchip(st_x, st_y)
-            res_npts = int((st_x.max() - st_x.min())) * 10
-            st_x_res = np.linspace(st_x.min(), st_x.max(), res_npts, endpoint=True)
-            st_y_res = pch(st_x_res)
-            stvplots.append(ax3.plot(st_x_res, st_y_res, linewidth=fig_options.lw, marker=marker, alpha=0.5, 
-                label=pop_name))
-            """
             st_x = st_xs[0]
             filtered_st_y = np.mean(filtered_st_ys, axis=0)
 
