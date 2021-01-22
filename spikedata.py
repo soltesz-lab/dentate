@@ -71,7 +71,7 @@ def get_env_spike_dict(env, include_artificial=True):
 
 
 def read_spike_events(input_file, population_names, namespace_id, spike_train_attr_name='t', time_range=None,
-                      max_spikes=None, n_trials=-1, merge_trials=False, comm=None, io_size=-1, include_artificial=True):
+                      max_spikes=None, n_trials=-1, merge_trials=False, comm=None, io_size=0, include_artificial=True):
     """
     Reads spike trains from a NeuroH5 file, and returns a dictionary with spike times and cell indices.
     :param input_file: str (path to file)
