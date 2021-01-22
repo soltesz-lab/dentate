@@ -13,7 +13,7 @@ from collections import defaultdict, namedtuple
 import dentate
 from dentate import network, network_clamp, synapses, spikedata, stimulus, utils, optimization
 from dentate.env import Env
-from dentate.utils import read_from_yaml, list_find, viewitems, get_module_logger
+from dentate.utils import read_from_yaml, write_to_yaml, list_find, viewitems, get_module_logger
 from dentate.optimization import (SynParam, OptConfig, syn_param_from_dict, optimization_params, 
                                   update_network_params, rate_maps_from_features, network_features)
 from dmosopt import dmosopt
@@ -141,6 +141,26 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
                        nprocs_per_worker=nprocs_per_worker,
                        collective_mode=collective_mode,
                        verbose=True, worker_debug=True)
+    
+    if best is not None:
+        if optimize_file_dir is not None:
+            results_file_id = 'DG_optimize_network_%s' % run_ts
+            file_path = '%s/optimize_network.%s.yaml' % (optimize_file_dir, str(results_file_id))
+            prms = best[0]
+            results_config_dict = {}
+            for i, prm in enumerate(prms):
+                prm_dict = dict(prm)
+                result_param_tuples = []
+                for param_pattern, param_tuple in zip(param_names, param_tuples):
+                    result_param_tuples.append((param_tuple.population,
+                                                param_tuple.source,
+                                                param_tuple.sec_type,
+                                                param_tuple.syn_name,
+                                                param_tuple.param_name,
+                                                prm_dict[param_pattern]))
+                    
+                results_config_dict[i] = result_param_tuples
+            write_to_yaml(file_path, results_config_dict)
 
 
 def init_network_objfun(operational_config, opt_targets, param_names, param_tuples, worker, **kwargs):
