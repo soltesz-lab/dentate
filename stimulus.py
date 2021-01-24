@@ -2,7 +2,7 @@ import os, sys, gc, copy, time
 import numpy as np
 from collections import defaultdict, ChainMap
 from mpi4py import MPI
-from dentate.utils import get_module_logger, object, range, str, Struct, gauss2d
+from dentate.utils import get_module_logger, object, range, str, Struct, gauss2d, viewitems
 from dentate.stgen import get_inhom_poisson_spike_times_by_thinning
 from neuroh5.io import read_cell_attributes, append_cell_attributes, NeuroH5CellAttrGen, scatter_read_cell_attribute_selection
 import h5py

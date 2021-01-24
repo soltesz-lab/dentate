@@ -2393,7 +2393,9 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
 
 
 def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid,
-                       target_input_features_path=None, target_input_features_namespace=None, config_file=None, config_prefix="config",
+                       target_input_features_path=None, target_input_features_namespace=None,
+                       target_input_features_arena_id=None, target_input_features_trajectory_id=None,
+                       config_file=None, config_prefix="config",
                        include='eachPop', include_artificial=True, time_range=None, time_variable='t', intracellular_variable='v',
                        labels='overlay', pop_rates=True, all_spike_hist=False, spike_hist_bin=5, lowpass_plot_type='overlay',
                        n_trials=-1, marker='.', **kwargs):
@@ -2487,14 +2489,16 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
 
     target_rate = None
     target_rate_time = None
-    if (target_input_features_path is not None) and (target_input_features_namespaces is not None):
-        if config_path is None:
+    if (target_input_features_path is not None) and (target_input_features_namespace is not None):
+        if config_file is None:
             raise RuntimeError("plot_network_clamp: config_file must be provided with target_input_features_path.") 
-        env = Env(config_file=config_file, config_prefix=config_prefix)
-        target_trj_rate_maps = rate_maps_from_features(env, state_pop_name,
+        env = Env(config_file=config_file, config_prefix=config_prefix,
+                  arena_id=target_input_features_arena_id,
+                  trajectory_id=target_input_features_trajectory_id)
+        target_trj_rate_maps = stimulus.rate_maps_from_features(env, state_pop_name,
                                                        target_input_features_path, 
                                                        target_input_features_namespace,
-                                                       cell_index_set=list(gid),
+                                                       cell_index_set=[gid],
                                                        time_range=time_range,
                                                        include_time=True)
         target_rate_time, target_rate = target_trj_rate_maps[gid]
@@ -2637,15 +2641,14 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
                 ax2.add_artist(at)
 
     if target_rate is not None:
-        ax2.fill_between(target_rate_time, 0, target_rate, alpha=0.5)
+        ax2.fill_between(target_rate_time, 0, target_rate / np.max(target_rate), alpha=0.25)
                 
     # Plot intracellular state
     ax3 = axes[len(spkpoplst)+1]
     ax3.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
     ax3.set_ylabel(intracellular_variable, fontsize=fig_options.fontSize)
     ax3.set_xlim(time_range)
-    if target_rate is not None:
-        ax3.fill_between(target_rate_time, 0, target_rate, alpha=0.5)
+
 
     # Plot lowpass-filtered intracellular state if lowpass_plot_type is set to subplot
     if lowpass_plot_type == 'subplot':
