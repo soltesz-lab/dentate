@@ -12,8 +12,8 @@ import dentate
 from dentate import network, network_clamp, synapses, spikedata, stimulus, utils
 from dentate.env import Env
 from dentate.optimization import (SynParam, OptConfig, syn_param_from_dict, optimization_params, 
-                                  update_network_params, rate_maps_from_features, network_features)
-
+                                  update_network_params, network_features)
+from dentate.stimulus import rate_maps_from_features
 from neuroh5.io import scatter_read_cell_attribute_selection, read_cell_attribute_info
 import nested
 from nested.optimize_utils import *

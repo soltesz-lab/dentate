@@ -2,9 +2,9 @@ import os, sys, gc, copy, time
 import numpy as np
 from collections import defaultdict, ChainMap
 from mpi4py import MPI
-from dentate.utils import get_module_logger, object, range, str, Struct, gauss2d
+from dentate.utils import get_module_logger, object, range, str, Struct, gauss2d, viewitems
 from dentate.stgen import get_inhom_poisson_spike_times_by_thinning
-from neuroh5.io import read_cell_attributes, append_cell_attributes, NeuroH5CellAttrGen
+from neuroh5.io import read_cell_attributes, append_cell_attributes, NeuroH5CellAttrGen, scatter_read_cell_attribute_selection
 import h5py
 
 
@@ -1242,3 +1242,71 @@ def linearize_trajectory(x, y):
     T_linear = pca.inverse_transform(T_transform)
 
     return T_linear
+
+
+
+def rate_maps_from_features (env, pop_name, input_features_path, input_features_namespace, cell_index_set,
+                             arena_id=None, trajectory_id=None, time_range=None, n_trials=1, include_time=False):
+    
+    """Initializes presynaptic spike sources from a file with input selectivity features represented as firing rates."""
+        
+    if time_range is not None:
+        if time_range[0] is None:
+            time_range[0] = 0.0
+
+    if arena_id is None:
+        arena_id = env.arena_id
+    if trajectory_id is None:
+        trajectory_id = env.trajectory_id
+
+    spatial_resolution = float(env.stimulus_config['Spatial Resolution'])
+    temporal_resolution = float(env.stimulus_config['Temporal Resolution'])
+    
+    this_input_features_namespace = '%s %s' % (input_features_namespace, arena_id)
+    
+    input_features_attr_names = ['Selectivity Type', 'Num Fields', 'Field Width', 'Peak Rate',
+                                 'Module ID', 'Grid Spacing', 'Grid Orientation',
+                                 'Field Width Concentration Factor', 
+                                 'X Offset', 'Y Offset']
+    
+    selectivity_type_names = { i: n for n, i in viewitems(env.selectivity_types) }
+
+    arena = env.stimulus_config['Arena'][arena_id]
+    arena_x, arena_y = get_2D_arena_spatial_mesh(arena=arena, spatial_resolution=spatial_resolution)
+    
+    trajectory = arena.trajectories[trajectory_id]
+    equilibration_duration = float(env.stimulus_config.get('Equilibration Duration', 0.))
+
+    t, x, y, d = generate_linear_trajectory(trajectory, temporal_resolution=temporal_resolution,
+                                            equilibration_duration=equilibration_duration)
+    if time_range is not None:
+        t_range_inds = np.where((t < time_range[1]) & (t >= time_range[0]))[0] 
+        t = t[t_range_inds]
+        x = x[t_range_inds]
+        y = y[t_range_inds]
+        d = d[t_range_inds]
+
+    input_rate_map_dict = {}
+    pop_index = int(env.Populations[pop_name])
+
+    input_features_iter = scatter_read_cell_attribute_selection(input_features_path, pop_name,
+                                                                selection=cell_index_set,
+                                                                namespace=this_input_features_namespace,
+                                                                mask=set(input_features_attr_names), 
+                                                                comm=env.comm, io_size=env.io_size)
+    for gid, selectivity_attr_dict in input_features_iter:
+
+        this_selectivity_type = selectivity_attr_dict['Selectivity Type'][0]
+        this_selectivity_type_name = selectivity_type_names[this_selectivity_type]
+        input_cell_config = get_input_cell_config(selectivity_type=this_selectivity_type,
+                                                  selectivity_type_names=selectivity_type_names,
+                                                  selectivity_attr_dict=selectivity_attr_dict)
+        if input_cell_config.num_fields > 0:
+            rate_map = input_cell_config.get_rate_map(x=x, y=y)
+            rate_map[np.isclose(rate_map, 0., atol=1e-3, rtol=1e-3)] = 0.
+            if include_time:
+                input_rate_map_dict[gid] = (t, rate_map)
+            else:
+                input_rate_map_dict[gid] = rate_map
+            
+    return input_rate_map_dict

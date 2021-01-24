@@ -15,7 +15,7 @@ from dentate.neuron_utils import h, configure_hoc_env
 from dentate.utils import is_interactive, is_iterable, Context, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger, config_logging, EnumChoice
 from dentate.utils import write_to_yaml, read_from_yaml, get_trial_time_indices, get_trial_time_ranges, get_low_pass_filtered_trace, contiguous_ranges
 from dentate.cell_clamp import init_biophys_cell
-from dentate.optimization import rate_maps_from_features
+from dentate.stimulus import rate_maps_from_features
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
