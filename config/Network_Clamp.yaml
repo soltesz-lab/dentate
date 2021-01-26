@@ -247,10 +247,8 @@ Synaptic Optimization:
     Targets:
       state:
         v:
-          mean: -68.0
-          peak: -50.0
+          baseline: -70.0
       firing rate: 1.0
-      baseline firing rate: 0.1
       fraction active: 0.01
   MC:
     Parameter ranges:
@@ -338,10 +336,8 @@ Synaptic Optimization:
     Targets:
       state:
         v:
-          mean: -68.0
-          peak: -50.0
+          baseline: -68.0
       firing rate: 5.0
-      baseline firing rate: 1.0
       fraction active: 0.33
   AAC:
     Targets:

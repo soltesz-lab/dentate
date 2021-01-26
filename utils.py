@@ -1197,3 +1197,11 @@ def contiguous_ranges(condition, return_indices=False):
 
     return result
 
+
+def generate_results_file_id(population, gid=None):
+    ts = time.strftime("%Y%m%d_%H%M%S")
+    if gid is not None:
+        results_file_id = f"{population}_{gid}_{ts}"
+    else:
+        results_file_id = f"{population}_all_{ts}"
+    return results_file_id
