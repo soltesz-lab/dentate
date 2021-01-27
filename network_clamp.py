@@ -16,8 +16,7 @@ from dentate.utils import is_interactive, is_iterable, Context, list_find, list_
 from dentate.utils import write_to_yaml, read_from_yaml, get_trial_time_indices, get_trial_time_ranges, get_low_pass_filtered_trace, contiguous_ranges
 from dentate.cell_clamp import init_biophys_cell
 from dentate.stimulus import rate_maps_from_features
-from dentate.optimization import optimization_params, opt_eval_fun
-
+from dentate.optimization import ProblemRegime, TrialRegime, optimization_params, opt_eval_fun
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
