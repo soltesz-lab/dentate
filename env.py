@@ -56,8 +56,8 @@ class Env(object):
                  dataset_prefix=None, config_prefix=None,
                  results_path=None, results_file_id=None, results_namespace_id=None, 
                  node_rank_file=None, node_allocation=None, io_size=0, recording_profile=None, recording_fraction=1.0,
-                 tstop=0., v_init=-65, stimulus_onset=0.0, n_trials=1,
-                 max_walltime_hours=0.5, checkpoint_interval=500.0, checkpoint_clear_data=True, 
+                 tstop=0., v_init=-65, stimulus_onset=0.0, n_trials=1, 
+                 max_walltime_hours=0.5, checkpoint_interval=500.0, checkpoint_clear_data=True, nrn_timeout=600,
                  results_write_time=0, dt=None, ldbal=False, lptbal=False, 
                  cell_selection_path=None, microcircuit_inputs=False,
                  spike_input_path=None, spike_input_namespace=None, spike_input_attr=None,
@@ -153,6 +153,9 @@ class Env(object):
             self.checkpoint_interval = max(float(checkpoint_interval), 1.0)
         else:
             self.checkpoint_interval = None
+
+        # NEURON timeout value (0 if None)
+        self.nrn_timeout = int(nrn_timeout) if nrn_timeout is not None else 0
         
         # The location of all datasets
         self.dataset_prefix = dataset_prefix

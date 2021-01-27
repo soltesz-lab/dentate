@@ -113,7 +113,7 @@ def update_network_params(env, param_tuples):
     
     for population in env.biophys_cells:
         
-        synapse_config = env.celltypes[population]['synapses']
+        synapse_config = env.celltypes[population].get('synapses', {})
         weights_dict = synapse_config.get('weights', {})
         
         for param_tuple, param_value in param_tuples:

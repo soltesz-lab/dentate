@@ -316,26 +316,22 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
             if trial_regime == 'mean':
                 mean_snr = np.mean(snrs)
                 mean_state_residual = np.mean(state_residuals)
-                mean_peak = np.mean(rate_vectors[max_snr_index][peak_idxs])
-                mean_trough = np.mean(rate_vectors[max_snr_index][trough_idxs])
                 snr_objective = -mean_snr
                 state_objective = mean_state_residual
                 logger.info(f'selectivity objective: mean peak/trough/mean snr/mean state residual of gid {gid}: '
-                            f'{mean_peak:.02f} {mean_trough:.02f} {mean_snr:.04f} {mean_state_residual:.04f}')
+                            f'{mean_snr:.04f} {mean_state_residual:.04f}')
             elif trial_regime == 'best':
                 max_snr_index = np.argmax(snrs)
                 max_snr = snrs[max_snr_index]
-                mean_peak = np.mean(rate_vectors[max_snr_index][peak_idxs])
-                mean_trough = np.mean(rate_vectors[max_snr_index][trough_idxs])
                 snr_objective = -max_snr
                 min_state_residual = np.min(state_residuals)
-                state_residual_objective = min_state_residual
+                state_objective = min_state_residual
                 logger.info(f'selectivity objective: mean peak/trough/max snr/min state residual of gid {gid}: '
-                            f'{mean_peak:.02f} {mean_trough:.02f} {max_snr:.04f} {min_state_residual:.04f}')
+                            f'{max_snr:.04f} {min_state_residual:.04f}')
             else:
                 raise RuntimeError(f'selectivity_rate_objective: unknown trial regime {trial_regime}')
                 
-            result[gid] = np.asarray([ snr_objective, state_residual_objective ])
+            result[gid] = np.asarray([ snr_objective, state_residual ])
         return result
     
     return opt_eval_fun(problem_regime, my_cell_index_set, eval_problem)
