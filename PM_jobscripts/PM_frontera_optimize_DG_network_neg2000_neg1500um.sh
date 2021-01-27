@@ -6,7 +6,7 @@
 #SBATCH -p normal      # Queue (partition) name
 #SBATCH -N 505             # Total # of nodes 
 #SBATCH --ntasks-per-node=56 # # of mpi tasks per node
-#SBATCH -t 24:00:00        # Run time (hh:mm:ss)
+#SBATCH -t 0:30:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=pmoolcha@stanford.edu
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
@@ -33,7 +33,7 @@ export I_MPI_ADJUST_ALLTOALLV=2
 export I_MPI_ADJUST_ALLREDUCE=4
 
 export I_MPI_HYDRA_TOPOLIB=ipl
-export I_MPI_HYDRA_BRANCH_COUNT=0                                                                                                      
+export I_MPI_HYDRA_BRANCH_COUNT=0
 export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=off
 
 results_path=results/optimize_DG_network_neg2000_neg1500um
