@@ -630,8 +630,12 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
     time_step = env.stimulus_config['Temporal Resolution']
     equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
     
-    param_bounds, param_names, param_initial_dict, param_tuples = \
-      optimization_params(env.netclamp_config.optimize_parameters, [population], param_config_name, param_type)
+    opt_param_config = optimization_params(env.netclamp_config.optimize_parameters, [population], param_config_name, param_type)
+
+    opt_targets = opt_param_config.opt_targets
+    param_names = opt_param_config.param_names
+    param_tuples = opt_param_config.param_tuples
+
    
     def from_param_dict(params_dict):
         result = []
@@ -706,8 +710,12 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
                              worker=worker)
 
     time_step = env.stimulus_config['Temporal Resolution']
-    param_bounds, param_names, param_initial_dict, param_tuples = \
-      optimization_params(env.netclamp_config.optimize_parameters, [population], param_config_name, param_type)
+    opt_param_config = optimization_params(env.netclamp_config.optimize_parameters, [population], param_config_name, param_type)
+
+    opt_targets = opt_param_config.opt_targets
+    param_names = opt_param_config.param_names
+    param_tuples = opt_param_config.param_tuples
+
     
     def from_param_dict(params_dict):
         result = []
@@ -801,8 +809,11 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
     time_range = (0., min(np.max(trj_t), t_max))
     time_bins = np.arange(time_range[0], time_range[1]+time_step, time_step)
 
-    param_bounds, param_names, param_initial_dict, param_tuples = \
-      optimization_params(env.netclamp_config.optimize_parameters, [population], param_config_name, param_type)
+    opt_param_config = optimization_params(env.netclamp_config.optimize_parameters, [pop_name], param_config_name, param_type)
+
+    opt_targets = opt_param_config.opt_targets
+    param_names = opt_param_config.param_names
+    param_tuples = opt_param_config.param_tuples
     
     def from_param_dict(params_dict):
         result = []
