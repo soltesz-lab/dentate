@@ -878,8 +878,11 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
                  results_file=None, cooperative_init=False, verbose=False):
     import distgfs
 
-    param_bounds, param_names, param_initial_dict, param_tuples = \
-      optimization_params(env.netclamp_config.optimize_parameters, [population], param_config_name, param_type)
+    opt_param_config = optimization_params(env.netclamp_config.optimize_parameters, [pop_name], param_config_name, param_type)
+
+    opt_targets = opt_param_config.opt_targets
+    param_names = opt_param_config.param_names
+    param_tuples = opt_param_config.param_tuples
     
     hyperprm_space = { param_pattern: [param_tuple.param_range[0], param_tuple.param_range[1]]
                        for param_pattern, param_tuple in 
