@@ -491,13 +491,14 @@ def run(env, cvode=False, pc_runworker=False):
 def update_params(env, pop_param_dict):
 
     for population, param_tuple_dict in viewitems(pop_param_dict):
-
+        
+        synapse_config = env.celltypes[population]['synapses']
+        weights_dict = synapse_config.get('weights', {})
         biophys_cell_dict = env.biophys_cells[population]
         for gid, param_tuples in viewitems(param_tuple_dict):
 
-            synapse_config = env.celltypes[population]['synapses']
-            weights_dict = synapse_config.get('weights', {})
-            
+            if gid not in biophys_cell_dict:
+                continue
             biophys_cell = biophys_cell_dict[gid]
             is_reduced = False
             if hasattr(biophys_cell, 'is_reduced'):
@@ -1232,13 +1233,17 @@ def go(config_file, population, dt, gid, arena_id, trajectory_id, generate_weigh
                  t_min=t_min, t_max=t_max,
                  plot_cell=plot_cell, write_cell=write_cell)
             if params_path is not None:
-                params_dict = read_from_yaml(params_path)
-                params_tuple_dict = {}
-                for gid, param_list in viewitems(params_dict):
-                    population, source, sec_type, syn_name, param_path, param_val = param_list
-                    syn_param = SynParam(population, source, sec_type, syn_name, param_path, None)
-                    params_tuple_dict[gid] = (syn_param, param_val)
-                run_with(env, params_tuple_dict)
+                pop_params_dict = read_from_yaml(params_path)
+                pop_params_tuple_dict = {}
+                for this_pop_name, this_pop_param_dict in viewitems(pop_params_dict):
+                    this_pop_params_tuple_dict = defaultdict(list)
+                    for this_gid, this_gid_param_list in viewitems(this_pop_param_dict):
+                        for this_gid_param in this_gid_param_list:
+                            population, source, sec_type, syn_name, param_path, param_val = this_gid_param
+                            syn_param = SynParam(population, source, sec_type, syn_name, param_path, None)
+                            this_pop_params_tuple_dict[this_gid].append((syn_param, param_val))
+                    pop_params_tuple_dict[this_pop_name] = dict(this_pop_params_tuple_dict)
+                run_with(env, pop_params_tuple_dict)
             else:
                 run(env)
             write_output(env)
