@@ -16,7 +16,7 @@ from dentate.utils import is_interactive, is_iterable, Context, list_find, list_
 from dentate.utils import write_to_yaml, read_from_yaml, get_trial_time_indices, get_trial_time_ranges, get_low_pass_filtered_trace, contiguous_ranges
 from dentate.cell_clamp import init_biophys_cell
 from dentate.stimulus import rate_maps_from_features
-from dentate.optimization import ProblemRegime, TrialRegime, optimization_params, opt_eval_fun
+from dentate.optimization import SynParam, ProblemRegime, TrialRegime, optimization_params, opt_eval_fun
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
@@ -1233,7 +1233,12 @@ def go(config_file, population, dt, gid, arena_id, trajectory_id, generate_weigh
                  plot_cell=plot_cell, write_cell=write_cell)
             if params_path is not None:
                 params_dict = read_from_yaml(params_path)
-                run_with(env, params_dict)
+                params_tuple_dict = {}
+                for gid, param_list in viewitems(params_dict):
+                    population, source, sec_type, syn_name, param_path, param_val = param_list
+                    syn_param = SynParam(population, source, sec_type, syn_name, param_path, None)
+                    params_tuple_dict[gid] = (syn_param, param_val)
+                run_with(env, params_tuple_dict)
             else:
                 run(env)
             write_output(env)
