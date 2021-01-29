@@ -1396,7 +1396,7 @@ def optimize(config_file, population, dt, gid, gid_selection_file, arena_id, tra
                                         verbose=verbose)
     if results_config_dict is not None:
         if results_path is not None:
-            file_path = '{results_path}/network_clamp.optimize.{results_file_id}.yaml'
+            file_path = f'{results_path}/network_clamp.optimize.{results_file_id}.yaml'
             write_to_yaml(file_path, results_config_dict)
     comm.barrier()
 
