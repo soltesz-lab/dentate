@@ -13,11 +13,19 @@ class NetclampGo():
         filtlist = []
         celltyprec = []
 
-        for fil in rawlst:
-            if fil.endswith('.yaml') and fil.startswith('network_clamp.optimize.'):
-                filtrunc = fil[23:-5].split('_')
-                filtlist.append(tuple(filtrunc))
-
+        if celltypfilt is None:
+            for fil in rawlst:
+                if fil.endswith('.yaml') and fil.startswith('network_clamp.optimize.'):
+                    filtrunc = fil[23:-5].split('_')
+                    if filtrunc[2] in datesfilt:
+                        filtlist.append(tuple(filtrunc))
+        else:
+            for fil in rawlst:
+                if fil.endswith('.yaml') and fil.startswith('network_clamp.optimize.'):
+                    filtrunc = fil[23:-5].split('_')
+                    if filtrunc[0] in celltypfilt and filtrunc[2] in datesfilt:
+                        filtlist.append(tuple(filtrunc))
+            
         filtlist.sort()
         N_fils = len(filtlist)
         self.raw_arr = np.empty(shape=(N_fils), dtype=cell_dt)
@@ -40,10 +48,13 @@ class NetclampGo():
 
         self.get_go_yaml(all_idx, dir_path)
     #    self.get_my_chores(all_idx)
+
+        print(self.go_yaml)
+
         self.set_comm_go_args()
 
-        temp = self.go_yaml[0]
-        netclamp_go(self.comm_go_args + ['-p', temp[0], '-g', temp[1], '--params-path', temp[2]])
+    #    temp = self.go_yaml[0]
+    #    netclamp_go(self.comm_go_args + ['-p', temp[0], '-g', temp[1], '--params-path', temp[2]])
 
 
     def get_go_yaml(self, all_idx, dir_path):
@@ -92,7 +103,8 @@ class NetclampGo():
 
 
 if __name__=='__main__':
-    datesfilt = ('20210131', '20210201')
-    celltypfilt = []
+    datesfilt = ('20210131', '20210201', '20210202')
+    celltypfilt = ['BC', 'AAC']
     dir_path = 'results/netclamp'
-    NetclampGo(dir_path, datesfilt)
+    NetclampGo(dir_path, datesfilt, celltypfilt=None)
+#    NetclampGo(dir_path, datesfilt)
