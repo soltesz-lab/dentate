@@ -885,7 +885,7 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
 
 
 def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, nprocs_per_worker=1,
-                 opt_iter=10, solver_epsilon=1e-2, param_type='synaptic', init_params={}, 
+                 opt_iter=10, solver_epsilon=1e-2, opt_seed=None, param_type='synaptic', init_params={}, 
                  results_file=None, cooperative_init=False, verbose=False):
     import distgfs
 
@@ -930,6 +930,7 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
                       'file_path': file_path,
                       'save': True,
                       'n_iter': opt_iter,
+                      'seed': opt_seed,
                       'solver_epsilon': solver_epsilon }
 
     if cooperative_init:
@@ -1265,6 +1266,7 @@ def go(config_file, population, dt, gid, arena_id, trajectory_id, generate_weigh
 @click.option("--t-min", type=float)
 @click.option("--nprocs-per-worker", type=int, default=1, help='number of processes per worker')
 @click.option("--opt-epsilon", type=float, default=1e-2, help='local convergence epsilon')
+@click.option("--opt-seed", type=float, help='seed for random sampling of optimization parameters')
 @click.option("--opt-iter", type=int, default=10, help='number of optimization iterations')
 @click.option("--template-paths", type=str, required=True,
               help='colon-separated list of paths to directories containing hoc cell templates')
@@ -1310,7 +1312,7 @@ def go(config_file, population, dt, gid, arena_id, trajectory_id, generate_weigh
 @click.argument('target')# help='rate, rate_dist, state'
 def optimize(config_file, population, dt, gid, gid_selection_file, arena_id, trajectory_id, 
              generate_weights, t_max, t_min, 
-             nprocs_per_worker, opt_epsilon, opt_iter, 
+             nprocs_per_worker, opt_epsilon, opt_seed, opt_iter, 
              template_paths, dataset_prefix, config_prefix,
              param_config_name, param_type, recording_profile, results_file, results_path,
              spike_events_path, spike_events_namespace, spike_events_t, 
@@ -1400,7 +1402,7 @@ def optimize(config_file, population, dt, gid, gid_selection_file, arena_id, tra
         raise RuntimeError(f'network_clamp.optimize: unknown optimization target {target}') 
         
     results_config_dict =  optimize_run(env, population, param_config_name, init_objfun_name, problem_regime=problem_regime,
-                                        opt_iter=opt_iter, solver_epsilon=opt_epsilon, param_type=param_type,
+                                        opt_iter=opt_iter, solver_epsilon=opt_epsilon, opt_seed=opt_seed, param_type=param_type,
                                         init_params=init_params, results_file=results_file,
                                         nprocs_per_worker=nprocs_per_worker, cooperative_init=cooperative_init,
                                         verbose=verbose)
