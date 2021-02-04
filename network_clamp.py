@@ -1330,7 +1330,7 @@ def optimize(config_file, population, dt, gid, gid_selection_file, arena_id, tra
 
     results_file_id = None
     if rank == 0:
-        results_file_id = generate_results_file_id(population, gid)
+        results_file_id = generate_results_file_id(population, gid, opt_seed)
         
     results_file_id = comm.bcast(results_file_id, root=0)
     comm.barrier()
