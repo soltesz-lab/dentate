@@ -60,7 +60,7 @@ class NetclampGo():
     def get_go_yaml(self, all_idx, dir_path):
         self.go_yaml = np.empty(shape=all_idx.size, dtype='O')
         for idx, fil in enumerate(self.raw_arr[all_idx]):
-            self.go_yaml[idx] = (fil[0], fil[1], '{!s}/{!s}{!s}_{:d}_{:d}_{:d}.yaml'.format(dir_path, 'network_clamp.optimize.', *fil)) 
+            self.go_yaml[idx] = (fil[0], fil[1], '{!s}/{!s}{!s}_{:d}_{:08d}_{:06d}.yaml'.format(dir_path, 'network_clamp.optimize.', *fil)) 
         
     def get_my_chores(self, all_idx):
         N_chores = all_idx.size
@@ -104,7 +104,7 @@ class NetclampGo():
 
 if __name__=='__main__':
     datesfilt = ('20210131', '20210201', '20210202')
-    celltypfilt = ['BC', 'AAC']
+    celltypfilt = ['HCC']
     dir_path = 'results/netclamp'
     NetclampGo(dir_path, datesfilt, celltypfilt=None)
 #    NetclampGo(dir_path, datesfilt)

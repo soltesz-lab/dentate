@@ -1266,7 +1266,7 @@ def go(config_file, population, dt, gid, arena_id, trajectory_id, generate_weigh
 @click.option("--t-min", type=float)
 @click.option("--nprocs-per-worker", type=int, default=1, help='number of processes per worker')
 @click.option("--opt-epsilon", type=float, default=1e-2, help='local convergence epsilon')
-@click.option("--opt-seed", type=float, help='seed for random sampling of optimization parameters')
+@click.option("--opt-seed", type=int, help='seed for random sampling of optimization parameters')
 @click.option("--opt-iter", type=int, default=10, help='number of optimization iterations')
 @click.option("--template-paths", type=str, required=True,
               help='colon-separated list of paths to directories containing hoc cell templates')
@@ -1330,7 +1330,7 @@ def optimize(config_file, population, dt, gid, gid_selection_file, arena_id, tra
 
     results_file_id = None
     if rank == 0:
-        results_file_id = generate_results_file_id(population, gid)
+        results_file_id = generate_results_file_id(population, gid, opt_seed)
         
     results_file_id = comm.bcast(results_file_id, root=0)
     comm.barrier()
