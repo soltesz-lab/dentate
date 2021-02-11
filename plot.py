@@ -1,4 +1,4 @@
-import numbers, os, copy, pprint, sys
+import numbers, os, copy, pprint, sys, time
 from collections import defaultdict
 from scipy import interpolate, signal
 import numpy as np
@@ -2398,7 +2398,7 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
                        config_file=None, config_prefix="config",
                        include='eachPop', include_artificial=True, time_range=None, time_variable='t', intracellular_variable='v',
                        labels='overlay', pop_rates=True, all_spike_hist=False, spike_hist_bin=5, lowpass_plot_type='overlay',
-                       n_trials=-1, marker='.', **kwargs):
+                       n_trials=-1, marker='.', opt_seed=None,  **kwargs):
     """
     Raster plot of target cell intracellular trace + spike raster of presynaptic inputs. Returns the figure handle.
 
@@ -2702,11 +2702,12 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
         raise RuntimeError('plot_network_clamp: unknown label type %s' % labels)
         
     # save figure
+    ts = time.strftime("%Y%m%d_%H%M%S") 
     if fig_options.saveFig:
         if isinstance(fig_options.saveFig, basestring):
             filename = fig_options.saveFig
         else:
-            filename = 'Network Clamp %s %i.%s' % (state_pop_name, gid, fig_options.figFormat)
+            filename = 'Network Clamp %s %i.%s' % (state_pop_name, gid, fig_options.figFormat) if opt_seed is None else 'NetworkClamp_{!s}_{:d}_{!s}_{:08d}.{!s}'.format(state_pop_name, gid, ts, opt_seed, fig_options.figFormat)
             plt.savefig(filename)
 
     # show fig
