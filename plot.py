@@ -22,7 +22,7 @@ from dentate.statedata import read_state, query_state
 from dentate.cells import default_ordered_sec_types, get_distance_to_node, make_morph_graph
 from dentate.env import Env
 from dentate.synapses import get_syn_filter_dict, get_syn_mech_param
-from dentate.utils import get_module_logger, Struct, add_bins, update_bins, finalize_bins
+from dentate.utils import get_module_logger, Promise, Struct, add_bins, update_bins, finalize_bins
 from dentate.utils import power_spectrogram, butter_bandpass_filter, apply_filter, kde_scipy, make_geometric_graph, viewitems, \
     zip_longest, basestring
 from dentate.neuron_utils import interplocs
@@ -989,7 +989,6 @@ def plot_cell_tree(population, gid, tree_dict, line_width=1., sample=0.05, color
     
     import networkx as nx
     from mayavi import mlab
-    import vtk
     
     mlab.figure(bgcolor=(0,0,0))
 
@@ -1846,13 +1845,15 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
             elif distance:
                 distance_rank = np.argsort(cell_state_distances, kind='stable')
                 distance_rank_descending = distance_rank[::-1]
-                distance_columns = []
+                state_rows = []
                 for i in range(0,m):
-                    state_columns = np.asarray(cell_state_mat[1][i,:]).reshape((n,))[distance_rank_descending]
-                state_mat = np.column_stack(state_columns)
+                    j = distance_rank_descending[i]
+                    state_rows.append(np.asarray(cell_state_mat[1][j,:]).reshape((n,)))
+                state_mat = np.row_stack(state_rows)
                 t = cell_state_mat[0][0].reshape((n,))
-                d = distance_labels[distance_rank_descending]
-                pcm = ax.pcolormesh(t, d, state_mat)
+                d = np.asarray(cell_state_distances)[distance_rank_descending]
+                pcm = ax.pcolormesh(t, d, state_mat, cmap=fig_options.colormap)
+                cb = fig.colorbar(pcm, ax=ax, shrink=0.9, aspect=20)
                 stplots.append(pcm)
             else:
                 for i in range(m):
@@ -1862,7 +1863,10 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
                     stplots.append(line)
                     logger.info('plot_state: min/max/mean value of state %d is %.02f / %.02f / %.02f' % (i, np.min(cell_state), np.max(cell_state), np.mean(cell_state)))
             ax.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
-            ax.set_ylabel(state_variable, fontsize=fig_options.fontSize)
+            if distance:
+                ax.set_ylabel("distance from soma [um]", fontsize=fig_options.fontSize)
+            else:
+                ax.set_ylabel(state_variable, fontsize=fig_options.fontSize)
             #ax.legend()
 
     
@@ -2655,7 +2659,10 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
                 ax2.add_artist(at)
 
     if target_rate is not None:
-        ax2.fill_between(target_rate_time, 0, target_rate / np.max(target_rate), alpha=0.25)
+        norm_target_rate = target_rate / np.max(target_rate)
+        ax2.fill_between(target_rate_time, 0, norm_target_rate, alpha=0.25)
+        ylim = ax2.get_ylim()
+        ax2.set_ylim((0, max(ylim[1], 1.0)))
                 
     # Plot intracellular state
     ax3 = axes[len(spkpoplst)+1]
@@ -4638,16 +4645,23 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
             axes = axarr[i]
         for j, sec_type in enumerate(attr_vals[attr_type]):
             if len(attr_vals[attr_type][sec_type]) != 0:
-                axes.scatter(distances[attr_type][sec_type], attr_vals[attr_type][sec_type], color=colors[j],
+                this_attr_vals = []
+                for x in attr_vals[attr_type][sec_type]:
+                    if isinstance(x, Promise):
+                        this_attr_vals.append(x())
+                    else:
+                        this_attr_vals.append(x)
+                    
+                axes.scatter(distances[attr_type][sec_type], this_attr_vals, color=colors[j],
                              label=sec_type, alpha=0.5, s=10.)
                 if maxval is None:
-                    maxval = max(attr_vals[attr_type][sec_type])
+                    maxval = max(this_attr_vals)
                 else:
-                    maxval = max(maxval, max(attr_vals[attr_type][sec_type]))
+                    maxval = max(maxval, max(this_attr_vals))
                 if minval is None:
-                    minval = min(attr_vals[attr_type][sec_type])
+                    minval = min(this_attr_vals)
                 else:
-                    minval = min(minval, min(attr_vals[attr_type][sec_type]))
+                    minval = min(minval, min(this_attr_vals))
                 xmax0 = max(xmax0, max(distances[attr_type][sec_type]))
                 xmin0 = min(xmin0, min(distances[attr_type][sec_type]))
         if axes.get_legend() is not None:
@@ -4722,9 +4736,15 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
             for attr_type in attr_types:
                 f[filetype][session_id][syn_name][param_name].create_group(attr_type)
                 for sec_type in attr_vals[attr_type]:
+                    attr_data = []
+                    for x in attr_vals[attr_type][sec_type]:
+                        if isinstance(x, Promise):
+                            attr_data.append(x())
+                        else:
+                            attr_data.append(x)
                     f[filetype][session_id][syn_name][param_name][attr_type].create_group(sec_type)
                     f[filetype][session_id][syn_name][param_name][attr_type][sec_type].create_dataset(
-                        'values', data=attr_vals[attr_type][sec_type], compression='gzip')
+                        'values', data=attr_data, compression='gzip')
                     f[filetype][session_id][syn_name][param_name][attr_type][sec_type].create_dataset(
                         'distances', data=distances[attr_type][sec_type], compression='gzip')
 

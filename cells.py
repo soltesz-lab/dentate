@@ -2559,7 +2559,7 @@ def make_neurotree_cell(template_class, gid=0, dataset_path="", neurotree_dict={
     vdst = neurotree_dict['section_topology']['dst']
     vloc = neurotree_dict['section_topology']['loc']
     swc_type = neurotree_dict['swc_type']
-    
+            
     cell = template_class(gid, dataset_path, secnodes, vlayer, vsrc, vdst, vloc, vx, vy, vz, vradius, swc_type)
     return cell
 
