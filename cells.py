@@ -2969,7 +2969,15 @@ def record_cell(env, pop_name, gid, recording_profile=None):
         if cell is not None:
             label = recording_profile['label']
             dt = recording_profile.get('dt', None)
-            for recvar, recdict  in viewitems(recording_profile.get('section quantity', {})):
+            for reclab, recdict  in viewitems(recording_profile.get('section quantity', {})):
+                recvar = recdict.get('variable', reclab)
+                loc = recdict.get('loc', None)
+                swc_types = recdict.get('swc_types', None)
+                locdict = collections.defaultdict(lambda: 0.5)
+                if (loc is not None) and (swc_types is not None):
+                    for s,l in zip(swc_types,loc):
+                        locdict[s] = l
+                    
                 nodes = filter_nodes(cell, layers=recdict.get('layers', None),
                                      swc_types=recdict.get('swc types', None))
                 node_type_count = collections.defaultdict(int)
@@ -2982,9 +2990,10 @@ def record_cell(env, pop_name, gid, recording_profile=None):
                         if node_type_count[node.type] == 1:
                             rec_id = '%s' % (node.type)
                         else:
-                            rec_id = '%s.%i' % (node.type, node.index)
-                        rec = make_rec(rec_id, pop_name, gid, cell.hoc_cell, sec=sec, dt=dt, loc=0.5,
-                                        param=recvar, description=node.name)
+                            rec_id = '%s.%i' % (reclab, node.type, node.index)
+                        rec = make_rec(rec_id, pop_name, gid, cell.hoc_cell, sec=sec, dt=dt,
+                                       loc=locdict[node.type], param=recvar, label=reclab,
+                                       description=node.name)
                         recs.append(rec)
                         env.recs_dict[pop_name][rec_id].append(rec)
                         env.recs_count += 1
