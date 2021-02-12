@@ -146,7 +146,7 @@ def main(config_path, params_id, n_samples, target_features_path, target_feature
         result = []
         for i, (param_name, param_tuple) in enumerate(zip(network_param_spec.param_names, network_param_spec.param_tuples)):
             param_range = param_tuple.param_range
-            assert((x[i] >= param_range[0]) and (x[i] <= param_range[1]))
+#            assert((x[i] >= param_range[0]) and (x[i] <= param_range[1]))
             result.append((param_tuple, x[i]))
         return result
 
