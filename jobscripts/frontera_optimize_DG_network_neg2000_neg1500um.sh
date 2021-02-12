@@ -4,7 +4,7 @@
 #SBATCH -o ./results/optimize_DG_network_neg2000_neg1500um.o%j       # Name of stdout output file
 #SBATCH -e ./results/optimize_DG_network_neg2000_neg1500um.e%j       # Name of stderr error file
 #SBATCH -p normal      # Queue (partition) name
-#SBATCH -N 505             # Total # of nodes 
+#SBATCH -N 501             # Total # of nodes 
 #SBATCH --ntasks-per-node=56 # # of mpi tasks per node
 #SBATCH -t 24:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
@@ -15,8 +15,8 @@ module load phdf5
 
 set -x
 
-export NEURONROOT=$SCRATCH/bin/nrnpython3_intel18
-export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel18:$PYTHONPATH
+export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
 export PATH=$NEURONROOT/bin:$PATH
 export MODEL_HOME=$HOME/model
 export DG_HOME=$MODEL_HOME/dentate
@@ -31,7 +31,8 @@ export I_MPI_ADJUST_ALLTOALL=4
 export I_MPI_ADJUST_ALLTOALLV=2
 export I_MPI_ADJUST_ALLREDUCE=4
 
-export I_MPI_HYDRA_TOPOLIB=ipl
+export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=off
+export I_MPI_HYDRA_BRANCH_COUNT=0
 
 results_path=$SCRATCH/dentate/results/optimize_DG_network_neg2000_neg1500um
 export results_path
@@ -43,9 +44,8 @@ mkdir -p $results_path
 
 cd $SLURM_SUBMIT_DIR
 
-export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=off
 
-mpirun -rr -n 19 \
+mpirun -rr -n 26 \
     python3 optimize_network.py \
     --config-path=$DG_HOME/config/DG_optimize_network_neg2000_neg1500um.yaml \
     --optimize-file-dir=$results_path \
@@ -53,8 +53,8 @@ mpirun -rr -n 19 \
     --target-features-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
     --target-features-namespace="Place Selectivity" \
     --verbose \
-    --nprocs-per-worker=1567 \
-    --n-iter=5 \
+    --nprocs-per-worker=1120 \
+    --n-iter=2 \
     --num-generations=100 \
     --no_cleanup \
     --arena_id=A --trajectory_id=Diag \
