@@ -36,11 +36,7 @@ class NetclampGo():
         N_fils = len(filtlist)
         self.raw_arr = np.empty(shape=(N_fils), dtype=cell_dt)
         for idx, fil in enumerate(filtlist):
-<<<<<<< Updated upstream
-            self.raw_arr[idx] = fil[0], int(fil[1]), int(fil[2]), int(fil[3])
-=======
             self.raw_arr[idx] = fil[0], int(fil[1]), int(fil[2]), int(fil[3]), int(fil[4])
->>>>>>> Stashed changes
 
 #        uniq_celltypes = self.get_uniq_idx('celltype', inv=False)
 #        N_uniq_celltypes = uniq_celltypes.size
@@ -59,12 +55,8 @@ class NetclampGo():
         self.get_go_yaml(all_idx, dir_path)
     #    self.get_my_chores(all_idx)
 
-<<<<<<< Updated upstream
-        print(self.go_yaml)
-=======
         for fil in self.go_yaml:
             print('"', *fil, '"')
->>>>>>> Stashed changes
 
         self.set_comm_go_args()
 
