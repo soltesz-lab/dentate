@@ -1316,7 +1316,7 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
             h.tstop = env.simtime.tstop
         if rank == 0:
             logger.info("*** Running simulation up to %.2f ms" % h.tstop)
-        env.pc.timeout(60.)
+        env.pc.timeout(env.nrn_timeout)
         env.pc.psolve(h.tstop)
         if env.use_coreneuron:
             h.t = h.tstop

@@ -3,21 +3,20 @@
 #SBATCH -J eval_DG_network # Job name
 #SBATCH -o ./results/eval_DG_network.o%j       # Name of stdout output file
 #SBATCH -e ./results/eval_DG_network.e%j       # Name of stderr error file
-#SBATCH -p normal      # Queue (partition) name
+#SBATCH -p development      # Queue (partition) name
 #SBATCH -N 16             # Total # of nodes 
 #SBATCH --ntasks-per-node=56 # # of mpi tasks per node
 #SBATCH -t 2:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
-module load intel/18.0.5
 module load python3
 module load phdf5
 
 set -x
 
-export NEURONROOT=$SCRATCH/bin/nrnpython3_intel18
-export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel18:$PYTHONPATH
+export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
 export PATH=$NEURONROOT/bin:$PATH
 export MODEL_HOME=$HOME/model
 export DG_HOME=$MODEL_HOME/dentate
@@ -43,12 +42,12 @@ cd $HOME/model/dentate
 
 
 ibrun python3 eval_network.py \
-    --config-path=$DG_HOME/config/DG_eval_network_exc_inh_20210114.yaml \
+    --config-path=$DG_HOME/config/DG_eval_network_exc_inh_20210129.yaml \
     --output-file-dir=$results_path \
     --output-file-name='DG_eval_network_20210114.h5' \
     --target-features-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
     --target-features-namespace="Place Selectivity" \
-    --params-id $1 \
+    --params-id=$1 \
     --arena_id=A --trajectory_id=Diag \
     --template_paths=$MODEL_HOME/dgc/Mateos-Aparicio2014:$DG_HOME/templates \
     --dataset_prefix="$SCRATCH/striped/dentate" \

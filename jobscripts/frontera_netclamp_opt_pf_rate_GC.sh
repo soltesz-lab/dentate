@@ -1,26 +1,28 @@
 #!/bin/bash
 
 #SBATCH -p normal      # Queue (partition) name
-#SBATCH -N 3             # Total # of nodes 
-#SBATCH --ntasks-per-node=28          # # of mpi tasks per node
-#SBATCH -t 2:30:00        # Run time (hh:mm:ss)
+#SBATCH -N 6             # Total # of nodes 
+#SBATCH --ntasks-per-node=56          # # of mpi tasks per node
+#SBATCH -t 6:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 #SBATCH -A BIR20001
 
-module load intel/18.0.5
 module load python3
-module load phdf5
+module load phdf5/1.12.0
 
 set -x
 
-export NEURONROOT=$SCRATCH/bin/nrnpython3_intel18
-export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel18:$PYTHONPATH
+export LD_PRELOAD=$MKLROOT/lib/intel64_lin/libmkl_core.so:$MKLROOT/lib/intel64_lin/libmkl_sequential.so
+export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
 export PATH=$NEURONROOT/bin:$PATH
 export MODEL_HOME=$HOME/model
 export DG_HOME=$MODEL_HOME/dentate
-export LD_PRELOAD=$MKLROOT/lib/intel64_lin/libmkl_core.so:$MKLROOT/lib/intel64_lin/libmkl_sequential.so
 export FI_MLX_ENABLE_SPAWN=1
+
+export I_MPI_HYDRA_TOPOLIB=ipl
+export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=off
 
 # 567808
 # 28250
@@ -28,40 +30,38 @@ export FI_MLX_ENABLE_SPAWN=1
 
 cd $SLURM_SUBMIT_DIR
 
-mkdir -p $SCRATCH/dentate/results/netclamp/20210118_Weight_all
-
+mkdir -p $SCRATCH/dentate/results/netclamp/20210210_Weight_all
+export nworkers=$((6 * 24))
 
 if test "$3" == ""; then
-mpirun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_IN_Izh_extent.yaml \
-    -p GC -t 9500 -g $1  --n-trials 1 --trial-regime best --problem-regime every --nprocs-per-worker=1 \
+mpirun -rr -n $nworkers python3 optimize_selectivity.py  -c Network_Clamp_GC_Exc_Sat_SLN_IN_Izh_extent.yaml \
+    -p GC -t 9500 -g $1  --n-trials 1 --trial-regime mean --problem-regime every \
+    --nprocs-per-worker=1 --n-iter=3 --n-initial=60 --num-generations=200 --population-size=300 --resample-fraction 0.5 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/striped/dentate \
-    --results-path $SCRATCH/dentate/results/netclamp/20210118_Weight_all \
-    --config-prefix config  --opt-iter 2000  --opt-epsilon 1 \
-    --param-config-name "$2" \
+    --results-path $SCRATCH/dentate/results/netclamp/20210210_Weight_all \
+    --config-prefix config  --param-config-name "$2" \
     --arena-id A --trajectory-id Diag --use-coreneuron \
     --target-features-path $SCRATCH/striped/dentate/Slice/dentatenet_Full_Scale_GC_Exc_Sat_SLN_extent_arena_margin_20210106a_compressed.h5 \
     --target-features-namespace 'Selectivity Features' \
     --spike-events-path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h5" \
     --spike-events-namespace 'Input Spikes' \
-    --spike-events-t 'Spike Train' \
-    selectivity_rate
+    --spike-events-t 'Spike Train' 
 else
-mpirun python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_IN_Izh_extent.yaml \
-    -p GC  -t 9500 -g $1 --n-trials 1 --trial-regime best --problem-regime every --nprocs-per-worker=1 \
+mpirun -rr -n $nworkers python3 optimize_selectivity.py  -c Network_Clamp_GC_Exc_Sat_SLN_IN_Izh_extent.yaml \
+    -p GC  -t 9500 -g $1 --n-trials 1 --trial-regime mean --problem-regime every \
+    --nprocs-per-worker=1 --n-iter=0 --num-generations=200 --population-size=250 --resample-fraction 0.5 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/striped/dentate \
-    --results-path $SCRATCH/dentate/results/netclamp/20210118_Weight_all \
+    --results-path $SCRATCH/dentate/results/netclamp/20210210_Weight_all \
     --results-file "$3" \
     --spike-events-path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h5" \
     --spike-events-namespace 'Input Spikes' \
     --spike-events-t 'Spike Train' \
-    --config-prefix config  --opt-iter 2000  --opt-epsilon 1 \
-    --param-config-name "$2" \
+    --config-prefix config --param-config-name "$2" \
     --arena-id A --trajectory-id Diag --use-coreneuron  \
     --target-features-path $SCRATCH/striped/dentate/Slice/dentatenet_Full_Scale_GC_Exc_Sat_SLN_extent_arena_margin_20210106a_compressed.h5 \
-    --target-features-namespace 'Selectivity Features' \
-    selectivity_rate
+    --target-features-namespace 'Selectivity Features' 
 fi
 
 #    --input-features-path $SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5 \

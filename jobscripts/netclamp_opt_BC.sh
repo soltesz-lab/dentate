@@ -1,7 +1,8 @@
 export LD_PRELOAD=$MKLROOT/lib/intel64_lin/libmkl_core.so:$MKLROOT/lib/intel64_lin/libmkl_sequential.so
 export FI_MLX_ENABLE_SPAWN=yes
 
-ibrun -n 8 python3  network_clamp.py optimize -c 20201022_Network_Clamp_GC_Exc_Sat_SLN_IN_Izh.yaml \
+#ibrun -n 8 python3  network_clamp.py optimize -c 20201022_Network_Clamp_GC_Exc_Sat_SLN_IN_Izh.yaml \
+python3  network_clamp.py optimize -c 20201022_Network_Clamp_GC_Exc_Sat_SLN_IN_Izh.yaml \
     --template-paths templates \
     -p BC -g 1039000 -t 9500 --dt 0.001 \
     --dataset-prefix /scratch1/03320/iraikov/striped/dentate \

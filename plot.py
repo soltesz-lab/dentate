@@ -1,4 +1,4 @@
-import numbers, os, copy, pprint, sys
+import numbers, os, copy, pprint, sys, time
 from collections import defaultdict
 from scipy import interpolate, signal
 import numpy as np
@@ -1756,9 +1756,9 @@ def plot_lfp_spectrogram(config, input_path, time_range = None, window_size=4096
 
 
 ## Plot intracellular state trace 
-def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], time_range = None,
-                              time_variable='t', state_variable='v', max_units = 1, gid_set = None,
-                              n_trials = 1, labels = None,  reduce = False, **kwargs): 
+def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], time_range=None,
+                              time_variable='t', state_variable='v', max_units = 1, gid_set=None,
+                              n_trials = 1, labels=None,  reduce=False, distance=False, **kwargs): 
     ''' 
     Line plot of intracellular state variable (default: v). Returns the figure handle.
 
@@ -1771,6 +1771,9 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
     labels = ('legend', 'overlay'): Show population labels in a legend or overlayed on one side of raster (default: 'legend')
     '''
 
+    if reduce and distance:
+        raise RuntimeError("plot_intracellular_state: reduce and distance are mutually exclusive")
+    
     fig_options = copy.copy(default_fig_options)
     fig_options.update(kwargs)
 
@@ -1840,6 +1843,17 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
                 line, = ax.plot(cell_state_mat[0][0].reshape((n,)), cell_state)
                 stplots.append(line)
                 logger.info('plot_state: min/max/mean value is %.02f / %.02f / %.02f' % (np.min(cell_state), np.max(cell_state), np.mean(cell_state)))
+            elif distance:
+                distance_rank = np.argsort(cell_state_distances, kind='stable')
+                distance_rank_descending = distance_rank[::-1]
+                distance_columns = []
+                for i in range(0,m):
+                    state_columns = np.asarray(cell_state_mat[1][i,:]).reshape((n,))[distance_rank_descending]
+                state_mat = np.column_stack(state_columns)
+                t = cell_state_mat[0][0].reshape((n,))
+                d = distance_labels[distance_rank_descending]
+                pcm = ax.pcolormesh(t, d, state_mat)
+                stplots.append(pcm)
             else:
                 for i in range(m):
                     cell_state = np.asarray(cell_state_mat[1][i,:]).reshape((n,))
@@ -2393,10 +2407,12 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
 
 
 def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid,
-                       target_input_features_path=None, target_input_features_namespace=None, config_file=None, config_prefix="config",
+                       target_input_features_path=None, target_input_features_namespace=None,
+                       target_input_features_arena_id=None, target_input_features_trajectory_id=None,
+                       config_file=None, config_prefix="config",
                        include='eachPop', include_artificial=True, time_range=None, time_variable='t', intracellular_variable='v',
                        labels='overlay', pop_rates=True, all_spike_hist=False, spike_hist_bin=5, lowpass_plot_type='overlay',
-                       n_trials=-1, marker='.', **kwargs):
+                       n_trials=-1, marker='.', opt_seed=None,  **kwargs):
     """
     Raster plot of target cell intracellular trace + spike raster of presynaptic inputs. Returns the figure handle.
 
@@ -2487,14 +2503,16 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
 
     target_rate = None
     target_rate_time = None
-    if (target_input_features_path is not None) and (target_input_features_namespaces is not None):
-        if config_path is None:
+    if (target_input_features_path is not None) and (target_input_features_namespace is not None):
+        if config_file is None:
             raise RuntimeError("plot_network_clamp: config_file must be provided with target_input_features_path.") 
-        env = Env(config_file=config_file, config_prefix=config_prefix)
-        target_trj_rate_maps = rate_maps_from_features(env, state_pop_name,
+        env = Env(config_file=config_file, config_prefix=config_prefix,
+                  arena_id=target_input_features_arena_id,
+                  trajectory_id=target_input_features_trajectory_id)
+        target_trj_rate_maps = stimulus.rate_maps_from_features(env, state_pop_name,
                                                        target_input_features_path, 
                                                        target_input_features_namespace,
-                                                       cell_index_set=list(gid),
+                                                       cell_index_set=[gid],
                                                        time_range=time_range,
                                                        include_time=True)
         target_rate_time, target_rate = target_trj_rate_maps[gid]
@@ -2637,15 +2655,14 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
                 ax2.add_artist(at)
 
     if target_rate is not None:
-        ax2.fill_between(target_rate_time, 0, target_rate, alpha=0.5)
+        ax2.fill_between(target_rate_time, 0, target_rate / np.max(target_rate), alpha=0.25)
                 
     # Plot intracellular state
     ax3 = axes[len(spkpoplst)+1]
     ax3.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
     ax3.set_ylabel(intracellular_variable, fontsize=fig_options.fontSize)
     ax3.set_xlim(time_range)
-    if target_rate is not None:
-        ax3.fill_between(target_rate_time, 0, target_rate, alpha=0.5)
+
 
     # Plot lowpass-filtered intracellular state if lowpass_plot_type is set to subplot
     if lowpass_plot_type == 'subplot':
@@ -2699,11 +2716,12 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
         raise RuntimeError('plot_network_clamp: unknown label type %s' % labels)
         
     # save figure
+    ts = time.strftime("%Y%m%d_%H%M%S") 
     if fig_options.saveFig:
         if isinstance(fig_options.saveFig, basestring):
             filename = fig_options.saveFig
         else:
-            filename = 'Network Clamp %s %i.%s' % (state_pop_name, gid, fig_options.figFormat)
+            filename = 'Network Clamp %s %i.%s' % (state_pop_name, gid, fig_options.figFormat) if opt_seed is None else 'NetworkClamp_{!s}_{:d}_{!s}_{:08d}.{!s}'.format(state_pop_name, gid, ts, opt_seed, fig_options.figFormat)
             plt.savefig(filename)
 
     # show fig
