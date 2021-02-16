@@ -633,15 +633,15 @@ Synaptic Optimization:
         !!python/tuple [GC, MC, CA3c, MPP, LPP]:
           !!python/tuple [soma, basal, apical]:
             AMPA:
-              weight: [0.005, 10.0]
+              weight: [0.05, 2.0]
         !!python/tuple [IS, HCC, NGFC, MOPP]:
           !!python/tuple [apical, basal, soma]:
             GABA_A:
-              weight: [0.005, 10.0]
+              weight: [0.01, 1.0]
         NGFC:
           apical:
             GABA_B:
-              weight: [0.005, 10.0]
+              weight: [0.05, 0.7]
       Weight inh microcircuit:
         !!python/tuple [IS, HCC, NGFC, MOPP]:
           !!python/tuple [apical, basal, soma]:
@@ -694,15 +694,15 @@ Synaptic Optimization:
         !!python/tuple [MPP, LPP]:
           !!python/tuple [soma, basal, apical]:
             AMPA:
-              weight: [0.005, 10.0]
+              weight: [0.05, 2.0]
         !!python/tuple [HC, NGFC, MOPP]:
           !!python/tuple [apical, basal, soma]:
             GABA_A:
-              weight: [0.005, 10.0]
+              weight: [0.01, 1.0]
         NGFC:
           !!python/tuple [apical, basal, soma]:
             GABA_B:
-              weight: [0.005, 10.0]
+              weight: [0.05, 0.7]
       Weight inh microcircuit:
         !!python/tuple [HC, NGFC, MOPP]:
           !!python/tuple [apical, basal, soma]:
@@ -767,15 +767,15 @@ Synaptic Optimization:
         !!python/tuple [MPP, LPP, MC]:
           !!python/tuple [soma, basal, apical]:
             AMPA:
-              weight: [0.005, 10.0]
+              weight: [0.05, 2.0]
         !!python/tuple [HC, HCC, MOPP, NGFC]:
           !!python/tuple [apical, basal, soma]:
             GABA_A:
-              weight: [0.005, 10.0]
+              weight: [0.01, 1.0]
         NGFC:
           !!python/tuple [apical]:
             GABA_B:
-              weight: [0.005, 10.0]
+              weight: [0.05, 0.7]
       Weight inh microcircuit:
         !!python/tuple [HC, HCC, MOPP, NGFC]:
           !!python/tuple [apical, basal, soma]:
