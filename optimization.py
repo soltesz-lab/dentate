@@ -38,6 +38,10 @@ OptConfig = namedtuple("OptConfig",
                         'param_tuples', 
                         'opt_targets'])
 
+SelectivityOptConfig = namedtuple("SelectivityOptConfig",
+                                   ['mask_param_names',
+                                    'mask_param_tuples'])
+
 @unique
 class TrialRegime(IntEnum):
     mean = 0
@@ -109,6 +113,43 @@ def optimization_params(optimization_config, pop_names, param_config_name, param
                      opt_targets=opt_targets)
 
 
+
+def selectivity_optimization_params(optimization_config, pop_names, param_config_name):
+
+    """Constructs a flat list representation of selectivity optimization parameters."""
+    
+    mask_param_tuples = []
+    mask_param_names = []
+
+    for pop_name in pop_names:
+        if pop_name in optimization_config['selectivity']:
+            opt_params = optimization_config['selectivity'][pop_name]
+            structured_weights_masks = opt_params['Structured weights masks'][param_config_name]
+        else:
+            raise RuntimeError(
+                "selectivity_optimization_params: population %s does not have optimization configuration" % pop_name)
+        keyfun = lambda kv: str(kv[0])
+        for source, source_dict in sorted(viewitems(structured_weights_masks), key=keyfun):
+            for sec_type, sec_type_dict in sorted(viewitems(source_dict), key=keyfun):
+                for syn_name, syn_mech_dict in sorted(viewitems(sec_type_dict), key=keyfun):
+                    for param_fst, param_rst in sorted(viewitems(syn_mech_dict), key=keyfun):
+                        if isinstance(param_rst, dict):
+                            for const_name, const_value in sorted(viewitems(param_rst)):
+                                param_path = (param_fst, const_name)
+                                param_key = '%s.%s.%s.%s.%s.%s' % (pop_name, str(source), sec_type, syn_name, param_fst, const_name)
+                                mask_param_names.append(param_key)
+                                mask_param_tuples.append(SynParam(pop_name, source, sec_type, syn_name, param_path, const_value))
+                        else:
+                            param_name = param_fst
+                            param_value = param_rst
+                            param_key = '%s.%s.%s.%s.%s' % (pop_name, source, sec_type, syn_name, param_name)
+                            mask_param_names.append(param_key)
+                            mask_param_tuples.append(SynParam(pop_name, source, sec_type, syn_name, param_name, param_value))
+
+
+    return SelectivityOptConfig(mask_param_names=mask_param_names, mask_param_tuples=mask_param_tuples)
+
+
 def update_network_params(env, param_tuples):
     
     for population in env.biophys_cells:
@@ -159,6 +200,56 @@ def update_network_params(env, param_tuples):
                                               origin=None if is_reduced else 'soma', 
                                               update_targets=True)
 
+
+def update_run_params(env, param_tuples):
+    
+    for population in env.biophys_cells:
+        
+        synapse_config = env.celltypes[population].get('synapses', {})
+        weights_dict = synapse_config.get('weights', {})
+        
+        for param_tuple, param_value in param_tuples:
+
+            if param_tuple.population != population:
+                continue
+            
+            source = param_tuple.source
+            sec_type = param_tuple.sec_type
+            syn_name = param_tuple.syn_name
+            param_path = param_tuple.param_path
+            
+            if isinstance(param_path, list) or isinstance(param_path, tuple):
+                    p, s = param_path
+            else:
+                    p, s = param_path, None
+
+            sources = None
+            if isinstance(source, list) or isinstance(source, tuple):
+                    sources = source
+            else:
+                    if source is not None:
+                        sources = [source]
+
+            if isinstance(sec_type, list) or isinstance(sec_type, tuple):
+                    sec_types = sec_type
+            else:
+                    sec_types = [sec_type]
+
+            biophys_cell_dict = env.biophys_cells[population]
+            for gid in biophys_cell_dict:
+
+                biophys_cell = biophys_cell_dict[gid]
+                is_reduced = False
+                if hasattr(biophys_cell, 'is_reduced'):
+                    is_reduced = biophys_cell.is_reduced
+
+                for this_sec_type in sec_types:
+                    synapses.modify_syn_param(biophys_cell, env, this_sec_type, syn_name,
+                                              param_name=p, 
+                                              value={s: param_value} if (s is not None) else param_value,
+                                              filters={'sources': sources} if sources is not None else None,
+                                              origin=None if is_reduced else 'soma', 
+                                              update_targets=True)
 
 
 
