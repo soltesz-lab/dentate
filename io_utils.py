@@ -278,6 +278,9 @@ def recsout(env, output_path, t_start=None, clear_data=False, write_cell_locatio
                 if write_trial_data:
                     attr_dict[gid]['trial duration'] = trial_dur
                 if write_cell_location_data:
+                    ri = rec.get('ri', None)
+                    if ri is not None:
+                        attr_dict[gid]['ri'] = np.asarray([ri], dtype=np.float32)
                     distance = rec.get('distance', None)
                     if distance is not None:
                         attr_dict[gid]['distance'] = np.asarray([distance], dtype=np.float32)

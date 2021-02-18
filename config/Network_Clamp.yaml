@@ -30,6 +30,23 @@ Weight Generator:
         mu: 0.
         sigma: 1.0
         clip: [0.0, 3.0]
+Selectivity Optimization:
+  GC:
+    Structured weights masks:
+      PP:
+        !!python/tuple [MPP, LPP]:
+          apical:
+            AMPA:
+              weight:
+                a: 0.0
+  MC:
+    Structured weights masks:
+      CA3c:
+        CA3c:
+          apical:
+            AMPA:
+              weight:
+                a: 0.0
 Synaptic Optimization:
   GC:
     Parameter ranges:

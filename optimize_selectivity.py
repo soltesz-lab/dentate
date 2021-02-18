@@ -16,7 +16,7 @@ from dentate.utils import is_interactive, is_iterable, Context, list_find, list_
 from dentate.utils import write_to_yaml, read_from_yaml, get_trial_time_indices, get_trial_time_ranges, get_low_pass_filtered_trace, contiguous_ranges, generate_results_file_id
 from dentate.network_clamp import init, run_with
 from dentate.stimulus import rate_maps_from_features
-from dentate.optimization import ProblemRegime, TrialRegime, update_network_params, optimization_params, opt_eval_fun
+from dentate.optimization import ProblemRegime, TrialRegime, update_network_params, optimization_params, selectivity_optimization_params, opt_eval_fun
 from dmosopt import dmosopt
 
 logger = get_module_logger(__name__)
@@ -44,7 +44,7 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
                             template_paths, dataset_prefix, config_prefix, results_path,
                             spike_events_path, spike_events_namespace, spike_events_t,
                             input_features_path, input_features_namespaces,
-                            param_type, param_config_name, recording_profile, 
+                            param_type, param_config_name, structured_weights_mask_config_name, recording_profile, 
                             state_variable, state_filter, state_baseline,
                             target_features_path, target_features_namespace,
                             target_features_arena, target_features_trajectory,   
@@ -103,8 +103,6 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
     trough_pctile_dict = { gid: np.percentile(target_rate_vector_dict[gid][infld_idxs], 20)
                            for gid, infld_idxs in viewitems(infld_idxs_dict) }
 
-    outfld_idxs_dict = { gid: range_inds(contiguous_ranges(target_rate_vector <= 1e-4, return_indices=True))
-                         for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
     infld_idxs_dict = { gid: range_inds(contiguous_ranges(target_rate_vector > 1e-4, return_indices=True))
                         for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
 
@@ -128,17 +126,22 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
     trough_ranges_dict = { gid: time_ranges(contiguous_ranges(np.logical_and(target_rate_vector > 0., target_rate_vector <= trough_pctile_dict[gid])))
                          for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
 
+    has_large_flds = False
     for gid in my_cell_index_set:
 
         infld_idxs = infld_idxs_dict[gid]
-        outfld_idxs = outfld_idxs_dict[gid]
-        
+
         target_infld_rate_vector = target_rate_vector[infld_idxs]
 
+        if outfld_ranges_dict[gid] is None:
+            has_large_flds = True
+        
         logger.info(f'selectivity objective: target peak/trough rate of gid {gid}: '
                     f'{peak_pctile_dict[gid]:.02f} {trough_pctile_dict[gid]:.02f}')
         
     opt_param_config = optimization_params(env.netclamp_config.optimize_parameters, [population], param_config_name, param_type)
+    selectivity_opt_param_config = selectivity_optimization_params(env.netclamp_config.optimize_parameters, [population],
+                                                                   structured_weights_mask_config_name)
 
     opt_targets = opt_param_config.opt_targets
     param_names = opt_param_config.param_names
@@ -151,6 +154,18 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
 
         return result
 
+    def update_run_params(input_param_tuple_vals, update_param_names, update_param_tuples):
+        result = []
+        update_param_dict = dict(zip(update_param_names, update_param_tuples))
+        for param_pattern, (param_tuple, param_val) in zip(param_names, param_tuple_vals):
+            if param_pattern in update_param_dict:
+                result.append((param_tuple, update_param_dict[param_pattern].param_range))
+            else:
+                result.append((param_tuple, param_val))
+
+        return result
+        
+    
     def gid_firing_rate_vectors(spkdict, cell_index_set):
         rates_dict = defaultdict(list)
         for i in range(n_trials):
@@ -243,10 +258,13 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
         return (np.asarray(snrs), np.asarray(rate_features))
 
     
-    def trial_state_residuals(gid, target_outfld, t_peak_idxs, t_trough_idxs, t_infld_idxs, t_outfld_idxs, state_values):
+    def trial_state_residuals(gid, target_outfld, t_peak_idxs, t_trough_idxs, t_infld_idxs, t_outfld_idxs, state_values, masked_state_values):
 
         state_value_arrays = np.row_stack(state_values)
-
+        masked_state_value_arrays = None
+        if masked_state_values is not None:
+            masked_state_value_arrays = np.row_stack(masked_state_values)
+        
         residuals_outfld = []
         peak_inflds = []
         trough_inflds = []
@@ -256,8 +274,14 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
             peak_infld = np.mean(state_value_array[t_peak_idxs])
             trough_infld = np.mean(state_value_array[t_trough_idxs])
             mean_infld = np.mean(state_value_array[t_infld_idxs])
-            mean_outfld = np.mean(state_value_array[t_outfld_idxs])
-            residual_outfld = np.mean(state_value_array[t_outfld_idxs]) - target_outfld
+            if t_outfld_idxs is not None:
+                mean_outfld = np.mean(state_value_array[t_outfld_idxs])
+                residual_outfld = np.mean(state_value_array[t_outfld_idxs]) - target_outfld
+            else:
+                masked_state_value_array = masked_state_value_arrays[i, :]
+                mean_outfld = np.mean(masked_state_value_array)
+                residual_outfld = np.mean(masked_state_value_array) - target_outfld
+                
             peak_inflds.append(peak_infld)
             trough_inflds.append(trough_infld)
             mean_outflds.append(mean_outfld)
@@ -282,8 +306,19 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
         
     def eval_problem(cell_param_dict, **kwargs):
 
-        spkdict = run_with(env, {population: {gid: from_param_dict(cell_param_dict[gid])
-                                              for gid in my_cell_index_set}})
+        run_params = {population: {gid: from_param_dict(cell_param_dict[gid])
+                                   for gid in my_cell_index_set}}
+        masked_state_values_dict = None
+        if has_large_flds:
+            masked_run_params = update_run_params(masked_run_params,
+                                                  selectivity_opt_param_config.mask_param_names,
+                                                  selectivity_opt_param_config.mask_param_tuples)
+            masked_spkdict = run_with(env, masked_run_params)
+            t_s, masked_state_values_dict = gid_state_values(masked_spkdict, equilibration_duration, n_trials, env.t_rec, 
+                                                             state_recs_dict)
+            
+        
+        spkdict = run_with(env, run_params)
         
         rates_dict = gid_firing_rate_vectors(spkdict, my_cell_index_set)
         t_s, state_values_dict = gid_state_values(spkdict, equilibration_duration, n_trials, env.t_rec, 
@@ -316,6 +351,7 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
             else:
                 t_outfld_idxs = None
             
+            masked_state_values = masked_state_values_dict[gid] if masked_state_values_dict is not None else None
             state_values = state_values_dict[gid]
             rate_vectors = rates_dict[gid]
             
@@ -326,7 +362,7 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
                                              peak_idxs, trough_idxs, infld_idxs, outfld_idxs, rate_vectors)
             state_residuals, state_features = trial_state_residuals(gid, state_baseline,
                                                                     t_peak_idxs, t_trough_idxs, t_infld_idxs, t_outfld_idxs,
-                                                                    state_values)
+                                                                    state_values, masked_state_values)
             
             if trial_regime == 'mean':
                 mean_snr = np.mean(snrs)
@@ -355,8 +391,8 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
     return opt_eval_fun(problem_regime, my_cell_index_set, eval_problem)
 
 
-def optimize_run(env, population, param_config_name, init_objfun, problem_regime, nprocs_per_worker=1,
-                 n_iter=10, n_initial=30, population_size=100, num_generations=200, resample_fraction=None,
+def optimize_run(env, population, param_config_name, structured_weights_mask_config_name, init_objfun, problem_regime, nprocs_per_worker=1,
+                 n_iter=10, n_initial=30, population_size=200, num_generations=200, resample_fraction=None,
                  param_type='synaptic', init_params={}, results_file=None, cooperative_init=False, verbose=False):
 
     opt_param_config = optimization_params(env.netclamp_config.optimize_parameters, [population], param_config_name, param_type)
@@ -479,6 +515,8 @@ def optimize_run(env, population, param_config_name, init_objfun, problem_regime
               help='path to directory containing network and cell mechanism config files')
 @click.option("--param-config-name", type=str, 
               help='parameter configuration name to use for optimization (defined in config file)')
+@click.option("--structured-weights-mask-config-name", type=str, 
+              help='parameter configuration name to use for masking out structured weights (defined in config file)')
 @click.option("--param-type", type=str, default='synaptic',
               help='parameter type to use for optimization (synaptic)')
 @click.option('--recording-profile', type=str, help='recording profile to use')
@@ -514,7 +552,7 @@ def optimize_run(env, population, param_config_name, init_objfun, problem_regime
 def main(config_file, population, dt, gid, gid_selection_file, arena_id, trajectory_id, generate_weights,
          t_max, t_min,  nprocs_per_worker, n_iter, n_initial, population_size, num_generations, resample_fraction,
          template_paths, dataset_prefix, config_prefix,
-         param_config_name, param_type, recording_profile, results_file, results_path, spike_events_path,
+         param_config_name, structured_weights_mask_config_name, param_type, recording_profile, results_file, results_path, spike_events_path,
          spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, n_trials,
          trial_regime, problem_regime, target_features_path, target_features_namespace, target_state_variable,
          target_state_filter, use_coreneuron, cooperative_init):
@@ -593,16 +631,14 @@ def main(config_file, population, dt, gid, gid_selection_file, arena_id, traject
     init_params['state_variable'] = target_state_variable
     init_params['state_filter'] = target_state_filter
     init_objfun_name = 'init_selectivity_objfun'
-
-    opt_param_config = optimization_params(env.netclamp_config.optimize_parameters, [population], param_config_name, param_type)
-
         
-    best = optimize_run(env, population, param_config_name, init_objfun_name, problem_regime=problem_regime,
+    best = optimize_run(env, population, param_config_name, structured_weights_mask_config_name, init_objfun_name, problem_regime=problem_regime,
                         n_iter=n_iter, n_initial=n_initial, population_size=population_size, num_generations=num_generations,
                         resample_fraction=resample_fraction, param_type=param_type, init_params=init_params, 
                         results_file=results_file, nprocs_per_worker=nprocs_per_worker, cooperative_init=cooperative_init,
                         verbose=verbose)
     
+    opt_param_config = optimization_params(env.netclamp_config.optimize_parameters, [population], param_config_name, param_type)
     if best is not None:
         if results_path is not None:
             run_ts = time.strftime("%Y%m%d_%H%M%S")
