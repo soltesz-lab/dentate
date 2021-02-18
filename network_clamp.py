@@ -1173,13 +1173,14 @@ def show(config_file, population, gid, arena_id, trajectory_id, template_paths, 
 @click.option('--write-cell', is_flag=True, help='write out selected cell tree morphology and connections')
 @click.option('--profile-memory', is_flag=True, help='calculate and print heap usage after the simulation is complete')
 @click.option('--recording-profile', type=str, default='Network clamp default', help='recording profile to use')
+@click.option("--opt-seed", type=int, help='seed for random sampling of optimization parameters')
 
 def go(config_file, population, dt, gid, arena_id, trajectory_id, generate_weights, t_max, t_min,
        template_paths, dataset_prefix, config_prefix,
        spike_events_path, spike_events_namespace, spike_events_t,
        input_features_path, input_features_namespaces, n_trials, params_path,
        results_path, results_file_id, results_namespace_id, use_coreneuron,
-       plot_cell, write_cell, profile_memory, recording_profile):
+       plot_cell, write_cell, profile_memory, recording_profile, opt_seed):
 
     """
     Runs network clamp simulation for the specified gid, or for all gids found in the input data file.
@@ -1220,7 +1221,7 @@ def go(config_file, population, dt, gid, arena_id, trajectory_id, generate_weigh
             distwq.run(verbose=True, spawn_workers=True, nprocs_per_worker=1)
     else:
         if results_file_id is None:
-            results_file_id = generate_results_file_id(population, gid)
+            results_file_id = generate_results_file_id(population, gid, opt_seed)
         init_params['results_file_id'] = results_file_id
         env = Env(**init_params, comm=comm)
         configure_hoc_env(env)

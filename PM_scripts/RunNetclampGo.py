@@ -2,9 +2,15 @@ import os
 import numpy as np
 import  mpi4py.MPI as MPI
 mpicom = MPI.COMM_WORLD
+<<<<<<< Updated upstream
 from network_clamp import go as netclamp_go
 
 cell_dt = np.dtype([('celltype', np.str_, 4), ('cell_id', np.int, 1), ('date', np.int, 1), ('time', np.int, 1)])
+=======
+#from network_clamp import go as netclamp_go
+
+cell_dt = np.dtype([('celltype', np.str_, 4), ('cell_id', np.int, 1), ('date', np.int, 1), ('time', np.int, 1), ('seed', np.int, 1)])
+>>>>>>> Stashed changes
 cell_ac = np.dtype([('celltype', np.str_, 4), ('cell_id', np.int, 1), ('N_trials', np.int, 1), ('idx', np.ndarray, 1)])
 
 class NetclampGo():
@@ -30,7 +36,7 @@ class NetclampGo():
         N_fils = len(filtlist)
         self.raw_arr = np.empty(shape=(N_fils), dtype=cell_dt)
         for idx, fil in enumerate(filtlist):
-            self.raw_arr[idx] = fil[0], int(fil[1]), int(fil[2]), int(fil[3])
+            self.raw_arr[idx] = fil[0], int(fil[1]), int(fil[2]), int(fil[3]), int(fil[4])
 
 #        uniq_celltypes = self.get_uniq_idx('celltype', inv=False)
 #        N_uniq_celltypes = uniq_celltypes.size
@@ -49,7 +55,8 @@ class NetclampGo():
         self.get_go_yaml(all_idx, dir_path)
     #    self.get_my_chores(all_idx)
 
-        print(self.go_yaml)
+        for fil in self.go_yaml:
+            print('"', *fil, '"')
 
         self.set_comm_go_args()
 
@@ -60,7 +67,11 @@ class NetclampGo():
     def get_go_yaml(self, all_idx, dir_path):
         self.go_yaml = np.empty(shape=all_idx.size, dtype='O')
         for idx, fil in enumerate(self.raw_arr[all_idx]):
+<<<<<<< Updated upstream
             self.go_yaml[idx] = (fil[0], fil[1], '{!s}/{!s}{!s}_{:d}_{:08d}_{:06d}.yaml'.format(dir_path, 'network_clamp.optimize.', *fil)) 
+=======
+            self.go_yaml[idx] = (fil[0], fil[1], fil[4], '{!s}/{!s}{!s}_{:d}_{:08d}_{:06d}_{:08d}.yaml'.format(dir_path, 'network_clamp.optimize.', *fil)) 
+>>>>>>> Stashed changes
         
     def get_my_chores(self, all_idx):
         N_chores = all_idx.size
@@ -104,7 +115,12 @@ class NetclampGo():
 
 
 if __name__=='__main__':
+<<<<<<< Updated upstream
     datesfilt = ('20210131', '20210201', '20210202')
+=======
+  #  datesfilt = ('20210131', '20210201', '20210202')
+    datesfilt = ('20210204')
+>>>>>>> Stashed changes
     celltypfilt = ['BC', 'AAC']
     dir_path = 'results/netclamp'
     NetclampGo(dir_path, datesfilt, celltypfilt=None)

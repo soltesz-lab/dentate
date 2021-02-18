@@ -14,5 +14,4 @@ python3  network_clamp.py optimize -c 20201022_Network_Clamp_GC_Exc_Sat_SLN_IN_I
     --arena-id A --trajectory-id Diag \
     --results-path results/netclamp \
     --param-config-name "Weight exc inh microcircuit" \
-    --cooperative-init \
     --opt-iter 400 rate

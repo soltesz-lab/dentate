@@ -7,7 +7,7 @@
 #SBATCH -N 40             # Total # of nodes 
 #SBATCH --ntasks-per-node=56 # # of mpi tasks per node
 #SBATCH -t 2:00:00        # Run time (hh:mm:ss)
-#SBATCH --mail-user=ivan.g.raikov@gmail.com
+#SBATCH --mail-user=pmoolcha@stanford.edu
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
 module load python3
