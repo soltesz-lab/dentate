@@ -204,7 +204,7 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
 
 
     def trial_snrs(gid, target_max_infld, target_mean_trough, 
-                   peak_idxs, trough_idxs, infld_idxs, rate_vectors):
+                   peak_idxs, trough_idxs, infld_idxs, outfld_idxs, rate_vectors):
 
         mean_peak_rate_vector = np.mean(np.row_stack([ rate_vector[peak_idxs] 
                                                        for rate_vector in rate_vectors ]),
@@ -216,21 +216,27 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
                                                         for rate_vector in rate_vectors ]),
                                          axis=0)
 
-        mean_peak = np.mean(mean_peak_rate_vector)
-        mean_trough = np.mean(mean_trough_rate_vector)
-        min_infld = np.min(mean_infld_rate_vector)
-        max_infld = np.max(mean_infld_rate_vector)
-        mean_infld = np.mean(mean_infld_rate_vector)
-
         snrs = []
 
         for trial_i in range(len(rate_vectors)):
-            if max_infld > target_max_infld:
-                snr = 0.
+
+            rate_vector = rate_vectors[trial_i]
+            infld_rate_vector = rate_vector[infld_idxs]
+            outfld_rate_vector = rate_vector[outfld_idxs]
+
+            mean_peak = np.mean(rate_vector[peak_idxs])
+            mean_trough = np.mean(rate_vector[trough_idxs])
+            min_infld = np.min(infld_rate_vector)
+            max_infld = np.max(infld_rate_vector)
+            mean_infld = np.mean(infld_rate_vector)
+            mean_outfld = np.mean(outfld_rate_vector)
+
+            if mean_trough < mean_outfld:
+                snr = -1e6
             else:
                 snr = (np.clip(mean_peak - mean_trough, 0., None) ** 2.)  / max((mean_trough - target_mean_trough) ** 2., 1.0)
-                logger.info(f'selectivity objective: max infld/mean infld/mean peak/trough/snr of gid {gid}: '
-                            f'{max_infld:.02f} {mean_infld:.02f} {mean_peak:.02f} {mean_trough:.02f} {snr:.04f}')
+            logger.info(f'selectivity objective: max infld/mean infld/mean peak/trough/snr of gid {gid} trial {trial_i}: '
+                        f'{max_infld:.02f} {mean_infld:.02f} {mean_peak:.02f} {mean_trough:.02f} {snr:.04f}')
             snrs.append(snr)
 
         rate_features = [mean_peak, mean_trough, max_infld, min_infld]
@@ -317,7 +323,7 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
                         f'{list([np.max(rate_vector) for rate_vector in rate_vectors])}')
 
             snrs, rate_features = trial_snrs(gid, target_max_infld, target_mean_trough, 
-                                             peak_idxs, trough_idxs, infld_idxs, rate_vectors)
+                                             peak_idxs, trough_idxs, infld_idxs, outfld_idxs, rate_vectors)
             state_residuals, state_features = trial_state_residuals(gid, state_baseline,
                                                                     t_peak_idxs, t_trough_idxs, t_infld_idxs, t_outfld_idxs,
                                                                     state_values)
