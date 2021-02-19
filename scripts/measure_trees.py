@@ -20,7 +20,10 @@ def mpi_excepthook(type, value, traceback):
         MPI.COMM_WORLD.Abort(1)
 #sys.excepthook = mpi_excepthook
 
-script_name="measure_trees.py"
+script_name=os.path.basename(__file__)
+
+def get_distance_to_node(cell, source_sec, target_sec, loc=0.5):
+    return h.distance(source_sec(0.5), target_sec(loc))
 
 
 @click.command()
@@ -29,12 +32,13 @@ script_name="measure_trees.py"
 @click.option("--output-path", type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
+@click.option("--distance-bin-size", type=float, default=10.)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=10000)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config, template_path, output_path, forest_path, populations, io_size, chunk_size, value_chunk_size, cache_size, verbose):
+def main(config, template_path, output_path, forest_path, populations, distance_bin_size, io_size, chunk_size, value_chunk_size, cache_size, verbose):
     """
 
     :param config:
@@ -72,6 +76,11 @@ def main(config, template_path, output_path, forest_path, populations, io_size, 
             input_file.close()
             output_file.close()
     comm.barrier()
+    
+    layers = env.layers
+    layer_idx_dict = { layers[layer_name]: layer_name 
+                       for layer_name in ['GCL', 'IML', 'MML', 'OML', 'Hilus'] }
+ 
         
     (pop_ranges, _) = read_population_ranges(forest_path, comm=comm)
     start_time = time.time()
@@ -79,7 +88,7 @@ def main(config, template_path, output_path, forest_path, populations, io_size, 
         logger.info('Rank %i population: %s' % (rank, population))
         count = 0
         (population_start, _) = pop_ranges[population]
-        template_class = load_cell_template(env, population, bcast_cell_template=True)
+        template_class = load_cell_template(env, population, bcast_template=True)
         measures_dict = {}
         for gid, morph_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, comm=comm, topology=True):
             if gid is not None:
@@ -90,25 +99,49 @@ def main(config, template_path, output_path, forest_path, populations, io_size, 
                 apicalidx = set(cell.apicalidx)
                 basalidx  = set(cell.basalidx)
                 
-                dendrite_area_dict = { k+1: 0.0 for k in range(0, 4) }
-                dendrite_length_dict = { k+1: 0.0 for k in range(0, 4) }
+                dendrite_area_dict = { k: 0.0 for k in layer_idx_dict }
+                dendrite_length_dict = { k: 0.0 for k in layer_idx_dict }
+                dendrite_distances = []
+                dendrite_diams = []
                 for (i, sec) in enumerate(cell.sections):
                     if (i in apicalidx) or (i in basalidx):
                         secnodes = secnodes_dict[i]
-                        prev_layer = None
                         for seg in sec.allseg():
                             L     = seg.sec.L
                             nseg  = seg.sec.nseg
                             seg_l = L / nseg
                             seg_area = h.area(seg.x)
+                            seg_diam = seg.diam
+                            seg_distance = get_distance_to_node(cell, list(cell.soma)[0], seg.sec, seg.x)
+                            dendrite_diams.append(seg_diam)
+                            dendrite_distances.append(seg_distance)
                             layer = synapses.get_node_attribute('layer', morph_dict, seg.sec, secnodes, seg.x)
-                            layer = layer if layer > 0 else (prev_layer if prev_layer is not None else 1)
-                            prev_layer = layer
                             dendrite_length_dict[layer] += seg_l
                             dendrite_area_dict[layer] += seg_area
+                    
+                dendrite_distance_array = np.asarray(dendrite_distances)
+                dendrite_diam_array = np.asarray(dendrite_diams)
+                dendrite_distance_bin_range = int(((np.max(dendrite_distance_array)) - np.min(dendrite_distance_array))/distance_bin_size)+1
+                dendrite_distance_counts, dendrite_distance_edges = np.histogram(dendrite_distance_array, 
+                                                                                 bins=dendrite_distance_bin_range, 
+                                                                                 density=False)
+                dendrite_diam_sums, _ = np.histogram(dendrite_distance_array, 
+                                                     weights=dendrite_diam_array, 
+                                                     bins=dendrite_distance_bin_range, 
+                                                     density=False)
+                dendrite_mean_diam_hist = np.zeros_like(dendrite_diam_sums)
+                np.divide(dendrite_diam_sums, dendrite_distance_counts, 
+                          where=dendrite_distance_counts>0,
+                          out=dendrite_mean_diam_hist)
 
-                measures_dict[gid] = { 'dendrite_area': np.asarray([ dendrite_area_dict[k] for k in sorted(dendrite_area_dict.keys()) ], dtype=np.float32), \
-                                       'dendrite_length': np.asarray([ dendrite_length_dict[k] for k in sorted(dendrite_length_dict.keys()) ], dtype=np.float32) }
+                dendrite_area_per_layer = np.asarray([ dendrite_area_dict[k] for k in sorted(dendrite_area_dict.keys()) ], dtype=np.float32)
+                dendrite_length_per_layer = np.asarray([ dendrite_length_dict[k] for k in sorted(dendrite_length_dict.keys()) ], dtype=np.float32)
+
+                measures_dict[gid] = { 'dendrite_distance_hist_edges': np.asarray(dendrite_distance_edges, dtype=np.float32),
+                                       'dendrite_distance_counts': np.asarray(dendrite_distance_counts, dtype=np.int32),
+                                       'dendrite_mean_diam_hist': np.asarray(dendrite_mean_diam_hist, dtype=np.float32),
+                                       'dendrite_area_per_layer': dendrite_area_per_layer,
+                                       'dendrite_length_per_layer': dendrite_length_per_layer }
                     
                 del cell
                 count += 1
@@ -122,4 +155,4 @@ def main(config, template_path, output_path, forest_path, populations, io_size, 
 
 
 if __name__ == '__main__':
-    main(args=sys.argv[(utils.list_find(lambda s: s.find(script_name) != -1,sys.argv)+1):])
+    main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == os.path.basename(__file__), sys.argv)+1):])

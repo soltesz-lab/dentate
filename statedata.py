@@ -29,7 +29,7 @@ def query_state(input_file, population_names, namespace_ids=None):
     return namespace_id_lst, attr_info_dict
 
 
-def read_state(input_file, population_names, namespace_id, time_variable='t', state_variable='v', time_range=None,
+def read_state(input_file, population_names, namespace_id, time_variable='t', state_variables=['v'], time_range=None,
                max_units=None, gid=None, comm=None, n_trials=-1):
     if comm is None:
         comm = MPI.COMM_WORLD
@@ -38,16 +38,17 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', st
     logger.info('Reading state data from populations %s, namespace %s gid = %s...' % (str(population_names), namespace_id, str(gid)))
 
     attr_info_dict = read_cell_attribute_info(input_file, populations=population_names, read_cell_index=True)
-    
+
     for pop_name in population_names:
         cell_index = None
         pop_state_dict[pop_name] = {}
         for attr_name, attr_cell_index in attr_info_dict[pop_name][namespace_id]:
-            if state_variable == attr_name:
+            if attr_name in state_variables:
                 cell_index = attr_cell_index
-
+                break
         if cell_index is None:
-            raise RuntimeError('read_state: Unable to find recordings for state variable %s in population %s namespace %s' % (state_variable, pop_name, str(namespace_id)))
+            raise RuntimeError(f'read_state: Unable to find recordings for state variable {state_variables} in '
+                               'population {pop_name} namespace {namespace_id}')
         cell_set = set(cell_index)
 
         # Limit to max_units
@@ -77,8 +78,10 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', st
                     distance = vals.get('distance', [None])[0]
                     section = vals.get('section', [None])[0]
                     loc = vals.get('loc', [None])[0]
+                    ri = vals.get('ri', [None])[0]
                     tvals = np.asarray(vals[time_variable], dtype=np.float32)
-                    svals = np.asarray(vals[state_variable], dtype=np.float32)
+                    svals = [np.asarray(vals[state_variable], dtype=np.float32)
+                             for state_variable in state_variables]
                     trial_bounds = list(np.where(np.isclose(tvals, tvals[0], atol=1e-4))[0])
                     n_trial_bounds = len(trial_bounds)
                     trial_bounds.append(len(tvals))
@@ -90,13 +93,15 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', st
                     trial_bounds_unique = [x[-1] for x in trial_bounds_consecutive]
                     
                     if this_n_trials > 1:
-                        state_dict[cellind] = (np.split(tvals, trial_bounds_unique[1:n_trials]),
-                                               np.split(svals, trial_bounds_unique[1:n_trials]),
-                                               distance, section, loc)
+                        state_dict[cellind] = { time_variable: np.split(tvals, trial_bounds_unique[1:n_trials]),
+                                                'distance': distance, 'section': section, 'loc': loc, 'ri': ri }
+                        for i, state_variable in enumerate(state_variables):
+                            state_dict[cellind][state_variable] = np.split(svals[i], trial_bounds_unique[1:n_trials])
                     else:
-                        state_dict[cellind] = ([tvals[:trial_bounds_unique[1]]],
-                                               [svals[:trial_bounds_unique[1]]],
-                                               distance, section, loc)
+                        state_dict[cellind] = { time_variable: [tvals[:trial_bounds_unique[1]]],
+                                                'distance': distance, 'section': section, 'loc': loc, 'ri': ri }
+                        for i, state_variable in enumerate(state_variables):
+                            state_dict[cellind][state_variable] = [svals[i][:trial_bounds_unique[1]]]
                         
         else:
             for cellind, vals in valiter:
@@ -104,10 +109,12 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', st
                     distance = vals.get('distance', [None])[0]
                     section = vals.get('section', [None])[0]
                     loc = vals.get('loc', [None])[0]
+                    ri = vals.get('ri', [None])[0]
                     tinds = np.argwhere((vals[time_variable] <= time_range[1]) &
                                         (vals[time_variable] >= time_range[0]))
                     tvals = np.asarray(vals[time_variable][tinds], dtype=np.float32).reshape((-1,))
-                    svals = np.asarray(vals[state_variable][tinds], dtype=np.float32).reshape((-1,))
+                    svals = [np.asarray(vals[state_variable], dtype=np.float32)
+                             for state_variable in state_variables]
                     trial_bounds = list(np.where(np.isclose(tvals, tvals[0], atol=1e-4))[0])
                     n_trial_bounds = len(trial_bounds)
                     trial_bounds.append(len(tvals))
@@ -120,15 +127,17 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', st
                         this_n_trials = min(n_trial_bounds, n_trials)
 
                     if this_n_trials > 1:
-                        state_dict[cellind] = (np.split(tvals, trial_bounds_unique[1:n_trials]),
-                                               np.split(svals, trial_bounds_unique[1:n_trials]),
-                                               distance, section, loc)
+                        state_dict[cellind] = { time_variable: np.split(tvals, trial_bounds_unique[1:n_trials]),
+                                                'distance': distance, 'section': section, 'loc': loc, 'ri': ri }
+                        for i, state_variable in enumerate(state_variables):
+                            state_dict[cellind][state_variable] = np.split(svals[i], trial_bounds_unique[1:n_trials]),
                     else:
-                        state_dict[cellind] = ([tvals[:trial_bounds_unique[1]]],
-                                               [svals[:trial_bounds_unique[1]]],
-                                               distance, section, loc)
+                        state_dict[cellind] = { time_variable: [tvals[:trial_bounds_unique[1]]],
+                                                'distance': distance, 'section': section, 'loc': loc, 'ri': ri }
+                        for i, state_variable in enumerate(state_variables):
+                            state_dict[cellind][state_variable] = [svals[i][:trial_bounds_unique[1]]]
                         
 
         pop_state_dict[pop_name] = state_dict
 
-    return {'states': pop_state_dict, 'time_variable': time_variable, 'state_variable': state_variable}
+    return {'states': pop_state_dict, 'time_variable': time_variable, 'state_variables': state_variables}

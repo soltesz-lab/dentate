@@ -2559,7 +2559,7 @@ def make_neurotree_cell(template_class, gid=0, dataset_path="", neurotree_dict={
     vdst = neurotree_dict['section_topology']['dst']
     vloc = neurotree_dict['section_topology']['loc']
     swc_type = neurotree_dict['swc_type']
-    
+            
     cell = template_class(gid, dataset_path, secnodes, vlayer, vsrc, vdst, vloc, vx, vy, vz, vradius, swc_type)
     return cell
 
@@ -2990,7 +2990,7 @@ def record_cell(env, pop_name, gid, recording_profile=None):
                         if node_type_count[node.type] == 1:
                             rec_id = '%s' % (node.type)
                         else:
-                            rec_id = '%s.%i' % (reclab, node.type, node.index)
+                            rec_id = '%s.%i' % (node.type, node.index)
                         rec = make_rec(rec_id, pop_name, gid, cell.hoc_cell, sec=sec, dt=dt,
                                        loc=locdict[node.type], param=recvar, label=reclab,
                                        description=node.name)

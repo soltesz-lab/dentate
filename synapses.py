@@ -1944,7 +1944,6 @@ def get_node_attribute(name, content, sec, secnodes, x=None):
     else:
         return None
 
-
 def make_synapse_graph(syn_dict, neurotree_dict):
     """
     Creates a graph of synapses that follows the topological organization of the given neuron.
