@@ -11,7 +11,7 @@
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
 module load python3
-module load phdf5
+module load phdf5/1.12.0
 
 set -x
 
@@ -32,7 +32,7 @@ ibrun python3 ./scripts/cut_slice.py \
     --config-prefix=./config \
     --dataset-prefix="$SCRATCH/striped/dentate" \
     --output-path=$results_path \
-    --io-size=96 \
+    --io-size=20 \
     --spike-input-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h\
 5" \
     --spike-input-namespace='Input Spikes A Diag' \

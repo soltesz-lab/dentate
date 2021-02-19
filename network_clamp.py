@@ -568,6 +568,13 @@ def run_with(env, param_dict, cvode=False, pc_runworker=False):
     else:
         env.t_rec.record(h._ref_t, rec_dt)
 
+    #h('objref iax, v_s, v_d')
+    #h.iax = h.Vector()
+    #h.v_s = h.Vector()
+    #h.v_d = h.Vector()
+    #h.v_s.record(
+    #dend iax.c(v1).sub(v2).div(ri(5/6))
+        
     env.t_vec.resize(0)
     env.id_vec.resize(0)
 

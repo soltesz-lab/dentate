@@ -47,7 +47,7 @@ mkdir -p $results_path
 cd $SLURM_SUBMIT_DIR
 
 
-mpirun -rr -n 56 \
+mpirun -rr -n 5 \
     python3 optimize_network.py \
     --config-path=$DG_HOME/config/DG_optimize_network_test_neg2000_neg1800um.yaml \
     --optimize-file-dir=$results_path \

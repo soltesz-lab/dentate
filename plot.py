@@ -22,7 +22,7 @@ from dentate.statedata import read_state, query_state
 from dentate.cells import default_ordered_sec_types, get_distance_to_node, make_morph_graph
 from dentate.env import Env
 from dentate.synapses import get_syn_filter_dict, get_syn_mech_param
-from dentate.utils import get_module_logger, Struct, add_bins, update_bins, finalize_bins
+from dentate.utils import get_module_logger, Promise, Struct, add_bins, update_bins, finalize_bins
 from dentate.utils import power_spectrogram, butter_bandpass_filter, apply_filter, kde_scipy, make_geometric_graph, viewitems, \
     zip_longest, basestring
 from dentate.neuron_utils import interplocs
@@ -989,7 +989,6 @@ def plot_cell_tree(population, gid, tree_dict, line_width=1., sample=0.05, color
     
     import networkx as nx
     from mayavi import mlab
-    import vtk
     
     mlab.figure(bgcolor=(0,0,0))
 
@@ -1756,9 +1755,9 @@ def plot_lfp_spectrogram(config, input_path, time_range = None, window_size=4096
 
 
 ## Plot intracellular state trace 
-def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], time_range = None,
-                              time_variable='t', state_variable='v', max_units = 1, gid_set = None,
-                              n_trials = 1, labels = None,  reduce = False, **kwargs): 
+def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], time_range=None,
+                              time_variable='t', state_variable='v', max_units = 1, gid_set=None,
+                              n_trials = 1, labels=None,  reduce=False, distance=False, **kwargs): 
     ''' 
     Line plot of intracellular state variable (default: v). Returns the figure handle.
 
@@ -1771,6 +1770,9 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
     labels = ('legend', 'overlay'): Show population labels in a legend or overlayed on one side of raster (default: 'legend')
     '''
 
+    if reduce and distance:
+        raise RuntimeError("plot_intracellular_state: reduce and distance are mutually exclusive")
+    
     fig_options = copy.copy(default_fig_options)
     fig_options.update(kwargs)
 
@@ -1802,9 +1804,10 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
 
     pop_states_dict = defaultdict(lambda: defaultdict(lambda: dict()))
     for namespace_id in namespace_ids:
+        logger.info(f"Reading state values from namespace {namespace_id}...")
         data = read_state (input_path, include, namespace_id, time_variable=time_variable,
-                            state_variable=state_variable, time_range=time_range, max_units = max_units,
-                            gid = gid_set, n_trials=n_trials)
+                           state_variables=[state_variable], time_range=time_range, max_units = max_units,
+                           gid = gid_set, n_trials=n_trials)
         states  = data['states']
         
         for (pop_name, pop_states) in viewitems(states):
@@ -1815,13 +1818,14 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
     pop_state_mat_dict = defaultdict(lambda: dict())
     for (pop_name, pop_states) in viewitems(pop_states_dict):
             for (gid, cell_state_dict) in viewitems(pop_states):
-                cell_state_items = list(sorted(viewitems(cell_state_dict)))
-                cell_state_x = cell_state_items[0][1][0]
-                cell_state_mat = np.matrix([np.mean(np.row_stack(cell_state_item[1][1]), axis=0)
-                                           for cell_state_item in cell_state_items], dtype=np.float32)
-                cell_state_distances = [cell_state_item[1][2] for cell_state_item in cell_state_items]
-                cell_state_labels = [cell_state_item[0] for cell_state_item in cell_state_items]
-                pop_state_mat_dict[pop_name][gid] = (cell_state_x, cell_state_mat, cell_state_labels, cell_state_distances)
+                nss = list(cell_state_dict.keys())
+                cell_state_x = cell_state_dict[nss[0]][time_variable]
+                cell_state_mat = np.matrix([np.mean(np.row_stack(cell_state_dict[ns][state_variable]), axis=0)
+                                           for ns in nss], dtype=np.float32)
+                cell_state_distances = [cell_state_dict[ns]['distance'] for ns in nss]
+                cell_state_ri = [cell_state_dict[ns]['ri'] for ns in nss]
+                cell_state_labels = [state_variable]
+                pop_state_mat_dict[pop_name][gid] = (cell_state_x, cell_state_mat, cell_state_labels, cell_state_distances, cell_state_ri)
     
     stplots = []
     
@@ -1840,6 +1844,24 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
                 line, = ax.plot(cell_state_mat[0][0].reshape((n,)), cell_state)
                 stplots.append(line)
                 logger.info('plot_state: min/max/mean value is %.02f / %.02f / %.02f' % (np.min(cell_state), np.max(cell_state), np.mean(cell_state)))
+            elif distance:
+                cell_state_distances = cell_state_mat[3]
+                cell_state_ri = cell_state_mat[4]
+                distance_rank = np.argsort(cell_state_distances, kind='stable')
+                distance_rank_descending = distance_rank[::-1]
+                state_rows = []
+                for i in range(0,m):
+                    j = distance_rank_descending[i]
+                    state_rows.append(np.asarray(cell_state_mat[1][j,:]).reshape((n,)))
+                state_mat = np.row_stack(state_rows)
+                t = cell_state_mat[0][0].reshape((n,))
+                d = np.asarray(cell_state_distances)[distance_rank_descending]
+                ri = np.asarray(cell_state_ri)[distance_rank_descending]
+                pcm = ax.pcolormesh(t, d, state_mat, cmap=fig_options.colormap)
+                cb = fig.colorbar(pcm, ax=ax, shrink=0.9, aspect=20)
+                stplots.append(pcm)
+                logger.info(f'plot_state: distances: {np.array2string(d)}')
+                logger.info(f'plot_state: ri: {np.array2string(ri)}')
             else:
                 for i in range(m):
                     cell_state = np.asarray(cell_state_mat[1][i,:]).reshape((n,))
@@ -1848,7 +1870,10 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
                     stplots.append(line)
                     logger.info('plot_state: min/max/mean value of state %d is %.02f / %.02f / %.02f' % (i, np.min(cell_state), np.max(cell_state), np.mean(cell_state)))
             ax.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
-            ax.set_ylabel(state_variable, fontsize=fig_options.fontSize)
+            if distance:
+                ax.set_ylabel("distance from soma [um]", fontsize=fig_options.fontSize)
+            else:
+                ax.set_ylabel(state_variable, fontsize=fig_options.fontSize)
             #ax.legend()
 
     
@@ -1891,12 +1916,174 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
     
     return fig
 
+
+## Plot axial current trace 
+def plot_axial_current (input_path, namespace_ids, include = ['eachPop'], time_range=None,
+                        time_variable='t', start_v_variable='start.v', mid_v_variable='mid.v',
+                        max_units = 1, gid_set=None, n_trials = 1, labels=None,  reduce=False,
+                        distance=False, **kwargs): 
+    ''' 
+    Line plot of intracellular state variable (default: v). Returns the figure handle.
+
+    input_path: file with state data
+    namespace_ids: attribute namespaces  
+    time_range ([start:stop]): Time range of spikes shown; if None shows all (default: None)
+    time_variable: Name of variable containing spike times (default: 't')
+    state_variable: Name of state variable (default: 'v')
+    max_units (int): maximum number of units from each population that will be plotted  (default: 1)
+    labels = ('legend', 'overlay'): Show population labels in a legend or overlayed on one side of raster (default: 'legend')
+    '''
+
+    if reduce and distance:
+        raise RuntimeError("plot_axial_current: reduce and distance are mutually exclusive")
+    
+    fig_options = copy.copy(default_fig_options)
+    fig_options.update(kwargs)
+
+    (population_ranges, N) = read_population_ranges(input_path)
+    population_names  = read_population_names(input_path)
+
+    pop_num_cells = {}
+    for k in population_names:
+        pop_num_cells[k] = population_ranges[k][1]
+
+    _, state_info = query_state(input_path, population_names, namespace_ids=namespace_ids)
+
+    if gid_set is None:
+        for population in state_info.keys():
+            for namespace in namespace_ids:
+                if namespace in state_info[population]:
+                    ns_state_info_dict = dict(state_info[population][namespace])
+                    if state_variable in ns_state_info_dict:
+                        gid_set = list(ns_state_info_dict[state_variable])
+                        break
+                    else:
+                        raise RuntimeError('unable to find recording for state variable %s population %s namespace %s' % (state_variable, population, namespace))
+
+    # Replace 'eachPop' with list of populations
+    if 'eachPop' in include: 
+        include.remove('eachPop')
+        for pop in population_names:
+            include.append(pop)
+
+    pop_states_dict = defaultdict(lambda: defaultdict(lambda: dict()))
+    for namespace_id in namespace_ids:
+        logger.info(f"Reading state values from namespace {namespace_id}...")
+        data = read_state (input_path, include, namespace_id, time_variable=time_variable,
+                           state_variables=[start_v_variable, mid_v_variable, 'ri'],
+                           time_range=time_range, max_units = max_units,
+                           gid = gid_set, n_trials=n_trials)
+        states  = data['states']
+        
+        for (pop_name, pop_states) in viewitems(states):
+            for (gid, cell_states) in viewitems(pop_states):
+                pop_states_dict[pop_name][gid][namespace_id] = cell_states
+
+
+    pop_state_mat_dict = defaultdict(lambda: dict())
+    for (pop_name, pop_states) in viewitems(pop_states_dict):
+            for (gid, cell_state_dict) in viewitems(pop_states):
+                cell_state_items = list(sorted(viewitems(cell_state_dict)))
+                cell_state_x = cell_state_items[0][1][0]
+                cell_state_mat = np.matrix([np.mean(np.row_stack(cell_state_item[1][1]), axis=0)
+                                           for cell_state_item in cell_state_items], dtype=np.float32)
+                cell_state_distances = [cell_state_item[1][2] for cell_state_item in cell_state_items]
+                cell_state_labels = [cell_state_item[0] for cell_state_item in cell_state_items]
+                pop_state_mat_dict[pop_name][gid] = (cell_state_x, cell_state_mat, cell_state_labels, cell_state_distances)
+    
+    stplots = []
+    
+    fig, ax = plt.subplots(figsize=fig_options.figSize,sharex='all',sharey='all')
+        
+    for (pop_name, pop_states) in viewitems(pop_state_mat_dict):
+        
+        for (gid, cell_state_mat) in viewitems(pop_states):
+            
+            m, n = cell_state_mat[1].shape
+
+            if reduce:
+                cell_state = np.asarray(cell_state_mat[1][0,:]).reshape((n,))
+                for i in range(1,m):
+                    cell_state += np.asarray(cell_state_mat[1][i,:]).reshape((n,))
+                line, = ax.plot(cell_state_mat[0][0].reshape((n,)), cell_state)
+                stplots.append(line)
+                logger.info('plot_state: min/max/mean value is %.02f / %.02f / %.02f' % (np.min(cell_state), np.max(cell_state), np.mean(cell_state)))
+            elif distance:
+                distance_rank = np.argsort(cell_state_distances, kind='stable')
+                distance_rank_descending = distance_rank[::-1]
+                state_rows = []
+                for i in range(0,m):
+                    j = distance_rank_descending[i]
+                    state_rows.append(np.asarray(cell_state_mat[1][j,:]).reshape((n,)))
+                state_mat = np.row_stack(state_rows)
+                t = cell_state_mat[0][0].reshape((n,))
+                d = np.asarray(cell_state_distances)[distance_rank_descending]
+                pcm = ax.pcolormesh(t, d, state_mat, cmap=fig_options.colormap)
+                cb = fig.colorbar(pcm, ax=ax, shrink=0.9, aspect=20)
+                stplots.append(pcm)
+            else:
+                for i in range(m):
+                    cell_state = np.asarray(cell_state_mat[1][i,:]).reshape((n,))
+                    line, = ax.plot(cell_state_mat[0][0].reshape((n,)), cell_state,
+                                    label='%s (%s um)' % (cell_state_mat[2][i], cell_state_mat[3][i]))
+                    stplots.append(line)
+                    logger.info('plot_state: min/max/mean value of state %d is %.02f / %.02f / %.02f' % (i, np.min(cell_state), np.max(cell_state), np.mean(cell_state)))
+            ax.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
+            if distance:
+                ax.set_ylabel("distance from soma [um]", fontsize=fig_options.fontSize)
+            else:
+                ax.set_ylabel(state_variable, fontsize=fig_options.fontSize)
+            #ax.legend()
+
+    
+    # Add legend
+    
+    if labels == 'legend':
+        legend_labels = pop_labels
+        lgd = plt.legend(stplots, legend_labels, fontsize=fig_options.fontSize, scatterpoints=1, markerscale=5.,
+                         loc='upper right', bbox_to_anchor=(1.2, 1.0))
+        ## From https://stackoverflow.com/questions/30413789/matplotlib-automatic-legend-outside-plot
+        ## draw the legend on the canvas to assign it real pixel coordinates:
+        plt.gcf().canvas.draw()
+        ## transformation from pixel coordinates to Figure coordinates:
+        transfig = plt.gcf().transFigure.inverted()
+        ## Get the legend extents in pixels and convert to Figure coordinates.
+        ## Pull out the farthest extent in the x direction since that is the canvas direction we need to adjust:
+        lgd_pos = lgd.get_window_extent()
+        lgd_coord = transfig.transform(lgd_pos)
+        lgd_xmax = lgd_coord[1, 0]
+        ## Do the same for the Axes:
+        ax_pos = plt.gca().get_window_extent()
+        ax_coord = transfig.transform(ax_pos)
+        ax_xmax = ax_coord[1, 0]
+        ## Adjust the Figure canvas using tight_layout for
+        ## Axes that must move over to allow room for the legend to fit within the canvas:
+        shift = 1 - (lgd_xmax - ax_xmax)
+        plt.gcf().tight_layout(rect=(0, 0, shift, 1))
+        
+    # save figure
+    if fig_options.saveFig:
+        if isinstance(fig_options.saveFig, basestring):
+            filename = fig_options.saveFig
+        else:
+            filename = input_path+' '+'state.%s' % fig_options.figFormat
+            plt.savefig(filename)
+                
+    # show fig 
+    if fig_options.showFig:
+        show_figure()
+    
+    return fig
+
+
+
 def interpolate_state(st_x, st_y):
     res_npts = int((st_x.max() - st_x.min()))
     st_x_res = np.linspace(st_x.min(), st_y.max(), res_npts, endpoint=True)
     pch = interpolate.pchip(st_x, st_y)
     st_y_res = pch(st_x_res)
     return st_y_res
+
 
 
 ## Plot intracellular state mapped onto cell morphology
@@ -2641,7 +2828,10 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
                 ax2.add_artist(at)
 
     if target_rate is not None:
-        ax2.fill_between(target_rate_time, 0, target_rate / np.max(target_rate), alpha=0.25)
+        norm_target_rate = target_rate / np.max(target_rate)
+        ax2.fill_between(target_rate_time, 0, norm_target_rate, alpha=0.25)
+        ylim = ax2.get_ylim()
+        ax2.set_ylim((0, max(ylim[1], 1.0)))
                 
     # Plot intracellular state
     ax3 = axes[len(spkpoplst)+1]
@@ -4624,16 +4814,23 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
             axes = axarr[i]
         for j, sec_type in enumerate(attr_vals[attr_type]):
             if len(attr_vals[attr_type][sec_type]) != 0:
-                axes.scatter(distances[attr_type][sec_type], attr_vals[attr_type][sec_type], color=colors[j],
+                this_attr_vals = []
+                for x in attr_vals[attr_type][sec_type]:
+                    if isinstance(x, Promise):
+                        this_attr_vals.append(x())
+                    else:
+                        this_attr_vals.append(x)
+                    
+                axes.scatter(distances[attr_type][sec_type], this_attr_vals, color=colors[j],
                              label=sec_type, alpha=0.5, s=10.)
                 if maxval is None:
-                    maxval = max(attr_vals[attr_type][sec_type])
+                    maxval = max(this_attr_vals)
                 else:
-                    maxval = max(maxval, max(attr_vals[attr_type][sec_type]))
+                    maxval = max(maxval, max(this_attr_vals))
                 if minval is None:
-                    minval = min(attr_vals[attr_type][sec_type])
+                    minval = min(this_attr_vals)
                 else:
-                    minval = min(minval, min(attr_vals[attr_type][sec_type]))
+                    minval = min(minval, min(this_attr_vals))
                 xmax0 = max(xmax0, max(distances[attr_type][sec_type]))
                 xmin0 = min(xmin0, min(distances[attr_type][sec_type]))
         if axes.get_legend() is not None:
@@ -4708,9 +4905,15 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
             for attr_type in attr_types:
                 f[filetype][session_id][syn_name][param_name].create_group(attr_type)
                 for sec_type in attr_vals[attr_type]:
+                    attr_data = []
+                    for x in attr_vals[attr_type][sec_type]:
+                        if isinstance(x, Promise):
+                            attr_data.append(x())
+                        else:
+                            attr_data.append(x)
                     f[filetype][session_id][syn_name][param_name][attr_type].create_group(sec_type)
                     f[filetype][session_id][syn_name][param_name][attr_type][sec_type].create_dataset(
-                        'values', data=attr_vals[attr_type][sec_type], compression='gzip')
+                        'values', data=attr_data, compression='gzip')
                     f[filetype][session_id][syn_name][param_name][attr_type][sec_type].create_dataset(
                         'distances', data=distances[attr_type][sec_type], compression='gzip')
 
