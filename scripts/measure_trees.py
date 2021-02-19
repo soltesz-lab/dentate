@@ -22,6 +22,10 @@ def mpi_excepthook(type, value, traceback):
 
 script_name=os.path.basename(__file__)
 
+def get_distance_to_node(cell, source_sec, target_sec, loc=0.5):
+    return h.distance(source_sec(0.5), target_sec(loc))
+
+
 @click.command()
 @click.option("--config", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--template-path", type=str)
@@ -108,7 +112,7 @@ def main(config, template_path, output_path, forest_path, populations, distance_
                             seg_l = L / nseg
                             seg_area = h.area(seg.x)
                             seg_diam = seg.diam
-                            seg_distance = synapses.get_distance_to_node(cell, list(cell.soma)[0], seg.sec, seg.x)
+                            seg_distance = get_distance_to_node(cell, list(cell.soma)[0], seg.sec, seg.x)
                             dendrite_diams.append(seg_diam)
                             dendrite_distances.append(seg_distance)
                             layer = synapses.get_node_attribute('layer', morph_dict, seg.sec, secnodes, seg.x)

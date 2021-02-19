@@ -1944,9 +1944,6 @@ def get_node_attribute(name, content, sec, secnodes, x=None):
     else:
         return None
 
-def get_distance_to_node(cell, source_sec, target_sec, loc=0.5):
-    return h.distance(source_sec(0.5), target_sec(loc))
-
 def make_synapse_graph(syn_dict, neurotree_dict):
     """
     Creates a graph of synapses that follows the topological organization of the given neuron.
