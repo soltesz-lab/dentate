@@ -501,6 +501,8 @@ class Env(object):
         opt_param_rules_dict = {}
         if 'Synaptic Optimization' in netclamp_config_dict:
             opt_param_rules_dict['synaptic'] = netclamp_config_dict['Synaptic Optimization']
+        if 'Selectivity Optimization' in netclamp_config_dict:
+            opt_param_rules_dict['selectivity'] = netclamp_config_dict['Selectivity Optimization']
 
         template_params = {}
         for (template_name, params) in viewitems(template_param_rules_dict):

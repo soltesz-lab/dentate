@@ -27,7 +27,7 @@ script_name = os.path.basename(__file__)
 @click.option("--bgcolor", type=(float,float,float), default=(0.,0.,0.))
 @click.option("--colormap", type=str, default='coolwarm')
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(config_file, population, gid, dataset_prefix, config_prefix, load_synapses, syn_types, syn_sources, syn_source_threshold, font_size, bgcolor, colormap, verbose):
+def main(config_file, population, gid, template_paths, dataset_prefix, config_prefix, load_synapses, syn_types, syn_sources, syn_source_threshold, font_size, bgcolor, colormap, verbose):
 
     utils.config_logging(verbose)
     logger = utils.get_script_logger(script_name)

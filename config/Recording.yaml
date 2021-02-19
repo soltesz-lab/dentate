@@ -15,6 +15,27 @@ Intracellular:
           - hillock
           - apical
           - basal
+  Network clamp axial current:
+    dt: 0.025
+    section quantity:
+      start.v:
+        variable: v
+        loc:
+          - 1e-3
+          - 1e-3
+        swc types:
+          - apical
+          - basal
+      mid.v:
+        variable: v
+        loc:
+          - 0.5
+          - 0.5
+          - 0.5
+        swc types:
+          - soma
+          - apical
+          - basal
   Network clamp inh synaptic:
     dt: 0.1
     reduce: True

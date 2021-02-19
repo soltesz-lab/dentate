@@ -18,13 +18,18 @@ script_name = os.path.basename(__file__)
 @click.option("--t-max", type=float)
 @click.option("--t-min", type=float)
 @click.option("--font-size", type=float, default=14)
+@click.option("--colormap", type=str)
 @click.option("--query", "-q", type=bool, default=False, is_flag=True)
 @click.option("--reduce", type=bool, default=False, is_flag=True)
+@click.option("--distance", type=bool, default=False, is_flag=True)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(state_path, state_namespace, state_namespace_pattern, populations, max_units, gid, t_variable, state_variable, t_max, t_min, font_size, query, reduce, verbose):
+def main(state_path, state_namespace, state_namespace_pattern, populations, max_units, gid, t_variable, state_variable, t_max, t_min, font_size, colormap, query, reduce, distance, verbose):
 
     utils.config_logging(verbose)
     logger = utils.get_script_logger(script_name)
+
+    if reduce and distance:
+        raise RuntimeError("Options --reduce and --distance are mutually exclusive")
     
     if t_max is None:
         time_range = None
@@ -66,11 +71,14 @@ def main(state_path, state_namespace, state_namespace_pattern, populations, max_
     if len(gid) == 0:
         gid = None
 
+    kwargs = {}
+    if colormap is not None:
+        kwargs['colormap'] = colormap
+        
     plot.plot_intracellular_state (state_path, state_namespaces, include=populations, time_range=time_range,
                                    time_variable=t_variable, state_variable=state_variable,
-                                   max_units=max_units, gid_set=gid, reduce=reduce,
-                                   fontSize=font_size, saveFig=True)
-    
+                                   max_units=max_units, gid_set=gid, reduce=reduce, distance=distance,
+                                   fontSize=font_size, saveFig=True, **kwargs)
 
 
     
