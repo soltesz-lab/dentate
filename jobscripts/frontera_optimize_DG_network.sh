@@ -4,7 +4,7 @@
 #SBATCH -o ./results/optimize_DG_network.o%j       # Name of stdout output file
 #SBATCH -e ./results/optimize_DG_network.e%j       # Name of stderr error file
 #SBATCH -p normal      # Queue (partition) name
-#SBATCH -N 416             # Total # of nodes 
+#SBATCH -N 488             # Total # of nodes 
 #SBATCH --ntasks-per-node=56 # # of mpi tasks per node
 #SBATCH -t 24:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
@@ -15,6 +15,7 @@ module load phdf5
 
 set -x
 
+export LD_PRELOAD=$MKLROOT/lib/intel64_lin/libmkl_core.so:$MKLROOT/lib/intel64_lin/libmkl_sequential.so
 export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
 export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
 export PATH=$NEURONROOT/bin:$PATH
@@ -31,7 +32,9 @@ export I_MPI_ADJUST_ALLTOALL=4
 export I_MPI_ADJUST_ALLTOALLV=2
 export I_MPI_ADJUST_ALLREDUCE=4
 
-export I_MPI_HYDRA_TOPOLIB=ipl
+
+export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=off
+export I_MPI_HYDRA_BRANCH_COUNT=0
 
 results_path=$SCRATCH/dentate/results/optimize_DG_network
 export results_path
@@ -43,19 +46,18 @@ mkdir -p $results_path
 
 cd $SLURM_SUBMIT_DIR
 
-export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=off
 
-mpirun -rr -n 47 \
+mpirun -rr -n 56 \
     python3 optimize_network.py \
     --config-path=$DG_HOME/config/DG_optimize_network.yaml \
     --optimize-file-dir=$results_path \
-    --optimize-file-name='dmosopt.optimize_network_20210118.h5' \
+    --optimize-file-name='dmosopt.optimize_network_20210129.h5' \
     --target-features-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
     --target-features-namespace="Place Selectivity" \
     --verbose \
     --nprocs-per-worker=495 \
     --n-iter=5 \
-    --num-generations=100 \
+    --num-generations=200 \
     --no_cleanup \
     --arena_id=A --trajectory_id=Diag \
     --template_paths=$MODEL_HOME/dgc/Mateos-Aparicio2014:$DG_HOME/templates \

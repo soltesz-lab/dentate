@@ -233,7 +233,8 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
                             f'{max_infld:.02f} {mean_infld:.02f} {mean_peak:.02f} {mean_trough:.02f} {snr:.04f}')
             snrs.append(snr)
 
-        return np.asarray(snrs)
+        rate_features = [mean_peak, mean_trough, max_infld, min_infld]
+        return (np.asarray(snrs), np.asarray(rate_features))
 
     
     def trial_state_residuals(gid, target_outfld, t_peak_idxs, t_trough_idxs, t_infld_idxs, t_outfld_idxs, state_values):
@@ -241,17 +242,25 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
         state_value_arrays = np.row_stack(state_values)
 
         residuals_outfld = []
+        peak_inflds = []
+        trough_inflds = []
+        mean_outflds = []
         for i in range(state_value_arrays.shape[0]):
             state_value_array = state_value_arrays[i, :]
             peak_infld = np.mean(state_value_array[t_peak_idxs])
             trough_infld = np.mean(state_value_array[t_trough_idxs])
             mean_infld = np.mean(state_value_array[t_infld_idxs])
+            mean_outfld = np.mean(state_value_array[t_outfld_idxs])
             residual_outfld = np.mean(state_value_array[t_outfld_idxs]) - target_outfld
+            peak_inflds.append(peak_infld)
+            trough_inflds.append(trough_infld)
+            mean_outflds.append(mean_outfld)
             residuals_outfld.append(residual_outfld)
             logger.info(f'selectivity objective: state values of gid {gid}: '
                         f'peak/trough/mean in/mean out: {peak_infld:.02f} / {trough_infld:.02f} / {mean_infld:.02f} / residual outfld: {residual_outfld:.04f}')
 
-        return np.asarray(residuals_outfld)
+        state_features = [np.mean(peak_inflds), np.mean(trough_inflds), np.mean(mean_outflds)]
+        return (np.asarray(residuals_outfld), np.asarray(state_features))
 
     
     recording_profile = { 'label': f'optimize_selectivity.{state_variable}',
@@ -307,39 +316,42 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
             logger.info(f'selectivity objective: max rates of gid {gid}: '
                         f'{list([np.max(rate_vector) for rate_vector in rate_vectors])}')
 
-            snrs = trial_snrs(gid, target_max_infld, target_mean_trough, 
-                              peak_idxs, trough_idxs, infld_idxs, rate_vectors)
-            state_residuals = trial_state_residuals(gid, state_baseline,
-                                                    t_peak_idxs, t_trough_idxs, t_infld_idxs, t_outfld_idxs,
-                                                    state_values)
+            snrs, rate_features = trial_snrs(gid, target_max_infld, target_mean_trough, 
+                                             peak_idxs, trough_idxs, infld_idxs, rate_vectors)
+            state_residuals, state_features = trial_state_residuals(gid, state_baseline,
+                                                                    t_peak_idxs, t_trough_idxs, t_infld_idxs, t_outfld_idxs,
+                                                                    state_values)
             
             if trial_regime == 'mean':
                 mean_snr = np.mean(snrs)
                 mean_state_residual = np.mean(state_residuals)
                 snr_objective = -mean_snr
-                state_objective = mean_state_residual
+                state_objective = abs(mean_state_residual)
                 logger.info(f'selectivity objective: mean peak/trough/mean snr/mean state residual of gid {gid}: '
                             f'{mean_snr:.04f} {mean_state_residual:.04f}')
             elif trial_regime == 'best':
                 max_snr_index = np.argmax(snrs)
                 max_snr = snrs[max_snr_index]
                 snr_objective = -max_snr
-                min_state_residual = np.min(state_residuals)
+                min_state_residual = np.min(np.abs(state_residuals))
                 state_objective = min_state_residual
                 logger.info(f'selectivity objective: mean peak/trough/max snr/min state residual of gid {gid}: '
                             f'{max_snr:.04f} {min_state_residual:.04f}')
             else:
                 raise RuntimeError(f'selectivity_rate_objective: unknown trial regime {trial_regime}')
-                
-            result[gid] = np.asarray([ snr_objective, state_residual ])
+
+            logger.info(f"rate_features: {rate_features} state_features: {state_features}")
+            result[gid] = (np.asarray([ snr_objective, state_objective ]), 
+                           np.concatenate((rate_features, state_features)))
+                           
         return result
     
     return opt_eval_fun(problem_regime, my_cell_index_set, eval_problem)
 
 
 def optimize_run(env, population, param_config_name, init_objfun, problem_regime, nprocs_per_worker=1,
-                 n_iter=10, n_initial=15, population_size=100, num_generations=200, param_type='synaptic',
-                 init_params={}, results_file=None, cooperative_init=False, verbose=False):
+                 n_iter=10, n_initial=30, population_size=100, num_generations=200, resample_fraction=None,
+                 param_type='synaptic', init_params={}, results_file=None, cooperative_init=False, verbose=False):
 
     opt_param_config = optimization_params(env.netclamp_config.optimize_parameters, [population], param_config_name, param_type)
 
@@ -371,12 +383,17 @@ def optimize_run(env, population, param_config_name, init_objfun, problem_regime
         raise RuntimeError(f'optimize_run: unknown problem regime {problem_regime}')
 
     nworkers = env.comm.size-1
-    resample_fraction = float(nworkers) / float(population_size)
+    if resample_fraction is None:
+        resample_fraction = float(nworkers) / float(population_size)
     if resample_fraction > 1.0:
         resample_fraction = 1.0
+    if resample_fraction < 0.1:
+        resample_fraction = 0.1
 
+    
     objective_names = ['snr', 'residual_state']
-        
+    feature_names = ['mean_peak_rate', 'mean_trough_rate', 'max_infld_rate', 'min_infld_rate',
+                     'mean_peak_state', 'mean_trough_state', 'mean_outfld_state']
     dmosopt_params = {'opt_id': 'dentate.optimize_selectivity',
                       'problem_ids': problem_ids,
                       'obj_fun_init_name': init_objfun, 
@@ -387,6 +404,7 @@ def optimize_run(env, population, param_config_name, init_objfun, problem_regime
                       'problem_parameters': {},
                       'space': hyperprm_space,
                       'objective_names': objective_names,
+                      'feature_names': feature_names,
                       'n_initial': n_initial,
                       'n_iter': n_iter,
                       'population_size': population_size,
@@ -396,6 +414,7 @@ def optimize_run(env, population, param_config_name, init_objfun, problem_regime
                       'save': True,
                       'save_eval' : 5,
                       }
+
 
     opt_results = dmosopt.run(dmosopt_params, verbose=verbose, collective_mode="sendrecv",
                               spawn_workers=True, nprocs_per_worker=nprocs_per_worker)
@@ -407,12 +426,7 @@ def optimize_run(env, population, param_config_name, init_objfun, problem_regime
                 result_value = opt_result[1]
                 results_config_tuples = []
                 for param_pattern, param_tuple in zip(param_names, param_tuples):
-                    results_config_tuples.append((param_tuple.population,
-                                                  param_tuple.source,
-                                                  param_tuple.sec_type,
-                                                  param_tuple.syn_name,
-                                                  param_tuple.param_path,
-                                                  params_dict[param_pattern]))
+                    results_config_tuples.append((param_pattern, params_dict[param_pattern]))
                 gid_results_config_dict[int(gid)] = results_config_tuples
 
             logger.info('Optimized parameters and objective function: '
@@ -424,12 +438,7 @@ def optimize_run(env, population, param_config_name, init_objfun, problem_regime
             result_value = opt_results[1]
             results_config_tuples = []
             for param_pattern, param_tuple in zip(param_names, param_tuples):
-                results_config_tuples.append((param_tuple.population,
-                                              param_tuple.source,
-                                              param_tuple.sec_type,
-                                              param_tuple.syn_name,
-                                              param_tuple.param_path,
-                                              params_dict[param_pattern]))
+                results_config_tuples.append((param_pattern, params_dict[param_pattern]))
             logger.info('Optimized parameters and objective function: '
                         f'{pprint.pformat(results_config_tuples)} @'
                         f'{result_value}')
@@ -451,9 +460,10 @@ def optimize_run(env, population, param_config_name, init_objfun, problem_regime
 @click.option("--t-min", type=float)
 @click.option("--nprocs-per-worker", type=int, default=1, help='number of processes per worker')
 @click.option("--n-iter", type=int, default=1)
-@click.option("--n-initial", type=int, default=15)
-@click.option("--population-size", type=int, default=100)
+@click.option("--n-initial", type=int, default=30)
+@click.option("--population-size", type=int, default=200)
 @click.option("--num-generations", type=int, default=200)
+@click.option("--resample-fraction", type=float)
 @click.option("--template-paths", type=str, required=True,
               help='colon-separated list of paths to directories containing hoc cell templates')
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
@@ -496,7 +506,7 @@ def optimize_run(env, population, param_config_name, init_objfun, problem_regime
 @click.option('--use-coreneuron', is_flag=True, help='enable use of CoreNEURON')
 @click.option('--cooperative-init', is_flag=True, help='use a single worker to read model data then send to the remaining workers')
 def main(config_file, population, dt, gid, gid_selection_file, arena_id, trajectory_id, generate_weights,
-         t_max, t_min,  nprocs_per_worker, n_iter, n_initial, population_size, num_generations,
+         t_max, t_min,  nprocs_per_worker, n_iter, n_initial, population_size, num_generations, resample_fraction,
          template_paths, dataset_prefix, config_prefix,
          param_config_name, param_type, recording_profile, results_file, results_path, spike_events_path,
          spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, n_trials,
@@ -521,6 +531,8 @@ def main(config_file, population, dt, gid, gid_selection_file, arena_id, traject
     np.seterr(all='raise')
     verbose = True
     cache_queries = True
+
+    config_logging(verbose)
 
     cell_index_set = set([])
     if gid_selection_file is not None:
@@ -563,8 +575,7 @@ def main(config_file, population, dt, gid, gid_selection_file, arena_id, traject
     if (population in env.netclamp_config.optimize_parameters[param_type]):
         opt_params = env.netclamp_config.optimize_parameters[param_type][population]
     else:
-        raise RuntimeError(
-            f'network_clamp.optimize: population {population} does not have optimization configuration')
+        raise RuntimeError(f'optimize_selectivity: population {population} does not have optimization configuration')
 
     if target_state_variable is None:
         target_state_variable = 'v'
@@ -576,31 +587,57 @@ def main(config_file, population, dt, gid, gid_selection_file, arena_id, traject
     init_params['state_variable'] = target_state_variable
     init_params['state_filter'] = target_state_filter
     init_objfun_name = 'init_selectivity_objfun'
+
+    opt_param_config = optimization_params(env.netclamp_config.optimize_parameters, [population], param_config_name, param_type)
+
         
     best = optimize_run(env, population, param_config_name, init_objfun_name, problem_regime=problem_regime,
                         n_iter=n_iter, n_initial=n_initial, population_size=population_size, num_generations=num_generations,
-                        param_type=param_type, init_params=init_params, results_file=results_file,
-                        nprocs_per_worker=nprocs_per_worker, cooperative_init=cooperative_init,
+                        resample_fraction=resample_fraction, param_type=param_type, init_params=init_params, 
+                        results_file=results_file, nprocs_per_worker=nprocs_per_worker, cooperative_init=cooperative_init,
                         verbose=verbose)
     
     if best is not None:
-        if optimize_file_dir is not None:
-            results_file_id = 'DG_optimize_selectivity_%s' % run_ts
-            file_path = '%s/optimize_selectivity.%s.yaml' % (optimize_file_dir, str(results_file_id))
-            prms = best[0]
-            results_config_dict = {}
-            for i, prm in enumerate(prms):
-                    prm_dict = dict(prm)
-                    result_param_tuples = []
-                    for param_pattern, param_tuple in zip(param_names, param_tuples):
-                        result_param_tuples.append((param_tuple.population,
-                                                    param_tuple.source,
-                                                    param_tuple.sec_type,
-                                                    param_tuple.syn_name,
-                                                    param_tuple.param_path,
-                                                    prm_dict[param_pattern]))
+        if results_path is not None:
+            run_ts = time.strftime("%Y%m%d_%H%M%S")
+            file_path = f'{results_path}/optimize_selectivity.{run_ts}.yaml'
+            param_names = opt_param_config.param_names
+            param_tuples = opt_param_config.param_tuples
+
+            if ProblemRegime[problem_regime] == ProblemRegime.every:
+                results_config_dict = {}
+                for gid, prms in viewitems(best):
+                    n_res = prms[0][1].shape[0]
+                    prms_dict = dict(prms)
+                    this_results_config_dict = {}
+                    for i in range(n_res):
+                        results_param_list = []
+                        for param_pattern, param_tuple in zip(param_names, param_tuples):
+                            results_param_list.append((param_tuple.population,
+                                                       param_tuple.source,
+                                                       param_tuple.sec_type,
+                                                       param_tuple.syn_name,
+                                                       param_tuple.param_path,
+                                                       float(prms_dict[param_pattern][i])))
+                        this_results_config_dict[i] = results_param_list
+                    results_config_dict[gid] = this_results_config_dict
                     
-                    results_config_dict[i] = result_param_tuples
+            else:
+                prms = best[0]
+                n_res = prms[0][1].shape[0]
+                prms_dict = dict(prms)
+                results_config_dict = {}
+                for i in range(n_res):
+                    results_param_list = []
+                    for param_pattern, param_tuple in zip(param_names, param_tuples):
+                        results_param_list.append((param_tuple.population,
+                                                   param_tuple.source,
+                                                   param_tuple.sec_type,
+                                                   param_tuple.syn_name,
+                                                   param_tuple.param_path,
+                                                   float(prms_dict[param_pattern][i])))
+                    results_config_dict[i] = results_param_list
+
             write_to_yaml(file_path, { population: results_config_dict } )
 
             

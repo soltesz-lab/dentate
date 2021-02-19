@@ -42,7 +42,6 @@ sys.excepthook = mpi_excepthook
 
 def dmosopt_broker_init(broker, *args):
     broker.group_comm.barrier()
-    logger.info(f"broker_init: broker {broker.group_comm.rank} done")
 
 @click.command(context_settings=dict(
     ignore_unknown_options=True,
@@ -57,12 +56,13 @@ def dmosopt_broker_init(broker, *args):
 @click.option("--optimize-file-name", type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--nprocs-per-worker", type=int, default=1)
 @click.option("--n-iter", type=int, default=1)
-@click.option("--n-initial", type=int, default=15)
+@click.option("--n-initial", type=int, default=30)
 @click.option("--population-size", type=int, default=100)
 @click.option("--num-generations", type=int, default=200)
+@click.option("--resample-fraction", type=float)
 @click.option("--collective-mode", type=str, default='gather')
 @click.option("--verbose", '-v', is_flag=True)
-def main(config_path, target_features_path, target_features_namespace, optimize_file_dir, optimize_file_name, nprocs_per_worker, n_iter, n_initial, population_size, num_generations, collective_mode, verbose):
+def main(config_path, target_features_path, target_features_namespace, optimize_file_dir, optimize_file_name, nprocs_per_worker, n_iter, n_initial, population_size, num_generations, resample_fraction, collective_mode, verbose):
 
     network_args = click.get_current_context().args
     network_config = {}
@@ -110,9 +110,12 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
     init_params.update(network_config.items())
     
     nworkers = env.comm.size-1
-    resample_fraction = float(nworkers) / float(population_size)
+    if resample_fraction is None:
+        resample_fraction = float(nworkers) / float(population_size)
     if resample_fraction > 1.0:
         resample_fraction = 1.0
+    if resample_fraction < 0.1:
+        resample_fraction = 0.1
     
     # Create an optimizer
     dmosopt_params = {'opt_id': 'dmosopt_optimize_network',
@@ -146,22 +149,17 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
     if best is not None:
         if optimize_file_dir is not None:
             results_file_id = 'DG_optimize_network_%s' % run_ts
-            file_path = '%s/optimize_network.%s.yaml' % (optimize_file_dir, str(results_file_id))
+            yaml_file_path = '%s/optimize_network.%s.yaml' % (optimize_file_dir, str(results_file_id))
             prms = best[0]
+            prms_dict = dict(prms)
+            n_res = prms[0][1].shape[0]
             results_config_dict = {}
-            for i, prm in enumerate(prms):
-                prm_dict = dict(prm)
-                result_param_tuples = []
+            for i in range(n_res):
+                result_param_list = []
                 for param_pattern, param_tuple in zip(param_names, param_tuples):
-                    result_param_tuples.append((param_tuple.population,
-                                                param_tuple.source,
-                                                param_tuple.sec_type,
-                                                param_tuple.syn_name,
-                                                param_tuple.param_name,
-                                                prm_dict[param_pattern]))
-                    
-                results_config_dict[i] = result_param_tuples
-            write_to_yaml(file_path, results_config_dict)
+                    result_param_list.append(float(prms_dict[param_pattern][i]))
+                results_config_dict[i] = result_param_list
+            write_to_yaml(yaml_file_path, results_config_dict)
 
 
 def init_network_objfun(operational_config, opt_targets, param_names, param_tuples, worker, **kwargs):
@@ -286,10 +284,10 @@ def compute_objectives(features, operational_config, opt_targets):
     for key in objective_names:
         feature_val = all_features[key]
         if key in target_vals:
-            objective = (feature_val - target_vals[key]) ** 2.
+            objective = feature_val - target_vals[key]
             logger.info(f'objective {key}: {objective} target: {target_vals[key]} feature: {feature_val}')
         else:
-            objective = feature_val ** 2.
+            objective = feature_val
             logger.info(f'objective {key}: {objective} feature: {feature_val}')
         objectives.append(objective)
 
