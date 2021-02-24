@@ -121,6 +121,9 @@ def selectivity_optimization_params(optimization_config, pop_names, param_config
     mask_param_tuples = []
     mask_param_names = []
 
+    if param_config_name is None:
+        return None
+
     for pop_name in pop_names:
         if pop_name in optimization_config['selectivity']:
             opt_params = optimization_config['selectivity'][pop_name]
@@ -348,6 +351,14 @@ def opt_reduce_every(xs):
     result = {}
     for d in xs:
         result.update(d)
+    return result
+
+def opt_reduce_every_features(items):
+    result = {}
+    features = {}
+    for yd, fd in items:
+        for k in yd:
+            result[k] = (yd[k], fd[k])
     return result
 
 def opt_reduce_mean(xs):

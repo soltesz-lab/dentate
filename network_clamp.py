@@ -29,7 +29,7 @@ def set_union(s, t, datatype):
 
 mpi_op_set_union = MPI.Op.Create(set_union, commute=True)
 
-opt_rate_feature_dtypes = [('rate', np.float32)]
+opt_rate_feature_dtypes = [('mean_rate', np.float32)]
 
 
 def mpi_excepthook(type, value, traceback):
@@ -775,7 +775,8 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
             objectives_dict = { gid: -best_rate_diff(gid, firing_rates_dict[gid], target_rate) for gid in my_cell_index_set }    
         else:
             raise RuntimeError(f'rate_objfun: unknown trial regime {trial_regime}')
-        features_dict = { gid: np.asarray(firing_rates_dict[gid], dtype=opt_rate_feature_dtypes) for gid in my_cell_index_set }
+        features_dict = { gid: np.asarray(np.mean(np.asarray(firing_rates_dict[gid])), dtype=opt_rate_feature_dtypes) 
+                          for gid in my_cell_index_set }
 
         return objectives_dict, features_dict
     
@@ -921,7 +922,10 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
     problem_ids = None
     reduce_fun_name = None
     if ProblemRegime[problem_regime] == ProblemRegime.every:
-        reduce_fun_name = "opt_reduce_every"
+        if feature_dtypes is None:
+            reduce_fun_name = "opt_reduce_every"
+        else:
+            reduce_fun_name = "opt_reduce_every_features"
         problem_ids = init_params.get('cell_index_set', None)
     elif ProblemRegime[problem_regime] == ProblemRegime.mean:
         reduce_fun_name = "opt_reduce_mean"
