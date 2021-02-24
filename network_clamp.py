@@ -29,6 +29,8 @@ def set_union(s, t, datatype):
 
 mpi_op_set_union = MPI.Op.Create(set_union, commute=True)
 
+opt_rate_feature_dtypes = [('rate', np.float32)]
+
 
 def mpi_excepthook(type, value, traceback):
     """
@@ -768,12 +770,15 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
                                                                 for gid in my_cell_index_set}}), 
                                             my_cell_index_set)
         if trial_regime == 'mean':
-            return { gid: -mean_rate_diff(gid, firing_rates_dict[gid], target_rate) for gid in my_cell_index_set }
+            objectives_dict = { gid: -mean_rate_diff(gid, firing_rates_dict[gid], target_rate) for gid in my_cell_index_set }
         elif trial_regime == 'best':
-            return { gid: -best_rate_diff(gid, firing_rates_dict[gid], target_rate) for gid in my_cell_index_set }    
+            objectives_dict = { gid: -best_rate_diff(gid, firing_rates_dict[gid], target_rate) for gid in my_cell_index_set }    
         else:
             raise RuntimeError(f'rate_objfun: unknown trial regime {trial_regime}')
-        
+        features_dict = { gid: np.asarray(firing_rates_dict[gid], dtype=opt_rate_feature_dtypes) for gid in my_cell_index_set }
+
+        return objectives_dict, features_dict
+    
     return opt_eval_fun(problem_regime, my_cell_index_set, eval_problem)
 
 
@@ -893,7 +898,7 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
 
 def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, nprocs_per_worker=1,
                  opt_iter=10, solver_epsilon=1e-2, opt_seed=None, param_type='synaptic', init_params={}, 
-                 results_file=None, cooperative_init=False, verbose=False):
+                 feature_dtypes=None, results_file=None, cooperative_init=False, verbose=False):
     import distgfs
 
     opt_param_config = optimization_params(env.netclamp_config.optimize_parameters, [pop_name], param_config_name, param_type)
@@ -934,6 +939,7 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
                       'reduce_fun_module': 'dentate.optimization',
                       'problem_parameters': {},
                       'space': hyperprm_space,
+                      'feature_dtypes': feature_dtypes,
                       'file_path': file_path,
                       'save': True,
                       'n_iter': opt_iter,
@@ -1395,6 +1401,7 @@ def optimize(config_file, population, dt, gid, gid_selection_file, arena_id, tra
         opt_target = opt_params['Targets']['firing rate']
         init_params['target_rate'] = opt_target
         init_objfun_name = 'init_rate_objfun'
+        feature_dtypes = opt_rate_feature_dtypes
     elif target == 'state':
         assert(target_state_variable is not None)
         opt_target = opt_params['Targets']['state'][target_state_variable]['mean']
@@ -1402,16 +1409,18 @@ def optimize(config_file, population, dt, gid, gid_selection_file, arena_id, tra
         init_params['state_variable'] = target_state_variable
         init_params['state_filter'] = target_state_filter
         init_objfun_name = 'init_state_objfun'
+        feature_dtypes = None
     elif target == 'ratedist' or target == 'rate_dist':
         init_params['target_features_arena'] = arena_id
         init_params['target_features_trajectory'] = trajectory_id
         init_objfun_name = 'init_rate_dist_objfun'
+        feature_dtypes = None
     else:
         raise RuntimeError(f'network_clamp.optimize: unknown optimization target {target}') 
         
     results_config_dict =  optimize_run(env, population, param_config_name, init_objfun_name, problem_regime=problem_regime,
                                         opt_iter=opt_iter, solver_epsilon=opt_epsilon, opt_seed=opt_seed, param_type=param_type,
-                                        init_params=init_params, results_file=results_file,
+                                        init_params=init_params, feature_dtypes=feature_dtypes, results_file=results_file,
                                         nprocs_per_worker=nprocs_per_worker, cooperative_init=cooperative_init,
                                         verbose=verbose)
     if results_config_dict is not None:
