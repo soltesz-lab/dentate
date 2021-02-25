@@ -234,7 +234,7 @@ seed=${tempvar[2]}
 #ibrun -n 8 python3  network_clamp.py optimize -c 20201022_Network_Clamp_GC_Exc_Sat_SLN_IN_Izh.yaml \
 #ibrun -n $N_cores -o $((counter * 56))  python3  network_clamp.py optimize -c 20201022_Network_Clamp_GC_Exc_Sat_SLN_IN_Izh.yaml \
 ibrun -n 8 -o $((counter * 8))  python3  network_clamp.py optimize -c 20201022_Network_Clamp_GC_Exc_Sat_SLN_IN_Izh.yaml \
-    -p HC -t 9500 --dt 0.001 \
+    -p $pop -g $gid -t 9500 --dt 0.001 \
     --template-paths templates \
     --dataset-prefix /scratch1/03320/iraikov/striped/dentate \
     --config-prefix config \
@@ -249,7 +249,6 @@ ibrun -n 8 -o $((counter * 8))  python3  network_clamp.py optimize -c 20201022_N
     --opt-iter 400 rate & 
 
 
-#    -p $pop -g $gid -t 9500 --dt 0.001 \
 #    --opt-seed $seed \
 #    --results-file network_clamp.optimize.$pop\_$gid\_$(date +'%Y%m%d_%H%M%S')\_$seed.h5 \
 
