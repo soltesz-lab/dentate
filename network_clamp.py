@@ -1274,7 +1274,7 @@ def go(config_file, population, dt, gid, arena_id, trajectory_id, generate_weigh
 @click.option("--config-file", '-c', required=True, type=str, help='model configuration file name')
 @click.option("--population", '-p', required=True, type=str, default='GC', help='target population')
 @click.option("--dt",  type=float, help='simulation time step')
-@click.option("--gid", '-g', type=int, help='target cell gid')
+@click.option("--gids", '-g', type=int, multiple=True, help='target cell gid')
 @click.option("--gid-selection-file", type=click.Path(exists=True, file_okay=True, dir_okay=False), help='file containing target cell gids')
 @click.option("--arena-id", '-a', type=str, required=True, help='arena id')
 @click.option("--trajectory-id", '-t', type=str, required=True, help='trajectory id')
@@ -1328,7 +1328,7 @@ def go(config_file, population, dt, gid, arena_id, trajectory_id, generate_weigh
 @click.option('--use-coreneuron', is_flag=True, help='enable use of CoreNEURON')
 @click.option('--cooperative-init', is_flag=True, help='use a single worker to read model data then send to the remaining workers')
 @click.argument('target')# help='rate, rate_dist, state'
-def optimize(config_file, population, dt, gid, gid_selection_file, arena_id, trajectory_id, 
+def optimize(config_file, population, dt, gids, gid_selection_file, arena_id, trajectory_id, 
              generate_weights, t_max, t_min, 
              nprocs_per_worker, opt_epsilon, opt_seed, opt_iter, 
              template_paths, dataset_prefix, config_prefix,
@@ -1348,7 +1348,9 @@ def optimize(config_file, population, dt, gid, gid_selection_file, arena_id, tra
 
     results_file_id = None
     if rank == 0:
-        results_file_id = generate_results_file_id(population, gid, opt_seed)
+        ts = time.strftime("%Y%m%d_%H%M%S")
+        opt_seed_lab = 'NOS{:08d}'.format(np.random.randint(99999999)) if opt_seed is None else '{:08d}'.format(opt_seed)
+        results_file_id = '{!s}_{!s}_{!s}'.format(population, ts, opt_seed_lab)
         
     results_file_id = comm.bcast(results_file_id, root=0)
     comm.barrier()
@@ -1364,8 +1366,9 @@ def optimize(config_file, population, dt, gid, gid_selection_file, arena_id, tra
             for line in lines:
                 gid = int(line)
                 cell_index_set.add(gid)
-    elif gid is not None:
-        cell_index_set.add(gid)
+    elif gids is not None:
+        for gid in gids:
+            cell_index_set.add(gid)
     else:
         comm.barrier()
         comm0 = comm.Split(2 if rank == 0 else 1, 0)
@@ -1381,7 +1384,7 @@ def optimize(config_file, population, dt, gid, gid_selection_file, arena_id, tra
         comm.barrier()
         comm0.Free()
     init_params['cell_index_set'] = cell_index_set
-    del(init_params['gid'])
+    del(init_params['gids'])
 
     params = dict(locals())
     env = Env(**params)
