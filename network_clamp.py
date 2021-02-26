@@ -771,10 +771,10 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
         N_objectives = 1
         opt_rate_feature_dtypes = [('mean_rate', (np.float32, (1,))), 
                                    ('trial_objs', (np.float32, (N_objectives, n_trials)))]
-        feature_array = np.empty(shape=(1,), dtype=np.dtype(opt_rate_feature_dtypes))
         features_dict = {}
 
         for gid in my_cell_index_set:
+            feature_array = np.empty(shape=(1,), dtype=np.dtype(opt_rate_feature_dtypes))
             feature_array['mean_rate'] = np.mean(np.asarray(firing_rates_dict[gid]))
             for i in range(N_objectives):
                 feature_array['trial_objs'][i,:] = np.asarray(firing_rates_dict[gid]) 
