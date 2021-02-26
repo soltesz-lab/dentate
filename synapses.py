@@ -854,10 +854,11 @@ def insert_hoc_cell_syns(env, gid, cell, syn_ids, syn_params, unique=False, inse
                 this_vecstim, this_vecstim_nc = None, None
                 this_nc = None
                 if insert_vecstims:
-                    this_vecstim_nc, this_vecstim = mknetcon_vecstim(syn_pps, delay=syn.source.delay)
-                    syn_attrs.add_vecstim(gid, syn_id, syn_name, this_vecstim, this_vecstim_nc)
+                    this_nc, this_vecstim = mknetcon_vecstim(syn_pps, delay=syn.source.delay)
+                    syn_attrs.add_vecstim(gid, syn_id, syn_name, this_vecstim, this_nc)
                 if insert_netcons:
-                    this_nc = mknetcon(env.pc, syn.source.gid, syn_pps, delay=syn.source.delay)
+                    if this_nc is None:
+                        this_nc = mknetcon(env.pc, syn.source.gid, syn_pps, delay=syn.source.delay)
                     syn_attrs.add_netcon(gid, syn_id, syn_name, this_nc)
                 config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
                            mech_names=syn_attrs.syn_mech_names,
