@@ -601,6 +601,66 @@ def plot_tree_metrics(env, forest_path, coords_path, population, metric_namespac
     return ax
 
 
+def plot_tree_metric_histogram(env, forest_path, population, metric_namespace='Tree Measurements', metric='dendrite_mean_diam_hist', **kwargs):
+    """
+    Plot tree length or area with respect to septo-temporal position (longitudinal and transverse arc distances).
+
+    :param forest_path:
+    :param measures_namespace: 
+    :param population: 
+
+    """
+
+    fig_options = copy.copy(default_fig_options)
+    fig_options.update(kwargs)
+        
+    tree_dendrite_distance_counts = { k: v['dendrite_distance_counts']
+                                      for (k,v) in read_cell_attributes(forest_path, population, namespace=metric_namespace) }
+    tree_dendrite_hist_edges = { k: v['dendrite_hist_edges']
+                                 for (k,v) in read_cell_attributes(forest_path, population, namespace=metric_namespace) }
+    tree_metric_hist = { k: v[metric] for (k,v) in read_cell_attributes(forest_path, population, namespace=metric_namespace) }
+
+    all_hist_edges = []
+    for k in tree_dendrite_hist_edges:
+        edges = tree_dendrite_hist_edges[k]
+        for e in edges:
+            if not np.any(np.isclose(e, all_hist_edges, atol=1e-4, rtol=1e-4)):
+                all_hist_edges.append(e)
+
+    new_hist_edges = np.sort(all_hist_edges)
+    new_tree_metric_bins = [ [0., 0] for i in range(len(new_hist_edges)) ]
+    for k in tree_dendrite_distance_counts:
+        metric_hist = tree_metric_hist[k]
+        edges = tree_dendrite_hist_edges[k]
+        for i, dcount in enumerate(tree_dendrite_distance_counts[k]):
+            e = edges[i]
+            bin_idx = np.searchsorted(new_hist_edges, e, side="left")
+            new_tree_metric_bins[bin_idx][1] = new_tree_metric_bins[bin_idx][1] + dcount
+            new_tree_metric_bins[bin_idx][0] = new_tree_metric_bins[bin_idx][0] + metric_hist[i]
+            
+    new_tree_metric_hist = [ x[0] / float(x[1]) for x in new_tree_metric_bins ]
+
+    fig = plt.figure(1, figsize=plt.figaspect(1.) * 2.)
+    ax = plt.gca()
+    
+    ax.bar(new_hist_edges + 0.5, new_tree_metric_hist)
+    ax.set_xlabel('Distance from the soma (um)', fontsize=fig_options.fontSize)
+    ax.set_ylabel('Mean dendritic diameter (um)', fontsize=fig_options.fontSize)
+    ax.set_title('%s for population: %s' % (metric, population), fontsize=fig_options.fontSize)
+    
+    if fig_options.saveFig:
+        if isinstance(fig_options.saveFig, basestring):
+            filename = fig_options.saveFig
+        else:
+            filename = population+' %s.%s' % (metric, fig_options.figFormat)
+            plt.savefig(filename)
+
+    if fig_options.showFig:
+        show_figure()
+    
+    return ax
+
+
 def plot_positions(env, label, distances, bin_size=50., graph_type ='kde', **kwargs):
     """
     Plot septo-temporal position (longitudinal and transverse arc distances).
