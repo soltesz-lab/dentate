@@ -9,11 +9,10 @@
 #SBATCH -A BIR20001
 
 module load python3
-module load phdf5/1.12.0
+module load phdf5
 
 set -x
 
-export LD_PRELOAD=$MKLROOT/lib/intel64_lin/libmkl_core.so:$MKLROOT/lib/intel64_lin/libmkl_sequential.so
 export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
 export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
 export PATH=$NEURONROOT/bin:$PATH
@@ -40,7 +39,7 @@ mpirun -rr -n $nworkers python3 optimize_selectivity.py  -c Network_Clamp_GC_Exc
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/striped/dentate \
     --results-path $SCRATCH/dentate/results/netclamp/20210210_Weight_all \
-    --config-prefix config  --param-config-name "$2" \
+    --config-prefix config  --param-config-name "$2" --selectivity-config-name PP \
     --arena-id A --trajectory-id Diag --use-coreneuron \
     --target-features-path $SCRATCH/striped/dentate/Slice/dentatenet_Full_Scale_GC_Exc_Sat_SLN_extent_arena_margin_20210106a_compressed.h5 \
     --target-features-namespace 'Selectivity Features' \

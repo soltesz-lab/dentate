@@ -769,15 +769,16 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
 #        features_dict = { gid: np.asarray(np.mean(np.asarray(firing_rates_dict[gid])), dtype=opt_rate_feature_dtypes) 
 #                          for gid in my_cell_index_set }
         N_objectives = 1
-        opt_rate_feature_dtypes = [('mean_rate', (np.float32, (1,))), ('trial_objs', (np.float32, (N_objectives, n_trials)))]
-        tmp_array = np.empty(shape=(1,), dtype=np.dtype(opt_rate_feature_dtypes))
+        opt_rate_feature_dtypes = [('mean_rate', (np.float32, (1,))), 
+                                   ('trial_objs', (np.float32, (N_objectives, n_trials)))]
+        feature_array = np.empty(shape=(1,), dtype=np.dtype(opt_rate_feature_dtypes))
         features_dict = {}
 
         for gid in my_cell_index_set:
-            tmp_array['mean_rate'] = np.mean(np.asarray(firing_rates_dict[gid]))
+            feature_array['mean_rate'] = np.mean(np.asarray(firing_rates_dict[gid]))
             for i in range(N_objectives):
-                tmp_array['trial_objs'][i,:] = np.asarray(firing_rates_dict[gid]) 
-            features_dict[gid] = tmp_array
+                feature_array['trial_objs'][i,:] = np.asarray(firing_rates_dict[gid]) 
+            features_dict[gid] = feature_array
 
         return objectives_dict, features_dict
     
@@ -1390,7 +1391,8 @@ def optimize(config_file, population, dt, gids, gid_selection_file, arena_id, tr
     del(init_params['gids'])
 
     N_objectives = 1
-    opt_rate_feature_dtypes = [('mean_rate', (np.float32, (1,))), ('trial_objs', (np.float32, (N_objectives, n_trials)))]
+    opt_rate_feature_dtypes = [('mean_rate', (np.float32, (1,))), 
+                               ('trial_objs', (np.float32, (N_objectives, n_trials)))]
     params = dict(locals())
     env = Env(**params)
     if size == 1:
