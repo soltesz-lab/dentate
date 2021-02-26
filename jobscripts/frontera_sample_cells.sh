@@ -24,11 +24,11 @@ export HDF5_EXT_PREFIX=$SCRATCH/striped/dentate/Full_Scale_Control
 results_path=$SCRATCH/dentate/results/sample_cells_$SLURM_JOB_ID
 export results_path
 
-cd $SLURM_SUBMIT_DIR
+#cd $SLURM_SUBMIT_DIR
 
 mkdir -p $results_path
 
-ibrun -n 8 python3 ./scripts/sample_cells.py \
+ibrun -n 1 python3 ./scripts/sample_cells.py \
     --arena-id=A --trajectory-id=Diag \
     --config=Full_Scale_GC_Exc_Sat_DD_SLN.yaml \
     --config-prefix=./config \
@@ -41,5 +41,7 @@ ibrun -n 8 python3 ./scripts/sample_cells.py \
     --input-features-namespaces 'Place Selectivity' \
     --input-features-namespaces 'Grid Selectivity' \
     --input-features-namespaces 'Constant Selectivity' \
-    --selection-path=pf_rate_selection_20210114.dat \
+    --selection-path=gid_0.dat \
     --verbose
+
+#    --selection-path=pf_rate_selection_20210114.dat
