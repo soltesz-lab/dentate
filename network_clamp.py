@@ -29,8 +29,6 @@ def set_union(s, t, datatype):
 
 mpi_op_set_union = MPI.Op.Create(set_union, commute=True)
 
-opt_rate_feature_dtypes = [('mean_rate', np.float32)]
-
 
 def mpi_excepthook(type, value, traceback):
     """
@@ -775,8 +773,18 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
             objectives_dict = { gid: -best_rate_diff(gid, firing_rates_dict[gid], target_rate) for gid in my_cell_index_set }    
         else:
             raise RuntimeError(f'rate_objfun: unknown trial regime {trial_regime}')
-        features_dict = { gid: np.asarray(np.mean(np.asarray(firing_rates_dict[gid])), dtype=opt_rate_feature_dtypes) 
-                          for gid in my_cell_index_set }
+#        features_dict = { gid: np.asarray(np.mean(np.asarray(firing_rates_dict[gid])), dtype=opt_rate_feature_dtypes) 
+#                          for gid in my_cell_index_set }
+        N_objectives = 1
+        opt_rate_feature_dtypes = [('mean_rate', (np.float32, (1,))), ('trial_objs', (np.float32, (N_objectives, n_trials)))]
+        tmp_array = np.empty(shape=(1,), dtype=np.dtype(opt_rate_feature_dtypes))
+        features_dict = {}
+
+        for gid in my_cell_index_set:
+            tmp_array['mean_rate'] = np.mean(np.asarray(firing_rates_dict[gid]))
+            for i in range(N_objectives):
+                tmp_array['trial_objs'][i,:] = np.asarray(firing_rates_dict[gid]) 
+            features_dict[gid] = tmp_array
 
         return objectives_dict, features_dict
     
@@ -1274,7 +1282,7 @@ def go(config_file, population, dt, gid, arena_id, trajectory_id, generate_weigh
 @click.option("--config-file", '-c', required=True, type=str, help='model configuration file name')
 @click.option("--population", '-p', required=True, type=str, default='GC', help='target population')
 @click.option("--dt",  type=float, help='simulation time step')
-@click.option("--gid", '-g', type=int, help='target cell gid')
+@click.option("--gids", '-g', type=int, multiple=True, help='target cell gid')
 @click.option("--gid-selection-file", type=click.Path(exists=True, file_okay=True, dir_okay=False), help='file containing target cell gids')
 @click.option("--arena-id", '-a', type=str, required=True, help='arena id')
 @click.option("--trajectory-id", '-t', type=str, required=True, help='trajectory id')
@@ -1328,7 +1336,7 @@ def go(config_file, population, dt, gid, arena_id, trajectory_id, generate_weigh
 @click.option('--use-coreneuron', is_flag=True, help='enable use of CoreNEURON')
 @click.option('--cooperative-init', is_flag=True, help='use a single worker to read model data then send to the remaining workers')
 @click.argument('target')# help='rate, rate_dist, state'
-def optimize(config_file, population, dt, gid, gid_selection_file, arena_id, trajectory_id, 
+def optimize(config_file, population, dt, gids, gid_selection_file, arena_id, trajectory_id, 
              generate_weights, t_max, t_min, 
              nprocs_per_worker, opt_epsilon, opt_seed, opt_iter, 
              template_paths, dataset_prefix, config_prefix,
@@ -1348,7 +1356,9 @@ def optimize(config_file, population, dt, gid, gid_selection_file, arena_id, tra
 
     results_file_id = None
     if rank == 0:
-        results_file_id = generate_results_file_id(population, gid, opt_seed)
+        ts = time.strftime("%Y%m%d_%H%M%S")
+        opt_seed_lab = 'NOS{:08d}'.format(np.random.randint(99999999)) if opt_seed is None else '{:08d}'.format(opt_seed)
+        results_file_id = '{!s}_{!s}_{!s}'.format(population, ts, opt_seed_lab)
         
     results_file_id = comm.bcast(results_file_id, root=0)
     comm.barrier()
@@ -1364,8 +1374,9 @@ def optimize(config_file, population, dt, gid, gid_selection_file, arena_id, tra
             for line in lines:
                 gid = int(line)
                 cell_index_set.add(gid)
-    elif gid is not None:
-        cell_index_set.add(gid)
+    elif gids is not None:
+        for gid in gids:
+            cell_index_set.add(gid)
     else:
         comm.barrier()
         comm0 = comm.Split(2 if rank == 0 else 1, 0)
@@ -1381,8 +1392,10 @@ def optimize(config_file, population, dt, gid, gid_selection_file, arena_id, tra
         comm.barrier()
         comm0.Free()
     init_params['cell_index_set'] = cell_index_set
-    del(init_params['gid'])
+    del(init_params['gids'])
 
+    N_objectives = 1
+    opt_rate_feature_dtypes = [('mean_rate', (np.float32, (1,))), ('trial_objs', (np.float32, (N_objectives, n_trials)))]
     params = dict(locals())
     env = Env(**params)
     if size == 1:
