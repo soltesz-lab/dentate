@@ -569,13 +569,6 @@ def run_with(env, param_dict, cvode=False, pc_runworker=False):
         env.t_rec.record(h._ref_t)
     else:
         env.t_rec.record(h._ref_t, rec_dt)
-
-    #h('objref iax, v_s, v_d')
-    #h.iax = h.Vector()
-    #h.v_s = h.Vector()
-    #h.v_d = h.Vector()
-    #h.v_s.record(
-    #dend iax.c(v1).sub(v2).div(ri(5/6))
         
     env.t_vec.resize(0)
     env.id_vec.resize(0)
@@ -929,8 +922,10 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
         problem_ids = init_params.get('cell_index_set', None)
     elif ProblemRegime[problem_regime] == ProblemRegime.mean:
         reduce_fun_name = "opt_reduce_mean"
+        feature_dtypes = None
     elif ProblemRegime[problem_regime] == ProblemRegime.max:
         reduce_fun_name = "opt_reduce_max"
+        feature_dtypes = None
     else:
         raise RuntimeError(f'optimize_run: unknown problem regime {problem_regime}')
         

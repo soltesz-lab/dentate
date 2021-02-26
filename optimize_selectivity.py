@@ -435,6 +435,7 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
     objective_names = ['snr', 'residual_state']
     feature_names = ['mean_peak_rate', 'mean_trough_rate', 'max_infld_rate', 'min_infld_rate',
                      'mean_peak_state', 'mean_trough_state', 'mean_outfld_state']
+    feature_dtypes = [(feature_name, np.float32) for feature_name in feature_names]
     dmosopt_params = {'opt_id': 'dentate.optimize_selectivity',
                       'problem_ids': problem_ids,
                       'obj_fun_init_name': init_objfun, 
@@ -445,7 +446,7 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
                       'problem_parameters': {},
                       'space': hyperprm_space,
                       'objective_names': objective_names,
-                      'feature_names': feature_names,
+                      'feature_dtypes': feature_dtypes,
                       'n_initial': n_initial,
                       'n_iter': n_iter,
                       'population_size': population_size,
