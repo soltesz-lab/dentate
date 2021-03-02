@@ -127,11 +127,8 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
 
         target_infld_rate_vector = target_rate_vector[infld_idxs]
 
-        if outfld_ranges_dict[gid] is None:
-            large_fld_gids.append(gid)
-        
         logger.info(f'selectivity objective: target peak/trough rate of gid {gid}: '
-                    f'{peak_pctile_dict[gid]:.02f} {trough_pctile_dict[gid]:.02f} outfld: {outfld_ranges_dict[gid] != None}')
+                    f'{peak_pctile_dict[gid]:.02f} {trough_pctile_dict[gid]:.02f}')
         
     opt_param_config = optimization_params(env.netclamp_config.optimize_parameters, [population], param_config_name, param_type)
     selectivity_opt_param_config = selectivity_optimization_params(env.netclamp_config.optimize_parameters, [population],
@@ -219,40 +216,31 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
     def trial_snrs(gid, target_max_infld, target_mean_trough, 
                    peak_idxs, trough_idxs, infld_idxs, outfld_idxs, rate_vectors):
 
-        mean_peak_rate_vector = np.mean(np.row_stack([ rate_vector[peak_idxs] 
-                                                       for rate_vector in rate_vectors ]),
-                                        axis=0)
-        mean_trough_rate_vector = np.mean(np.row_stack([ rate_vector[trough_idxs] 
-                                                         for rate_vector in rate_vectors ]),
-                                          axis=0)
-        mean_infld_rate_vector = np.mean(np.row_stack([ rate_vector[infld_idxs] 
-                                                        for rate_vector in rate_vectors ]),
-                                         axis=0)
-
         snrs = []
 
         for trial_i in range(len(rate_vectors)):
 
             rate_vector = rate_vectors[trial_i]
             infld_rate_vector = rate_vector[infld_idxs]
-            outfld_rate_vector = rate_vector[outfld_idxs]
+            outfld_rate_vector = None
+            if outfld_idxs is not None:
+                outfld_rate_vector = rate_vector[outfld_idxs]
 
             mean_peak = np.mean(rate_vector[peak_idxs])
             mean_trough = np.mean(rate_vector[trough_idxs])
             min_infld = np.min(infld_rate_vector)
             max_infld = np.max(infld_rate_vector)
             mean_infld = np.mean(infld_rate_vector)
-            mean_outfld = np.mean(outfld_rate_vector)
+            mean_outfld = 0.0
+            if outfld_rate_vector is not None:
+                mean_outfld = np.mean(outfld_rate_vector)
 
-            if mean_trough < mean_outfld:
-                snr = -1e6
-            else:
-                snr = (np.clip(mean_peak - mean_trough, 0., None) ** 2.)  / max((mean_trough - target_mean_trough) ** 2., 1.0)
-            logger.info(f'selectivity objective: max infld/mean infld/mean peak/trough/snr of gid {gid} trial {trial_i}: '
-                        f'{max_infld:.02f} {mean_infld:.02f} {mean_peak:.02f} {mean_trough:.02f} {snr:.04f}')
+            snr = (np.clip(mean_peak - mean_trough, 0., None) ** 2.)  / max((mean_trough - target_mean_trough) ** 2., 1.0)
+            logger.info(f'selectivity objective: max infld/mean infld/mean peak/trough/mean outfld/snr of gid {gid} trial {trial_i}: '
+                        f'{max_infld:.02f} {mean_infld:.02f} {mean_peak:.02f} {mean_trough:.02f} {mean_outfld:.02f} {snr:.04f}')
             snrs.append(snr)
 
-        rate_features = [mean_peak, mean_trough, max_infld, min_infld]
+        rate_features = [mean_peak, mean_trough, max_infld, min_infld, mean_infld, mean_outfld, ]
         return (np.asarray(snrs), np.asarray(rate_features))
 
     
@@ -307,14 +295,13 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
         run_params = {population: {gid: from_param_dict(cell_param_dict[gid])
                                    for gid in my_cell_index_set}}
         masked_state_values_dict = {}
-        if len(large_fld_gids) > 0:
-            masked_run_params = {population: { gid: update_run_params(run_params[population][gid],
-                                                                      selectivity_opt_param_config.mask_param_names,
-                                                                      selectivity_opt_param_config.mask_param_tuples)
-                                               for gid in large_fld_gids} }
-            masked_spkdict = run_with(env, masked_run_params)
-            t_s, masked_state_values_dict = gid_state_values(masked_spkdict, equilibration_duration, n_trials, env.t_rec, 
-                                                             state_recs_dict)
+        masked_run_params = {population: { gid: update_run_params(run_params[population][gid],
+                                                                  selectivity_opt_param_config.mask_param_names,
+                                                                  selectivity_opt_param_config.mask_param_tuples)
+                                           for gid in my_cell_index_set} }
+        masked_spkdict = run_with(env, masked_run_params)
+        t_s, masked_state_values_dict = gid_state_values(masked_spkdict, equilibration_duration, n_trials, env.t_rec, 
+                                                         state_recs_dict)
             
         
         spkdict = run_with(env, run_params)
@@ -433,7 +420,8 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
 
     
     objective_names = ['snr', 'residual_state']
-    feature_names = ['mean_peak_rate', 'mean_trough_rate', 'max_infld_rate', 'min_infld_rate',
+    feature_names = ['mean_peak_rate', 'mean_trough_rate', 
+                     'max_infld_rate', 'min_infld_rate', 'mean_infld_rate', 'mean_outfld_rate', 
                      'mean_peak_state', 'mean_trough_state', 'mean_outfld_state']
     feature_dtypes = [(feature_name, np.float32) for feature_name in feature_names]
     dmosopt_params = {'opt_id': 'dentate.optimize_selectivity',
