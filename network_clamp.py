@@ -958,7 +958,7 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
         distgfs_params['broker_fun_name'] = 'distgfs_broker_init'
         distgfs_params['broker_module_name'] = 'dentate.optimization'
 
-    problem_metadata = np.array([(f'Target {k}', opt_targets[v]) for k in sorted(opt_targets)]
+    problem_metadata = np.array([(f'Target {k}', opt_targets[v]) for k in sorted(opt_targets)],
                                 dtype=[(f'Target {k}', np.float32, 1) for k in sorted(opt_targets)])
     opt_results = distgfs.run(distgfs_params, verbose=verbose, collective_mode="sendrecv",
                                spawn_workers=True, nprocs_per_worker=nprocs_per_worker, metadata=problem_metadata)
