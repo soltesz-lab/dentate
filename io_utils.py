@@ -152,6 +152,17 @@ def mkout(env, results_filename):
     else:
         make_h5types(env, results_filename)
 
+def write_params(output_path, params_dict):
+    output_file = h5py.File(data_file_path, 'a')
+    
+    parameters_group = h5_get_group(h5, 'Parameters')
+    for population in params_dict:
+        pop_group = h5_get_group(parameters_group, population)
+        for gid in params_dict[population]:
+            params_dict[f'{gid}'] = params_dict[population][gid]
+    
+    output_file.close()
+    
 
 
 def spikeout(env, output_path, t_start=None, clear_data=False):
