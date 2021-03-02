@@ -958,8 +958,10 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
         distgfs_params['broker_fun_name'] = 'distgfs_broker_init'
         distgfs_params['broker_module_name'] = 'dentate.optimization'
 
+    problem_metadata = np.array([(f'Target {k}', opt_targets[v]) for k in sorted(opt_targets)],
+                                dtype=[(f'Target {k}', np.float32, 1) for k in sorted(opt_targets)])
     opt_results = distgfs.run(distgfs_params, verbose=verbose, collective_mode="sendrecv",
-                               spawn_workers=True, nprocs_per_worker=nprocs_per_worker)
+                               spawn_workers=True, nprocs_per_worker=nprocs_per_worker, metadata=problem_metadata)
     if opt_results is not None:
         if ProblemRegime[problem_regime] == ProblemRegime.every:
             gid_results_config_dict = {}
@@ -1072,12 +1074,33 @@ def write_output(env):
                      write_trial_data=True)
     if rank == 0:
         logger.info("*** Writing synapse spike counts")
-        for pop_name in sorted(env.biophys_cells.keys()):
-            presyn_names = sorted(env.projection_dict[pop_name])
-            synapses.write_syn_spike_count(env, pop_name, env.results_file_path,
-                                           filters={'sources': presyn_names},
-                                           write_kwds={'io_size': env.io_size})
-         
+    for pop_name in sorted(env.biophys_cells.keys()):
+        presyn_names = sorted(env.projection_dict[pop_name])
+        synapses.write_syn_spike_count(env, pop_name, env.results_file_path,
+                                       filters={'sources': presyn_names},
+                                       write_kwds={'io_size': env.io_size})
+
+def write_params(env, pop_params_dict):
+    rank = env.comm.rank
+    if rank == 0:
+        logger.info("*** Writing synapse parameters")
+    params_array_dict = {}
+    for this_pop_name, this_pop_param_dict in viewitems(pop_params_dict):
+        this_pop_params_array_dict = {}
+        for this_gid, this_gid_param_list in viewitems(this_pop_param_dict):
+            param_tuples = []
+            for this_gid_param in this_gid_param_list:
+                population, source, sec_type, syn_name, param_path, param_val = this_gid_param
+                param_tuples.append([("population", population),
+                                     ("source", source),
+                                     ("sec_type", sec_type),
+                                     ("syn_name", syn_name),
+                                     ("param_path", param_path),
+                                     ("param_val", param_val)])
+            param_array = np.array(param_tuples)
+            this_pop_params_array_dict[this_gid] = param_array
+        params_array_dict[this_pop_name] = this_pop_params_array_dict
+    io_utils.write_params( env.results_file_path, params_array_dict)
 
 @click.group()
 def cli():
@@ -1267,6 +1290,7 @@ def go(config_file, population, dt, gid, arena_id, trajectory_id, generate_weigh
                             this_pop_params_tuple_dict[this_gid].append((syn_param, param_val))
                     pop_params_tuple_dict[this_pop_name] = dict(this_pop_params_tuple_dict)
                 run_with(env, pop_params_tuple_dict)
+                write_params(env, pop_params_dict)
             else:
                 run(env)
             write_output(env)

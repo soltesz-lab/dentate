@@ -1,4 +1,4 @@
-import os, itertools, pprint, gc
+import os, itertools, pprint, gc, sys
 from collections import defaultdict
 from mpi4py import MPI
 import h5py
@@ -152,6 +152,19 @@ def mkout(env, results_filename):
     else:
         make_h5types(env, results_filename)
 
+def write_params(output_path, params_dict):
+    output_file = h5py.File(output_path, 'a')
+    
+    parameters_group = h5_get_group(output_file, 'Parameters')
+    for population in params_dict:
+        pop_group = h5_get_group(parameters_group, population)
+        for gid in params_dict[population]:
+            print(str(params_dict[population][gid]))
+            sys.stdout.flush()
+            pop_group[f'{gid}'] = params_dict[population][gid]
+    
+    output_file.close()
+    
 
 
 def spikeout(env, output_path, t_start=None, clear_data=False):
