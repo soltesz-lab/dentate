@@ -711,13 +711,15 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
                              worker=worker)
 
     time_step = env.stimulus_config['Temporal Resolution']
+    equilibration_duration = float(env.stimulus_config.get('Equilibration Duration', 0.))
+
     opt_param_config = optimization_params(env.netclamp_config.optimize_parameters, [population], param_config_name, param_type)
 
     opt_targets = opt_param_config.opt_targets
     param_names = opt_param_config.param_names
     param_tuples = opt_param_config.param_tuples
 
-    recording_profile = { 'label': f'network_clamp.rate.{state_variable}',
+    recording_profile = { 'label': f'network_clamp.rate.v',
                           'dt': 0.1,
                           'section quantity': {
                               'v': { 'swc types': ['soma'] }
@@ -944,8 +946,8 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
                        for param_pattern, param_tuple in 
                            zip(param_names, param_tuples) }
     
-    problem_metadata = np.array([opt_targets[k] for k in sorted(opt_targets)],
-                                dtype=[(f'Target {k}', np.float32, 1) for k in sorted(opt_targets)])
+    problem_metadata = np.array([tuple(( opt_targets[k] for k in sorted(opt_targets) ))],
+                                dtype=[(f'Target {k}', np.float32, (1,)) for k in sorted(opt_targets)])
 
     if results_file is None:
         if env.results_path is not None:
