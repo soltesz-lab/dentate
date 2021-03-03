@@ -637,6 +637,17 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
     param_names = opt_param_config.param_names
     param_tuples = opt_param_config.param_tuples
 
+
+    recording_profile = { 'label': f'network_clamp.state.{state_variable}',
+                          'dt': 0.1,
+                          'section quantity': {
+                              state_variable: { 'swc types': ['soma'] }
+                            }
+                        }
+    env.recording_profile = recording_profile
+    state_recs_dict = {}
+    for gid in my_cell_index_set:
+        state_recs_dict[gid] = record_cell(env, population, gid, recording_profile=recording_profile)
    
     def from_param_dict(params_dict):
         result = []
@@ -663,17 +674,6 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
                 state_values.append(np.mean(data))
             results_dict[gid] = state_values
         return results_dict
-
-    recording_profile = { 'label': f'network_clamp.state.{state_variable}',
-                          'dt': 0.1,
-                          'section quantity': {
-                              state_variable: { 'swc types': ['soma'] }
-                            }
-                        }
-    env.recording_profile = recording_profile
-    state_recs_dict = {}
-    for gid in my_cell_index_set:
-        state_recs_dict[gid] = record_cell(env, population, gid, recording_profile=recording_profile)
 
     
     def eval_problem(cell_param_dict, **kwargs): 
@@ -717,6 +717,16 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
     param_names = opt_param_config.param_names
     param_tuples = opt_param_config.param_tuples
 
+    recording_profile = { 'label': f'network_clamp.rate.{state_variable}',
+                          'dt': 0.1,
+                          'section quantity': {
+                              'v': { 'swc types': ['soma'] }
+                            }
+                        }
+    env.recording_profile = recording_profile
+    state_recs_dict = {}
+    for gid in my_cell_index_set:
+        state_recs_dict[gid] = record_cell(env, population, gid, recording_profile=recording_profile)
     
     def from_param_dict(params_dict):
         result = []
@@ -743,6 +753,20 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
                 rates_dict[gid].append(rate_dict[gid])
 
         return rates_dict
+    
+    def gid_state_values(spkdict, t_offset, n_trials, t_rec, state_recs_dict):
+        t_vec = np.asarray(t_rec.to_python(), dtype=np.float32)
+        t_trial_inds = get_trial_time_indices(t_vec, n_trials, t_offset)
+        results_dict = {}
+        for gid in state_recs_dict:
+            state_values = []
+            state_recs = state_recs_dict[gid]
+            for rec in state_recs:
+                vec = np.asarray(rec['vec'].to_python(), dtype=np.float32)
+                data = np.asarray([ np.mean(vec[t_inds]) for t_inds in t_trial_inds ])
+                state_values.append(np.mean(data))
+            results_dict[gid] = state_values
+        return results_dict
 
     def mean_rate_diff(gid, rates, target_rate):
 
@@ -755,22 +779,27 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
         return abs(max_rate - target_rate)
 
 
-    def eval_problem(cell_param_dict, **kwargs): 
-        firing_rates_dict = gid_firing_rate(run_with(env, {population:
-                                                               {gid: from_param_dict(cell_param_dict[gid]) 
-                                                                for gid in my_cell_index_set}}), 
-                                            my_cell_index_set)
+    def eval_problem(cell_param_dict, **kwargs):
+        spkdict = run_with(env, {population:
+                                     {gid: from_param_dict(cell_param_dict[gid]) 
+                                          for gid in my_cell_index_set}})
+        firing_rates_dict = gid_firing_rate(spkdict, my_cell_index_set)
+        state_values_dict = gid_state_values(spkdict, equilibration_duration, 
+                                             n_trials, env.t_rec, 
+                                             state_recs_dict)
         if trial_regime == 'mean':
             objectives_dict = { gid: -mean_rate_diff(gid, firing_rates_dict[gid], target_rate) for gid in my_cell_index_set }
         elif trial_regime == 'best':
             objectives_dict = { gid: -best_rate_diff(gid, firing_rates_dict[gid], target_rate) for gid in my_cell_index_set }    
         else:
             raise RuntimeError(f'rate_objfun: unknown trial regime {trial_regime}')
-#        features_dict = { gid: np.asarray(np.mean(np.asarray(firing_rates_dict[gid])), dtype=opt_rate_feature_dtypes) 
-#                          for gid in my_cell_index_set }
+
         N_objectives = 1
         opt_rate_feature_dtypes = [('mean_rate', (np.float32, (1,))), 
-                                   ('trial_objs', (np.float32, (N_objectives, n_trials)))]
+                                   ('trial_objs', (np.float32, (N_objectives, n_trials))),
+                                   ('mean_v', (np.float32, (n_trials,))),
+                                   ]
+                                   
         features_dict = {}
 
         for gid in my_cell_index_set:
@@ -778,6 +807,7 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
             feature_array['mean_rate'] = np.mean(np.asarray(firing_rates_dict[gid]))
             for i in range(N_objectives):
                 feature_array['trial_objs'][i,:] = np.asarray(firing_rates_dict[gid]) 
+            feature_array['mean_v'][i,:] = np.asarray(state_values_dict[gid]) 
             features_dict[gid] = feature_array
 
         return objectives_dict, features_dict
@@ -913,6 +943,9 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
     hyperprm_space = { param_pattern: [param_tuple.param_range[0], param_tuple.param_range[1]]
                        for param_pattern, param_tuple in 
                            zip(param_names, param_tuples) }
+    
+    problem_metadata = np.array([opt_targets[k] for k in sorted(opt_targets)],
+                                dtype=[(f'Target {k}', np.float32, 1) for k in sorted(opt_targets)])
 
     if results_file is None:
         if env.results_path is not None:
@@ -952,16 +985,15 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
                       'save': True,
                       'n_iter': opt_iter,
                       'seed': opt_seed,
-                      'solver_epsilon': solver_epsilon }
+                      'solver_epsilon': solver_epsilon,
+                      'metadata': problem_metadata}
 
     if cooperative_init:
         distgfs_params['broker_fun_name'] = 'distgfs_broker_init'
         distgfs_params['broker_module_name'] = 'dentate.optimization'
 
-    problem_metadata = np.array([(f'Target {k}', opt_targets[v]) for k in sorted(opt_targets)],
-                                dtype=[(f'Target {k}', np.float32, 1) for k in sorted(opt_targets)])
     opt_results = distgfs.run(distgfs_params, verbose=verbose, collective_mode="sendrecv",
-                               spawn_workers=True, nprocs_per_worker=nprocs_per_worker, metadata=problem_metadata)
+                               spawn_workers=True, nprocs_per_worker=nprocs_per_worker)
     if opt_results is not None:
         if ProblemRegime[problem_regime] == ProblemRegime.every:
             gid_results_config_dict = {}
@@ -1416,7 +1448,9 @@ def optimize(config_file, population, dt, gids, gid_selection_file, arena_id, tr
 
     N_objectives = 1
     opt_rate_feature_dtypes = [('mean_rate', (np.float32, (1,))), 
-                               ('trial_objs', (np.float32, (N_objectives, n_trials)))]
+                               ('trial_objs', (np.float32, (N_objectives, n_trials))),
+                               ('mean_v', (np.float32, (n_trials,))),
+                               ] 
     params = dict(locals())
     env = Env(**params)
     if size == 1:

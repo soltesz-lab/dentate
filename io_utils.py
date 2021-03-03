@@ -159,8 +159,6 @@ def write_params(output_path, params_dict):
     for population in params_dict:
         pop_group = h5_get_group(parameters_group, population)
         for gid in params_dict[population]:
-            print(str(params_dict[population][gid]))
-            sys.stdout.flush()
             pop_group[f'{gid}'] = params_dict[population][gid]
     
     output_file.close()
