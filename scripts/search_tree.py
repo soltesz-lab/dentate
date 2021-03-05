@@ -84,9 +84,9 @@ def main(config, template_path, prototype_gid, prototype_path, forest_path, popu
 
     (population_start, _) = pop_ranges[population]
     template_class = load_cell_template(env, population, bcast_template=True)
-#    for gid, morph_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, cache_size=1, comm=comm, topology=True):
-    trees, _ = scatter_read_trees(forest_path, population, io_size=io_size, comm=comm, topology=True)
-    for gid, morph_dict in trees:
+    for gid, morph_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, cache_size=1, comm=comm, topology=True):
+#    trees, _ = scatter_read_trees(forest_path, population, io_size=io_size, comm=comm, topology=True)
+ #   for gid, morph_dict in trees:
         if gid is not None:
             logger.info('Rank %i gid: %i' % (rank, gid))
             secnodes_dict = morph_dict['section_topology']['nodes']

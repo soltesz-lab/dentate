@@ -9,6 +9,9 @@ import scipy
 from scipy import sparse, signal
 import yaml
 
+from yaml.representer import Representer
+yaml.add_representer(defaultdict, Representer.represent_dict)
+
         
 is_interactive = bool(getattr(sys, 'ps1', sys.flags.interactive))
 
@@ -291,7 +294,7 @@ def get_script_logger(name):
 logger = get_module_logger(__name__)
 
 
-def write_to_yaml(file_path, data, convert_scalars=False):
+def write_to_yaml(file_path, data, default_flow_style=None, convert_scalars=False):
     """
 
     :param file_path: str (should end in '.yaml')
@@ -302,7 +305,7 @@ def write_to_yaml(file_path, data, convert_scalars=False):
     with open(file_path, 'w') as outfile:
         if convert_scalars:
             data = nested_convert_scalars(data)
-        yaml.dump(data, outfile, default_flow_style=False, Dumper=ExplicitDumper)
+        yaml.dump(data, outfile, default_flow_style=default_flow_style, Dumper=ExplicitDumper)
 
 
 def read_from_yaml(file_path, include_loader=None):

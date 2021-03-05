@@ -319,7 +319,6 @@ def collect_network_features(env, local_features, target_populations, output_pat
         feature_grp = h5_get_group(param_grp, 'feature_values')
         for feature_name in sorted(collected_features):
             feature_val = collected_features[feature_name]
-            print(f'feature {feature_name}: {feature_val}')
             dset = h5_get_dataset(feature_grp, feature_name, maxshape=(1,), dtype=np.float32)
             dset.resize((1,))
             dset[0] = feature_val
