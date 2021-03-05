@@ -947,7 +947,7 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
                            zip(param_names, param_tuples) }
     
     problem_metadata = np.array([tuple(( opt_targets[k] for k in sorted(opt_targets) if isinstance(opt_targets[k], float) ))],
-                                dtype=[(f'Target {k}', np.float32, (1,)) for k in sorted(opt_targets)])
+                                dtype=[(f'Target {k}', np.float32, (1,)) for k in sorted(opt_targets)  if isinstance(opt_targets[k], float)])
 
     if results_file is None:
         if env.results_path is not None:
