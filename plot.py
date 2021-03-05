@@ -2172,7 +2172,7 @@ def plot_intracellular_state_in_tree (gid, population, forest_path, state_input_
     cell_state_dict = {}
     for namespace_id in namespace_ids:
         data = read_state (state_input_path, [population], namespace_id, time_variable=time_variable,
-                            state_variable=state_variable, time_range=time_range, gid = [gid])
+                            state_variables=[state_variable], time_range=time_range, gid = [gid])
         states  = data['states']
         cell_state_dict[namespace_id] = states[population][gid]
 
@@ -2708,7 +2708,6 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
     include.sort(key=lambda x: pop_start_inds[x])
     include.reverse()
 
-    print(f"spk_include = {spk_include}")
     sys.stdout.flush()
     spkdata = spikedata.read_spike_events(input_path, spk_include, spike_namespace, \
                                           spike_train_attr_name=time_variable, time_range=time_range,
@@ -2716,7 +2715,7 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
     logger.info('plot_network_clamp: reading recorded intracellular variable %s for gid %d' % \
                 (intracellular_variable, gid))
     indata = read_state(input_path, [state_pop_name], intracellular_namespace, time_variable=time_variable, \
-                        state_variable=intracellular_variable, time_range=time_range, gid=[gid],
+                        state_variables=[intracellular_variable], time_range=time_range, gid=[gid],
                         n_trials=n_trials)
 
     spkpoplst = spkdata['spkpoplst']
@@ -2912,9 +2911,9 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
     from dentate.utils import get_low_pass_filtered_trace
     for (pop_name, pop_states) in viewitems(states):
         for (gid, cell_states) in viewitems(pop_states):
-            st_len = cell_states[0][0].shape[0]
-            st_xs = [ x[:st_len] for x in cell_states[0] ]
-            st_ys = [ y[:st_len] for y in cell_states[1] ]
+            st_len = cell_states[intracellular_variable][0].shape[0]
+            st_xs = [ x[:st_len] for x in cell_states[time_variable] ]
+            st_ys = [ y[:st_len] for y in cell_states[intracellular_variable] ]
             filtered_st_ys = [get_low_pass_filtered_trace(st_y, st_x)
                               for st_x, st_y in zip(st_xs, st_ys)]
             st_x = st_xs[0]

@@ -1338,7 +1338,7 @@ def go(config_file, population, dt, gids, gid_selection_file, arena_id, trajecto
                                 this_pop_params_tuple_dict[this_gid].append((syn_param, param_val))
                         pop_params_tuple_dict[this_pop_name] = dict(this_pop_params_tuple_dict)
                     run_with(env, pop_params_tuple_dict)
-                    write_params(env, pop_params_dict)
+                    #write_params(env, pop_params_dict)
             else:
                 run(env)
             write_output(env)

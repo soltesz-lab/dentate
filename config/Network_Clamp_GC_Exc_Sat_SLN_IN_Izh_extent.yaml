@@ -28,3 +28,7 @@ Cell Types:
     synapses:
       weights: !include MC_SLN_weights.yaml
       density: !include MC_synapse_density.yaml
+  BC:
+    template: BasketCell
+    synapses:
+      density: !include BC_synapse_density.yaml
