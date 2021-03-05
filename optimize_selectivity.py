@@ -213,11 +213,16 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
         return t_vec[t_trial_inds[0]], results_dict
 
 
-    def trial_snrs(gid, target_max_infld, target_mean_trough, 
-                   peak_idxs, trough_idxs, infld_idxs, outfld_idxs, rate_vectors, masked_rate_vectors):
+    def trial_snr_residuals(gid, peak_idxs, trough_idxs, infld_idxs, outfld_idxs, 
+                            rate_vectors, masked_rate_vectors, target_rate_vector):
 
-        snrs = []
+        residual_snrs = []
 
+        target_infld = target_rate_vector[infld_idxs]
+        target_max_infld = np.max(target_infld)
+        target_mean_trough = np.mean(target_rate_vector[trough_idxs])
+        logger.info(f'selectivity objective: target max infld/mean trough of gid {gid}: '
+                    f'{target_max_infld:.02f} {target_mean_trough:.02f}')
         for trial_i in range(len(rate_vectors)):
 
             rate_vector = rate_vectors[trial_i]
@@ -235,15 +240,13 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
             mean_infld = np.mean(infld_rate_vector)
             mean_outfld = np.mean(outfld_rate_vector)
 
-            snr = (np.clip(mean_peak - mean_trough, 0., None) ** 2.)  / max((mean_trough - target_mean_trough) ** 2., 1.0)
-            logger.info(f'selectivity objective: max infld/mean infld/mean peak/trough/mean outfld/snr of gid {gid} trial {trial_i}: '
-                        f'{max_infld:.02f} {mean_infld:.02f} {mean_peak:.02f} {mean_trough:.02f} {mean_outfld:.02f} {snr:.04f}')
-            logger.info(f'selectivity objective: target max infld/mean trough of gid {gid} trial {trial_i}: '
-                        f'{target_max_infld:.02f} {target_mean_trough:.02f}')
-            snrs.append(snr)
+            residual_snr = np.square(np.mean(target_infld - infld_rate_vector))
+            logger.info(f'selectivity objective: max infld/mean infld/mean peak/trough/mean outfld/residual_snr of gid {gid} trial {trial_i}: '
+                        f'{max_infld:.02f} {mean_infld:.02f} {mean_peak:.02f} {mean_trough:.02f} {mean_outfld:.02f} {residual_snr:.04f}')
+            residual_snrs.append(residual_snr)
 
         rate_features = [mean_peak, mean_trough, max_infld, min_infld, mean_infld, mean_outfld, ]
-        return (np.asarray(snrs), np.asarray(rate_features))
+        return (np.asarray(residual_snrs), np.asarray(rate_features))
 
     
     def trial_state_residuals(gid, target_outfld, t_peak_idxs, t_trough_idxs, t_infld_idxs, t_outfld_idxs, state_values, masked_state_values):
@@ -322,10 +325,6 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
             
             target_rate_vector = target_rate_vector_dict[gid]
 
-            target_infld_rate_vector = target_rate_vector[infld_idxs]
-            target_mean_trough = np.mean(target_rate_vector[trough_idxs])
-            target_max_infld = np.max(target_infld_rate_vector)
-
             peak_ranges = peak_ranges_dict[gid]
             trough_ranges = trough_ranges_dict[gid]
             infld_ranges = infld_ranges_dict[gid]
@@ -347,27 +346,27 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
             logger.info(f'selectivity objective: max rates of gid {gid}: '
                         f'{list([np.max(rate_vector) for rate_vector in rate_vectors])}')
 
-            snrs, rate_features = trial_snrs(gid, target_max_infld, target_mean_trough, 
-                                             peak_idxs, trough_idxs, infld_idxs, outfld_idxs, rate_vectors, masked_rate_vectors)
+            snr_residuals, rate_features = trial_snrs(gid, peak_idxs, trough_idxs, infld_idxs, outfld_idxs, 
+                                                     rate_vectors, masked_rate_vectors, target_rate_vector)
             state_residuals, state_features = trial_state_residuals(gid, state_baseline,
                                                                     t_peak_idxs, t_trough_idxs, t_infld_idxs, t_outfld_idxs,
                                                                     state_values, masked_state_values)
             
             if trial_regime == 'mean':
-                mean_snr = np.mean(snrs)
+                mean_snr_residual = np.mean(snr_residuals)
                 mean_state_residual = np.mean(state_residuals)
-                snr_objective = -mean_snr
+                snr_objective = mean_snr_residual
                 state_objective = abs(mean_state_residual)
                 logger.info(f'selectivity objective: mean peak/trough/mean snr/mean state residual of gid {gid}: '
                             f'{mean_snr:.04f} {mean_state_residual:.04f}')
             elif trial_regime == 'best':
-                max_snr_index = np.argmax(snrs)
-                max_snr = snrs[max_snr_index]
-                snr_objective = -max_snr
+                min_snr_residual_index = np.argmin(snr_residuals)
+                min_snr_residual = snr_residuals[min_snr_index]
+                snr_objective = min_snr_residual
                 min_state_residual = np.min(np.abs(state_residuals))
                 state_objective = min_state_residual
                 logger.info(f'selectivity objective: mean peak/trough/max snr/min state residual of gid {gid}: '
-                            f'{max_snr:.04f} {min_state_residual:.04f}')
+                            f'{min_snr_residual:.04f} {min_state_residual:.04f}')
             else:
                 raise RuntimeError(f'selectivity_rate_objective: unknown trial regime {trial_regime}')
 
@@ -422,7 +421,7 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
         resample_fraction = 0.1
 
     
-    objective_names = ['snr', 'residual_state']
+    objective_names = ['residual_snr', 'residual_state']
     feature_names = ['mean_peak_rate', 'mean_trough_rate', 
                      'max_infld_rate', 'min_infld_rate', 'mean_infld_rate', 'mean_outfld_rate', 
                      'mean_peak_state', 'mean_trough_state', 'mean_outfld_state']
