@@ -376,7 +376,6 @@ Synaptic Optimization:
               weight: 
                 a: [1.0, 3.0]
         MC:
-<<<<<<< Updated upstream
           apical:
             AMPA:
               weight: 
@@ -400,13 +399,6 @@ Synaptic Optimization:
             GABA_A:
               weight: [0.005, 1.0]
         !!python/tuple [HC, HCC, BC]:
-=======
-          apical:
-            AMPA:
-              weight: 
-                a: [0.1, 1.0]
-        CA3c:
->>>>>>> Stashed changes
           apical:
             AMPA:
               weight: 
@@ -415,7 +407,6 @@ Synaptic Optimization:
           !!python/tuple [apical, soma, ais]:
             GABA_A:
               weight: [0.005, 1.0]
-<<<<<<< Updated upstream
       Weight exc inh netclamp:
         !!python/tuple [GC, MC]:
           apical:
@@ -427,9 +418,6 @@ Synaptic Optimization:
             AMPA:
               weight: 
                 a: [3.0, 10.0]
-=======
-      Weight inh microcircuit:
->>>>>>> Stashed changes
         BC:
           soma:
             GABA_A:
@@ -517,7 +505,6 @@ Synaptic Optimization:
             AMPA:
               weight: [1.0, 2.0]
         !!python/tuple [HCC, HC, IS, NGFC, MOPP]:
-<<<<<<< Updated upstream
           !!python/tuple [apical, basal, soma]:
             GABA_A:
               weight: [0.1, 2.0]
@@ -527,8 +514,6 @@ Synaptic Optimization:
               weight: [0.1, 2.0]
       Weight inh microcircuit:
         !!python/tuple [HCC, HC, NGFC, MOPP, IS]:
-=======
->>>>>>> Stashed changes
           !!python/tuple [apical, basal, soma]:
             GABA_A:
               weight: [0.1, 2.0]
