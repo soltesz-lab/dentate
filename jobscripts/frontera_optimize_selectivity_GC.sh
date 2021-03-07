@@ -27,10 +27,11 @@ export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=off
 # 28250
 # 'Weight all inh soma pd-dend'
 
-cd $SLURM_SUBMIT_DIR
+#cd $SLURM_SUBMIT_DIR
 
 mkdir -p $SCRATCH/dentate/results/netclamp/20210210_Weight_all
 export nworkers=$((12 * 24))
+export nworkers=$((2))
 
 if test "$3" == ""; then
 mpirun -rr -n $nworkers python3 optimize_selectivity.py  -c Network_Clamp_GC_Exc_Sat_SLN_IN_Izh_extent.yaml \

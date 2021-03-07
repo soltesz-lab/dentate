@@ -214,7 +214,7 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
 
 
     def trial_snrs(gid, target_max_infld, target_mean_trough, 
-                   peak_idxs, trough_idxs, infld_idxs, outfld_idxs, rate_vectors):
+                   peak_idxs, trough_idxs, infld_idxs, outfld_idxs, rate_vectors, masked_rate_vectors):
 
         snrs = []
 
@@ -223,7 +223,9 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
             rate_vector = rate_vectors[trial_i]
             infld_rate_vector = rate_vector[infld_idxs]
             outfld_rate_vector = None
-            if outfld_idxs is not None:
+            if outfld_idxs is None:
+                outfld_rate_vector = masked_rate_vectors[trial_i]
+            else:
                 outfld_rate_vector = rate_vector[outfld_idxs]
 
             mean_peak = np.mean(rate_vector[peak_idxs])
@@ -231,13 +233,13 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
             min_infld = np.min(infld_rate_vector)
             max_infld = np.max(infld_rate_vector)
             mean_infld = np.mean(infld_rate_vector)
-            mean_outfld = 0.0
-            if outfld_rate_vector is not None:
-                mean_outfld = np.mean(outfld_rate_vector)
+            mean_outfld = np.mean(outfld_rate_vector)
 
             snr = (np.clip(mean_peak - mean_trough, 0., None) ** 2.)  / max((mean_trough - target_mean_trough) ** 2., 1.0)
             logger.info(f'selectivity objective: max infld/mean infld/mean peak/trough/mean outfld/snr of gid {gid} trial {trial_i}: '
                         f'{max_infld:.02f} {mean_infld:.02f} {mean_peak:.02f} {mean_trough:.02f} {mean_outfld:.02f} {snr:.04f}')
+            logger.info(f'selectivity objective: target max infld/mean trough of gid {gid} trial {trial_i}: '
+                        f'{target_max_infld:.02f} {target_mean_trough:.02f}')
             snrs.append(snr)
 
         rate_features = [mean_peak, mean_trough, max_infld, min_infld, mean_infld, mean_outfld, ]
@@ -300,12 +302,12 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
                                                                   selectivity_opt_param_config.mask_param_tuples)
                                            for gid in my_cell_index_set} }
         masked_spkdict = run_with(env, masked_run_params)
+        masked_rates_dict = gid_firing_rate_vectors(masked_spkdict, my_cell_index_set)
         t_s, masked_state_values_dict = gid_state_values(masked_spkdict, equilibration_duration, n_trials, env.t_rec, 
                                                          state_recs_dict)
             
         
         spkdict = run_with(env, run_params)
-        
         rates_dict = gid_firing_rate_vectors(spkdict, my_cell_index_set)
         t_s, state_values_dict = gid_state_values(spkdict, equilibration_duration, n_trials, env.t_rec, 
                                                   state_recs_dict)
@@ -340,12 +342,13 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
             masked_state_values = masked_state_values_dict.get(gid, None)
             state_values = state_values_dict[gid]
             rate_vectors = rates_dict[gid]
+            masked_rate_vectors = masked_rates_dict[gid]
             
             logger.info(f'selectivity objective: max rates of gid {gid}: '
                         f'{list([np.max(rate_vector) for rate_vector in rate_vectors])}')
 
             snrs, rate_features = trial_snrs(gid, target_max_infld, target_mean_trough, 
-                                             peak_idxs, trough_idxs, infld_idxs, outfld_idxs, rate_vectors)
+                                             peak_idxs, trough_idxs, infld_idxs, outfld_idxs, rate_vectors, masked_rate_vectors)
             state_residuals, state_features = trial_state_residuals(gid, state_baseline,
                                                                     t_peak_idxs, t_trough_idxs, t_infld_idxs, t_outfld_idxs,
                                                                     state_values, masked_state_values)

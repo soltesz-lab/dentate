@@ -281,7 +281,7 @@ def network_features(env, target_trj_rate_map_dict, t_start, t_stop, target_popu
         
         n_total = len(env.cells[pop_name]) - len(env.artificial_cells[pop_name])
 
-        n_target_trj_rate_map = 0
+        n_target_rate_map = 0
         sum_target_rate_dist_residual = None
         if has_target_trj_rate_map:
             pop_target_trj_rate_map_dict = target_trj_rate_map_dict[pop_name]
