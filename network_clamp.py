@@ -1118,23 +1118,24 @@ def write_params(env, pop_params_dict):
     rank = env.comm.rank
     if rank == 0:
         logger.info("*** Writing synapse parameters")
-    params_array_dict = {}
-    for this_pop_name, this_pop_param_dict in viewitems(pop_params_dict):
-        this_pop_params_array_dict = {}
-        for this_gid, this_gid_param_list in viewitems(this_pop_param_dict):
-            param_tuples = []
-            for this_gid_param in this_gid_param_list:
-                population, source, sec_type, syn_name, param_path, param_val = this_gid_param
-                param_tuples.append([("population", population),
-                                     ("source", source),
-                                     ("sec_type", sec_type),
-                                     ("syn_name", syn_name),
-                                     ("param_path", param_path),
-                                     ("param_val", param_val)])
-            param_array = np.array(param_tuples)
-            this_pop_params_array_dict[this_gid] = param_array
-        params_array_dict[this_pop_name] = this_pop_params_array_dict
-    io_utils.write_params( env.results_file_path, params_array_dict)
+        params_array_dict = {}
+        for this_pop_name, this_pop_param_dict in viewitems(pop_params_dict):
+            this_pop_params_array_dict = {}
+            for this_gid, this_gid_param_list in viewitems(this_pop_param_dict):
+                param_tuples = []
+                for this_gid_param in this_gid_param_list:
+                    population, source, sec_type, syn_name, param_path, param_val = this_gid_param
+                    param_tuples.append([("population", population),
+                                        ("source", source),
+                                        ("sec_type", sec_type),
+                                        ("syn_name", syn_name),
+                                        ("param_path", param_path),
+                                        ("param_val", param_val)])
+                    param_array = np.array(param_tuples)
+                    this_pop_params_array_dict[this_gid] = param_array
+            params_array_dict[this_pop_name] = this_pop_params_array_dict
+        io_utils.write_params( env.results_file_path, params_array_dict)
+    env.comm.barrier()
 
 @click.group()
 def cli():
@@ -1338,7 +1339,7 @@ def go(config_file, population, dt, gids, gid_selection_file, arena_id, trajecto
                                 this_pop_params_tuple_dict[this_gid].append((syn_param, param_val))
                         pop_params_tuple_dict[this_pop_name] = dict(this_pop_params_tuple_dict)
                     run_with(env, pop_params_tuple_dict)
-                    #write_params(env, pop_params_dict)
+                    write_params(env, pop_params_dict)
             else:
                 run(env)
             write_output(env)
