@@ -1,4 +1,4 @@
-import os, itertools, pprint, gc, sys
+import os, itertools, pprint, gc, sys, json
 from collections import defaultdict
 from mpi4py import MPI
 import h5py
@@ -159,10 +159,26 @@ def write_params(output_path, params_dict):
     for population in params_dict:
         pop_group = h5_get_group(parameters_group, population)
         for gid in params_dict[population]:
-            pop_group[f'{gid}'] = params_dict[population][gid]
+            params_json = json.dumps(params_dict[population][gid])
+            pop_group[f'{gid}'] = params_json
     
     output_file.close()
     
+
+def read_params(input_path):
+    output_file = h5py.File(output_path, 'a')
+
+    params_dict = {}
+    parameters_group = h5_get_group(output_file, 'Parameters')
+    for population in parameters_group.keys():
+        params_dict[population] = {}
+        pop_group = h5_get_group(parameters_group, population)
+        for id_str in pop_group.keys():
+            params = json.loads(pop_group[id_str])
+            params_dict[population][int(id_str)] = params
+    
+    output_file.close()
+    return params_dict
 
 
 def spikeout(env, output_path, t_start=None, clear_data=False):
