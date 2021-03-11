@@ -1069,7 +1069,7 @@ def dist_run(init_params, gid):
         results_file_id = generate_results_file_id(population, gid)
         init_params['results_file_id'] = results_file_id
 
-    params_path = init_params.get("params_path", [])
+    pop_params_tuple_dicts = init_params.get("pop_params_tuples", None)
     global env
     if env is None:
         env = Env(**init_params)
@@ -1100,20 +1100,11 @@ def dist_run(init_params, gid):
          generate_weights_pops=set(generate_weights),
          t_min=t_min, t_max=t_max)
 
-    if len(params_path) > 0:
-        for this_params_path in params_path:
-            pop_params_dict = read_from_yaml(this_params_path)
-            pop_params_tuple_dict = {}
-            for this_pop_name, this_pop_param_dict in viewitems(pop_params_dict):
-                this_pop_params_tuple_dict = defaultdict(list)
-                for this_gid, this_gid_param_list in viewitems(this_pop_param_dict):
-                    for this_gid_param in this_gid_param_list:
-                        population, source, sec_type, syn_name, param_path, param_val = this_gid_param
-                        syn_param = SynParam(population, source, sec_type, syn_name, param_path, None)
-                        this_pop_params_tuple_dict[this_gid].append((syn_param, param_val))
-                pop_params_tuple_dict[this_pop_name] = dict(this_pop_params_tuple_dict)
+    if pop_params_tuple_dicts is not None:
+        for pop_params_tuple_dict in pop_params_tuple_dicts:
             run_with(env, pop_params_tuple_dict)
             write_output(env)
+            logger.info(f'pop_params_tuple_dict: {pop_params_tuple_dict}')
             write_params(env, pop_params_tuple_dict)
     else:
         run(env)
@@ -1150,12 +1141,12 @@ def write_params(env, pop_params_dict):
             for this_gid, this_gid_param_list in viewitems(this_pop_param_dict):
                 param_tuples = []
                 for this_gid_param in this_gid_param_list:
-                    population, source, sec_type, syn_name, param_path, param_val = this_gid_param
-                    param_tuples.append([("population", population),
-                                         ("source", source),
-                                         ("sec_type", sec_type),
-                                         ("syn_name", syn_name),
-                                         ("param_path", param_path),
+                    syn_param, param_val = this_gid_param
+                    param_tuples.append([("population", syn_param.population),
+                                         ("source", syn_param.source),
+                                         ("sec_type", syn_param.sec_type),
+                                         ("syn_name", syn_param.syn_name),
+                                         ("param_path", syn_param.param_path),
                                          ("param_val", float(param_val))])
                     this_pop_params_array_dict[this_gid] = param_tuples
             params_array_dict[this_pop_name] = this_pop_params_array_dict
@@ -1300,8 +1291,29 @@ def go(config_file, population, dt, gids, gid_selection_file, arena_id, trajecto
     init_params['verbose'] = verbose
     config_logging(verbose)
 
+    if len(params_path) > 0:
+        for this_params_path in params_path:
+            pop_params_dict = read_from_yaml(this_params_path)
 
-    
+    pop_params_tuple_dicts = None
+    if rank == 0:
+        if len(params_path) > 0:
+            pop_params_tuple_dicts = []
+            for this_params_path in params_path:
+                pop_params_dict = read_from_yaml(this_params_path)
+                pop_params_tuple_dict = {}
+                for this_pop_name, this_pop_param_dict in viewitems(pop_params_dict):
+                    this_pop_params_tuple_dict = defaultdict(list)
+                    for this_gid, this_gid_param_list in viewitems(this_pop_param_dict):
+                        for this_gid_param in this_gid_param_list:
+                            population, source, sec_type, syn_name, param_path, param_val = this_gid_param
+                            syn_param = SynParam(population, source, sec_type, syn_name, param_path, None)
+                        this_pop_params_tuple_dict[this_gid].append((syn_param, param_val))
+                    pop_params_tuple_dict[this_pop_name] = dict(this_pop_params_tuple_dict)
+                pop_params_tuple_dicts.append(pop_params_tuple_dict)
+    pop_params_tuple_dicts = comm.bcast(pop_params_tuple_dicts, root=0)
+    init_params['pop_params_tuples'] = pop_params_tuple_dicts
+
     cell_index_set = set([])
     if gid_selection_file is not None:
         with open(gid_selection_file, 'r') as f:
@@ -1350,18 +1362,8 @@ def go(config_file, population, dt, gids, gid_selection_file, arena_id, trajecto
              generate_weights_pops=set(generate_weights),
              t_min=t_min, t_max=t_max,
              plot_cell=plot_cell, write_cell=write_cell)
-        if len(params_path) > 0:
-            for this_params_path in params_path:
-                pop_params_dict = read_from_yaml(this_params_path)
-                pop_params_tuple_dict = {}
-                for this_pop_name, this_pop_param_dict in viewitems(pop_params_dict):
-                    this_pop_params_tuple_dict = defaultdict(list)
-                    for this_gid, this_gid_param_list in viewitems(this_pop_param_dict):
-                        for this_gid_param in this_gid_param_list:
-                            population, source, sec_type, syn_name, param_path, param_val = this_gid_param
-                            syn_param = SynParam(population, source, sec_type, syn_name, param_path, None)
-                            this_pop_params_tuple_dict[this_gid].append((syn_param, param_val))
-                    pop_params_tuple_dict[this_pop_name] = dict(this_pop_params_tuple_dict)
+        if pop_params_tuple_dicts is not None:
+            for pop_params_tuple_dict in pop_params_tuple_dicts:
                 run_with(env, pop_params_tuple_dict)
                 write_output(env)
                 write_params(env, pop_params_dict)
