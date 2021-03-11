@@ -29,7 +29,6 @@ def set_union(s, t, datatype):
 
 mpi_op_set_union = MPI.Op.Create(set_union, commute=True)
 
-
 def mpi_excepthook(type, value, traceback):
     """
 
@@ -1070,6 +1069,7 @@ def dist_run(init_params, gid):
         results_file_id = generate_results_file_id(population, gid)
         init_params['results_file_id'] = results_file_id
 
+    params_path = init_params.get("params_path", [])
     global env
     if env is None:
         env = Env(**init_params)
@@ -1100,8 +1100,24 @@ def dist_run(init_params, gid):
          generate_weights_pops=set(generate_weights),
          t_min=t_min, t_max=t_max)
 
-    run(env)
-    write_output(env)
+    if len(params_path) > 0:
+        for this_params_path in params_path:
+            pop_params_dict = read_from_yaml(this_params_path)
+            pop_params_tuple_dict = {}
+            for this_pop_name, this_pop_param_dict in viewitems(pop_params_dict):
+                this_pop_params_tuple_dict = defaultdict(list)
+                for this_gid, this_gid_param_list in viewitems(this_pop_param_dict):
+                    for this_gid_param in this_gid_param_list:
+                        population, source, sec_type, syn_name, param_path, param_val = this_gid_param
+                        syn_param = SynParam(population, source, sec_type, syn_name, param_path, None)
+                        this_pop_params_tuple_dict[this_gid].append((syn_param, param_val))
+                pop_params_tuple_dict[this_pop_name] = dict(this_pop_params_tuple_dict)
+            run_with(env, pop_params_tuple_dict)
+            write_output(env)
+            write_params(env, pop_params_tuple_dict)
+    else:
+        run(env)
+        write_output(env)
 
     return None
     
@@ -1136,13 +1152,12 @@ def write_params(env, pop_params_dict):
                 for this_gid_param in this_gid_param_list:
                     population, source, sec_type, syn_name, param_path, param_val = this_gid_param
                     param_tuples.append([("population", population),
-                                        ("source", source),
-                                        ("sec_type", sec_type),
-                                        ("syn_name", syn_name),
-                                        ("param_path", param_path),
-                                        ("param_val", param_val)])
-                    param_array = np.array(param_tuples)
-                    this_pop_params_array_dict[this_gid] = param_array
+                                         ("source", source),
+                                         ("sec_type", sec_type),
+                                         ("syn_name", syn_name),
+                                         ("param_path", param_path),
+                                         ("param_val", float(param_val))])
+                    this_pop_params_array_dict[this_gid] = param_tuples
             params_array_dict[this_pop_name] = this_pop_params_array_dict
         io_utils.write_params( env.results_file_path, params_array_dict)
     env.comm.barrier()
@@ -1327,31 +1342,31 @@ def go(config_file, population, dt, gids, gid_selection_file, arena_id, trajecto
         init_params['results_file_id'] = results_file_id
         env = Env(**init_params, comm=comm)
         configure_hoc_env(env)
-        for gid in cell_index_set:
-            init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
-                 spike_events_path, spike_events_namespace=spike_events_namespace,
-                 spike_train_attr_name=spike_events_t,
-                 input_features_path=input_features_path,
-                 input_features_namespaces=input_features_namespaces,
-                 generate_weights_pops=set(generate_weights),
-                 t_min=t_min, t_max=t_max,
-                 plot_cell=plot_cell, write_cell=write_cell)
-            if len(params_path) > 0:
-                for this_params_path in params_path:
-                    pop_params_dict = read_from_yaml(this_params_path)
-                    pop_params_tuple_dict = {}
-                    for this_pop_name, this_pop_param_dict in viewitems(pop_params_dict):
-                        this_pop_params_tuple_dict = defaultdict(list)
-                        for this_gid, this_gid_param_list in viewitems(this_pop_param_dict):
-                            for this_gid_param in this_gid_param_list:
-                                population, source, sec_type, syn_name, param_path, param_val = this_gid_param
-                                syn_param = SynParam(population, source, sec_type, syn_name, param_path, None)
-                                this_pop_params_tuple_dict[this_gid].append((syn_param, param_val))
-                        pop_params_tuple_dict[this_pop_name] = dict(this_pop_params_tuple_dict)
-                    run_with(env, pop_params_tuple_dict)
-                    write_params(env, pop_params_dict)
-            else:
-                run(env)
+        init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
+             spike_events_path, spike_events_namespace=spike_events_namespace,
+             spike_train_attr_name=spike_events_t,
+             input_features_path=input_features_path,
+             input_features_namespaces=input_features_namespaces,
+             generate_weights_pops=set(generate_weights),
+             t_min=t_min, t_max=t_max,
+             plot_cell=plot_cell, write_cell=write_cell)
+        if len(params_path) > 0:
+            for this_params_path in params_path:
+                pop_params_dict = read_from_yaml(this_params_path)
+                pop_params_tuple_dict = {}
+                for this_pop_name, this_pop_param_dict in viewitems(pop_params_dict):
+                    this_pop_params_tuple_dict = defaultdict(list)
+                    for this_gid, this_gid_param_list in viewitems(this_pop_param_dict):
+                        for this_gid_param in this_gid_param_list:
+                            population, source, sec_type, syn_name, param_path, param_val = this_gid_param
+                            syn_param = SynParam(population, source, sec_type, syn_name, param_path, None)
+                            this_pop_params_tuple_dict[this_gid].append((syn_param, param_val))
+                    pop_params_tuple_dict[this_pop_name] = dict(this_pop_params_tuple_dict)
+                run_with(env, pop_params_tuple_dict)
+                write_output(env)
+                write_params(env, pop_params_dict)
+        else:
+            run(env)
             write_output(env)
         if env.profile_memory:
             profile_memory(logger)
