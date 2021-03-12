@@ -1048,14 +1048,14 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
 def dist_ctrl(controller, init_params, cell_index_set, param_path, pop_param_tuple_dicts):
     """Controller for distributed network clamp runs."""
     task_ids = []
-
+    results_file_id = init_params.get("results_file_id", None)
     if len(param_path) > 0:
         for this_param_path, pop_param_tuple_dict in zip(param_path, pop_param_tuple_dicts):
-            params_basename = os.path.basename(this_params_path)
-            results_file_id = f'{results_file_id}_{params_basename}'
+            params_basename = os.path.splitext(os.path.basename(this_param_path))[0]
+            this_results_file_id = f'{results_file_id}_{params_basename}'
             task_id = controller.submit_call("dist_run", module_name="dentate.network_clamp",
                                              args=(init_params, cell_index_set,
-                                                   results_file_id, pop_param_tuple_dict))
+                                                   this_results_file_id, pop_param_tuple_dict))
             task_ids.append(task_id)
     else:
         task_id = controller.submit_call("dist_run", module_name="dentate.network_clamp",
@@ -1076,7 +1076,7 @@ def dist_run(init_params, cell_index_set, results_file_id=None, pop_param_tuple_
         results_file_id = init_params.get('results_file_id', None)
     if results_file_id is None:
         population = init_params['population']
-        results_file_id = generate_results_file_id(population, seed=init_params.get("opt_seed", None)))
+        results_file_id = generate_results_file_id(population, seed=init_params.get("opt_seed", None))
         init_params['results_file_id'] = results_file_id
 
     global env
@@ -1109,10 +1109,11 @@ def dist_run(init_params, cell_index_set, results_file_id=None, pop_param_tuple_
          generate_weights_pops=set(generate_weights),
          t_min=t_min, t_max=t_max)
 
-    if pop_params_tuple_dict is None:
-        run_with(env, pop_params_tuple_dict)
+
+    if pop_param_tuple_dict is not None:
+        run_with(env, pop_param_tuple_dict)
         write_output(env)
-        write_params(env, pop_params_tuple_dict)
+        write_params(env, pop_param_tuple_dict)
     else:
         run(env)
         write_output(env)
@@ -1317,13 +1318,12 @@ def go(config_file, population, dt, gids, gid_selection_file, arena_id, trajecto
                         for this_gid_param in this_gid_param_list:
                             population, source, sec_type, syn_name, param_path, param_val = this_gid_param
                             syn_param = SynParam(population, source, sec_type, syn_name, param_path, None)
-                        this_pop_params_tuple_dict[this_gid].append((syn_param, param_val))
+                            this_pop_params_tuple_dict[this_gid].append((syn_param, param_val))
                     pop_params_tuple_dict[this_pop_name] = dict(this_pop_params_tuple_dict)
                 pop_params_tuple_dicts.append(pop_params_tuple_dict)
     results_file_id = comm.bcast(results_file_id, root=0)
     init_params['results_file_id'] = results_file_id
     pop_params_tuple_dicts = comm.bcast(pop_params_tuple_dicts, root=0)
-    init_params['pop_params_tuples'] = pop_params_tuple_dicts
 
     cell_index_set = set([])
     if gid_selection_file is not None:
@@ -1354,7 +1354,7 @@ def go(config_file, population, dt, gids, gid_selection_file, arena_id, trajecto
         import distwq
         if distwq.is_controller:
             distwq.run(fun_name="dist_ctrl", module_name="dentate.network_clamp",
-                       verbose=True, args=(init_params, cell_index_set, params_path, pop_param_tuple_dicts),
+                       verbose=True, args=(init_params, cell_index_set, params_path, pop_params_tuple_dicts),
                        spawn_workers=True, nprocs_per_worker=1)
 
         else:
@@ -1372,7 +1372,7 @@ def go(config_file, population, dt, gids, gid_selection_file, arena_id, trajecto
              plot_cell=plot_cell, write_cell=write_cell)
         if pop_params_tuple_dicts is not None:
             for this_params_path, pop_params_tuple_dict in zip(params_path, pop_params_tuple_dicts):
-                params_basename = os.path.basename(this_params_path)
+                params_basename = os.path.splitext(os.path.basename(this_param_path))[0]
                 env.results_file_id = f'{results_file_id}_{params_basename}'
                 env.results_file_path = f'{env.results_path}/{env.modelName}_results_{env.results_file_id}.h5'
                 run_with(env, pop_params_tuple_dict)

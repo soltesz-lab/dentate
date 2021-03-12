@@ -1209,6 +1209,7 @@ def generate_results_file_id(population, gid=None, seed=None):
         results_file_id_prefix = f"{population}_{gid}_{ts}" 
     else:
         results_file_id_prefix = f"{population}_{ts}"
+    results_file_id = f"{results_file_id_prefix}"
     if seed is not None:
         results_file_id = f"{results_file_id_prefix}_{seed:08d}"
     return results_file_id
