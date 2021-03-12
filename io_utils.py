@@ -152,33 +152,62 @@ def mkout(env, results_filename):
     else:
         make_h5types(env, results_filename)
 
-def write_params(output_path, params_dict):
+def write_params(output_path, pop_params_dict):
+
+    output_pop_parameters = {}
+    for population in pop_params_dict:
+        this_pop_output_parameters = {}
+        for gid in pop_params_dict[population]:
+            this_gid_param_dicts = params_dict[population][gid]
+            this_output_params = {}
+            for pd in this_gid_params_dicts:
+                param_key = f'{pd["population"]}.{pd["source"]}.{pd["sec_type"]}.{pd["syn_name"]}.{pd["param_path"]}'
+                param_val = pd["param_val"]
+                this_output_params[param_key] = param_val
+            this_pop_output_parameters[f'{gid}'] = this_output_params
+        output_pop_parameters[population] = this_pop_output_parameters
+
+        
     output_file = h5py.File(output_path, 'a')
     
-    parameters_group = h5_get_group(output_file, 'Parameters')
-    for population in params_dict:
-        pop_group = h5_get_group(parameters_group, population)
-        for gid in params_dict[population]:
-            params_json = json.dumps(params_dict[population][gid])
-            pop_group[f'{gid}'] = params_json
-    
+    parameters_grp = h5_get_group(output_file, 'Parameters')
+    if 'parameters_type' not in parameters_grp:
+        dt = np.dtype([("parameter", np.str),
+                       ("value", np.float32)])
+        parameters_grp['parameters_type'] = dt      
+    for population in output_pop_parameters:
+        pop_grp = h5_get_group(parameters_grp, population)
+        this_pop_output_parameters = output_pop_parameters[population]
+        for id_str in this_pop_output_parameters:
+            this_output_params = this_pop_output_parameters[id_str]
+            dset = h5_get_dataset(pop_grp, id_str, maxshape=(len(this_output_params),),
+                                  dtype=parameters_grp['parameters_type'].dtype)
+
+            for idx, (parm, val) in enumerate(viewitems(this_output_params)):
+                a[idx]["parameter"] = this_output_params[parm]
+                a[idx]["value"] = val
+                dset[:] = a
+            
     output_file.close()
     
 
 def read_params(input_path):
     output_file = h5py.File(output_path, 'a')
 
-    params_dict = {}
+    pop_params_dict = {}
     parameters_group = h5_get_group(output_file, 'Parameters')
     for population in parameters_group.keys():
-        params_dict[population] = {}
+        this_pop_params_dict = {}
         pop_group = h5_get_group(parameters_group, population)
         for id_str in pop_group.keys():
-            params = json.loads(pop_group[id_str])
-            params_dict[population][int(id_str)] = params
-    
+            params_data = pop_group[id_str][:]
+            this_id_params_dict = {}
+            for i in range(len(params_data)):
+                this_id_params_dict[params_data[i]["parameter"]] = params_data[i]["value"]
+            this_pop_params_dict[int(id_str)] = this_id_params_dict
+        pop_params_dict[population] = this_pop_params_dict
     output_file.close()
-    return params_dict
+    return pop_params_dict
 
 
 def spikeout(env, output_path, t_start=None, clear_data=False):

@@ -1206,7 +1206,9 @@ def contiguous_ranges(condition, return_indices=False):
 def generate_results_file_id(population, gid=None, seed=None):
     ts = time.strftime("%Y%m%d_%H%M%S")
     if gid is not None:
-        results_file_id = f"{population}_{gid}_{ts}" if seed is None else f"{population}_{gid}_{ts}_{seed:08d}"
+        results_file_id_prefix = f"{population}_{gid}_{ts}" 
     else:
-        results_file_id = f"{population}_all_{ts}"
+        results_file_id_prefix = f"{population}_{ts}"
+    if seed is not None:
+        results_file_id = f"{results_file_id_prefix}_{seed:08d}"
     return results_file_id
