@@ -241,10 +241,6 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
 
     """
 
-
-    if env.results_file_path is not None:
-        io_utils.mkout(env, env.results_file_path)
-
     if env.cell_selection is None:
         env.cell_selection = {}
     selection = env.cell_selection.get(pop_name, [])
@@ -1109,7 +1105,6 @@ def dist_run(init_params, cell_index_set, results_file_id=None, pop_param_tuple_
          generate_weights_pops=set(generate_weights),
          t_min=t_min, t_max=t_max)
 
-
     if pop_param_tuple_dict is not None:
         run_with(env, pop_param_tuple_dict)
         write_output(env)
@@ -1123,6 +1118,10 @@ def dist_run(init_params, cell_index_set, results_file_id=None, pop_param_tuple_
 
 def write_output(env):
     rank = env.comm.rank
+    if rank == 0:
+        io_utils.mkout(env, env.results_file_path)
+    env.comm.barrier()
+
     if rank == 0:
         logger.info("*** Writing spike data")
     io_utils.spikeout(env, env.results_file_path)
@@ -1316,8 +1315,8 @@ def go(config_file, population, dt, gids, gid_selection_file, arena_id, trajecto
                     this_pop_params_tuple_dict = defaultdict(list)
                     for this_gid, this_gid_param_list in viewitems(this_pop_param_dict):
                         for this_gid_param in this_gid_param_list:
-                            population, source, sec_type, syn_name, param_path, param_val = this_gid_param
-                            syn_param = SynParam(population, source, sec_type, syn_name, param_path, None)
+                            this_population, source, sec_type, syn_name, param_path, param_val = this_gid_param
+                            syn_param = SynParam(this_population, source, sec_type, syn_name, param_path, None)
                             this_pop_params_tuple_dict[this_gid].append((syn_param, param_val))
                     pop_params_tuple_dict[this_pop_name] = dict(this_pop_params_tuple_dict)
                 pop_params_tuple_dicts.append(pop_params_tuple_dict)
@@ -1372,12 +1371,12 @@ def go(config_file, population, dt, gids, gid_selection_file, arena_id, trajecto
              plot_cell=plot_cell, write_cell=write_cell)
         if pop_params_tuple_dicts is not None:
             for this_params_path, pop_params_tuple_dict in zip(params_path, pop_params_tuple_dicts):
-                params_basename = os.path.splitext(os.path.basename(this_param_path))[0]
+                params_basename = os.path.splitext(os.path.basename(this_params_path))[0]
                 env.results_file_id = f'{results_file_id}_{params_basename}'
                 env.results_file_path = f'{env.results_path}/{env.modelName}_results_{env.results_file_id}.h5'
                 run_with(env, pop_params_tuple_dict)
                 write_output(env)
-                write_params(env, pop_params_dict)
+                write_params(env, pop_params_tuple_dict)
         else:
             run(env)
             write_output(env)
