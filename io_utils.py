@@ -169,8 +169,6 @@ def write_params(output_path, pop_params_dict):
             this_pop_output_parameters[f'{gid}'] = this_output_params
         output_pop_parameters[population] = this_pop_output_parameters
 
-    logger.info(f"write_params: output_pop_parameters = {output_pop_parameters}")
-
     param_keys = set(param_key_list)
         
     output_file = h5py.File(output_path, 'a')

@@ -51,12 +51,13 @@ mpirun -rr -n 56 \
     python3 optimize_network.py \
     --config-path=$DG_HOME/config/DG_optimize_network_neg2000_neg1800um.yaml \
     --optimize-file-dir=$results_path \
+    --optimize-file-name "$2" \
     --target-features-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
     --target-features-namespace="Place Selectivity" \
     --verbose \
     --nprocs-per-worker=495 \
     --n-iter=3 \
-    --n-initial=30 --num-generations=200 --population-size=300 --resample-fraction 0.5 \
+    --n-initial=100 --num-generations=200 --population-size=300 --resample-fraction 0.5 \
     --no_cleanup \
     --arena_id=A --trajectory_id=Diag \
     --template_paths=$MODEL_HOME/dgc/Mateos-Aparicio2014:$DG_HOME/templates \
