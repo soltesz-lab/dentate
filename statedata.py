@@ -110,10 +110,10 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', st
                     section = vals.get('section', [None])[0]
                     loc = vals.get('loc', [None])[0]
                     ri = vals.get('ri', [None])[0]
-                    tinds = np.argwhere((vals[time_variable] <= time_range[1]) &
-                                        (vals[time_variable] >= time_range[0]))
+                    tinds = np.argwhere(np.logical_and(vals[time_variable] <= time_range[1],
+                                                       vals[time_variable] >= time_range[0])).ravel()
                     tvals = np.asarray(vals[time_variable][tinds], dtype=np.float32).reshape((-1,))
-                    svals = [np.asarray(vals[state_variable], dtype=np.float32)
+                    svals = [np.asarray(vals[state_variable][tinds], dtype=np.float32)
                              for state_variable in state_variables]
                     trial_bounds = list(np.where(np.isclose(tvals, tvals[0], atol=1e-4))[0])
                     n_trial_bounds = len(trial_bounds)

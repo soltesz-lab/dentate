@@ -593,7 +593,7 @@ Synaptic Optimization:
     Targets:
       state:
         v:
-          threshold: -40.0
+          threshold: -43.1
       firing rate: 21.0
       fraction active: 0.9
     Parameter ranges:
@@ -762,7 +762,7 @@ Synaptic Optimization:
         !!python/tuple [HC, IS]:
           !!python/tuple [apical, soma]:
             GABA_A:
-              weight: [0.1, 2.0]
+              weight: [0.0001, 1.0]
   HCC:
     Targets:
       state:
