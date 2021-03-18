@@ -71,6 +71,8 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
                                                        my_cell_index_set, time_range=[0., t_max], 
                                                        n_trials=n_trials, arena_id=arena_id)
 
+
+    logger.info(f'target_rate_vector_dict = {target_rate_vector_dict}')
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
         target_rate_vector[np.isclose(target_rate_vector, 0., atol=1e-3, rtol=1e-3)] = 0.
 

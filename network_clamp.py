@@ -757,7 +757,7 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
 
         return rates_dict
     
-    def gid_state_values(spkdict, t_offset, n_trials, t_rec, state_recs_dict):
+    def gid_mean_v(t_offset, v_threshold, n_trials, t_rec, state_recs_dict):
         t_vec = np.asarray(t_rec.to_python(), dtype=np.float32)
         t_trial_inds = get_trial_time_indices(t_vec, n_trials, t_offset)
         results_dict = {}
@@ -766,8 +766,8 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
             state_recs = state_recs_dict[gid]
             for rec in state_recs:
                 vec = np.asarray(rec['vec'].to_python(), dtype=np.float32)
-                data = np.asarray([ np.mean(vec[t_inds]) for t_inds in t_trial_inds ])
-                state_values.append(np.mean(data))
+                data = np.asarray([ np.mean(np.clip(vec[t_inds], None, v_threshold)) for t_inds in t_trial_inds ])
+                state_values.append(data)
             results_dict[gid] = state_values
         return results_dict
 
@@ -787,9 +787,8 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
                                      {gid: from_param_dict(cell_param_dict[gid]) 
                                           for gid in my_cell_index_set}})
         firing_rates_dict = gid_firing_rate(spkdict, my_cell_index_set)
-        state_values_dict = gid_state_values(spkdict, equilibration_duration, 
-                                             n_trials, env.t_rec, 
-                                             state_recs_dict)
+        mean_v_dict = gid_mean_v(equilibration_duration, target_v_threshold,
+                                 n_trials, env.t_rec, state_recs_dict)
         if trial_regime == 'mean':
             objectives_dict = { gid: -mean_rate_diff(gid, firing_rates_dict[gid], target_rate) for gid in my_cell_index_set }
         elif trial_regime == 'best':
@@ -810,12 +809,13 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
             feature_array['mean_rate'] = np.mean(np.asarray(firing_rates_dict[gid]))
             for i in range(N_objectives):
                 feature_array['trial_objs'][i,:] = np.asarray(firing_rates_dict[gid]) 
-            feature_array['mean_v'][i,:] = np.asarray(state_values_dict[gid]) 
+            for i in range(n_trials):
+                feature_array['mean_v'] = mean_v_dict[gid]
             features_dict[gid] = feature_array
 
         for gid in my_cell_index_set:
             if np.mean(features_dict[gid]['mean_v']) >= target_v_threshold:
-                objectives_dict[gid] = -1e6
+                objectives_dict[gid] -= 1e6
 
         return objectives_dict, features_dict
     

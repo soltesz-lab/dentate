@@ -32,7 +32,7 @@ export I_MPI_ADJUST_ALLTOALL=4
 export I_MPI_ADJUST_ALLTOALLV=2
 export I_MPI_ADJUST_ALLREDUCE=4
 
-
+export UCX_TLS="knem,dc_x"
 export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=off
 export I_MPI_HYDRA_BRANCH_COUNT=0
 
@@ -56,7 +56,7 @@ mpirun -rr -n 56 \
     --verbose \
     --nprocs-per-worker=495 \
     --n-iter=3 \
-    --n-initial=30 --num-generations=200 --population-size=300 --resample-fraction 0.5 \
+    --n-initial=100 --num-generations=200 --population-size=300 --resample-fraction 0.5 \
     --no_cleanup \
     --arena_id=A --trajectory_id=Diag \
     --template_paths=$MODEL_HOME/dgc/Mateos-Aparicio2014:$DG_HOME/templates \
