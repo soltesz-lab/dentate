@@ -9,7 +9,7 @@ import click
 import numpy as np
 import h5py
 from mpi4py import MPI
-from neuroh5.io import scatter_read_cell_attribute_selection, read_cell_attribute_info
+from neuroh5.io import scatter_read_cell_attribute_selection, read_cell_attribute_info, append_cell_attributes
 from collections import defaultdict, namedtuple
 import dentate
 from dentate import network, network_clamp, synapses, spikedata, stimulus, utils, io_utils, optimization
@@ -252,6 +252,10 @@ def eval_network(env, network_config, from_param_list, network_params, network_p
     env.checkpoint_interval = None
     env.tstop = t_stop
     network.run(env, output=network_config.get('output_results', False), shutdown=False)
+
+    for pop_name in target_trj_rate_map_dict:
+        append_cell_attributes(env.results_file_path, pop_name, target_trj_rate_map_dict[pop_name], 
+                               namespace='Target Trajectory Rate Map', comm=env.comm, io_size=env.io_size)
 
     local_features = network_features(env, target_trj_rate_map_dict, t_start, t_stop, target_populations)
     return collect_network_features(env, local_features, target_populations, output_path, params_id, param_tuple_values)
