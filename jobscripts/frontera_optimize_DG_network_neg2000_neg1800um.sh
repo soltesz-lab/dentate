@@ -32,7 +32,7 @@ export I_MPI_ADJUST_ALLTOALL=4
 export I_MPI_ADJUST_ALLTOALLV=2
 export I_MPI_ADJUST_ALLREDUCE=4
 
-
+export UCX_TLS="knem,dc_x"
 export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=off
 export I_MPI_HYDRA_BRANCH_COUNT=0
 
@@ -51,7 +51,6 @@ mpirun -rr -n 56 \
     python3 optimize_network.py \
     --config-path=$DG_HOME/config/DG_optimize_network_neg2000_neg1800um.yaml \
     --optimize-file-dir=$results_path \
-    --optimize-file-name "$2" \
     --target-features-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
     --target-features-namespace="Place Selectivity" \
     --verbose \
