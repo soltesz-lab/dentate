@@ -144,11 +144,12 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
     param_names = opt_param_config.param_names
     param_tuples = opt_param_config.param_tuples
 
+    N_objectives = 3
     feature_names = ['mean_peak_rate', 'mean_trough_rate', 
                      'max_infld_rate', 'min_infld_rate', 'mean_infld_rate', 'mean_outfld_rate', 
                      'mean_peak_state', 'mean_trough_state', 'mean_outfld_state']
     feature_dtypes = [(feature_name, np.float32) for feature_name in feature_names]
-
+    feature_dtypes.append(('trial_objs', (np.float32, (N_objectives, n_trials))))
 
     def from_param_dict(params_dict):
         result = []
@@ -366,6 +367,7 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
             state_residuals, state_features = trial_state_residuals(gid, state_baseline,
                                                                     t_peak_idxs, t_trough_idxs, t_infld_idxs, t_outfld_idxs,
                                                                     state_values, masked_state_values)
+            obj_features = np.row_stack((infld_residuals, outfld_residuals, state_residuals))
             
             if trial_regime == 'mean':
                 mean_infld_residual = np.mean(infld_residuals)
@@ -390,9 +392,10 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
             else:
                 raise RuntimeError(f'selectivity_rate_objective: unknown trial regime {trial_regime}')
 
-            logger.info(f"rate_features: {rate_features} state_features: {state_features}")
+            logger.info(f"rate_features: {rate_features} state_features: {state_features} obj_features: {obj_features}")
+
             result[gid] = (np.asarray([ infld_objective, outfld_objective, state_objective ], dtype=np.float32), 
-                           np.array([tuple(rate_features+state_features)], dtype=np.dtype(feature_dtypes)),
+                           np.array([tuple(rate_features+state_features+[obj_features])], dtype=np.dtype(feature_dtypes)),
                            np.asarray(rate_constr, dtype=np.float32))
                            
         return result
@@ -433,6 +436,8 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
     else:
         raise RuntimeError(f'optimize_run: unknown problem regime {problem_regime}')
 
+    n_trials = init_params.get('n_trials', 1)
+
     nworkers = env.comm.size-1
     if resample_fraction is None:
         resample_fraction = float(nworkers) / float(population_size)
@@ -446,7 +451,9 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
     feature_names = ['mean_peak_rate', 'mean_trough_rate', 
                      'max_infld_rate', 'min_infld_rate', 'mean_infld_rate', 'mean_outfld_rate', 
                      'mean_peak_state', 'mean_trough_state', 'mean_outfld_state']
+    N_objectives = 3
     feature_dtypes = [(feature_name, np.float32) for feature_name in feature_names]
+    feature_dtypes.append(('trial_objs', np.float32, (N_objectives, n_trials)))
     constraint_names = ['positive_rate']
     dmosopt_params = {'opt_id': 'dentate.optimize_selectivity',
                       'problem_ids': problem_ids,
