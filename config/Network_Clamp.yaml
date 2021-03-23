@@ -766,7 +766,7 @@ Synaptic Optimization:
         !!python/tuple [HC, IS]:
           !!python/tuple [apical, soma]:
             GABA_A:
-              weight: [0.1, 2.0]
+              weight: [0.0001, 1.0]
   HCC:
     Targets:
       state:
