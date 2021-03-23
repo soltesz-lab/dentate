@@ -150,6 +150,8 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
                      'mean_peak_state', 'mean_trough_state', 'mean_outfld_state']
     feature_dtypes = [(feature_name, np.float32) for feature_name in feature_names]
     feature_dtypes.append(('trial_objs', (np.float32, (N_objectives, n_trials))))
+    feature_dtypes.append(('trial_mean_infld_rate', (np.float32, (1, n_trials))))
+    feature_dtypes.append(('trial_mean_outfld_rate', (np.float32, (1, n_trials))))
 
     def from_param_dict(params_dict):
         result = []
@@ -227,15 +229,18 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
     def trial_snr_residuals(gid, peak_idxs, trough_idxs, infld_idxs, outfld_idxs, 
                             rate_vectors, masked_rate_vectors, target_rate_vector):
 
+        n_trials = len(rate_vectors)
         residual_inflds = []
         residual_outflds = []
+        trial_inflds = []
+        trial_outflds = []
 
         target_infld = target_rate_vector[infld_idxs]
         target_max_infld = np.max(target_infld)
         target_mean_trough = np.mean(target_rate_vector[trough_idxs])
         logger.info(f'selectivity objective: target max infld/mean trough of gid {gid}: '
                     f'{target_max_infld:.02f} {target_mean_trough:.02f}')
-        for trial_i in range(len(rate_vectors)):
+        for trial_i in range(n_trials):
 
             rate_vector = rate_vectors[trial_i]
             infld_rate_vector = rate_vector[infld_idxs]
@@ -258,10 +263,15 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
                         f'{max_infld:.02f} {mean_infld:.02f} {mean_peak:.02f} {mean_trough:.02f} {mean_outfld:.02f} {residual_infld:.04f}')
             residual_inflds.append(residual_infld)
             residual_outflds.append(residual_outfld)
+            trial_inflds.append(mean_infld)
+            trial_outflds.append(mean_outfld)
 
+        trial_rate_features = [np.asarray(trial_inflds, dtype=np.float32).reshape((1, n_trials)), 
+                               np.asarray(trial_outflds, dtype=np.float32).reshape((1, n_trials))]
         rate_features = [mean_peak, mean_trough, max_infld, min_infld, mean_infld, mean_outfld, ]
         rate_constr = [ mean_peak - mean_trough if max_infld > 0. else -1. ]
-        return (np.asarray(residual_inflds), np.asarray(residual_outflds), rate_features, rate_constr)
+        return (np.asarray(residual_inflds), np.asarray(residual_outflds), 
+                trial_rate_features, rate_features, rate_constr)
 
     
     def trial_state_residuals(gid, target_outfld, t_peak_idxs, t_trough_idxs, t_infld_idxs, t_outfld_idxs, state_values, masked_state_values):
@@ -361,13 +371,13 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
             logger.info(f'selectivity objective: max rates of gid {gid}: '
                         f'{list([np.max(rate_vector) for rate_vector in rate_vectors])}')
 
-            infld_residuals, outfld_residuals, rate_features, rate_constr = \
+            infld_residuals, outfld_residuals, trial_rate_features, rate_features, rate_constr = \
               trial_snr_residuals(gid, peak_idxs, trough_idxs, infld_idxs, outfld_idxs, 
                                   rate_vectors, masked_rate_vectors, target_rate_vector)
             state_residuals, state_features = trial_state_residuals(gid, state_baseline,
                                                                     t_peak_idxs, t_trough_idxs, t_infld_idxs, t_outfld_idxs,
                                                                     state_values, masked_state_values)
-            obj_features = np.row_stack((infld_residuals, outfld_residuals, state_residuals))
+            trial_obj_features = np.row_stack((infld_residuals, outfld_residuals, state_residuals))
             
             if trial_regime == 'mean':
                 mean_infld_residual = np.mean(infld_residuals)
@@ -392,10 +402,12 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
             else:
                 raise RuntimeError(f'selectivity_rate_objective: unknown trial regime {trial_regime}')
 
-            logger.info(f"rate_features: {rate_features} state_features: {state_features} obj_features: {obj_features}")
+            logger.info(f"rate_features: {rate_features} state_features: {state_features} obj_features: {trial_obj_features}")
 
-            result[gid] = (np.asarray([ infld_objective, outfld_objective, state_objective ], dtype=np.float32), 
-                           np.array([tuple(rate_features+state_features+[obj_features])], dtype=np.dtype(feature_dtypes)),
+            result[gid] = (np.asarray([ infld_objective, outfld_objective, state_objective ], 
+                                      dtype=np.float32), 
+                           np.array([tuple(rate_features+state_features+[trial_obj_features]+trial_rate_features)], 
+                                    dtype=np.dtype(feature_dtypes)),
                            np.asarray(rate_constr, dtype=np.float32))
                            
         return result
@@ -405,7 +417,8 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
 
 def optimize_run(env, population, param_config_name, selectivity_config_name, init_objfun, problem_regime, nprocs_per_worker=1,
                  n_iter=10, n_initial=30, population_size=200, num_generations=200, resample_fraction=None,
-                 param_type='synaptic', init_params={}, results_file=None, cooperative_init=False, verbose=False):
+                 param_type='synaptic', init_params={}, results_file=None, cooperative_init=False, 
+                 spawn_startup_wait=None, verbose=False):
 
     opt_param_config = optimization_params(env.netclamp_config.optimize_parameters, [population], param_config_name, param_type)
 
@@ -454,6 +467,9 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
     N_objectives = 3
     feature_dtypes = [(feature_name, np.float32) for feature_name in feature_names]
     feature_dtypes.append(('trial_objs', np.float32, (N_objectives, n_trials)))
+    feature_dtypes.append(('trial_mean_infld_rate', (np.float32, (1, n_trials))))
+    feature_dtypes.append(('trial_mean_outfld_rate', (np.float32, (1, n_trials))))
+
     constraint_names = ['positive_rate']
     dmosopt_params = {'opt_id': 'dentate.optimize_selectivity',
                       'problem_ids': problem_ids,
@@ -480,6 +496,7 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
 
     opt_results = dmosopt.run(dmosopt_params, verbose=verbose, collective_mode="sendrecv",
                               spawn_workers=True, nprocs_per_worker=nprocs_per_worker, 
+                              spawn_startup_wait=spawn_startup_wait
                               )
     if opt_results is not None:
         if ProblemRegime[problem_regime] == ProblemRegime.every:
@@ -570,13 +587,14 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
               help='optional filter for state values used for state optimization')
 @click.option('--use-coreneuron', is_flag=True, help='enable use of CoreNEURON')
 @click.option('--cooperative-init', is_flag=True, help='use a single worker to read model data then send to the remaining workers')
+@click.option("--spawn-startup-wait", type=int)
 def main(config_file, population, dt, gid, gid_selection_file, arena_id, trajectory_id, generate_weights,
          t_max, t_min,  nprocs_per_worker, n_iter, n_initial, population_size, num_generations, resample_fraction,
          template_paths, dataset_prefix, config_prefix,
          param_config_name, selectivity_config_name, param_type, recording_profile, results_file, results_path, spike_events_path,
          spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, n_trials,
          trial_regime, problem_regime, target_features_path, target_features_namespace, target_state_variable,
-         target_state_filter, use_coreneuron, cooperative_init):
+         target_state_filter, use_coreneuron, cooperative_init, spawn_startup_wait):
     """
     Optimize the input stimulus selectivity of the specified cell in a network clamp configuration.
     """
@@ -657,7 +675,7 @@ def main(config_file, population, dt, gid, gid_selection_file, arena_id, traject
                         n_iter=n_iter, n_initial=n_initial, population_size=population_size, num_generations=num_generations,
                         resample_fraction=resample_fraction, param_type=param_type, init_params=init_params, 
                         results_file=results_file, nprocs_per_worker=nprocs_per_worker, cooperative_init=cooperative_init,
-                        verbose=verbose)
+                        spawn_startup_wait=spawn_startup_wait, verbose=verbose)
     
     opt_param_config = optimization_params(env.netclamp_config.optimize_parameters, [population], param_config_name, param_type)
     if best is not None:
