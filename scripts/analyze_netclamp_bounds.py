@@ -1,9 +1,10 @@
 import sys, time 
-from mpi4py import MPI
+#from mpi4py import MPI
 import numpy as np
 import itertools as it
 import scipy as sp
 import h5py
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gs
 
@@ -13,9 +14,11 @@ class NetClampParam:
         self.fil_arr = np.empty(shape=(self.N_fils,2), dtype='O')
         for idx, fil in enumerate(fils):
             self.fil_arr[idx,0] = h5py.File(fil, 'r')
-            self.fil_arr[idx,1] = np.array(self.fil_arr[idx,0]['network_clamp.optimize']['problem_ids']) 
+            head_group = [i for i in self.fil_arr[0,0]][0]
+            self.fil_arr[idx,1] = np.sort(self.fil_arr[idx,0][head_group]['problem_ids']) 
         
-        self.ref_point = self.fil_arr[0,0]['network_clamp.optimize']['{:d}'.format(self.fil_arr[0,1][0])]
+        self.head_group = head_group 
+        self.ref_point = self.fil_arr[0,0][self.head_group]['{:d}'.format(self.fil_arr[0,1][0])]
         ref_features = np.array(self.ref_point['features'])
         self.N_cells = self.fil_arr[idx,1].shape[0]
         self.N_params, self.N_objectives, self.N_trials = ref_features['trial_objs'].shape
@@ -26,11 +29,11 @@ class NetClampParam:
         
         self.param_dim = len(self.param_tup) 
         self.param_bnds = np.empty(shape=(self.param_dim, 2)) 
-        self.param_bnds[:,0] = np.array(self.fil_arr[0,0]['network_clamp.optimize']['parameter_spec']['lower'])
-        self.param_bnds[:,1] = np.array(self.fil_arr[0,0]['network_clamp.optimize']['parameter_spec']['upper'])
+        self.param_bnds[:,0] = np.array(self.fil_arr[0,0][self.head_group]['parameter_spec']['lower'])
+        self.param_bnds[:,1] = np.array(self.fil_arr[0,0][self.head_group]['parameter_spec']['upper'])
 
         self.population = self.param_tup[0][0]
-        self.target = np.array(self.fil_arr[0,0]['network_clamp.optimize']['metadata'])[0][0]
+        self.target = np.array(self.fil_arr[0,0][self.head_group]['metadata'])[0][0]
 
         ts = time.strftime("%Y%m%d_%H%M%S")
         prefix = '' if prefix is None else '{!s}_'.format(prefix)
@@ -52,9 +55,12 @@ class NetClampParam:
                         'MC':   ('Mossy'),
                         }
 
-        self.plot_best()
+#        self.plot_best()
+
+ #       self.generate_yaml()
 
     def get_best_arrs(self, target):
+        self.obj_val_mean_arr = np.empty(shape=(self.N_fils, self.N_cells, self.N_params, self.N_objectives))
         self.best_idx = np.empty(shape=(self.N_fils, self.N_cells, self.N_objectives, self.N_trials), dtype=np.int)
         self.best_arr = np.empty(shape=(self.N_fils, self.N_cells, self.N_objectives, self.N_trials))
         self.best_Vmean = np.empty(shape=(self.N_fils, self.N_cells, self.N_objectives, self.N_trials))
@@ -66,8 +72,9 @@ class NetClampParam:
 
         for fidx, filobj in enumerate(self.fil_arr[:,0]):
             for cidx, cell in enumerate(self.fil_arr[fidx, 1]):
-                ref_cell = filobj['network_clamp.optimize']['{:d}'.format(cell)] 
+                ref_cell = filobj[self.head_group]['{:d}'.format(cell)] 
                 ref_features = ref_cell['features'] 
+                self.obj_val_mean_arr[fidx, cidx] = np.array(ref_features['mean_rate']) 
                 for i in range(self.N_objectives):
                     np.argmin(np.abs(ref_features['trial_objs'][:, i ,:]-target[i]), axis=0, out=self.best_idx[fidx,cidx, i])
                 for pidx, val in np.ndenumerate(self.best_idx[fidx,cidx]):
@@ -75,13 +82,21 @@ class NetClampParam:
                     self.best_prm[fidx, cidx, pidx[0], pidx[1]] = ref_cell['parameters'][val]
                     self.best_Vmean[fidx, cidx, pidx[0], pidx[1]] = ref_features['mean_v'][val, pidx[1]] 
 
-                self.bestmean_idx[fidx, cidx] = np.argmin(np.abs(ref_features['mean_rate']-target[0]))
-                self.bestmean_arr[fidx, cidx] = ref_features['mean_rate'][self.bestmean_idx[fidx, cidx]]
+              #  self.bestmean_idx[fidx, cidx] = np.argmin(np.abs(ref_features['mean_rate']-target[0]))
+              #  self.bestmean_arr[fidx, cidx] = ref_features['mean_rate'][self.bestmean_idx[fidx, cidx]]
+              #  self.bestmean_prm[fidx, cidx] = ref_cell['parameters'][self.bestmean_idx[fidx, cidx]]
+                self.bestmean_idx[fidx, cidx] = np.argmin(np.abs(self.obj_val_mean_arr[fidx, cidx, :, 0]-target[0]))
+                self.bestmean_arr[fidx, cidx] = self.obj_val_mean_arr[fidx, cidx, :, 0][self.bestmean_idx[fidx, cidx]]
                 self.bestmean_prm[fidx, cidx] = ref_cell['parameters'][self.bestmean_idx[fidx, cidx]]
+
+    def generate_yaml(self, All=True, Best=True, Specific=False):
+        if All:
+            print(self.param_tup)
+            
+
 
     def get_fig_axes(self):
         fig = plt.figure(figsize=(20,20), constrained_layout=True)
-        fig.suptitle('{!s}\n{!s}'.format(self.pop_props[self.population][0], self.suffix))
         spec = gs.GridSpec(nrows=5, ncols=1, figure=fig)
 
         optobjspec = spec[0,0].subgridspec(self.N_objectives, self.N_cells)
@@ -122,17 +137,23 @@ class NetClampParam:
         param_dim = self.param_dim 
         N_iter_arr = np.arange(self.N_params)
 
+        prm_str = ''
+        for idx, prm in enumerate(param_names):
+            prm_str += '{!s}: {:f}, {:f} '.format(self.param_tup[idx][3], np.mean(self.best_prm[prm]), np.mean(self.bestmean_prm[prm]))
+
         prmcomb = np.array([i for i in it.combinations(range(param_dim), r=2)], dtype=np.int)
         N_prmcomb = prmcomb.shape[0]
 
         xcat = self.fil_arr[0,1]
         boxwidth = (xcat[-1]-xcat[0])/10
-        plotshap = ['o', 'x', 'd', '*', '+']
+        plotshap = ['o', 's', 'D', 'X', '^']
         N_fil_cell_max = max(self.N_fils, self.N_cells)
         colors = plt.get_cmap('tab10').colors if N_fil_cell_max <=10 else mpl.cm.get_cmap('tab20').colors
 
         fig, opt_axes, obj_axes, fea_axes, prm_axes , opr_axes, cpr_axes = self.get_fig_axes() 
 
+        titnote='Marker shape: sampling set; when axis is specific for gid, colors represent trials, else gids; black represents mean_rate (objective)'
+        fig.suptitle('{!s}\n{!s}\n{!s}\n{!s}'.format(self.pop_props[self.population][0], self.suffix, titnote, prm_str))
 
         for i in range(self.N_objectives): 
             ytop = self.target[i]*5 if self.target[i]<10 else self.target[i]*3
@@ -172,20 +193,24 @@ class NetClampParam:
                     prm_axes[0,i].scatter(xcat, self.best_prm[prm][j,:, 0,tidx], marker=plotshap[j], color=colors[tidx], facecolors='none', lw=0.5)
                 
                 for cidx, cell in enumerate(xcat): 
-                    ref_cell = self.fil_arr[j,0]['network_clamp.optimize']['{:d}'.format(cell)]
+                    ref_cell = self.fil_arr[j,0][self.head_group]['{:d}'.format(cell)]
                     opr_axes[0,i].scatter(N_iter_arr, np.array(ref_cell['parameters'][prm]),  marker=plotshap[j], color=colors[cidx], facecolors='none', lw=0.01, s=1)
+                    opr_axes[0,i].scatter(self.bestmean_idx[j,cidx], self.bestmean_prm[prm][j,cidx],  marker=plotshap[j], color=colors[cidx], edgecolor='k', lw=0.5, s=15, zorder=100)
 
+                    for tidx in range(self.N_trials):
+                        opr_axes[0,i].scatter(self.best_idx[j,cidx,0,tidx], self.best_prm[prm][j,cidx, 0, tidx],  marker=plotshap[j], color=colors[cidx], s=4)
 
 
         opt_val_arr = np.empty(shape=(self.N_fils, self.N_cells, self.N_params, self.N_objectives, self.N_trials))
         for fidx, filobj in enumerate(self.fil_arr[:,0]):
             for cidx, cell in enumerate(self.fil_arr[fidx, 1]):
-                ref_cell = filobj['network_clamp.optimize']['{:d}'.format(cell)] 
+                ref_cell = filobj[self.head_group]['{:d}'.format(cell)] 
                 opt_val_arr[fidx,cidx] = ref_cell['features']['trial_objs']
                 ref_ax = opt_axes[0,cidx]
-                ref_ax.axhline(self.target[0], color='k', ls='--')
+                ref_ax.scatter(N_iter_arr, self.obj_val_mean_arr[fidx, cidx,:,0], marker=plotshap[fidx], color='k', facecolors='none', lw=0.01, s=1, zorder=200)
+                ref_ax.axhline(self.target[0], color='k', ls='--', zorder=0.25)
                 for tidx in range(self.N_trials):
-                    ref_ax.scatter(N_iter_arr, opt_val_arr[fidx,cidx,:,0,tidx], marker=plotshap[fidx], color=colors[tidx], facecolors='none', lw=0.01, s=1)
+                    ref_ax.scatter(N_iter_arr, opt_val_arr[fidx,cidx,:,0,tidx], marker=plotshap[fidx], color=colors[tidx], facecolors='none', lw=0.01, s=1, zorder=1)
 
                 for combidx in range(N_prmcomb):
                     comb  = prmcomb[combidx, : ]
@@ -202,17 +227,21 @@ class NetClampParam:
                     cpr_axes[0,combidx].set_ylabel(r'${!s}$ {!s}'.format(self.param_tup[j][3], tity))
                     cpr_axes[0,combidx].scatter(np.array(ref_cell['parameters'][param_names[i]]),  np.array(ref_cell['parameters'][param_names[j]]), marker=plotshap[fidx], color=colors[cidx], facecolors='none', lw=0.01, s=1)
 
+                    cpr_axes[0,combidx].scatter(np.ravel(self.best_prm[param_names[i]][fidx,cidx, 0,:]), np.ravel(self.best_prm[param_names[j]][fidx,cidx, 0,:]), marker=plotshap[fidx], color=colors[cidx], s=4)
+                    cpr_axes[0,combidx].scatter(np.ravel(self.bestmean_prm[param_names[i]][fidx,cidx]), np.ravel(self.bestmean_prm[param_names[j]][fidx,cidx]), marker=plotshap[fidx], color=colors[cidx], edgecolor='k', lw=0.5, s=15, zorder=100)
+
 
 
         for cidx, cell in enumerate(self.fil_arr[0, 1]):
             ref_ax = opt_axes[0,cidx]
         #    ref_ax.plot(N_iter_arr, np.mean(opt_val_arr[:,cidx,:,0,:], axis=(0,-1)), color='y', lw=0.5)
-            perc = np.quantile(opt_val_arr[:,cidx,:,0,:], [0.25,0.5, 0.75], axis=(0,-1), keepdims=False)
-            ref_ax.plot(N_iter_arr, perc[1,:], color='y', lw=0.25, zorder=101)
-            ref_ax.fill_between(N_iter_arr, y1=perc[2,:], y2=perc[0,:], color='y', alpha=0.5, zorder=100)
+          #  perc = np.quantile(opt_val_arr[:,cidx,:,0,:], [0.25,0.5, 0.75], axis=(0,-1), keepdims=False)
+            perc = np.quantile(self.obj_val_mean_arr[:,cidx,:,0], [0.25,0.5, 0.75], axis=(0,), keepdims=False)
+            ref_ax.plot(N_iter_arr, perc[1,:], color='saddlebrown', lw=0.4, zorder=0.75)
+            ref_ax.fill_between(N_iter_arr, y1=perc[2,:], y2=perc[0,:], color='peachpuff', alpha=0.5, zorder=0.5)
 #            ref_ax.plot(N_iter_arr, np.min(opt_val_arr[:,cidx,:,0,:], axis=(0,-1)), color='y', lw=0.5, alpha=0.5)
 #            ref_ax.plot(N_iter_arr, np.max(opt_val_arr[:,cidx,:,0,:], axis=(0,-1)), color='c', lw=0.5, alpha=0.5)
-            ref_ax.set_title('{:d}'.format(int(cell)))
+            ref_ax.set_title('{:d}'.format(int(cell)), color=colors[cidx])
             ref_ax.set_ylim(top=ytop, bottom=0)
 
         opt_axes[0,0].set_ylabel(r'Firing Rate [spikes/s]')
@@ -222,24 +251,32 @@ class NetClampParam:
         fig.savefig(self.filnam)
 
 
-def distribute_chores(fil_list, Combined=True):
+def distribute_chores(fil_list, Combined=True, prefix=None):
     N_fils = len(fil_list)
 
-    mpicom = MPI.COMM_WORLD
 
-    N_hosts = mpicom.Get_size()
-    Rank = mpicom.Get_rank()
+    if Combined:
+        chores = fil_list
+        N_chores = N_fils
+    else:
+        chores = []
+        for fil_set in fil_list:
+            for fil in fil_set:
+                chores.append([fil])
+        N_chores = len(chores)
+#
+#    mpicom = MPI.COMM_WORLD
+#
+#    N_hosts = mpicom.Get_size()
+#    Rank = mpicom.Get_rank()
+#    
+#    my_chores = np.arange(Rank, N_chores, N_hosts)
+#
+#    for idx in my_chores:
+#        NetClampParam(chores[idx], prefix=prefix)
     
-    my_chores = np.arange(Rank, N_fils, N_hosts)
-
-    for idx in my_chores:
-        if Rank == 0:
-            if Combined:
-                NetClampParam(fil_list[idx])
-            else:
-                for fil in fil_list[idx]:
-                    NetClampParam([fil])
-    
+    for idx in range(N_chores):
+        NetClampParam(chores[idx], prefix=prefix)
 
 if __name__ == '__main__':
 
@@ -377,36 +414,40 @@ if __name__ == '__main__':
         '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.AAC_20210317_195313_36010476.h5',
         '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.AAC_20210317_195313_49937004.h5',
         '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.AAC_20210317_195313_53499406.h5',],
-        ['/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210317_195312_52357252.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210317_195312_74865768.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210317_195313_01503844.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210317_195313_28135771.h5',],
-    #    '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210317_195313_93454042.h5',],
-        ['/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210317_195312_15879716.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210317_195312_53736785.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210317_195313_28682721.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210317_195313_45419272.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210317_195313_63599789.h5',],
-        ['/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210317_195312_12260638.h5',
-#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210317_195312_17609813.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210317_195312_33236209.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210317_195312_71407528.h5',],
- #       '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210317_195313_92055940.h5',],
-        ['/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210317_195312_04259860.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210317_195313_11745958.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210317_195313_49627038.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210317_195313_75940072.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210317_195313_84013649.h5',],
-        ['/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210317_195312_29079471.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210317_195312_31571230.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210317_195313_45373570.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210317_195313_68839073.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210317_195313_85763600.h5',],
-        ['/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210317_195312_12740157.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210317_195312_95844113.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210317_195312_97895890.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210317_195313_93872787.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210317_195313_96772370.h5',],
-    ]
+]#        ['/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210317_195312_52357252.h5',
+#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210317_195312_74865768.h5',
+#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210317_195313_01503844.h5',
+#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210317_195313_28135771.h5',
+#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210318_210057_93454042.h5',],
+#        ['/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210317_195312_15879716.h5',
+#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210317_195312_53736785.h5',
+#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210317_195313_28682721.h5',
+#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210317_195313_45419272.h5',
+#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210317_195313_63599789.h5',],
+#        ['/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210317_195312_12260638.h5',
+#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210318_210057_17609813.h5',
+#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210317_195312_33236209.h5',
+#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210317_195312_71407528.h5',
+#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210318_210057_92055940.h5',],
+#        ['/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210317_195312_04259860.h5',
+#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210317_195313_11745958.h5',
+#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210317_195313_49627038.h5',
+#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210317_195313_75940072.h5',
+#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210317_195313_84013649.h5',],
+#        ['/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210317_195312_29079471.h5',
+#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210317_195312_31571230.h5',
+#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210317_195313_45373570.h5',
+#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210317_195313_68839073.h5',
+#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210317_195313_85763600.h5',],
+#        ['/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210317_195312_12740157.h5',
+#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210317_195312_95844113.h5',
+#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210317_195312_97895890.h5',
+#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210317_195313_93872787.h5',
+#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210317_195313_96772370.h5',],
+#    ]
 
-    distribute_chores(newsetV, Combined=True)
+    MC = [
+        ['/Volumes/Work/SolteszLab/HDM/dentate/dmosopt.optimize_selectivity.MC_1000016_20210317_144010.h5', 
+        '/Volumes/Work/SolteszLab/HDM/dentate/dmosopt.optimize_selectivity.MC_1026084_20210318_080835.h5',],
+    ] 
+    distribute_chores(newsetV, Combined=True, prefix=None)
