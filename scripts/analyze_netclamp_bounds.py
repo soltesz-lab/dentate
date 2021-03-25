@@ -1,12 +1,16 @@
 import sys, time 
-#from mpi4py import MPI
+from mpi4py import MPI
 import numpy as np
 import itertools as it
 import scipy as sp
+import scipy.stats as spst
 import h5py
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gs
+import pprint
+import yaml
+from dentate.utils import write_to_yaml
 
 class NetClampParam:
     def __init__(self, fils, prefix=None):
@@ -22,27 +26,20 @@ class NetClampParam:
         ref_features = np.array(self.ref_point['features'])
         self.N_cells = self.fil_arr[idx,1].shape[0]
         self.N_params, self.N_objectives, self.N_trials = ref_features['trial_objs'].shape
-        self.param_dtype = np.array(self.ref_point['parameters']).dtype
-        self.param_tup = []
-        for parm in self.param_dtype.names:
-            self.param_tup.append(parm.split('.')) 
-        
-        self.param_dim = len(self.param_tup) 
-        self.param_bnds = np.empty(shape=(self.param_dim, 2)) 
-        self.param_bnds[:,0] = np.array(self.fil_arr[0,0][self.head_group]['parameter_spec']['lower'])
-        self.param_bnds[:,1] = np.array(self.fil_arr[0,0][self.head_group]['parameter_spec']['upper'])
 
-        self.population = self.param_tup[0][0]
+        self.get_params_props()
+
         self.target = np.array(self.fil_arr[0,0][self.head_group]['metadata'])[0][0]
 
         ts = time.strftime("%Y%m%d_%H%M%S")
         prefix = '' if prefix is None else '{!s}_'.format(prefix)
         self.suffix = 'Combined' if self.N_fils > 1 else '{:08d}'.format(int(self.fil_arr[idx,0].filename.split('_')[-1][:-3]))
-        save_ext = 'pdf'
+        plot_save_ext = 'pdf'
         
-        self.filnam = '{!s}{!s}_{!s}_{!s}.{!s}'.format(prefix, self.population, ts, self.suffix, save_ext) 
+        self.filnam = '{!s}{!s}_{!s}_{!s}'.format(prefix, self.population, ts, self.suffix)
+        self.plot_filnam = '{!s}.{!s}'.format(self.filnam, plot_save_ext) 
 
-        self.get_best_arrs([self.target])
+    #    self.get_best_arrs([self.target])
 
         self.pop_props = {
                         'AAC':  ('AxoAxonic', -65, -42),
@@ -55,20 +52,43 @@ class NetClampParam:
                         'MC':   ('Mossy'),
                         }
 
-#        self.plot_best()
+   #     self.plot_best()
 
- #       self.generate_yaml()
+        self.generate_yaml()
+
+    def get_params_props(self):
+        self.raw_param_dtype = np.array(self.ref_point['parameters']).dtype
+        self.param_dim = len(self.raw_param_dtype)
+
+        param_dtype = np.dtype([('population', 'U8'), ('presyn', list), ('loc', list), ('syn', 'U8'), ('prop', 'U12'), ('lo_bound', 'f8'), ('up_bound', 'f8'), ('presyn_lab', 'U64')])
+        self.param_props = np.empty(shape=self.param_dim, dtype=param_dtype)
+
+        self.param_tup = []
+        for pidx, parm in enumerate(self.raw_param_dtype.names):
+            tmp = parm.split('.')
+            popu = tmp[0]
+            presyn = tmp[1][1:-1].replace("'", "").split(', ') if tmp[1].startswith('(') else [tmp[1]] 
+            loc = tmp[2][1:-1].replace("'", "").split(', ') if tmp[2].startswith('(') else [tmp[2]] 
+            syn = tmp[3]
+            prop = tmp[4]
+            lo_bnd = self.fil_arr[0,0][self.head_group]['parameter_spec']['lower'][pidx]
+            up_bnd = self.fil_arr[0,0][self.head_group]['parameter_spec']['upper'][pidx]
+            presyn_lab = ', '.join(psyn for psyn in presyn) 
+
+            self.param_props[pidx] = popu, presyn, loc, syn, prop, lo_bnd, up_bnd, presyn_lab
+
+        self.population = self.param_props[0]['population'] 
 
     def get_best_arrs(self, target):
         self.obj_val_mean_arr = np.empty(shape=(self.N_fils, self.N_cells, self.N_params, self.N_objectives))
         self.best_idx = np.empty(shape=(self.N_fils, self.N_cells, self.N_objectives, self.N_trials), dtype=np.int)
         self.best_arr = np.empty(shape=(self.N_fils, self.N_cells, self.N_objectives, self.N_trials))
         self.best_Vmean = np.empty(shape=(self.N_fils, self.N_cells, self.N_objectives, self.N_trials))
-        self.best_prm = np.empty(shape=(self.N_fils, self.N_cells, self.N_objectives, self.N_trials), dtype=self.param_dtype)
+        self.best_prm = np.empty(shape=(self.N_fils, self.N_cells, self.N_objectives, self.N_trials), dtype=self.raw_param_dtype)
         self.bestmean_idx = np.empty(shape=(self.N_fils, self.N_cells), dtype=np.int)
         self.bestmean_arr = np.empty(shape=(self.N_fils, self.N_cells))
         self.bestmean_V_mean = np.empty(shape=(self.N_fils, self.N_cells))
-        self.bestmean_prm = np.empty(shape=(self.N_fils, self.N_cells), dtype=self.param_dtype)
+        self.bestmean_prm = np.empty(shape=(self.N_fils, self.N_cells), dtype=self.raw_param_dtype)
 
         for fidx, filobj in enumerate(self.fil_arr[:,0]):
             for cidx, cell in enumerate(self.fil_arr[fidx, 1]):
@@ -82,18 +102,116 @@ class NetClampParam:
                     self.best_prm[fidx, cidx, pidx[0], pidx[1]] = ref_cell['parameters'][val]
                     self.best_Vmean[fidx, cidx, pidx[0], pidx[1]] = ref_features['mean_v'][val, pidx[1]] 
 
-              #  self.bestmean_idx[fidx, cidx] = np.argmin(np.abs(ref_features['mean_rate']-target[0]))
-              #  self.bestmean_arr[fidx, cidx] = ref_features['mean_rate'][self.bestmean_idx[fidx, cidx]]
-              #  self.bestmean_prm[fidx, cidx] = ref_cell['parameters'][self.bestmean_idx[fidx, cidx]]
                 self.bestmean_idx[fidx, cidx] = np.argmin(np.abs(self.obj_val_mean_arr[fidx, cidx, :, 0]-target[0]))
                 self.bestmean_arr[fidx, cidx] = self.obj_val_mean_arr[fidx, cidx, :, 0][self.bestmean_idx[fidx, cidx]]
                 self.bestmean_prm[fidx, cidx] = ref_cell['parameters'][self.bestmean_idx[fidx, cidx]]
 
-    def generate_yaml(self, All=True, Best=True, Specific=False):
-        if All:
-            print(self.param_tup)
-            
+    def generate_yaml(self, CriteriaList=None):
+        main_dict = {self.population: {gid: [[parm['population'], 
+                           parm['presyn'] if len(parm['presyn'])>1 else parm['presyn'][0], 
+                           parm['loc'] if len(parm['loc'])>1 else parm['loc'][0], 
+                           parm['syn'], parm['prop'], None] 
+                     for parm in self.param_props]
+                for gid in self.fil_arr[0,1]}}
 
+        CriteriaList, gid_val_arr = self.get_param_criteria_arr(CriteriaList=CriteriaList)
+
+        N_crit = len(CriteriaList)
+
+        crit_dict_arr = np.empty(shape=N_crit, dtype='O')
+        crit_yaml_arr = np.empty(shape=N_crit, dtype='O')
+
+        for critidx, crit in enumerate(CriteriaList):
+            crit_dict_arr[critidx] = main_dict.copy()
+            for gididx, gid in enumerate(self.fil_arr[0,1]):
+                for val, prmidx  in zip(gid_val_arr[critidx, 0, :, gididx], range(self.param_dim)): 
+                    crit_dict_arr[critidx][self.population][gid][prmidx][-1] = val
+
+            crit_yaml_arr[critidx] = '{!s}_{!s}.yaml'.format(self.filnam, crit)
+
+        for datadict, yamlfil in zip(crit_dict_arr, crit_yaml_arr):
+          #  yaml.dump(datadict, open(yamlfil, 'w'), default_flow_style=False, Dumper=yaml.Dumper)
+            write_to_yaml(yamlfil, datadict, default_flow_style=False, convert_scalars=True)     
+
+
+    def get_param_criteria_arr(self, CriteriaList=None):
+        if not hasattr(self, 'best_prm'):
+            self.get_best_arrs([self.target]) 
+
+     #   pprint.pprint(main_dict)
+    
+        criteria_dict = {
+                            'UniformBestMean': "get_best()",
+                            'SpecificBestMean': "get_best(uniform=False)",
+                            'UniformTrialMean': "get_trial()",
+                            'SpecificTrialMean': "get_trial(uniform=False)",
+                            'UniformBestMedian': "get_best(fn='median')",
+                            'SpecificBestMedian': "get_best(fn='median', uniform=False)",
+                            'UniformTrialMedian': "get_trial(fn='median')",
+                            'SpecificTrialMedian': "get_trial(fn='median', uniform=False)",
+                            'UniformBestMode': "get_best_mode()",
+                            'SpecificBestMode': "get_best_mode(uniform=False)",
+                            'UniformTrialMode': "get_trial_mode()",
+                            'SpecificTrialMode': "get_trial_mode(uniform=False)",
+                    }
+
+        def get_best(fn='mean', uniform=True):
+            func = getattr(np, fn)
+            axis = (0,) if not uniform else None           
+            tmp_arr = np.empty(shape=(self.N_objectives, self.param_dim, self.N_cells))
+            for prmidx, parm in enumerate(self.raw_param_dtype.names):
+               # for objidx in range(self.N_objectives):
+               #     vparm = func(self.bestmean_prm[parm][:,:,objidx,:], axis=axis)
+               #     tmp_arr[objidx, prmidx,:] = vparm
+                vparm = func(self.bestmean_prm[parm], axis=axis)
+                tmp_arr[0, prmidx,:] = vparm
+            return tmp_arr 
+
+        def get_trial(fn='mean', uniform=True):
+            func = getattr(np, fn)
+            axis = (0,-1) if not uniform else None           
+            tmp_arr = np.empty(shape=(self.N_objectives, self.param_dim, self.N_cells))
+            for prmidx, parm in enumerate(self.raw_param_dtype.names):
+                for objidx in range(self.N_objectives):
+                    vparm = func(self.best_prm[parm][:,:,objidx,:], axis=axis)
+                    tmp_arr[objidx, prmidx,:] = vparm
+            return tmp_arr 
+
+        def get_best_mode(uniform=True):
+            axis = 0 if not uniform else None           
+            tmp_arr = np.empty(shape=(self.N_objectives, self.param_dim, self.N_cells))
+            for prmidx, parm in enumerate(self.raw_param_dtype.names):
+               # for objidx in range(self.N_objectives):
+               #     vparm = func(self.bestmean_prm[parm][:,:,objidx,:], axis=axis)
+               #     tmp_arr[objidx, prmidx,:] = vparm
+                vparm, _ = spst.mode(self.bestmean_prm[parm], axis=axis)
+                tmp_arr[0, prmidx,:] = vparm
+            return tmp_arr 
+
+        def get_trial_mode(uniform=True):
+            tmp_arr = np.empty(shape=(self.N_objectives, self.param_dim, self.N_cells))
+            if uniform:
+                for prmidx, parm in enumerate(self.raw_param_dtype.names):
+                    for objidx in range(self.N_objectives):
+                        vparm, _ = spst.mode(self.best_prm[parm][:,:,objidx,:], axis=None)
+                        tmp_arr[objidx, prmidx,:] = vparm
+            else:
+                for prmidx, parm in enumerate(self.raw_param_dtype.names):
+                    for objidx in range(self.N_objectives):
+                        for cidx in range(self.N_cells):
+                            vparm, _ = spst.mode(np.ravel(self.best_prm[parm][:,cidx,objidx,:]))
+                            tmp_arr[objidx, prmidx, cidx] = vparm
+            return tmp_arr 
+
+        CriteriaList = list(criteria_dict.keys()) if CriteriaList is None else CriteriaList
+        N_crit = len(CriteriaList)
+
+        gid_val_arr = np.empty(shape=(N_crit, self.N_objectives, self.param_dim, self.N_cells))
+
+        for critidx, crit in enumerate(CriteriaList):
+            gid_val_arr[critidx] = eval(criteria_dict[crit]) 
+
+        return (CriteriaList, gid_val_arr) 
 
     def get_fig_axes(self):
         fig = plt.figure(figsize=(20,20), constrained_layout=True)
@@ -133,13 +251,13 @@ class NetClampParam:
 
 
     def plot_best(self):
-        param_names = np.array(self.param_dtype.names)
+        param_names = np.array(self.raw_param_dtype.names)
         param_dim = self.param_dim 
         N_iter_arr = np.arange(self.N_params)
 
         prm_str = ''
         for idx, prm in enumerate(param_names):
-            prm_str += '{!s}: {:f}, {:f} '.format(self.param_tup[idx][3], np.mean(self.best_prm[prm]), np.mean(self.bestmean_prm[prm]))
+            prm_str += '{!s}: {:f}, {:f} '.format(self.param_props['syn'][idx], np.mean(self.best_prm[prm]), np.mean(self.bestmean_prm[prm]))
 
         prmcomb = np.array([i for i in it.combinations(range(param_dim), r=2)], dtype=np.int)
         N_prmcomb = prmcomb.shape[0]
@@ -172,15 +290,15 @@ class NetClampParam:
         fea_axes[0].axhline(self.pop_props[self.population][2], color='k', lw=0.5)
 
         for i, prm in enumerate(param_names): 
-            prm_axes[0,i].axhline(self.param_bnds[i,0], color='k', ls='--')
-            prm_axes[0,i].axhline(self.param_bnds[i,1], color='k', ls='--')
-            prm_axes[0,i].set_ylabel(r'${!s}$ weight'.format(self.param_tup[i][3]))
-            tit = self.param_tup[i][1][1:-1].replace("'", "") if self.param_tup[i][1].startswith('(') else self.param_tup[i][1]
+            prm_axes[0,i].axhline(self.param_props['lo_bound'][i], color='k', ls='--')
+            prm_axes[0,i].axhline(self.param_props['up_bound'][i], color='k', ls='--')
+            prm_axes[0,i].set_ylabel(r'${!s}$ weight'.format(self.param_props['syn'][i]))
+            tit = self.param_props['presyn_lab'][i] 
             prm_axes[0,i].set_title(tit)
 
-            opr_axes[0,i].axhline(self.param_bnds[i,0], color='k', ls='--')
-            opr_axes[0,i].axhline(self.param_bnds[i,1], color='k', ls='--')
-            opr_axes[0,i].set_ylabel(r'${!s}$ weight'.format(self.param_tup[i][3]))
+            opr_axes[0,i].axhline(self.param_props['lo_bound'][i], color='k', ls='--')
+            opr_axes[0,i].axhline(self.param_props['up_bound'][i], color='k', ls='--')
+            opr_axes[0,i].set_ylabel(r'${!s}$ weight'.format(self.param_props['syn'][i]))
             opr_axes[0,i].set_xlabel(r'Iteration Index')
 
             for cidx, cell in enumerate(xcat): 
@@ -188,7 +306,6 @@ class NetClampParam:
 
             for j in range(self.N_fils):
                 prm_axes[0,i].scatter(xcat, self.bestmean_prm[prm][j, :], marker=plotshap[j], color='k')
-#                plt.xticks(rotation = 45)
                 for tidx in range(self.N_trials):
                     prm_axes[0,i].scatter(xcat, self.best_prm[prm][j,:, 0,tidx], marker=plotshap[j], color=colors[tidx], facecolors='none', lw=0.5)
                 
@@ -216,15 +333,13 @@ class NetClampParam:
                     comb  = prmcomb[combidx, : ]
                     i, j = comb
 
-                    cpr_axes[0,combidx].axvline(self.param_bnds[i,0], color='k', ls='--')
-                    cpr_axes[0,combidx].axvline(self.param_bnds[i,1], color='k', ls='--')
-                    cpr_axes[0,combidx].axhline(self.param_bnds[j,0], color='k', ls='--')
-                    cpr_axes[0,combidx].axhline(self.param_bnds[j,1], color='k', ls='--')
+                    cpr_axes[0,combidx].axvline(self.param_props['lo_bound'][i], color='k', ls='--')
+                    cpr_axes[0,combidx].axvline(self.param_props['up_bound'][i], color='k', ls='--')
+                    cpr_axes[0,combidx].axhline(self.param_props['lo_bound'][j], color='k', ls='--')
+                    cpr_axes[0,combidx].axhline(self.param_props['up_bound'][j], color='k', ls='--')
 
-                    titx = self.param_tup[i][1][1:-1].replace("'", "") if self.param_tup[i][1].startswith('(') else self.param_tup[i][1]
-                    tity = self.param_tup[j][1][1:-1].replace("'", "") if self.param_tup[j][1].startswith('(') else self.param_tup[j][1]
-                    cpr_axes[0,combidx].set_xlabel(r'${!s}$ {!s}'.format(self.param_tup[i][3], titx))
-                    cpr_axes[0,combidx].set_ylabel(r'${!s}$ {!s}'.format(self.param_tup[j][3], tity))
+                    cpr_axes[0,combidx].set_xlabel(r'${!s}$ {!s}'.format(self.param_props['syn'][i], self.param_props['presyn_lab'][i]))
+                    cpr_axes[0,combidx].set_ylabel(r'${!s}$ {!s}'.format(self.param_props['syn'][j], self.param_props['presyn_lab'][j]))
                     cpr_axes[0,combidx].scatter(np.array(ref_cell['parameters'][param_names[i]]),  np.array(ref_cell['parameters'][param_names[j]]), marker=plotshap[fidx], color=colors[cidx], facecolors='none', lw=0.01, s=1)
 
                     cpr_axes[0,combidx].scatter(np.ravel(self.best_prm[param_names[i]][fidx,cidx, 0,:]), np.ravel(self.best_prm[param_names[j]][fidx,cidx, 0,:]), marker=plotshap[fidx], color=colors[cidx], s=4)
@@ -248,7 +363,7 @@ class NetClampParam:
         opt_axes[0,0].set_xlabel(r'Iteration Index')
 
 #        fig.tight_layout()
-        fig.savefig(self.filnam)
+        fig.savefig(self.plot_filnam, transparent=True)
 
 
 def distribute_chores(fil_list, Combined=True, prefix=None):
@@ -265,18 +380,18 @@ def distribute_chores(fil_list, Combined=True, prefix=None):
                 chores.append([fil])
         N_chores = len(chores)
 #
-#    mpicom = MPI.COMM_WORLD
-#
-#    N_hosts = mpicom.Get_size()
-#    Rank = mpicom.Get_rank()
-#    
-#    my_chores = np.arange(Rank, N_chores, N_hosts)
-#
-#    for idx in my_chores:
-#        NetClampParam(chores[idx], prefix=prefix)
+    mpicom = MPI.COMM_WORLD
+
+    N_hosts = mpicom.Get_size()
+    Rank = mpicom.Get_rank()
     
-    for idx in range(N_chores):
+    my_chores = np.arange(Rank, N_chores, N_hosts)
+
+    for idx in my_chores:
         NetClampParam(chores[idx], prefix=prefix)
+    
+#    for idx in range(N_chores):
+#        NetClampParam(chores[idx], prefix=prefix)
 
 if __name__ == '__main__':
 
@@ -445,9 +560,13 @@ if __name__ == '__main__':
 #        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210317_195313_93872787.h5',
 #        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210317_195313_96772370.h5',],
 #    ]
+    fronteratest = [
+        ['../results/netclamp/distgfs.network_clamp.AAC_20210317_195313_27137089.h5',
+        '../results/netclamp/distgfs.network_clamp.AAC_20210317_195313_49937004.h5',],
+]
 
     MC = [
         ['/Volumes/Work/SolteszLab/HDM/dentate/dmosopt.optimize_selectivity.MC_1000016_20210317_144010.h5', 
         '/Volumes/Work/SolteszLab/HDM/dentate/dmosopt.optimize_selectivity.MC_1026084_20210318_080835.h5',],
     ] 
-    distribute_chores(newsetV, Combined=True, prefix=None)
+    distribute_chores(fronteratest, Combined=True, prefix=None)
