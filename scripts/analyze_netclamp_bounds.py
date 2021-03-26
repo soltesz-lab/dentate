@@ -1,23 +1,20 @@
-import sys, time 
+import sys, os, time, copy 
 from mpi4py import MPI
 import numpy as np
 import itertools as it
 import scipy as sp
 import scipy.stats as spst
-import h5py
+import h5py, yaml
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gs
-import pprint
-import yaml
-from dentate.utils import write_to_yaml
 
 class NetClampParam:
-    def __init__(self, fils, prefix=None):
+    def __init__(self, fils, fil_dir, prefix=None):
         self.N_fils = len(fils)
         self.fil_arr = np.empty(shape=(self.N_fils,2), dtype='O')
         for idx, fil in enumerate(fils):
-            self.fil_arr[idx,0] = h5py.File(fil, 'r')
+            self.fil_arr[idx,0] = h5py.File(os.path.join(fil_dir, fil), 'r')
             head_group = [i for i in self.fil_arr[0,0]][0]
             self.fil_arr[idx,1] = np.sort(self.fil_arr[idx,0][head_group]['problem_ids']) 
         
@@ -51,6 +48,8 @@ class NetClampParam:
                         'NGFC': ('NGFC', -75.6, -30),
                         'MC':   ('Mossy'),
                         }
+
+        self.get_param_criteria_arr()
 
    #     self.plot_best()
 
@@ -107,10 +106,10 @@ class NetClampParam:
                 self.bestmean_prm[fidx, cidx] = ref_cell['parameters'][self.bestmean_idx[fidx, cidx]]
 
     def generate_yaml(self, CriteriaList=None):
-        main_dict = {self.population: {gid: [[parm['population'], 
-                           parm['presyn'] if len(parm['presyn'])>1 else parm['presyn'][0], 
-                           parm['loc'] if len(parm['loc'])>1 else parm['loc'][0], 
-                           parm['syn'], parm['prop'], None] 
+        main_dict = {self.population.item(): {gid.item(): [[str(parm['population']), 
+                           [str(par) for par in  parm['presyn']] if len(parm['presyn'])>1 else str(parm['presyn'][0]), 
+                           [str(loc) for loc in parm['loc']] if len(parm['loc'])>1 else str(parm['loc'][0]), 
+                           str(parm['syn']), str(parm['prop']), None] 
                      for parm in self.param_props]
                 for gid in self.fil_arr[0,1]}}
 
@@ -122,23 +121,21 @@ class NetClampParam:
         crit_yaml_arr = np.empty(shape=N_crit, dtype='O')
 
         for critidx, crit in enumerate(CriteriaList):
-            crit_dict_arr[critidx] = main_dict.copy()
+            crit_dict_arr[critidx] = copy.deepcopy(main_dict)
             for gididx, gid in enumerate(self.fil_arr[0,1]):
                 for val, prmidx  in zip(gid_val_arr[critidx, 0, :, gididx], range(self.param_dim)): 
-                    crit_dict_arr[critidx][self.population][gid][prmidx][-1] = val
+                    crit_dict_arr[critidx][self.population][gid][prmidx][-1] = val.item()
 
             crit_yaml_arr[critidx] = '{!s}_{!s}.yaml'.format(self.filnam, crit)
 
         for datadict, yamlfil in zip(crit_dict_arr, crit_yaml_arr):
-          #  yaml.dump(datadict, open(yamlfil, 'w'), default_flow_style=False, Dumper=yaml.Dumper)
-            write_to_yaml(yamlfil, datadict, default_flow_style=False, convert_scalars=True)     
+            yaml.dump(datadict, open(yamlfil, 'w'), default_flow_style=True, Dumper=yaml.CDumper)
 
 
     def get_param_criteria_arr(self, CriteriaList=None):
         if not hasattr(self, 'best_prm'):
             self.get_best_arrs([self.target]) 
 
-     #   pprint.pprint(main_dict)
     
         criteria_dict = {
                             'UniformBestMean': "get_best()",
@@ -349,26 +346,20 @@ class NetClampParam:
 
         for cidx, cell in enumerate(self.fil_arr[0, 1]):
             ref_ax = opt_axes[0,cidx]
-        #    ref_ax.plot(N_iter_arr, np.mean(opt_val_arr[:,cidx,:,0,:], axis=(0,-1)), color='y', lw=0.5)
-          #  perc = np.quantile(opt_val_arr[:,cidx,:,0,:], [0.25,0.5, 0.75], axis=(0,-1), keepdims=False)
             perc = np.quantile(self.obj_val_mean_arr[:,cidx,:,0], [0.25,0.5, 0.75], axis=(0,), keepdims=False)
             ref_ax.plot(N_iter_arr, perc[1,:], color='saddlebrown', lw=0.4, zorder=0.75)
             ref_ax.fill_between(N_iter_arr, y1=perc[2,:], y2=perc[0,:], color='peachpuff', alpha=0.5, zorder=0.5)
-#            ref_ax.plot(N_iter_arr, np.min(opt_val_arr[:,cidx,:,0,:], axis=(0,-1)), color='y', lw=0.5, alpha=0.5)
-#            ref_ax.plot(N_iter_arr, np.max(opt_val_arr[:,cidx,:,0,:], axis=(0,-1)), color='c', lw=0.5, alpha=0.5)
             ref_ax.set_title('{:d}'.format(int(cell)), color=colors[cidx])
             ref_ax.set_ylim(top=ytop, bottom=0)
 
         opt_axes[0,0].set_ylabel(r'Firing Rate [spikes/s]')
         opt_axes[0,0].set_xlabel(r'Iteration Index')
 
-#        fig.tight_layout()
         fig.savefig(self.plot_filnam, transparent=True)
 
 
-def distribute_chores(fil_list, Combined=True, prefix=None):
+def distribute_chores(fil_list, fil_dir, Combined=True, prefix=None):
     N_fils = len(fil_list)
-
 
     if Combined:
         chores = fil_list
@@ -388,185 +379,51 @@ def distribute_chores(fil_list, Combined=True, prefix=None):
     my_chores = np.arange(Rank, N_chores, N_hosts)
 
     for idx in my_chores:
-        NetClampParam(chores[idx], prefix=prefix)
+        NetClampParam(chores[idx], fil_dir=fil_dir, prefix=prefix)
     
-#    for idx in range(N_chores):
-#        NetClampParam(chores[idx], prefix=prefix)
-
 if __name__ == '__main__':
 
-    popfils1 = [
-      [ '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.AAC_20210304_004526_27137089.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.AAC_20210304_004526_36010476.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.AAC_20210304_004526_49937004.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.AAC_20210304_004526_53499406.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.AAC_20210304_014847_04893658.h5',],
-      [ '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210304_004526_01503844.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210304_004527_28135771.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210304_004527_52357252.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210304_004527_74865768.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210304_004527_93454042.h5',],
-      [ '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210304_004526_45419272.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210304_004527_15879716.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210304_004527_28682721.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210304_004527_53736785.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210304_004527_63599789.h5',],
-      [ '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210304_004526_12260638.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210304_004526_71407528.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210304_004527_17609813.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210304_004527_33236209.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210304_004527_92055940.h5',],
-      [ '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210304_004526_49627038.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210304_004527_04259860.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210304_004527_11745958.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210304_004527_75940072.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210304_004527_84013649.h5',],
-      [ '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210304_004526_45373570.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210304_004527_29079471.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210304_004527_31571230.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210304_004527_68839073.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210304_004527_85763600.h5',],
-      [ '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210304_004527_12740157.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210304_004527_93872787.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210304_004527_95844113.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210304_004527_96772370.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210304_004527_97895890.h5',],
-    ] 
+    remote=True
 
-    popfils2 = [
-      [ '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.AAC_20210305_033838_04893658.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.AAC_20210305_033838_27137089.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.AAC_20210305_033838_49937004.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.AAC_20210305_033838_53499406.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.AAC_20210305_033839_36010476.h5',],
-]
-    lif= [
-      [ '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210305_033838_28135771.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210305_033838_52357252.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210305_033838_74865768.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210305_033838_93454042.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210305_033839_01503844.h5',],
-      [ '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210305_033838_15879716.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210305_033838_28682721.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210305_033838_45419272.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210305_033838_63599789.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210305_033839_53736785.h5',],
-      [ '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210305_033838_33236209.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210305_033839_12260638.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210305_033839_17609813.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210305_033839_71407528.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210305_033839_92055940.h5',],
-      [ '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210305_033838_04259860.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210305_033838_11745958.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210305_033838_49627038.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210305_033838_75940072.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210305_033838_84013649.h5',],
-      [ '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210305_033838_31571230.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210305_033838_68839073.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210305_033839_29079471.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210305_033839_45373570.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210305_033839_85763600.h5',],
-      [ '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210305_033838_12740157.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210305_033838_93872787.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210305_033838_96772370.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210305_033839_95844113.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210305_033839_97895890.h5',],
+    fil_dir='/scratch1/04119/pmoolcha/HDM/dentate/results/netclamp' if remote else '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp'
+        
+
+    interneuron_opt  = [
+       ['distgfs.network_clamp.AAC_20210317_195313_04893658.h5',
+        'distgfs.network_clamp.AAC_20210317_195313_27137089.h5',
+        'distgfs.network_clamp.AAC_20210317_195313_36010476.h5',
+        'distgfs.network_clamp.AAC_20210317_195313_49937004.h5',
+        'distgfs.network_clamp.AAC_20210317_195313_53499406.h5',],
+       ['distgfs.network_clamp.BC_20210317_195312_52357252.h5',
+        'distgfs.network_clamp.BC_20210317_195312_74865768.h5',
+        'distgfs.network_clamp.BC_20210317_195313_01503844.h5',
+        'distgfs.network_clamp.BC_20210317_195313_28135771.h5',
+        'distgfs.network_clamp.BC_20210318_210057_93454042.h5',],
+       ['distgfs.network_clamp.HC_20210317_195312_15879716.h5',
+        'distgfs.network_clamp.HC_20210317_195312_53736785.h5',
+        'distgfs.network_clamp.HC_20210317_195313_28682721.h5',
+        'distgfs.network_clamp.HC_20210317_195313_45419272.h5',
+        'distgfs.network_clamp.HC_20210317_195313_63599789.h5',],
+       ['distgfs.network_clamp.HCC_20210317_195312_12260638.h5',
+        'distgfs.network_clamp.HCC_20210318_210057_17609813.h5',
+        'distgfs.network_clamp.HCC_20210317_195312_33236209.h5',
+        'distgfs.network_clamp.HCC_20210317_195312_71407528.h5',
+        'distgfs.network_clamp.HCC_20210318_210057_92055940.h5',],
+       ['distgfs.network_clamp.IS_20210317_195312_04259860.h5',
+        'distgfs.network_clamp.IS_20210317_195313_11745958.h5',
+        'distgfs.network_clamp.IS_20210317_195313_49627038.h5',
+        'distgfs.network_clamp.IS_20210317_195313_75940072.h5',
+        'distgfs.network_clamp.IS_20210317_195313_84013649.h5',],
+       ['distgfs.network_clamp.MOPP_20210317_195312_29079471.h5',
+        'distgfs.network_clamp.MOPP_20210317_195312_31571230.h5',
+        'distgfs.network_clamp.MOPP_20210317_195313_45373570.h5',
+        'distgfs.network_clamp.MOPP_20210317_195313_68839073.h5',
+        'distgfs.network_clamp.MOPP_20210317_195313_85763600.h5',],
+       ['distgfs.network_clamp.NGFC_20210317_195312_12740157.h5',
+        'distgfs.network_clamp.NGFC_20210317_195312_95844113.h5',
+        'distgfs.network_clamp.NGFC_20210317_195312_97895890.h5',
+        'distgfs.network_clamp.NGFC_20210317_195313_93872787.h5',
+        'distgfs.network_clamp.NGFC_20210317_195313_96772370.h5',],
     ]
 
-    newHC= [
-      [ '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210312_225530_15879716.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210312_225530_28682721.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210312_225530_45419272.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210312_225530_53736785.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210312_225530_63599789.h5',],
-    ]
-    firstMC= [
-      [ '/Volumes/Work/SolteszLab/HDM/dentate/results/distgfs.network_clamp.MC_20210309_190038_78236474.h5',],
-    ]
- 
-    newset = [
-     #   ['/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.AAC_20210317_032406_27137089.h5',
-     #   '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.AAC_20210317_032406_53499406.h5',
-     #   '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.AAC_20210317_032407_04893658.h5',
-     #   '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.AAC_20210317_032407_36010476.h5',
-     #   '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.AAC_20210317_032407_49937004.h5',],
-   #     ['/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210317_032406_01503844.h5',
-   #     '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210317_032406_93454042.h5',
-   #     '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210317_032407_28135771.h5',
-   #     '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210317_032407_52357252.h5',
-   #     '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210317_032407_74865768.h5',],
-  #      ['/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210317_032407_15879716.h5',
-  #      '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210317_032407_28682721.h5',
-  #      '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210317_032407_45419272.h5',
-  #      '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210317_032407_53736785.h5',
-  #      '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210317_032407_63599789.h5',],
-        ['/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210317_032406_12260638.h5',
-#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210317_032406_17609813.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210317_032407_33236209.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210317_032407_71407528.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210317_032407_92055940.h5',],
-   #     ['/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210317_032406_04259860.h5',
-   #     '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210317_032406_11745958.h5',
-   #     '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210317_032407_49627038.h5',
-   #     '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210317_032407_75940072.h5',
-   #     '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210317_032407_84013649.h5',],
-   #     ['/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210317_032406_85763600.h5',
-   #     '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210317_032407_29079471.h5',
-   #     '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210317_032407_31571230.h5',
-   #     '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210317_032407_45373570.h5',
-   #     '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210317_032407_68839073.h5',],
-   #     ['/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210317_032406_12740157.h5',
-   #     '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210317_032406_93872787.h5',
-   #     '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210317_032407_95844113.h5',
-   #     '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210317_032407_96772370.h5',
-   #     '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210317_032407_97895890.h5',],
-    ]
-
-
-    newsetV = [
-        ['/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.AAC_20210317_195313_04893658.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.AAC_20210317_195313_27137089.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.AAC_20210317_195313_36010476.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.AAC_20210317_195313_49937004.h5',
-        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.AAC_20210317_195313_53499406.h5',],
-]#        ['/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210317_195312_52357252.h5',
-#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210317_195312_74865768.h5',
-#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210317_195313_01503844.h5',
-#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210317_195313_28135771.h5',
-#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.BC_20210318_210057_93454042.h5',],
-#        ['/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210317_195312_15879716.h5',
-#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210317_195312_53736785.h5',
-#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210317_195313_28682721.h5',
-#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210317_195313_45419272.h5',
-#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HC_20210317_195313_63599789.h5',],
-#        ['/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210317_195312_12260638.h5',
-#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210318_210057_17609813.h5',
-#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210317_195312_33236209.h5',
-#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210317_195312_71407528.h5',
-#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.HCC_20210318_210057_92055940.h5',],
-#        ['/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210317_195312_04259860.h5',
-#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210317_195313_11745958.h5',
-#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210317_195313_49627038.h5',
-#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210317_195313_75940072.h5',
-#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.IS_20210317_195313_84013649.h5',],
-#        ['/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210317_195312_29079471.h5',
-#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210317_195312_31571230.h5',
-#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210317_195313_45373570.h5',
-#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210317_195313_68839073.h5',
-#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.MOPP_20210317_195313_85763600.h5',],
-#        ['/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210317_195312_12740157.h5',
-#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210317_195312_95844113.h5',
-#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210317_195312_97895890.h5',
-#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210317_195313_93872787.h5',
-#        '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp/distgfs.network_clamp.NGFC_20210317_195313_96772370.h5',],
-#    ]
-    fronteratest = [
-        ['../results/netclamp/distgfs.network_clamp.AAC_20210317_195313_27137089.h5',
-        '../results/netclamp/distgfs.network_clamp.AAC_20210317_195313_49937004.h5',],
-]
-
-    MC = [
-        ['/Volumes/Work/SolteszLab/HDM/dentate/dmosopt.optimize_selectivity.MC_1000016_20210317_144010.h5', 
-        '/Volumes/Work/SolteszLab/HDM/dentate/dmosopt.optimize_selectivity.MC_1026084_20210318_080835.h5',],
-    ] 
-    distribute_chores(fronteratest, Combined=True, prefix=None)
+    distribute_chores(interneuron_opt, fil_dir, Combined=True, prefix=None)

@@ -16,14 +16,15 @@ export FI_MLX_ENABLE_SPAWN=yes
 ml load intel19
 
 testset=(
-" HC 1030000 1032250 1034500 1036750 1038999 15879716 "
+" AAC 1042800 1042913 1043025 1043138 1043249 4893658 "
 )
 settest=(
-" AAC 1042800 1042913 1043025 1043138 1043249 4893658 "
+" HC 1030000 1032250 1034500 1036750 1038999 15879716 "
+" MOPP 1052650 1053650 1054650 1055650 1056649 31571230 "
 " BC 1039000 1039950 1040900 1041850 1042799 93454042 "
 " HCC 1043250 1043600 1043950 1044300 1044649 33236209 "
+" AAC 1042800 1042913 1043025 1043138 1043249 4893658 "
 " IS 1049650 1050400 1051150 1051900 1052649 4259860 "
-" MOPP 1052650 1053650 1054650 1055650 1056649 31571230 "
 " NGFC 1044650 1045900 1047150 1048400 1049640 12740157 "
 )
 fil=(
@@ -104,8 +105,9 @@ for f in ${testset[@]}
         --arena-id A --trajectory-id Diag \
         --results-path results/netclamp \
         --n-trials 4 \
-        --params-path /scratch1/04119/pmoolcha/HDM/dentate/results/netclamp/network_clamp.optimize.HC_20210311_120030_15879716.yaml \
-        --params-path /scratch1/04119/pmoolcha/HDM/dentate/results/netclamp/network_clamp.optimize.HC_20210305_033838_28682721.yaml \
+        --params-path scripts/AAC_20210325_203941_Combined_SpecificBestMean.yaml \
+        --params-path scripts/AAC_20210325_203941_Combined_SpecificBestMedian.yaml \
+
     
     counter=$((counter + 1))
     
@@ -113,3 +115,40 @@ for f in ${testset[@]}
 wait
 #        --opt-iter 800 rate & 
 #        --opt-seed $seed \
+
+
+
+# --params-path results/netclamp/network_clamp.optimize.AAC_20210317_032406_27137089.yaml \
+# --params-path results/netclamp/network_clamp.optimize.AAC_20210317_032406_53499406.yaml \
+# --params-path results/netclamp/network_clamp.optimize.AAC_20210317_032407_04893658.yaml \
+# --params-path results/netclamp/network_clamp.optimize.AAC_20210317_032407_36010476.yaml \
+# --params-path results/netclamp/network_clamp.optimize.AAC_20210317_032407_49937004.yaml \
+# --params-path results/netclamp/network_clamp.optimize.BC_20210317_032406_01503844.yaml \
+# --params-path results/netclamp/network_clamp.optimize.BC_20210317_032406_93454042.yaml \
+# --params-path results/netclamp/network_clamp.optimize.BC_20210317_032407_28135771.yaml \
+# --params-path results/netclamp/network_clamp.optimize.BC_20210317_032407_52357252.yaml \
+# --params-path results/netclamp/network_clamp.optimize.BC_20210317_032407_74865768.yaml \
+# --params-path results/netclamp/network_clamp.optimize.HC_20210317_032407_15879716.yaml \
+# --params-path results/netclamp/network_clamp.optimize.HC_20210317_032407_28682721.yaml \
+# --params-path results/netclamp/network_clamp.optimize.HC_20210317_032407_45419272.yaml \
+# --params-path results/netclamp/network_clamp.optimize.HC_20210317_032407_53736785.yaml \
+# --params-path results/netclamp/network_clamp.optimize.HC_20210317_032407_63599789.yaml \
+# --params-path results/netclamp/network_clamp.optimize.HCC_20210317_032406_12260638.yaml \
+# --params-path results/netclamp/network_clamp.optimize.HCC_20210317_032407_33236209.yaml \
+# --params-path results/netclamp/network_clamp.optimize.HCC_20210317_032407_71407528.yaml \
+# --params-path results/netclamp/network_clamp.optimize.HCC_20210317_032407_92055940.yaml \
+# --params-path results/netclamp/network_clamp.optimize.IS_20210317_032406_04259860.yaml \
+# --params-path results/netclamp/network_clamp.optimize.IS_20210317_032406_11745958.yaml \
+# --params-path results/netclamp/network_clamp.optimize.IS_20210317_032407_49627038.yaml \
+# --params-path results/netclamp/network_clamp.optimize.IS_20210317_032407_75940072.yaml \
+# --params-path results/netclamp/network_clamp.optimize.IS_20210317_032407_84013649.yaml \
+# --params-path results/netclamp/network_clamp.optimize.MOPP_20210317_032406_85763600.yaml \
+# --params-path results/netclamp/network_clamp.optimize.MOPP_20210317_032407_29079471.yaml \
+# --params-path results/netclamp/network_clamp.optimize.MOPP_20210317_032407_31571230.yaml \
+# --params-path results/netclamp/network_clamp.optimize.MOPP_20210317_032407_45373570.yaml \
+# --params-path results/netclamp/network_clamp.optimize.MOPP_20210317_032407_68839073.yaml \
+# --params-path results/netclamp/network_clamp.optimize.NGFC_20210317_032406_12740157.yaml \
+# --params-path results/netclamp/network_clamp.optimize.NGFC_20210317_032406_93872787.yaml \
+# --params-path results/netclamp/network_clamp.optimize.NGFC_20210317_032407_95844113.yaml \
+# --params-path results/netclamp/network_clamp.optimize.NGFC_20210317_032407_96772370.yaml \
+# --params-path results/netclamp/network_clamp.optimize.NGFC_20210317_032407_97895890.yaml \

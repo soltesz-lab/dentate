@@ -1,0 +1,10 @@
+{HC: {1030000: [[HC, [GC, MC, CA3c], [soma, apical], AMPA, weight, 5.145163536071777],
+      [HC, [HC, IS], [apical, soma], GABA_A, weight, 0.2079184204339981]], 1032250: [
+      [HC, [GC, MC, CA3c], [soma, apical], AMPA, weight, 5.145163536071777], [HC,
+        [HC, IS], [apical, soma], GABA_A, weight, 0.2079184204339981]], 1034500: [
+      [HC, [GC, MC, CA3c], [soma, apical], AMPA, weight, 5.145163536071777], [HC,
+        [HC, IS], [apical, soma], GABA_A, weight, 0.2079184204339981]], 1036750: [
+      [HC, [GC, MC, CA3c], [soma, apical], AMPA, weight, 5.145163536071777], [HC,
+        [HC, IS], [apical, soma], GABA_A, weight, 0.2079184204339981]], 1038999: [
+      [HC, [GC, MC, CA3c], [soma, apical], AMPA, weight, 5.145163536071777], [HC,
+        [HC, IS], [apical, soma], GABA_A, weight, 0.2079184204339981]]}}
