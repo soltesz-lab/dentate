@@ -747,6 +747,12 @@ class SynapseAttributes(object):
         del self.syn_id_attr_dict[gid]
         del self.sec_dict[gid]
 
+    def clear(self):
+        self.syn_id_attr_dict = defaultdict(lambda: defaultdict(lambda: None))
+        self.sec_dict = defaultdict(lambda: defaultdict(lambda: []))
+        self.pps_dict = defaultdict(lambda: defaultdict(lambda: SynapsePointProcess(mech={}, netcon={}, vecstim={})))
+        self.filter_cache = {}
+
     def clear_filter_cache(self):
         self.filter_cache.clear()
 
