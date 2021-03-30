@@ -833,6 +833,7 @@ class Env(object):
 
 
     def clear(self):
+        self.synapse_attributes.clear()
         self.gidset = set([])
         self.gjlist = []
         self.cells = defaultdict(dict)
