@@ -1246,10 +1246,9 @@ def linearize_trajectory(x, y):
 
 
 def rate_maps_from_features (env, pop_name, input_features_path, input_features_namespace, cell_index_set,
-                             arena_id=None, trajectory_id=None, time_range=None, n_trials=1, include_time=False):
+                             arena_id=None, trajectory_id=None, time_range=None, include_time=False):
     
     """Initializes presynaptic spike sources from a file with input selectivity features represented as firing rates."""
-        
     if time_range is not None:
         if time_range[0] is None:
             time_range[0] = 0.0
@@ -1302,6 +1301,7 @@ def rate_maps_from_features (env, pop_name, input_features_path, input_features_
                                                   selectivity_type_names=selectivity_type_names,
                                                   selectivity_attr_dict=selectivity_attr_dict)
         if input_cell_config.num_fields > 0:
+            rate_maps = []
             rate_map = input_cell_config.get_rate_map(x=x, y=y)
             rate_map[np.isclose(rate_map, 0., atol=1e-3, rtol=1e-3)] = 0.
             if include_time:

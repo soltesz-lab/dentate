@@ -853,7 +853,7 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
 
 
     target_rate_vector_dict = rate_maps_from_features (env, population, target_features_path, target_features_namespace, my_cell_index_set,
-                                                       time_range=None, n_trials=n_trials, arena_id=arena_id)
+                                                       time_range=None, arena_id=arena_id)
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
         target_rate_vector[np.isclose(target_rate_vector, 0., atol=1e-3, rtol=1e-3)] = 0.
 
