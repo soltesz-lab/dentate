@@ -61,8 +61,9 @@ def dmosopt_broker_init(broker, *args):
 @click.option("--num-generations", type=int, default=200)
 @click.option("--resample-fraction", type=float)
 @click.option("--collective-mode", type=str, default='gather')
+@click.option("--spawn-startup-wait", type=int, default=30)
 @click.option("--verbose", '-v', is_flag=True)
-def main(config_path, target_features_path, target_features_namespace, optimize_file_dir, optimize_file_name, nprocs_per_worker, n_iter, n_initial, population_size, num_generations, resample_fraction, collective_mode, verbose):
+def main(config_path, target_features_path, target_features_namespace, optimize_file_dir, optimize_file_name, nprocs_per_worker, n_iter, n_initial, population_size, num_generations, resample_fraction, collective_mode, spawn_startup_wait, verbose):
 
     network_args = click.get_current_context().args
     network_config = {}
@@ -148,6 +149,7 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
     #dmosopt_params['broker_module_name'] = 'dentate.optimize_network'
 
     best = dmosopt.run(dmosopt_params, spawn_workers=True, sequential_spawn=False,
+                       spawn_startup_wait=spawn_startup_wait,
                        nprocs_per_worker=nprocs_per_worker,
                        collective_mode=collective_mode,
                        verbose=True, worker_debug=True)
