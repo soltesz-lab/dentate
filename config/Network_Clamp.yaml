@@ -599,7 +599,7 @@ Synaptic Optimization:
     Targets:
       state:
         v:
-          threshold: -43.1
+          threshold: -43.2
       firing rate: 21.0
       fraction active: 0.9
     Parameter ranges:
