@@ -36,7 +36,7 @@ class NetClampParam:
         self.filnam = '{!s}{!s}_{!s}_{!s}'.format(prefix, self.population, ts, self.suffix)
         self.plot_filnam = '{!s}.{!s}'.format(self.filnam, plot_save_ext) 
 
-    #    self.get_best_arrs([self.target])
+        self.get_best_arrs([self.target])
 
         self.pop_props = {
                         'AAC':  ('AxoAxonic', -65, -42),
@@ -49,11 +49,11 @@ class NetClampParam:
                         'MC':   ('Mossy'),
                         }
 
-        self.get_param_criteria_arr()
+     #   self.get_param_criteria_arr()
 
    #     self.plot_best()
 
-        self.generate_yaml()
+      #  self.generate_yaml()
 
     def get_params_props(self):
         self.raw_param_dtype = np.array(self.ref_point['parameters']).dtype
@@ -105,7 +105,24 @@ class NetClampParam:
                 self.bestmean_arr[fidx, cidx] = self.obj_val_mean_arr[fidx, cidx, :, 0][self.bestmean_idx[fidx, cidx]]
                 self.bestmean_prm[fidx, cidx] = ref_cell['parameters'][self.bestmean_idx[fidx, cidx]]
 
-    def generate_yaml(self, CriteriaList=None):
+        def generate_yaml(Uniform=True):
+            Critlist = []
+            gid_val_arr = np.empty(shape=(self.N_cells, self.N_objectives, self.param_dim, self.N_cells))
+            for cidx, cell in enumerate(self.fil_arr[fidx, 1]):
+                ref_cell = filobj[self.head_group]['{:d}'.format(cell)] 
+                Critlist.append('Uniform_BestGid_{!s}'.format(cell))
+                bestoversam_idx = np.argmin(np.abs(self.bestmean_arr[:,cidx]-target[0]))  
+                bestoversam_prm = self.bestmean_prm[bestoversam_idx, cidx] 
+                parms = np.array([bestoversam_prm[prm] for prm in self.raw_param_dtype.names])
+                for i in range(self.N_cells):
+                    gid_val_arr[cidx,0,:,i] = parms 
+
+            self.generate_yaml(Critlist, gid_val_arr)
+
+        generate_yaml()
+
+
+    def generate_yaml(self, CriteriaList=None, gid_val_arr=None):
         main_dict = {self.population.item(): {gid.item(): [[str(parm['population']), 
                            [str(par).strip(',') for par in  parm['presyn']] if len(parm['presyn'])>1 else str(parm['presyn'][0]).strip(','), 
                            [str(loc).strip(',') for loc in parm['loc']] if len(parm['loc'])>1 else str(parm['loc'][0]).strip(','), 
@@ -113,7 +130,8 @@ class NetClampParam:
                      for parm in self.param_props]
                 for gid in self.fil_arr[0,1]}}
 
-        CriteriaList, gid_val_arr = self.get_param_criteria_arr(CriteriaList=CriteriaList)
+        if CriteriaList is None:
+            CriteriaList, gid_val_arr = self.get_param_criteria_arr(CriteriaList=CriteriaList)
 
         N_crit = len(CriteriaList)
 
@@ -150,6 +168,7 @@ class NetClampParam:
                             'SpecificBestMode': "get_best_mode(uniform=False)",
                             'UniformTrialMode': "get_trial_mode()",
                             'SpecificTrialMode': "get_trial_mode(uniform=False)",
+                            'UniformBestSpeciifc': "get_specific()",
                     }
 
         def get_best(fn='mean', uniform=True):
@@ -383,7 +402,7 @@ def distribute_chores(fil_list, fil_dir, Combined=True, prefix=None):
     
 if __name__ == '__main__':
 
-    remote=True
+    remote=False
 
     fil_dir='/scratch1/04119/pmoolcha/HDM/dentate/results/netclamp' if remote else '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp'
         
