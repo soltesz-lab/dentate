@@ -152,7 +152,7 @@ def init_inputs_from_spikes(env, presyn_sources, time_range,
 
 def init_inputs_from_features(env, presyn_sources, time_range,
                               input_features_path, input_features_namespaces,
-                              arena_id, trajectory_id, spike_train_attr_name='t', n_trials=1):
+                              arena_id, trajectory_id, spike_train_attr_name='t', n_trials=1, seed=None):
     """Initializes presynaptic spike sources from a file with input selectivity features represented as firing rates."""
 
     populations = sorted(presyn_sources.keys())
@@ -216,7 +216,8 @@ def init_inputs_from_features(env, presyn_sources, time_range,
                                                                              return_selectivity_features=False,
                                                                              merge_trials=True,
                                                                              time_range=time_range,
-                                                                             comm=env.comm)
+                                                                             comm=env.comm,
+                                                                             seed=seed)
                 spikes_attr_dict[gid][spike_train_attr_name] += equilibration_duration
 
         input_source_dict[pop_index] = {'spiketrains': spikes_attr_dict}
@@ -229,7 +230,7 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
          spike_events_path=None, spike_events_namespace='Spike Events', spike_train_attr_name='t',
          input_features_path=None, input_features_namespaces=None, 
          generate_weights_pops=set([]), t_min=None, t_max=None, write_cell=False, plot_cell=False,
-         cooperative_init=False, worker=None):
+         input_seed=None, cooperative_init=False, worker=None):
     """
     Instantiates a cell and all its synapses and connections and loads
     or generates spike times for all synaptic connections.
@@ -343,7 +344,8 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
             elif input_features_path is not None:
                 input_source_dict = init_inputs_from_features(env, presyn_sources, t_range,
                                                               input_features_path, input_features_namespaces,
-                                                              arena_id, trajectory_id, spike_train_attr_name, n_trials)
+                                                              arena_id, trajectory_id, spike_train_attr_name, n_trials,
+                                                              seed=input_seed)
             else:
                 raise RuntimeError('network_clamp.init: neither input spikes nor input features are provided')
             req = worker.merged_comm.isend(input_source_dict, tag=InitMessageTag['input'].value, dest=0)
@@ -1105,6 +1107,7 @@ def dist_run(init_params, cell_index_set, results_file_id=None, pop_param_tuple_
     t_min = init_params['t_min']
     t_max = init_params['t_max']
     n_trials = init_params['n_trials']
+    input_seed = init_params.get('input_seed', None)
     
     init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
          spike_events_path, spike_events_namespace=spike_events_namespace, 
@@ -1112,6 +1115,7 @@ def dist_run(init_params, cell_index_set, results_file_id=None, pop_param_tuple_
          input_features_path=input_features_path,
          input_features_namespaces=input_features_namespaces,
          generate_weights_pops=set(generate_weights),
+         input_seed=input_seed,
          t_min=t_min, t_max=t_max)
 
     if pop_param_tuple_dict is not None:
@@ -1285,14 +1289,14 @@ def show(config_file, population, gid, arena_id, trajectory_id, template_paths, 
 @click.option('--write-cell', is_flag=True, help='write out selected cell tree morphology and connections')
 @click.option('--profile-memory', is_flag=True, help='calculate and print heap usage after the simulation is complete')
 @click.option('--recording-profile', type=str, default='Network clamp default', help='recording profile to use')
-@click.option("--opt-seed", type=int, help='seed for random sampling of optimization parameters')
+@click.option("--input-seed", type=int, help='seed for generation of spike trains')
 
 def go(config_file, population, dt, gids, gid_selection_file, arena_id, trajectory_id, generate_weights, t_max, t_min,
        template_paths, dataset_prefix, config_prefix,
        spike_events_path, spike_events_namespace, spike_events_t,
        input_features_path, input_features_namespaces, n_trials, params_path,
        results_path, results_file_id, results_namespace_id, use_coreneuron,
-       plot_cell, write_cell, profile_memory, recording_profile, opt_seed):
+       plot_cell, write_cell, profile_memory, recording_profile, input_seed):
 
     """
     Runs network clamp simulation for the specified gid, or for all gids found in the input data file.
@@ -1314,7 +1318,7 @@ def go(config_file, population, dt, gids, gid_selection_file, arena_id, trajecto
     pop_params_tuple_dicts = None
     if rank == 0:
         if results_file_id is None:
-            results_file_id = generate_results_file_id(population, seed=opt_seed)
+            results_file_id = generate_results_file_id(population, seed=input_seed)
         if len(params_path) > 0:
             pop_params_tuple_dicts = []
             for this_params_path in params_path:
@@ -1377,6 +1381,7 @@ def go(config_file, population, dt, gids, gid_selection_file, arena_id, trajecto
              input_features_namespaces=input_features_namespaces,
              generate_weights_pops=set(generate_weights),
              t_min=t_min, t_max=t_max,
+             input_seed=input_seed,
              plot_cell=plot_cell, write_cell=write_cell)
         if pop_params_tuple_dicts is not None:
             for this_params_path, pop_params_tuple_dict in zip(params_path, pop_params_tuple_dicts):
