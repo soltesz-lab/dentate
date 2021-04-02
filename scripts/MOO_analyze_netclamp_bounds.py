@@ -314,7 +314,7 @@ class NetClampParam:
                 for cidx, cell in enumerate(xcat): 
                     ref_cell = self.fil_arr[j,0][self.head_group]['{:d}'.format(cell)]
 #                    opr_axes[0,i].scatter(N_iter_arr, np.array(ref_cell['parameters'][prm]),  marker=plotshap[j], color=colors[cidx], facecolors='none', lw=0.01, s=1)
-                    opr_axes[0,i].scatter(N_iter_arr, np.array(ref_cell['parameters'][prm]),  marker=plotshap[j], color=colors[cidx], facecolors='none', lw=1, s=3)
+                    opr_axes[0,i].scatter(N_iter_arr, np.array(ref_cell['parameters'][prm]),  marker=plotshap[j], color=colors[cidx], facecolors='none', lw=0.1, s=1)
 #                    opr_axes[0,i].scatter(self.bestmean_idx[j,cidx], self.bestmean_prm[prm][j,cidx],  marker=plotshap[j], color=colors[cidx], edgecolor='k', lw=0.5, s=15, zorder=100)
 
 #                    for tidx in range(self.N_trials):
@@ -346,7 +346,7 @@ class NetClampParam:
 
                     cpr_axes[0,combidx].set_xlabel(r'${!s}$ {!s}'.format(self.param_props['syn'][i], self.param_props['presyn_lab'][i]))
                     cpr_axes[0,combidx].set_ylabel(r'${!s}$ {!s}'.format(self.param_props['syn'][j], self.param_props['presyn_lab'][j]))
-                    cpr_axes[0,combidx].scatter(np.array(ref_cell['parameters'][param_names[i]]),  np.array(ref_cell['parameters'][param_names[j]]), marker=plotshap[fidx], color=colors[cidx], facecolors='none', lw=1, s=3)
+                    cpr_axes[0,combidx].scatter(np.array(ref_cell['parameters'][param_names[i]]),  np.array(ref_cell['parameters'][param_names[j]]), marker=plotshap[fidx], color=colors[cidx], facecolors='none', lw=0.1, s=1)
 
 #                    cpr_axes[0,combidx].scatter(np.ravel(self.best_prm[param_names[i]][fidx,cidx, 0,:]), np.ravel(self.best_prm[param_names[j]][fidx,cidx, 0,:]), marker=plotshap[fidx], color=colors[cidx], s=4)
 #                    cpr_axes[0,combidx].scatter(np.ravel(self.bestmean_prm[param_names[i]][fidx,cidx]), np.ravel(self.bestmean_prm[param_names[j]][fidx,cidx]), marker=plotshap[fidx], color=colors[cidx], edgecolor='k', lw=0.5, s=15, zorder=100)
@@ -438,7 +438,8 @@ if __name__ == '__main__':
     ]
     fil_dir='/Volumes/Work/SolteszLab/HDM'
     MC_MOO = [
-       ['dmosopt.optimize_selectivity.MC_1023384_20210323_162734.h5'], 
+       ['dmosopt.optimize_selectivity.MC_1017277_20210321_135909.h5'],
+       ['dmosopt.optimize_selectivity.MC_1023384_20210321_140445.h5'], 
     ]
 
     distribute_chores(MC_MOO, fil_dir, Combined=True, prefix=None)

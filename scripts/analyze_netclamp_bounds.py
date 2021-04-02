@@ -36,7 +36,7 @@ class NetClampParam:
         self.filnam = '{!s}{!s}_{!s}_{!s}'.format(prefix, self.population, ts, self.suffix)
         self.plot_filnam = '{!s}.{!s}'.format(self.filnam, plot_save_ext) 
 
-    #    self.get_best_arrs([self.target])
+        self.get_best_arrs([self.target])
 
         self.pop_props = {
                         'AAC':  ('AxoAxonic', -65, -42),
@@ -49,11 +49,11 @@ class NetClampParam:
                         'MC':   ('Mossy'),
                         }
 
-        self.get_param_criteria_arr()
+     #   self.get_param_criteria_arr()
 
    #     self.plot_best()
 
-        self.generate_yaml()
+      #  self.generate_yaml()
 
     def get_params_props(self):
         self.raw_param_dtype = np.array(self.ref_point['parameters']).dtype
@@ -105,15 +105,33 @@ class NetClampParam:
                 self.bestmean_arr[fidx, cidx] = self.obj_val_mean_arr[fidx, cidx, :, 0][self.bestmean_idx[fidx, cidx]]
                 self.bestmean_prm[fidx, cidx] = ref_cell['parameters'][self.bestmean_idx[fidx, cidx]]
 
-    def generate_yaml(self, CriteriaList=None):
+        def generate_yaml(Uniform=True):
+            Critlist = []
+            gid_val_arr = np.empty(shape=(self.N_cells, self.N_objectives, self.param_dim, self.N_cells))
+            for cidx, cell in enumerate(self.fil_arr[fidx, 1]):
+                ref_cell = filobj[self.head_group]['{:d}'.format(cell)] 
+                Critlist.append('Uniform_BestGid_{!s}'.format(cell))
+                bestoversam_idx = np.argmin(np.abs(self.bestmean_arr[:,cidx]-target[0]))  
+                bestoversam_prm = self.bestmean_prm[bestoversam_idx, cidx] 
+                parms = np.array([bestoversam_prm[prm] for prm in self.raw_param_dtype.names])
+                for i in range(self.N_cells):
+                    gid_val_arr[cidx,0,:,i] = parms 
+
+            self.generate_yaml(Critlist, gid_val_arr)
+
+        generate_yaml()
+
+
+    def generate_yaml(self, CriteriaList=None, gid_val_arr=None):
         main_dict = {self.population.item(): {gid.item(): [[str(parm['population']), 
-                           [str(par) for par in  parm['presyn']] if len(parm['presyn'])>1 else str(parm['presyn'][0]), 
-                           [str(loc) for loc in parm['loc']] if len(parm['loc'])>1 else str(parm['loc'][0]), 
-                           str(parm['syn']), str(parm['prop']), None] 
+                           [str(par).strip(',') for par in  parm['presyn']] if len(parm['presyn'])>1 else str(parm['presyn'][0]).strip(','), 
+                           [str(loc).strip(',') for loc in parm['loc']] if len(parm['loc'])>1 else str(parm['loc'][0]).strip(','), 
+                           str(parm['syn']).strip(','), str(parm['prop']).strip(','), None] 
                      for parm in self.param_props]
                 for gid in self.fil_arr[0,1]}}
 
-        CriteriaList, gid_val_arr = self.get_param_criteria_arr(CriteriaList=CriteriaList)
+        if CriteriaList is None:
+            CriteriaList, gid_val_arr = self.get_param_criteria_arr(CriteriaList=CriteriaList)
 
         N_crit = len(CriteriaList)
 
@@ -150,6 +168,7 @@ class NetClampParam:
                             'SpecificBestMode': "get_best_mode(uniform=False)",
                             'UniformTrialMode': "get_trial_mode()",
                             'SpecificTrialMode': "get_trial_mode(uniform=False)",
+                            'UniformBestSpeciifc': "get_specific()",
                     }
 
         def get_best(fn='mean', uniform=True):
@@ -383,47 +402,47 @@ def distribute_chores(fil_list, fil_dir, Combined=True, prefix=None):
     
 if __name__ == '__main__':
 
-    remote=True
+    remote=False
 
     fil_dir='/scratch1/04119/pmoolcha/HDM/dentate/results/netclamp' if remote else '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp'
         
 
     interneuron_opt  = [
-       ['distgfs.network_clamp.AAC_20210317_195313_04893658.h5',
-        'distgfs.network_clamp.AAC_20210317_195313_27137089.h5',
-        'distgfs.network_clamp.AAC_20210317_195313_36010476.h5',
-        'distgfs.network_clamp.AAC_20210317_195313_49937004.h5',
-        'distgfs.network_clamp.AAC_20210317_195313_53499406.h5',],
-       ['distgfs.network_clamp.BC_20210317_195312_52357252.h5',
-        'distgfs.network_clamp.BC_20210317_195312_74865768.h5',
-        'distgfs.network_clamp.BC_20210317_195313_01503844.h5',
-        'distgfs.network_clamp.BC_20210317_195313_28135771.h5',
-        'distgfs.network_clamp.BC_20210318_210057_93454042.h5',],
-       ['distgfs.network_clamp.HC_20210317_195312_15879716.h5',
-        'distgfs.network_clamp.HC_20210317_195312_53736785.h5',
-        'distgfs.network_clamp.HC_20210317_195313_28682721.h5',
-        'distgfs.network_clamp.HC_20210317_195313_45419272.h5',
-        'distgfs.network_clamp.HC_20210317_195313_63599789.h5',],
-       ['distgfs.network_clamp.HCC_20210317_195312_12260638.h5',
-        'distgfs.network_clamp.HCC_20210318_210057_17609813.h5',
-        'distgfs.network_clamp.HCC_20210317_195312_33236209.h5',
-        'distgfs.network_clamp.HCC_20210317_195312_71407528.h5',
-        'distgfs.network_clamp.HCC_20210318_210057_92055940.h5',],
-       ['distgfs.network_clamp.IS_20210317_195312_04259860.h5',
-        'distgfs.network_clamp.IS_20210317_195313_11745958.h5',
-        'distgfs.network_clamp.IS_20210317_195313_49627038.h5',
-        'distgfs.network_clamp.IS_20210317_195313_75940072.h5',
-        'distgfs.network_clamp.IS_20210317_195313_84013649.h5',],
+ #      ['distgfs.network_clamp.AAC_20210317_195313_04893658.h5',
+ #       'distgfs.network_clamp.AAC_20210317_195313_27137089.h5',
+ #       'distgfs.network_clamp.AAC_20210317_195313_36010476.h5',
+ #       'distgfs.network_clamp.AAC_20210317_195313_49937004.h5',
+ #       'distgfs.network_clamp.AAC_20210317_195313_53499406.h5',],
+ #      ['distgfs.network_clamp.BC_20210317_195312_52357252.h5',
+ #       'distgfs.network_clamp.BC_20210317_195312_74865768.h5',
+ #       'distgfs.network_clamp.BC_20210317_195313_01503844.h5',
+ #       'distgfs.network_clamp.BC_20210317_195313_28135771.h5',
+ #       'distgfs.network_clamp.BC_20210318_210057_93454042.h5',],
+ #      ['distgfs.network_clamp.HC_20210317_195312_15879716.h5',
+ #       'distgfs.network_clamp.HC_20210317_195312_53736785.h5',
+ #       'distgfs.network_clamp.HC_20210317_195313_28682721.h5',
+ #       'distgfs.network_clamp.HC_20210317_195313_45419272.h5',
+ #       'distgfs.network_clamp.HC_20210317_195313_63599789.h5',],
+ #      ['distgfs.network_clamp.HCC_20210317_195312_12260638.h5',
+ #       'distgfs.network_clamp.HCC_20210318_210057_17609813.h5',
+ #       'distgfs.network_clamp.HCC_20210317_195312_33236209.h5',
+ #       'distgfs.network_clamp.HCC_20210317_195312_71407528.h5',
+ #       'distgfs.network_clamp.HCC_20210318_210057_92055940.h5',],
+ #      ['distgfs.network_clamp.IS_20210317_195312_04259860.h5',
+ #       'distgfs.network_clamp.IS_20210317_195313_11745958.h5',
+ #       'distgfs.network_clamp.IS_20210317_195313_49627038.h5',
+ #       'distgfs.network_clamp.IS_20210317_195313_75940072.h5',
+ #       'distgfs.network_clamp.IS_20210317_195313_84013649.h5',],
        ['distgfs.network_clamp.MOPP_20210317_195312_29079471.h5',
         'distgfs.network_clamp.MOPP_20210317_195312_31571230.h5',
         'distgfs.network_clamp.MOPP_20210317_195313_45373570.h5',
         'distgfs.network_clamp.MOPP_20210317_195313_68839073.h5',
         'distgfs.network_clamp.MOPP_20210317_195313_85763600.h5',],
-       ['distgfs.network_clamp.NGFC_20210317_195312_12740157.h5',
-        'distgfs.network_clamp.NGFC_20210317_195312_95844113.h5',
-        'distgfs.network_clamp.NGFC_20210317_195312_97895890.h5',
-        'distgfs.network_clamp.NGFC_20210317_195313_93872787.h5',
-        'distgfs.network_clamp.NGFC_20210317_195313_96772370.h5',],
+ #      ['distgfs.network_clamp.NGFC_20210317_195312_12740157.h5',
+ #       'distgfs.network_clamp.NGFC_20210317_195312_95844113.h5',
+ #       'distgfs.network_clamp.NGFC_20210317_195312_97895890.h5',
+ #       'distgfs.network_clamp.NGFC_20210317_195313_93872787.h5',
+ #       'distgfs.network_clamp.NGFC_20210317_195313_96772370.h5',],
     ]
 
     distribute_chores(interneuron_opt, fil_dir, Combined=True, prefix=None)
