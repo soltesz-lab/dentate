@@ -8,7 +8,7 @@ import click
 import numpy as np
 from mpi4py import MPI
 import dentate
-from dentate import cells, synapses, spikedata, stimulus, utils, network_clamp
+from dentate import cells, synapses, spikedata, stimulus, optimization, utils, network_clamp
 from dentate.env import Env
 from dentate.neuron_utils import h, configure_hoc_env, make_rec
 import nested
@@ -134,7 +134,7 @@ def config_worker():
         param_ranges = opt_params['Parameter ranges']
     else:
         raise RuntimeError(
-            "optimize_network_subworlds: population %s does not have optimization configuration" % context.population)
+            "optimize_selectivity_subworlds: population %s does not have optimization configuration" % context.population)
 
     def from_param_vector(params):
         result = []

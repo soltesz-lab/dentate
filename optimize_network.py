@@ -61,8 +61,9 @@ def dmosopt_broker_init(broker, *args):
 @click.option("--num-generations", type=int, default=200)
 @click.option("--resample-fraction", type=float)
 @click.option("--collective-mode", type=str, default='gather')
+@click.option("--spawn-startup-wait", type=int, default=30)
 @click.option("--verbose", '-v', is_flag=True)
-def main(config_path, target_features_path, target_features_namespace, optimize_file_dir, optimize_file_name, nprocs_per_worker, n_iter, n_initial, population_size, num_generations, resample_fraction, collective_mode, verbose):
+def main(config_path, target_features_path, target_features_namespace, optimize_file_dir, optimize_file_name, nprocs_per_worker, n_iter, n_initial, population_size, num_generations, resample_fraction, collective_mode, spawn_startup_wait, verbose):
 
     network_args = click.get_current_context().args
     network_config = {}
@@ -118,6 +119,11 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
         resample_fraction = 0.1
     
     # Create an optimizer
+    #feature_names = ['mean_peak_rate', 'mean_trough_rate', 
+    #                 'max_infld_rate', 'min_infld_rate', 'mean_infld_rate', 'mean_outfld_rate', 
+    #                 'mean_peak_state', 'mean_trough_state', 'mean_outfld_state']
+    #feature_dtypes = [(feature_name, np.float32) for feature_name in feature_names]
+    constraint_names = [f'{target_pop_name} positive_rate' for target_pop_name in target_populations ]
     dmosopt_params = {'opt_id': 'dmosopt_optimize_network',
                       'obj_fun_init_name': init_objfun, 
                       'obj_fun_init_module': 'dentate.optimize_network',
@@ -128,6 +134,7 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
                       'problem_parameters': {},
                       'space': hyperprm_space,
                       'objective_names': objective_names,
+                      'constraint_names': constraint_names,
                       'n_initial': n_initial,
                       'n_iter': n_iter,
                       'population_size': population_size,
@@ -142,6 +149,7 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
     #dmosopt_params['broker_module_name'] = 'dentate.optimize_network'
 
     best = dmosopt.run(dmosopt_params, spawn_workers=True, sequential_spawn=False,
+                       spawn_startup_wait=spawn_startup_wait,
                        nprocs_per_worker=nprocs_per_worker,
                        collective_mode=collective_mode,
                        verbose=True, worker_debug=True)
@@ -228,6 +236,7 @@ def network_objfun(env, operational_config, opt_targets,
 def compute_objectives(features, operational_config, opt_targets):
 
     all_features = {}
+    constraints = []
     
     target_populations = operational_config['target_populations']
     for pop_name in target_populations:
@@ -260,6 +269,7 @@ def compute_objectives(features, operational_config, opt_targets):
         else:
             mean_rate = 0.
 
+
         if n_total > 0:
             fraction_active = n_active / n_total
         else:
@@ -277,6 +287,9 @@ def compute_objectives(features, operational_config, opt_targets):
         if mean_target_rate_dist_residual is not None:
             all_features['%s target rate dist residual' % pop_name] = mean_target_rate_dist_residual
 
+        rate_constr = mean_rate if mean_rate > 0. else -1. 
+        constraints.append(rate_constr)
+
     objective_names = operational_config['objective_names']
     target_vals = opt_targets
     target_ranges = opt_targets
@@ -291,7 +304,7 @@ def compute_objectives(features, operational_config, opt_targets):
             logger.info(f'objective {key}: {objective} feature: {feature_val}')
         objectives.append(objective)
 
-    result = np.asarray(objectives)
+    result = (np.asarray(objectives), np.asarray(constraints, dtype=np.float32))
 
     return {0: result}
 

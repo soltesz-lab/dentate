@@ -17,8 +17,8 @@ ml load intel19
 set -x
 
 export FI_MLX_ENABLE_SPAWN=yes
-#export NEURONROOT=$HOME/bin/nrnpython3
-#export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
+export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
 #export PATH=$NEURONROOT/x86_64/bin:$PATH
 export MODEL_HOME=/scratch1/04119/pmoolcha/HDM
 export DG_HOME=$MODEL_HOME/dentate
@@ -28,8 +28,8 @@ export RAIKOVSCRATCH=/scratch1/03320/iraikov
 #cd $SLURM_SUBMIT_DIR
 
 if test "$2" == ""; then
-ibrun python3 network_clamp.py optimize  -c 20201022_Network_Clamp_GC_Exc_Sat_SLN_IN_Izh_extent.yaml \
-    -p MC -g 1000000 -g 1007500 -g 1015000 -g 1022500 -g 1029999 \
+ibrun -n 2 python3 network_clamp.py optimize  -c 20201022_Network_Clamp_GC_Exc_Sat_SLN_IN_Izh_extent.yaml \
+    -p MC -g 1000018 \
     -t 950 --dt 0.001 --n-trials 2 --trial-regime best \
     --template-paths $DG_HOME/templates:$MODEL_HOME/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $RAIKOVSCRATCH/striped/dentate \

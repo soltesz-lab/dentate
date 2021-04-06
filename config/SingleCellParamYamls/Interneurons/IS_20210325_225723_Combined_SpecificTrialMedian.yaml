@@ -1,0 +1,10 @@
+{IS: {1049650: [[IS, GC, [soma, basal, apical], AMPA, weight, 2.7507753372192383],
+      [IS, IS, [apical, basal, soma], GABA_A, weight, 1.4087646007537842]], 1050400: [
+      [IS, GC, [soma, basal, apical], AMPA, weight, 3.364316463470459], [IS, IS, [
+          apical, basal, soma], GABA_A, weight, 1.335313320159912]], 1051150: [[IS,
+        GC, [soma, basal, apical], AMPA, weight, 2.9706737995147705], [IS, IS, [apical,
+          basal, soma], GABA_A, weight, 1.351787805557251]], 1051900: [[IS, GC, [
+          soma, basal, apical], AMPA, weight, 3.268585205078125], [IS, IS, [apical,
+          basal, soma], GABA_A, weight, 1.17960786819458]], 1052649: [[IS, GC, [soma,
+          basal, apical], AMPA, weight, 2.3202672004699707], [IS, IS, [apical, basal,
+          soma], GABA_A, weight, 0.7643123865127563]]}}

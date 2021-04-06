@@ -1303,7 +1303,10 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
     tstop = (env.tstop + equilibration_duration)*float(env.n_trials)
 
     if (env.checkpoint_interval is not None):
-        tsegments = np.concatenate((np.arange(0, tstop, env.checkpoint_interval)[1:], np.asarray([tstop])))
+        if env.checkpoint_interval > 1.:
+            tsegments = np.concatenate((np.arange(0, tstop, env.checkpoint_interval)[1:], np.asarray([tstop])))
+        else:
+            raise RuntimeError("Invalid checkpoint interval length")
     else:
         tsegments = np.asarray([tstop])
 

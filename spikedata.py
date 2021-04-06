@@ -122,22 +122,28 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
         logger.info('Read spike cell attributes for population %s...' % pop_name)
 
         # Time Range
-        if time_range is None or time_range[1] is None:
-            for spkind, spkts in spkiter:
-                is_artificial_flag = spkts.get(artificial_attr, None)
-                is_artificial = (is_artificial_flag[0] > 0) if is_artificial_flag is not None else None
-                if is_artificial is not None:
-                    if is_artificial and (not include_artificial):
-                        continue
-                slen = len(spkts[spike_train_attr_name])
-                trial_dur = spkts.get(trial_dur_attr, np.asarray([0.]))
-                trial_ind = spkts.get(trial_index_attr, np.zeros((slen,),dtype=np.uint8))
-                if n_trials == -1:
-                    n_trials = len(set(trial_ind))
-                for spk_i, spkt in enumerate(spkts[spike_train_attr_name]):
+        if time_range is not None:
+            if time_range[0] is None:
+                time_range[0] = 0.0
+
+        for spkind, spkattrs in spkiter:
+            is_artificial_flag = spkattrs.get(artificial_attr, None)
+            is_artificial = (is_artificial_flag[0] > 0) if is_artificial_flag is not None else None
+            if is_artificial is not None:
+                if is_artificial and (not include_artificial):
+                    continue
+            slen = len(spkattrs[spike_train_attr_name])
+            trial_dur = spkattrs.get(trial_dur_attr, np.asarray([0.]))
+            trial_ind = spkattrs.get(trial_index_attr, np.zeros((slen,),dtype=np.uint8))
+            if n_trials == -1:
+                n_trials = len(set(trial_ind))
+            for spk_i, spkt in enumerate(spkattrs[spike_train_attr_name]):
                     trial_i = trial_ind[spk_i]
                     if trial_i >= n_trials:
                         continue
+                    if time_range is not None:
+                       if not ((spkt >= time_range[0]) and (spkt <= time_range[1])):
+                           continue
                     if merge_trials:
                         spkt += np.sum(trial_dur[:trial_i])
                     pop_spkindlst.append(spkind)
@@ -149,38 +155,6 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
                         tmax = spkt
                     this_num_cell_spks += 1
                     active_set.add(spkind)
-        else:
-            if time_range[0] is None:
-                time_range[0] = 0.0
-            time_span = time_range[1] - time_range[0]
-            for spkind, spkts in spkiter:
-                is_artificial_flag = spkts.get(artificial_attr, None)
-                is_artificial = (is_artificial_flag[0] > 0) if is_artificial_flag is not None else None
-                if is_artificial is not None:
-                    if is_artificial and (not include_artificial):
-                        continue
-                trial_dur = spkts.get(trial_dur_attr, np.asarray([0.]))
-                trial_dur[1:] = np.asarray([max(x, time_span) for x in trial_dur[1:] ],
-                                           dtype=np.float32)
-                trial_ind = spkts.get(trial_index_attr, np.zeros((len(spkts[spike_train_attr_name])),dtype=np.int))
-                if n_trials == -1:
-                    n_trials = trial_dur.shape[0]
-                for spk_i, spkt in enumerate(spkts[spike_train_attr_name]):
-                    trial_i = trial_ind[spk_i]
-                    if trial_i >= n_trials:
-                        continue
-                    if time_range[0] <= spkt <= time_range[1]:
-                        if merge_trials:
-                            spkt += np.sum(trial_dur[:trial_i])
-                        pop_spkindlst.append(spkind)
-                        pop_spktlst.append(spkt)
-                        pop_spktriallst.append(trial_i)
-                        if spkt < tmin:
-                            tmin = spkt
-                        if spkt > tmax:
-                            tmax = spkt
-                        this_num_cell_spks += 1
-                        active_set.add(spkind)
 
         pop_active_cells[pop_name] = active_set
         num_cell_spks[pop_name] = this_num_cell_spks

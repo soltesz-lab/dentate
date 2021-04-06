@@ -9,10 +9,10 @@ import click
 import numpy as np
 import h5py
 from mpi4py import MPI
-from neuroh5.io import scatter_read_cell_attribute_selection, read_cell_attribute_info
+from neuroh5.io import scatter_read_cell_attribute_selection, read_cell_attribute_info, append_cell_attributes
 from collections import defaultdict, namedtuple
 import dentate
-from dentate import network, network_clamp, synapses, spikedata, stimulus, utils, optimization
+from dentate import network, network_clamp, synapses, spikedata, stimulus, utils, io_utils, optimization
 from dentate.env import Env
 from dentate.utils import read_from_yaml, write_to_yaml, list_find, viewitems, get_module_logger, config_logging
 from dentate.optimization import (SynParam, syn_param_from_dict, optimization_params, 
@@ -150,7 +150,7 @@ def main(config_path, params_id, n_samples, target_features_path, target_feature
             result.append((param_tuple, x[i]))
         return result
 
-    eval_network(env, from_param_list, network_param_spec, network_param_values, params_id,
+    eval_network(env, network_config, from_param_list, network_param_spec, network_param_values, params_id,
                  target_trj_rate_map_dict, t_start, t_stop, 
                  target_populations, output_path)
 
@@ -239,7 +239,7 @@ def init_network(comm, kwargs):
     return env
 
 
-def eval_network(env, from_param_list, network_params, network_param_values, params_id, target_trj_rate_map_dict, t_start, t_stop, target_populations, output_path):
+def eval_network(env, network_config, from_param_list, network_params, network_param_values, params_id, target_trj_rate_map_dict, t_start, t_stop, target_populations, output_path):
 
     x = network_param_values[params_id]
     param_tuple_values = from_param_list(x)
@@ -248,8 +248,14 @@ def eval_network(env, from_param_list, network_params, network_param_values, par
         logger.info("*** Updating network parameters ...")
     update_network_params(env, param_tuple_values)
 
+    env.checkpoint_clear_data = False
+    env.checkpoint_interval = None
     env.tstop = t_stop
-    network.run(env, output=False, shutdown=False)
+    network.run(env, output=network_config.get('output_results', False), shutdown=False)
+
+    for pop_name in target_trj_rate_map_dict:
+        append_cell_attributes(env.results_file_path, pop_name, target_trj_rate_map_dict[pop_name], 
+                               namespace='Target Trajectory Rate Map', comm=env.comm, io_size=env.io_size)
 
     local_features = network_features(env, target_trj_rate_map_dict, t_start, t_stop, target_populations)
     return collect_network_features(env, local_features, target_populations, output_path, params_id, param_tuple_values)

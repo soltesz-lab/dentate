@@ -1,0 +1,15 @@
+{NGFC: {1044650: [[NGFC, [HC, NGFC, MOPP], [apical, basal, soma], GABA_A, weight,
+        0.017833242192864418], [NGFC, [MPP, LPP], [soma, basal, apical], AMPA, weight,
+        0.9328660368919373], [NGFC, NGFC, [apical, basal, soma], GABA_B, weight, 0.5962674021720886]],
+    1045900: [[NGFC, [HC, NGFC, MOPP], [apical, basal, soma], GABA_A, weight, 0.017833242192864418],
+      [NGFC, [MPP, LPP], [soma, basal, apical], AMPA, weight, 0.9328660368919373],
+      [NGFC, NGFC, [apical, basal, soma], GABA_B, weight, 0.5962674021720886]], 1047150: [
+      [NGFC, [HC, NGFC, MOPP], [apical, basal, soma], GABA_A, weight, 0.017833242192864418],
+      [NGFC, [MPP, LPP], [soma, basal, apical], AMPA, weight, 0.9328660368919373],
+      [NGFC, NGFC, [apical, basal, soma], GABA_B, weight, 0.5962674021720886]], 1048400: [
+      [NGFC, [HC, NGFC, MOPP], [apical, basal, soma], GABA_A, weight, 0.017833242192864418],
+      [NGFC, [MPP, LPP], [soma, basal, apical], AMPA, weight, 0.9328660368919373],
+      [NGFC, NGFC, [apical, basal, soma], GABA_B, weight, 0.5962674021720886]], 1049640: [
+      [NGFC, [HC, NGFC, MOPP], [apical, basal, soma], GABA_A, weight, 0.017833242192864418],
+      [NGFC, [MPP, LPP], [soma, basal, apical], AMPA, weight, 0.9328660368919373],
+      [NGFC, NGFC, [apical, basal, soma], GABA_B, weight, 0.5962674021720886]]}}

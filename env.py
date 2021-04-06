@@ -147,9 +147,10 @@ class Env(object):
         self.hoc_lib_path = hoc_lib_path
 
         # Checkpoint interval in ms of simulation time
-        self.checkpoint_clear_data = checkpoint_clear_data
+        self.checkpoint_clear_data = False
         self.last_checkpoint = 0.
         if checkpoint_interval > 0.:
+            self.checkpoint_clear_data = checkpoint_clear_data
             self.checkpoint_interval = max(float(checkpoint_interval), 1.0)
         else:
             self.checkpoint_interval = None
@@ -832,6 +833,7 @@ class Env(object):
 
 
     def clear(self):
+        self.synapse_attributes.clear()
         self.gidset = set([])
         self.gjlist = []
         self.cells = defaultdict(dict)

@@ -29,7 +29,6 @@ def set_union(s, t, datatype):
 
 mpi_op_set_union = MPI.Op.Create(set_union, commute=True)
 
-
 def mpi_excepthook(type, value, traceback):
     """
 
@@ -153,7 +152,7 @@ def init_inputs_from_spikes(env, presyn_sources, time_range,
 
 def init_inputs_from_features(env, presyn_sources, time_range,
                               input_features_path, input_features_namespaces,
-                              arena_id, trajectory_id, spike_train_attr_name='t', n_trials=1):
+                              arena_id, trajectory_id, spike_train_attr_name='t', n_trials=1, seed=None):
     """Initializes presynaptic spike sources from a file with input selectivity features represented as firing rates."""
 
     populations = sorted(presyn_sources.keys())
@@ -217,7 +216,8 @@ def init_inputs_from_features(env, presyn_sources, time_range,
                                                                              return_selectivity_features=False,
                                                                              merge_trials=True,
                                                                              time_range=time_range,
-                                                                             comm=env.comm)
+                                                                             comm=env.comm,
+                                                                             seed=seed)
                 spikes_attr_dict[gid][spike_train_attr_name] += equilibration_duration
 
         input_source_dict[pop_index] = {'spiketrains': spikes_attr_dict}
@@ -230,7 +230,7 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
          spike_events_path=None, spike_events_namespace='Spike Events', spike_train_attr_name='t',
          input_features_path=None, input_features_namespaces=None, 
          generate_weights_pops=set([]), t_min=None, t_max=None, write_cell=False, plot_cell=False,
-         cooperative_init=False, worker=None):
+         input_seed=None, cooperative_init=False, worker=None):
     """
     Instantiates a cell and all its synapses and connections and loads
     or generates spike times for all synaptic connections.
@@ -241,10 +241,6 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
     :param spike_events_path:
 
     """
-
-
-    if env.results_file_path is not None:
-        io_utils.mkout(env, env.results_file_path)
 
     if env.cell_selection is None:
         env.cell_selection = {}
@@ -348,7 +344,8 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
             elif input_features_path is not None:
                 input_source_dict = init_inputs_from_features(env, presyn_sources, t_range,
                                                               input_features_path, input_features_namespaces,
-                                                              arena_id, trajectory_id, spike_train_attr_name, n_trials)
+                                                              arena_id, trajectory_id, spike_train_attr_name, n_trials,
+                                                              seed=input_seed)
             else:
                 raise RuntimeError('network_clamp.init: neither input spikes nor input features are provided')
             req = worker.merged_comm.isend(input_source_dict, tag=InitMessageTag['input'].value, dest=0)
@@ -729,6 +726,12 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
     state_recs_dict = {}
     for gid in my_cell_index_set:
         state_recs_dict[gid] = record_cell(env, population, gid, recording_profile=recording_profile)
+
+    target_v_threshold = opt_targets[f'{population} state']['v'].get('threshold', None)
+    if target_v_threshold is None:
+        raise RuntimeError(f'network_clamp: network clamp optimization configuration for population {population} '
+                           f'must have state variable v threshold setting in section Targets')
+
     
     def from_param_dict(params_dict):
         result = []
@@ -756,7 +759,7 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
 
         return rates_dict
     
-    def gid_state_values(spkdict, t_offset, n_trials, t_rec, state_recs_dict):
+    def gid_mean_v(t_offset, v_threshold, n_trials, t_rec, state_recs_dict):
         t_vec = np.asarray(t_rec.to_python(), dtype=np.float32)
         t_trial_inds = get_trial_time_indices(t_vec, n_trials, t_offset)
         results_dict = {}
@@ -765,19 +768,25 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
             state_recs = state_recs_dict[gid]
             for rec in state_recs:
                 vec = np.asarray(rec['vec'].to_python(), dtype=np.float32)
-                data = np.asarray([ np.mean(vec[t_inds]) for t_inds in t_trial_inds ])
-                state_values.append(np.mean(data))
+                data = np.asarray([ np.mean(np.clip(vec[t_inds], None, v_threshold)) for t_inds in t_trial_inds ])
+                state_values.append(data)
             results_dict[gid] = state_values
         return results_dict
 
     def mean_rate_diff(gid, rates, target_rate):
-
-        mean_rate = np.mean(np.asarray(rates))
+        rates_array = np.asarray(rates)
+        nz_idxs = np.argwhere(np.logical_not(np.isclose(rates_array, 0., rtol=1e-4, atol=1e-4)))
+        mean_rate = 0.
+        if len(nz_idxs) > 0:
+            mean_rate = np.mean(rates_array[nz_idxs])
         return abs(mean_rate - target_rate)
 
     def best_rate_diff(gid, rates, target_rate):
-
-        max_rate = np.max(np.asarray(rates))
+        rates_array = np.asarray(rates)
+        nz_idxs = np.argwhere(np.logical_not(np.isclose(rates_array, 0., rtol=1e-4, atol=1e-4)))
+        max_rate = 0.
+        if len(nz_idxs) > 0:
+            max_rate = np.max(rates_array[nz_idxs])
         return abs(max_rate - target_rate)
 
 
@@ -786,9 +795,8 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
                                      {gid: from_param_dict(cell_param_dict[gid]) 
                                           for gid in my_cell_index_set}})
         firing_rates_dict = gid_firing_rate(spkdict, my_cell_index_set)
-        state_values_dict = gid_state_values(spkdict, equilibration_duration, 
-                                             n_trials, env.t_rec, 
-                                             state_recs_dict)
+        mean_v_dict = gid_mean_v(equilibration_duration, target_v_threshold,
+                                 n_trials, env.t_rec, state_recs_dict)
         if trial_regime == 'mean':
             objectives_dict = { gid: -mean_rate_diff(gid, firing_rates_dict[gid], target_rate) for gid in my_cell_index_set }
         elif trial_regime == 'best':
@@ -806,11 +814,19 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
 
         for gid in my_cell_index_set:
             feature_array = np.empty(shape=(1,), dtype=np.dtype(opt_rate_feature_dtypes))
-            feature_array['mean_rate'] = np.mean(np.asarray(firing_rates_dict[gid]))
+            rates_array = np.asarray(firing_rates_dict[gid]) 
+            nz_idxs = np.argwhere(np.logical_not(np.isclose(rates_array, 0., rtol=1e-4, atol=1e-4)))
+            feature_array['mean_rate'] = 0.
+            if len(nz_idxs) > 0:
+                feature_array['mean_rate'] = np.mean(rates_array[nz_idxs])
             for i in range(N_objectives):
-                feature_array['trial_objs'][i,:] = np.asarray(firing_rates_dict[gid]) 
-            feature_array['mean_v'][i,:] = np.asarray(state_values_dict[gid]) 
+                feature_array['trial_objs'][i,:] = rates_array
+            feature_array['mean_v'] = mean_v_dict[gid]
             features_dict[gid] = feature_array
+
+        for gid in my_cell_index_set:
+            if np.mean(features_dict[gid]['mean_v']) >= target_v_threshold:
+                objectives_dict[gid] -= 1e6
 
         return objectives_dict, features_dict
     
@@ -848,7 +864,7 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
 
 
     target_rate_vector_dict = rate_maps_from_features (env, population, target_features_path, target_features_namespace, my_cell_index_set,
-                                                       time_range=None, n_trials=n_trials, arena_id=arena_id)
+                                                       time_range=None, arena_id=arena_id)
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
         target_rate_vector[np.isclose(target_rate_vector, 0., atol=1e-3, rtol=1e-3)] = 0.
 
@@ -1036,12 +1052,21 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
     
 
     
-def dist_ctrl(controller, init_params, cell_index_set):
+def dist_ctrl(controller, init_params, cell_index_set, param_path, pop_param_tuple_dicts):
     """Controller for distributed network clamp runs."""
     task_ids = []
-    for gid in cell_index_set:
+    results_file_id = init_params.get("results_file_id", None)
+    if len(param_path) > 0:
+        for this_param_path, pop_param_tuple_dict in zip(param_path, pop_param_tuple_dicts):
+            params_basename = os.path.splitext(os.path.basename(this_param_path))[0]
+            this_results_file_id = f'{results_file_id}_{params_basename}'
+            task_id = controller.submit_call("dist_run", module_name="dentate.network_clamp",
+                                             args=(init_params, cell_index_set,
+                                                   this_results_file_id, pop_param_tuple_dict))
+            task_ids.append(task_id)
+    else:
         task_id = controller.submit_call("dist_run", module_name="dentate.network_clamp",
-                                         args=(init_params, gid,))
+                                         args=(init_params, cell_index_set, None, None))
         task_ids.append(task_id)
 
     for task_id in task_ids: 
@@ -1051,13 +1076,14 @@ def dist_ctrl(controller, init_params, cell_index_set):
 
     
     
-def dist_run(init_params, gid):
+def dist_run(init_params, cell_index_set, results_file_id=None, pop_param_tuple_dict=None):
     """Initialize workers for distributed network clamp runs."""
 
-    results_file_id = init_params.get('results_file_id', None)
+    if results_file_id is None:
+        results_file_id = init_params.get('results_file_id', None)
     if results_file_id is None:
         population = init_params['population']
-        results_file_id = generate_results_file_id(population, gid)
+        results_file_id = generate_results_file_id(population, seed=init_params.get("opt_seed", None))
         init_params['results_file_id'] = results_file_id
 
     global env
@@ -1081,23 +1107,34 @@ def dist_run(init_params, gid):
     t_min = init_params['t_min']
     t_max = init_params['t_max']
     n_trials = init_params['n_trials']
+    input_seed = init_params.get('input_seed', None)
     
-    init(env, population, set([gid]), arena_id, trajectory_id, n_trials,
+    init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
          spike_events_path, spike_events_namespace=spike_events_namespace, 
          spike_train_attr_name=spike_events_t,
          input_features_path=input_features_path,
          input_features_namespaces=input_features_namespaces,
          generate_weights_pops=set(generate_weights),
+         input_seed=input_seed,
          t_min=t_min, t_max=t_max)
 
-    run(env)
-    write_output(env)
+    if pop_param_tuple_dict is not None:
+        run_with(env, pop_param_tuple_dict)
+        write_output(env)
+        write_params(env, pop_param_tuple_dict)
+    else:
+        run(env)
+        write_output(env)
 
     return None
     
 
 def write_output(env):
     rank = env.comm.rank
+    if rank == 0:
+        io_utils.mkout(env, env.results_file_path)
+    env.comm.barrier()
+
     if rank == 0:
         logger.info("*** Writing spike data")
     io_utils.spikeout(env, env.results_file_path)
@@ -1118,23 +1155,23 @@ def write_params(env, pop_params_dict):
     rank = env.comm.rank
     if rank == 0:
         logger.info("*** Writing synapse parameters")
-    params_array_dict = {}
-    for this_pop_name, this_pop_param_dict in viewitems(pop_params_dict):
-        this_pop_params_array_dict = {}
-        for this_gid, this_gid_param_list in viewitems(this_pop_param_dict):
-            param_tuples = []
-            for this_gid_param in this_gid_param_list:
-                population, source, sec_type, syn_name, param_path, param_val = this_gid_param
-                param_tuples.append([("population", population),
-                                     ("source", source),
-                                     ("sec_type", sec_type),
-                                     ("syn_name", syn_name),
-                                     ("param_path", param_path),
-                                     ("param_val", param_val)])
-            param_array = np.array(param_tuples)
-            this_pop_params_array_dict[this_gid] = param_array
-        params_array_dict[this_pop_name] = this_pop_params_array_dict
-    io_utils.write_params( env.results_file_path, params_array_dict)
+        output_pop_params_dict = {}
+        for this_pop_name, this_pop_param_dict in viewitems(pop_params_dict):
+            this_pop_output_params_dict = {}
+            for this_gid, this_gid_param_list in viewitems(this_pop_param_dict):
+                this_gid_param_dicts = []
+                for this_gid_param in this_gid_param_list:
+                    syn_param, param_val = this_gid_param
+                    this_gid_param_dicts.append({"population" : syn_param.population,
+                                                 "source": syn_param.source,
+                                                 "sec_type": syn_param.sec_type,
+                                                 "syn_name": syn_param.syn_name,
+                                                 "param_path": syn_param.param_path,
+                                                 "param_val" : float(param_val)})
+                this_pop_output_params_dict[this_gid] = this_gid_param_dicts
+            output_pop_params_dict[this_pop_name] = this_pop_output_params_dict
+        io_utils.write_params( env.results_file_path, output_pop_params_dict)
+    env.comm.barrier()
 
 @click.group()
 def cli():
@@ -1252,14 +1289,14 @@ def show(config_file, population, gid, arena_id, trajectory_id, template_paths, 
 @click.option('--write-cell', is_flag=True, help='write out selected cell tree morphology and connections')
 @click.option('--profile-memory', is_flag=True, help='calculate and print heap usage after the simulation is complete')
 @click.option('--recording-profile', type=str, default='Network clamp default', help='recording profile to use')
-@click.option("--opt-seed", type=int, help='seed for random sampling of optimization parameters')
+@click.option("--input-seed", type=int, help='seed for generation of spike trains')
 
 def go(config_file, population, dt, gids, gid_selection_file, arena_id, trajectory_id, generate_weights, t_max, t_min,
        template_paths, dataset_prefix, config_prefix,
        spike_events_path, spike_events_namespace, spike_events_t,
        input_features_path, input_features_namespaces, n_trials, params_path,
        results_path, results_file_id, results_namespace_id, use_coreneuron,
-       plot_cell, write_cell, profile_memory, recording_profile, opt_seed):
+       plot_cell, write_cell, profile_memory, recording_profile, input_seed):
 
     """
     Runs network clamp simulation for the specified gid, or for all gids found in the input data file.
@@ -1274,8 +1311,32 @@ def go(config_file, population, dt, gids, gid_selection_file, arena_id, trajecto
     init_params['verbose'] = verbose
     config_logging(verbose)
 
+    if len(params_path) > 0:
+        for this_params_path in params_path:
+            pop_params_dict = read_from_yaml(this_params_path)
 
-    
+    pop_params_tuple_dicts = None
+    if rank == 0:
+        if results_file_id is None:
+            results_file_id = generate_results_file_id(population, seed=input_seed)
+        if len(params_path) > 0:
+            pop_params_tuple_dicts = []
+            for this_params_path in params_path:
+                pop_params_dict = read_from_yaml(this_params_path)
+                pop_params_tuple_dict = {}
+                for this_pop_name, this_pop_param_dict in viewitems(pop_params_dict):
+                    this_pop_params_tuple_dict = defaultdict(list)
+                    for this_gid, this_gid_param_list in viewitems(this_pop_param_dict):
+                        for this_gid_param in this_gid_param_list:
+                            this_population, source, sec_type, syn_name, param_path, param_val = this_gid_param
+                            syn_param = SynParam(this_population, source, sec_type, syn_name, param_path, None)
+                            this_pop_params_tuple_dict[this_gid].append((syn_param, param_val))
+                    pop_params_tuple_dict[this_pop_name] = dict(this_pop_params_tuple_dict)
+                pop_params_tuple_dicts.append(pop_params_tuple_dict)
+    results_file_id = comm.bcast(results_file_id, root=0)
+    init_params['results_file_id'] = results_file_id
+    pop_params_tuple_dicts = comm.bcast(pop_params_tuple_dicts, root=0)
+
     cell_index_set = set([])
     if gid_selection_file is not None:
         with open(gid_selection_file, 'r') as f:
@@ -1300,47 +1361,38 @@ def go(config_file, population, dt, gids, gid_selection_file, arena_id, trajecto
         cell_index_set = comm.bcast(cell_index_set, root=0)
         comm.barrier()
         comm0.Free()
-
+        
     if size > 1:
         import distwq
         if distwq.is_controller:
             distwq.run(fun_name="dist_ctrl", module_name="dentate.network_clamp",
-                       verbose=True, args=(init_params, cell_index_set),
+                       verbose=True, args=(init_params, cell_index_set, params_path, pop_params_tuple_dicts),
                        spawn_workers=True, nprocs_per_worker=1)
 
         else:
             distwq.run(verbose=True, spawn_workers=True, nprocs_per_worker=1)
     else:
-        if results_file_id is None:
-            results_file_id = generate_results_file_id(population, gid, opt_seed)
-        init_params['results_file_id'] = results_file_id
         env = Env(**init_params, comm=comm)
         configure_hoc_env(env)
-        for gid in cell_index_set:
-            init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
-                 spike_events_path, spike_events_namespace=spike_events_namespace,
-                 spike_train_attr_name=spike_events_t,
-                 input_features_path=input_features_path,
-                 input_features_namespaces=input_features_namespaces,
-                 generate_weights_pops=set(generate_weights),
-                 t_min=t_min, t_max=t_max,
-                 plot_cell=plot_cell, write_cell=write_cell)
-            if len(params_path) > 0:
-                for this_params_path in params_path:
-                    pop_params_dict = read_from_yaml(this_params_path)
-                    pop_params_tuple_dict = {}
-                    for this_pop_name, this_pop_param_dict in viewitems(pop_params_dict):
-                        this_pop_params_tuple_dict = defaultdict(list)
-                        for this_gid, this_gid_param_list in viewitems(this_pop_param_dict):
-                            for this_gid_param in this_gid_param_list:
-                                population, source, sec_type, syn_name, param_path, param_val = this_gid_param
-                                syn_param = SynParam(population, source, sec_type, syn_name, param_path, None)
-                                this_pop_params_tuple_dict[this_gid].append((syn_param, param_val))
-                        pop_params_tuple_dict[this_pop_name] = dict(this_pop_params_tuple_dict)
-                    run_with(env, pop_params_tuple_dict)
-                    write_params(env, pop_params_dict)
-            else:
-                run(env)
+        init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
+             spike_events_path, spike_events_namespace=spike_events_namespace,
+             spike_train_attr_name=spike_events_t,
+             input_features_path=input_features_path,
+             input_features_namespaces=input_features_namespaces,
+             generate_weights_pops=set(generate_weights),
+             t_min=t_min, t_max=t_max,
+             input_seed=input_seed,
+             plot_cell=plot_cell, write_cell=write_cell)
+        if pop_params_tuple_dicts is not None:
+            for this_params_path, pop_params_tuple_dict in zip(params_path, pop_params_tuple_dicts):
+                params_basename = os.path.splitext(os.path.basename(this_params_path))[0]
+                env.results_file_id = f'{results_file_id}_{params_basename}'
+                env.results_file_path = f'{env.results_path}/{env.modelName}_results_{env.results_file_id}.h5'
+                run_with(env, pop_params_tuple_dict)
+                write_output(env)
+                write_params(env, pop_params_tuple_dict)
+        else:
+            run(env)
             write_output(env)
         if env.profile_memory:
             profile_memory(logger)

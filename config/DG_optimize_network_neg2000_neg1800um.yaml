@@ -16,7 +16,7 @@ objective_names:
 target_populations: ['GC', 'MC', 'AAC', 'BC', 'HC', 'HCC', 'IS', 'MOPP', 'NGFC']
 kwargs:
   config_file: Network_Clamp_Slice_neg2000_neg1800um_IN_Izh.yaml
-  tstop: 9500.
+  tstop: 2500.
   checkpoint_interval: 0.
   v_init: -77.
   vrecord_fraction: 0.05
