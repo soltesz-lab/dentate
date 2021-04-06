@@ -774,13 +774,19 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
         return results_dict
 
     def mean_rate_diff(gid, rates, target_rate):
-
-        mean_rate = np.mean(np.asarray(rates))
+        rates_array = np.asarray(rates)
+        nz_idxs = np.argwhere(np.logical_not(np.isclose(rates_array, 0., rtol=1e-4, atol=1e-4)))
+        mean_rate = 0.
+        if len(nz_idxs) > 0:
+            mean_rate = np.mean(rates_array[nz_idxs])
         return abs(mean_rate - target_rate)
 
     def best_rate_diff(gid, rates, target_rate):
-
-        max_rate = np.max(np.asarray(rates))
+        rates_array = np.asarray(rates)
+        nz_idxs = np.argwhere(np.logical_not(np.isclose(rates_array, 0., rtol=1e-4, atol=1e-4)))
+        max_rate = 0.
+        if len(nz_idxs) > 0:
+            max_rate = np.max(rates_array[nz_idxs])
         return abs(max_rate - target_rate)
 
 
@@ -808,11 +814,14 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
 
         for gid in my_cell_index_set:
             feature_array = np.empty(shape=(1,), dtype=np.dtype(opt_rate_feature_dtypes))
-            feature_array['mean_rate'] = np.mean(np.asarray(firing_rates_dict[gid]))
+            rates_array = np.asarray(firing_rates_dict[gid]) 
+            nz_idxs = np.argwhere(np.logical_not(np.isclose(rates_array, 0., rtol=1e-4, atol=1e-4)))
+            feature_array['mean_rate'] = 0.
+            if len(nz_idxs) > 0:
+                feature_array['mean_rate'] = np.mean(rates_array[nz_idxs])
             for i in range(N_objectives):
-                feature_array['trial_objs'][i,:] = np.asarray(firing_rates_dict[gid]) 
-            for i in range(n_trials):
-                feature_array['mean_v'] = mean_v_dict[gid]
+                feature_array['trial_objs'][i,:] = rates_array
+            feature_array['mean_v'] = mean_v_dict[gid]
             features_dict[gid] = feature_array
 
         for gid in my_cell_index_set:
