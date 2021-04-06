@@ -100,7 +100,7 @@ Synapses:
             dur_onset: 0.5
             tau_offset: 9.0
             e: -75
-            g_unit: 0.003
+            g_unit: 0.001
             weight: 1.0
         soma:
           GABA_A:
@@ -120,7 +120,7 @@ Synapses:
           dur_onset: 1.5
           tau_offset: 9.0
           e: -75
-          g_unit: 0.003
+          g_unit: 0.001
           weight: 1.0
     HC:   
       type: inhibitory
@@ -133,7 +133,7 @@ Synapses:
           dur_onset: 2.5
           tau_offset: 10.0
           e: -75
-          g_unit: 0.003
+          g_unit: 0.001
           weight: 1.0
     NGFC: 
       type: inhibitory
@@ -153,7 +153,7 @@ Synapses:
             dur_onset:  50.0
             tau_offset: 200.0
             e:   -80
-            g_unit: 0.003
+            g_unit: 0.001
             weight: 1.0
     MOPP: 
       type: inhibitory
@@ -166,7 +166,7 @@ Synapses:
           dur_onset:  6.0
           tau_offset: 15.0
           e:   -75
-          g_unit: 0.004
+          g_unit: 0.001
           weight: 1.0
   MC:
     GC:   

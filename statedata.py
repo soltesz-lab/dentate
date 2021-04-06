@@ -130,7 +130,7 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', st
                         state_dict[cellind] = { time_variable: np.split(tvals, trial_bounds_unique[1:n_trials]),
                                                 'distance': distance, 'section': section, 'loc': loc, 'ri': ri }
                         for i, state_variable in enumerate(state_variables):
-                            state_dict[cellind][state_variable] = np.split(svals[i], trial_bounds_unique[1:n_trials]),
+                            state_dict[cellind][state_variable] = np.split(svals[i], trial_bounds_unique[1:n_trials])
                     else:
                         state_dict[cellind] = { time_variable: [tvals[:trial_bounds_unique[1]]],
                                                 'distance': distance, 'section': section, 'loc': loc, 'ri': ri }

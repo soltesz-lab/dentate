@@ -39,6 +39,7 @@ Selectivity Optimization:
             AMPA:
               weight:
                 a: 0.0
+                b: 0.0
   MC:
     Structured weights masks:
       CA3c:
@@ -47,6 +48,7 @@ Selectivity Optimization:
             AMPA:
               weight:
                 a: 0.0
+                b: 0.0
 Synaptic Optimization:
   GC:
     Parameter ranges:
@@ -597,7 +599,7 @@ Synaptic Optimization:
     Targets:
       state:
         v:
-          threshold: -43.1
+          threshold: -43.2
       firing rate: 21.0
       fraction active: 0.9
     Parameter ranges:
