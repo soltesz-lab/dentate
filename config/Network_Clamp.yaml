@@ -953,7 +953,7 @@ Synaptic Optimization:
         HC:
           apical:
             GABA_A:
-              weight: [0.01, 0.1]
+              weight: [0.01, 1.0]
         IS:
           !!python/tuple [apical, soma]:
             GABA_A:
@@ -962,11 +962,11 @@ Synaptic Optimization:
         HC:
           apical:
             GABA_A:
-              weight: [0.01, 0.1]
+              weight: [0.01, 1.0]
         IS:
           !!python/tuple [apical, soma]:
             GABA_A:
-              weight: [0.01, 0.1]
+              weight: [0.01, 1.0]
       Weight exc inh microcircuit:
         !!python/tuple [GC, MC, CA3c]:
           !!python/tuple [soma, apical]:
