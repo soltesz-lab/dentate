@@ -290,7 +290,7 @@ Synapses:
           tau_offset: 6.2
           e: 0
           sat: 0.9
-          g_unit: 0.0005
+          g_unit: 0.0002
           weight: 1.0
     CA3c:   
       type: excitatory
@@ -317,7 +317,7 @@ Synapses:
           tau_offset: 3.6
           e: 0
           sat: 0.9
-          g_unit: 0.0005
+          g_unit: 0.00015
           weight: 1.0
     HC:  
       type: inhibitory
@@ -358,7 +358,7 @@ Synapses:
             tau_offset: 6.2
             e: 0
             sat: 0.9
-            g_unit: 0.0005
+            g_unit: 0.0002
             weight: 1.0
     MPP:
       type: excitatory
@@ -397,7 +397,7 @@ Synapses:
           dur_onset: 0.5
           tau_offset: 3.6
           e: 0
-          g_unit: 0.0001
+          g_unit: 0.0003
           weight: 1.0
           sat: 0.9
     MC:   
@@ -412,7 +412,7 @@ Synapses:
           tau_offset: 3.6
           e: 0
           sat: 0.9
-          g_unit: 0.0005
+          g_unit: 0.0001
           weight: 1.0
     ConMC:   
       type: excitatory
@@ -426,7 +426,7 @@ Synapses:
           tau_offset: 3.6
           e: 0
           sat: 0.9
-          g_unit: 0.0005
+          g_unit: 0.0001
           weight: 1.0
     BC:   
       type: inhibitory
@@ -540,7 +540,7 @@ Synapses:
           tau_offset: 6.2
           e: 0
           sat: 0.9
-          g_unit: 0.0005
+          g_unit: 0.00025
           weight: 1.0
     MPP:
       type: excitatory
@@ -591,7 +591,7 @@ Synapses:
           tau_offset: 3.6
           e: 0
           sat: 0.9
-          g_unit: 0.0005
+          g_unit: 0.00025
           weight: 1.0
     ConMC:   
       type: excitatory
@@ -684,7 +684,7 @@ Synapses:
           tau_offset: 5.0
           e: 0
           sat: 0.9
-          g_unit: 0.000125
+          g_unit: 0.00015
           weight: 1.0
     LPP:
       type: excitatory
@@ -704,54 +704,20 @@ Synapses:
       sections: [soma, basal, apical, apical]
       layers: [Hilus, Hilus, Hilus, GCL]
       proportions: [0.68, 0.68, 0.68, 1.0]
-      swctype mechanisms:
-        apical:
+      mechanisms:
           AMPA:
             dur_onset: 0.3
             tau_offset: 6.2
             e: 0
             sat: 0.9
-            g_unit: 0.0002
-            weight: 1.0
-        basal:
-          AMPA:
-            dur_onset: 0.3
-            tau_offset: 6.2
-            e: 0
-            sat: 0.9
-            g_unit: 0.0002
-            weight: 1.0
-        soma:
-          AMPA:
-            dur_onset: 0.3
-            tau_offset: 6.2
-            e: 0
-            sat: 0.9
-            g_unit: 0.000225
+            g_unit: 0.00018
             weight: 1.0
     MC:   
       type: excitatory
       sections: [soma, basal, apical, apical]
       layers: [Hilus, Hilus, Hilus, IML]
       proportions: [0.32, 0.12, 0.12, 1.0]
-      swctype mechanisms:
-        apical:
-          AMPA:
-            dur_onset: 0.3
-            tau_offset: 3.6
-            e: 0
-            sat: 0.9
-            g_unit: 0.000225
-            weight: 1.0
-        basal:
-          AMPA:
-            dur_onset: 0.3
-            tau_offset: 3.6
-            e: 0
-            sat: 0.9
-            g_unit: 0.000225
-            weight: 1.0
-        soma:
+      mechanisms:
           AMPA:
             dur_onset: 0.3
             tau_offset: 3.6
@@ -769,7 +735,7 @@ Synapses:
           dur_onset: 0.3
           tau_offset: 3.6
           e: 0
-          g_unit: 0.000125
+          g_unit: 0.00025
           weight: 1.0
           sat: 0.9
     HCC:  
@@ -861,7 +827,7 @@ Synapses:
           tau_offset: 5.0
           e: 0
           sat: 0.9
-          g_unit: 0.0004
+          g_unit: 0.0002
           weight: 1.0
     LPP:
       type: excitatory
@@ -874,7 +840,7 @@ Synapses:
           tau_offset: 5.0
           e: 0
           sat: 0.9
-          g_unit: 0.0004
+          g_unit: 0.0002
           weight: 1.0
     HC:  
       type: inhibitory
@@ -930,7 +896,7 @@ Synapses:
           tau_offset: 5.0
           e: 0
           sat: 0.9
-          g_unit: 0.0006
+          g_unit: 0.0002
           weight: 1.0
     LPP:
       type: excitatory
@@ -943,7 +909,7 @@ Synapses:
           tau_offset: 5.0
           e: 0
           sat: 0.9
-          g_unit: 0.0007
+          g_unit: 0.0002
           weight: 1.0
     MC:   
       type: excitatory
@@ -956,7 +922,7 @@ Synapses:
           tau_offset: 3.6
           e: 0
           sat: 0.9
-          g_unit: 0.0008
+          g_unit: 0.00015
           weight: 1.0
     HC:  
       type: inhibitory
