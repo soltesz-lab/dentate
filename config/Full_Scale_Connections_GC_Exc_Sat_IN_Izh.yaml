@@ -195,9 +195,9 @@ Synapses:
       mechanisms:
         AMPA:
           dur_onset: 0.5
-          tau_offset: 3.6
+          tau_offset: 9.0
           e: 0
-          g_unit: 0.00055
+          g_unit: 0.0003
           weight: 1.0
           sat: 0.9
         NMDA:
@@ -290,7 +290,7 @@ Synapses:
           tau_offset: 6.2
           e: 0
           sat: 0.9
-          g_unit: 0.0002
+          g_unit: 0.0008
           weight: 1.0
     CA3c:   
       type: excitatory
@@ -317,7 +317,7 @@ Synapses:
           tau_offset: 3.6
           e: 0
           sat: 0.9
-          g_unit: 0.00015
+          g_unit: 0.00025
           weight: 1.0
     HC:  
       type: inhibitory

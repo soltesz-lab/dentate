@@ -515,12 +515,12 @@ Synaptic Optimization:
           apical:
             AMPA:
               weight: 
-                a: [1.0, 3.0]
+                a: [1.0, 2.0]
         MC:
           apical:
             AMPA:
               weight: 
-                a: [0.1, 3.0]
+                a: [0.1, 2.0]
         CA3c:
           apical:
             AMPA:
@@ -962,11 +962,11 @@ Synaptic Optimization:
         HC:
           apical:
             GABA_A:
-              weight: [0.01, 1.0]
+              weight: [0.005, 1.0]
         IS:
           !!python/tuple [apical, soma]:
             GABA_A:
-              weight: [0.01, 1.0]
+              weight: [0.005, 1.0]
       Weight exc inh microcircuit:
         !!python/tuple [GC, MC, CA3c]:
           !!python/tuple [soma, apical]:
