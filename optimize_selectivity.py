@@ -261,7 +261,7 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
             mean_infld = np.mean(infld_rate_vector)
             mean_outfld = np.mean(outfld_rate_vector)
 
-            residual_infld = np.square(np.mean(target_infld - infld_rate_vector))
+            residual_infld = np.abs(np.sum(target_infld - infld_rate_vector))
             residual_outfld = np.square(np.mean(outfld_rate_vector))
             logger.info(f'selectivity objective: max infld/mean infld/mean peak/trough/mean outfld/residual_infld of gid {gid} trial {trial_i}: '
                         f'{max_infld:.02f} {mean_infld:.02f} {mean_peak:.02f} {mean_trough:.02f} {mean_outfld:.02f} {residual_infld:.04f}')
