@@ -1567,7 +1567,12 @@ def correct_cell_for_spines_g_pas(cell, env, verbose=False):
     :param env: :class:'Env'
     :param verbose: bool
     """
-    soma_g_pas = cell.mech_dict['soma']['pas']['g']['value']
+    if 'soma' in cell.mech_dict:
+        soma_g_pas = cell.mech_dict['soma']['pas']['g']['value']
+    elif hasattr(cell, 'hoc_cell'): 
+        soma_g_pas = getattr(list(cell.hoc_cell.soma)[0], 'g_pas')
+    else:
+        raise RuntimeError("unable to determine soma g_pas")
     for sec_type in ['basal', 'trunk', 'apical', 'tuft']:
         for node in cell.nodes[sec_type]:
             correct_node_for_spines_g_pas(node, env, cell.gid, soma_g_pas, verbose=verbose)
@@ -2592,7 +2597,8 @@ def make_neurotree_cell(template_class, gid=0, dataset_path="", neurotree_dict={
     vdst = neurotree_dict['section_topology']['dst']
     vloc = neurotree_dict['section_topology']['loc']
     swc_type = neurotree_dict['swc_type']
-            
+
+    logger.info(f"template_class = {template_class}")
     cell = template_class(gid, dataset_path, secnodes, vlayer, vsrc, vdst, vloc, vx, vy, vz, vradius, swc_type)
     return cell
 

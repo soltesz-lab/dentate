@@ -580,6 +580,7 @@ def run_with(env, param_dict, cvode=False, pc_runworker=False):
     h.tstop = float(env.n_trials) * tstop
 
     h.finitialize(env.v_init)
+    h.finitialize(env.v_init)
 
     if rank == 0:
         logger.info(f'*** Running simulation with dt = {h.dt:.03f} and tstop = {h.tstop:.02f}')
