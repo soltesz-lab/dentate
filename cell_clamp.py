@@ -493,11 +493,15 @@ def measure_psp (gid, pop_name, presyn_name, syn_mech_name, swc_type, env, v_ini
     prelength = 200.0
     mainlength = 50.0
 
+    rules = {'sources': [presyn_name]}
+    if swc_type is not None:
+        rules['swc_types'] = [swc_type]
     syn_attrs = env.synapse_attributes
-    syn_filters = get_syn_filter_dict(env, rules={'sources': [presyn_name], 'swc_types': [swc_type]}, convert=True)
+    syn_filters = get_syn_filter_dict(env, rules=rules, convert=True)
     syns = syn_attrs.filter_synapses(biophys_cell.gid, **syn_filters)
 
-    print("total number of %s %s synapses: %d" % (presyn_name, swc_type, len(syns)))
+    print("total number of %s %s synapses: %d" % (presyn_name, swc_type if swc_type is not None else "",
+                                                  len(syns)))
     stimvec = h.Vector()
     stimvec.append(prelength+1.)
     count = 0
@@ -625,7 +629,6 @@ def main(config_file, config_prefix, erev, population, presyn_name, gid, load_we
         gap_junction_test(gid, population, v_init, env)
     if 'psp':
         assert(presyn_name is not None)
-        assert(swc_type is not None)
         assert(syn_mech_name is not None)
         assert(erev is not None)
         assert(syn_weight is not None)
