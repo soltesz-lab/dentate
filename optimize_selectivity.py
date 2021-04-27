@@ -162,14 +162,18 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
 
     def update_run_params(input_param_tuple_vals, update_param_names, update_param_tuples):
         result = []
-        logger.info(f'update_run_params: input_param_tuple_vals = {input_param_tuple_vals}')
-        
+        updated_set = set([])
         update_param_dict = dict(zip(update_param_names, update_param_tuples))
         for param_pattern, (param_tuple, param_val) in zip(param_names, input_param_tuple_vals):
             if param_pattern in update_param_dict:
+                updated_set.add(param_pattern)
                 result.append((param_tuple, update_param_dict[param_pattern].param_range))
             else:
                 result.append((param_tuple, param_val))
+        for update_param_name in update_param_dict:
+            if update_param_name not in updated_set:
+                result.append((update_param_dict[update_param_name], 
+                               update_param_dict[update_param_name].param_range))
 
         return result
         
@@ -257,7 +261,7 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
             mean_infld = np.mean(infld_rate_vector)
             mean_outfld = np.mean(outfld_rate_vector)
 
-            residual_infld = np.square(np.mean(target_infld - infld_rate_vector))
+            residual_infld = np.abs(np.sum(target_infld - infld_rate_vector))
             residual_outfld = np.square(np.mean(outfld_rate_vector))
             logger.info(f'selectivity objective: max infld/mean infld/mean peak/trough/mean outfld/residual_infld of gid {gid} trial {trial_i}: '
                         f'{max_infld:.02f} {mean_infld:.02f} {mean_peak:.02f} {mean_trough:.02f} {mean_outfld:.02f} {residual_infld:.04f}')
@@ -416,7 +420,8 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
 
 
 def optimize_run(env, population, param_config_name, selectivity_config_name, init_objfun, problem_regime, nprocs_per_worker=1,
-                 n_iter=10, n_initial=30, initial_maxiter=50, population_size=200, num_generations=200, resample_fraction=None,
+                 n_iter=10, n_initial=30, initial_maxiter=50, initial_method="glp", 
+                 population_size=200, num_generations=200, resample_fraction=None, mutation_rate=None,
                  param_type='synaptic', init_params={}, results_file=None, cooperative_init=False, 
                  spawn_startup_wait=None, verbose=False):
 
@@ -459,7 +464,6 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
     if resample_fraction < 0.1:
         resample_fraction = 0.1
 
-    
     objective_names = ['residual_infld', 'residual_outfld', 'residual_state']
     feature_names = ['mean_peak_rate', 'mean_trough_rate', 
                      'max_infld_rate', 'min_infld_rate', 'mean_infld_rate', 'mean_outfld_rate', 
@@ -488,6 +492,9 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
                       'population_size': population_size,
                       'num_generations': num_generations,
                       'resample_fraction': resample_fraction,
+                      'mutation_rate': mutation_rate,
+                      'initial_maxiter': initial_maxiter,
+                      'initial_method': initial_method,
                       'file_path': file_path,
                       'save': True,
                       'save_eval' : 5,
@@ -542,9 +549,11 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
 @click.option("--n-iter", type=int, default=1)
 @click.option("--n-initial", type=int, default=30)
 @click.option("--initial-maxiter", type=int, default=50)
+@click.option("--initial-method", type=str, default='glp')
 @click.option("--population-size", type=int, default=200)
 @click.option("--num-generations", type=int, default=200)
 @click.option("--resample-fraction", type=float)
+@click.option("--mutation-rate", type=float)
 @click.option("--template-paths", type=str, required=True,
               help='colon-separated list of paths to directories containing hoc cell templates')
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
@@ -590,7 +599,8 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
 @click.option('--cooperative-init', is_flag=True, help='use a single worker to read model data then send to the remaining workers')
 @click.option("--spawn-startup-wait", type=int)
 def main(config_file, population, dt, gid, gid_selection_file, arena_id, trajectory_id, generate_weights,
-         t_max, t_min,  nprocs_per_worker, n_iter, n_initial, initial_maxiter, population_size, num_generations, resample_fraction,
+         t_max, t_min,  nprocs_per_worker, n_iter, n_initial, initial_maxiter, initial_method, 
+         population_size, num_generations, resample_fraction, mutation_rate,
          template_paths, dataset_prefix, config_prefix,
          param_config_name, selectivity_config_name, param_type, recording_profile, results_file, results_path, spike_events_path,
          spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, n_trials,
@@ -673,8 +683,9 @@ def main(config_file, population, dt, gid, gid_selection_file, arena_id, traject
     init_objfun_name = 'init_selectivity_objfun'
         
     best = optimize_run(env, population, param_config_name, selectivity_config_name, init_objfun_name, problem_regime=problem_regime,
-                        n_iter=n_iter, n_initial=n_initial, initial_maxiter=initial_maxiter, population_size=population_size, num_generations=num_generations,
-                        resample_fraction=resample_fraction, param_type=param_type, init_params=init_params, 
+                        n_iter=n_iter, n_initial=n_initial, initial_maxiter=initial_maxiter, initial_method=initial_method, 
+                        population_size=population_size, num_generations=num_generations, resample_fraction=resample_fraction, 
+                        mutation_rate=mutation_rate, param_type=param_type, init_params=init_params, 
                         results_file=results_file, nprocs_per_worker=nprocs_per_worker, cooperative_init=cooperative_init,
                         spawn_startup_wait=spawn_startup_wait, verbose=verbose)
     

@@ -291,9 +291,9 @@ def network_features(env, target_trj_rate_map_dict, t_start, t_stop, target_popu
                 target_trj_rate_map = pop_target_trj_rate_map_dict[gid]
                 rate_map_len = len(target_trj_rate_map)
                 if gid in spike_density_dict:
-                    residual = np.mean(np.square(target_trj_rate_map - spike_density_dict[gid]['rate'][:rate_map_len]))
+                    residual = np.abs(np.sum(target_trj_rate_map - spike_density_dict[gid]['rate'][:rate_map_len]))
                 else:
-                    residual = np.mean(np.square(target_trj_rate_map))
+                    residual = np.abs(np.sum(target_trj_rate_map))
                 target_rate_dist_residuals.append(residual)
             sum_target_rate_dist_residual = np.sum(target_rate_dist_residuals)
     

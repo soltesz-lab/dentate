@@ -57,13 +57,15 @@ def dmosopt_broker_init(broker, *args):
 @click.option("--nprocs-per-worker", type=int, default=1)
 @click.option("--n-iter", type=int, default=1)
 @click.option("--n-initial", type=int, default=30)
+@click.option("--initial-maxiter", type=int, default=50)
+@click.option("--initial-method", type=str, default='glp')
 @click.option("--population-size", type=int, default=100)
 @click.option("--num-generations", type=int, default=200)
 @click.option("--resample-fraction", type=float)
 @click.option("--collective-mode", type=str, default='gather')
 @click.option("--spawn-startup-wait", type=int, default=30)
 @click.option("--verbose", '-v', is_flag=True)
-def main(config_path, target_features_path, target_features_namespace, optimize_file_dir, optimize_file_name, nprocs_per_worker, n_iter, n_initial, population_size, num_generations, resample_fraction, collective_mode, spawn_startup_wait, verbose):
+def main(config_path, target_features_path, target_features_namespace, optimize_file_dir, optimize_file_name, nprocs_per_worker, n_iter, n_initial, initial_maxiter, initial_method, population_size, num_generations, resample_fraction, collective_mode, spawn_startup_wait, verbose):
 
     network_args = click.get_current_context().args
     network_config = {}
@@ -136,6 +138,8 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
                       'objective_names': objective_names,
                       'constraint_names': constraint_names,
                       'n_initial': n_initial,
+                      'initial_maxiter': initial_maxiter,
+                      'initial_method': initial_method,
                       'n_iter': n_iter,
                       'population_size': population_size,
                       'num_generations': num_generations,
