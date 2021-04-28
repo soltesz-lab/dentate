@@ -49,11 +49,12 @@ class NetClampParam:
                         'MC':   ('Mossy'),
                         }
 
-     #   self.get_param_criteria_arr()
+    #    self.get_param_criteria_arr()
 
-      #  self.plot_best()
+        self.plot_best()
 
-      #  self.generate_yaml()
+       # self.generate_yaml()
+        self.generate_analysis()
 
     def get_params_props(self):
         self.raw_param_dtype = np.array(self.ref_point['parameters']).dtype
@@ -119,7 +120,7 @@ class NetClampParam:
                 print(self.population, cell, bestoversam_idx, parms)
             self.generate_yaml(Critlist, gid_val_arr)
 
-        generate_yaml()
+    #    generate_yaml()
 
 
     def generate_yaml(self, CriteriaList=None, gid_val_arr=None):
@@ -168,7 +169,7 @@ class NetClampParam:
                             'SpecificBestMode': "get_best_mode(uniform=False)",
                             'UniformTrialMode': "get_trial_mode()",
                             'SpecificTrialMode': "get_trial_mode(uniform=False)",
-                            'UniformBestSpeciifc': "get_specific()",
+            #                'UniformBestSpeciifc': "get_specific()",
                     }
 
         def get_best(fn='mean', uniform=True):
@@ -229,8 +230,8 @@ class NetClampParam:
 
         return (CriteriaList, gid_val_arr) 
 
-    def get_fig_axes(self):
-        fig = plt.figure(figsize=(20,20), constrained_layout=True)
+    def get_obj_axes(self):
+        fig = plt.figure(figsize=(8,10), constrained_layout=True)
         spec = gs.GridSpec(nrows=5, ncols=1, figure=fig)
 
         optobjspec = spec[0,0].subgridspec(self.N_objectives, self.N_cells)
@@ -264,6 +265,142 @@ class NetClampParam:
         fea_axes[0] = fig.add_subplot(objspec[0, 1])
 
         return fig, opt_axes, obj_axes, fea_axes, prm_axes , opr_axes, cpr_axes 
+
+    def get_param_axes(self):
+        fig = plt.figure(figsize=(8,10), constrained_layout=True)
+        spec = gs.GridSpec(nrows=5, ncols=1, figure=fig)
+
+        optobjspec = spec[0,0].subgridspec(self.N_objectives, self.N_cells)
+        objspec = spec[1,0].subgridspec(1, 2)
+        prmspec = spec[2,0].subgridspec(1, self.param_dim)
+        optprmspec = spec[3,0].subgridspec(1, self.param_dim)
+        corprmspec = spec[4,0].subgridspec(1, (self.param_dim**2-self.param_dim)//2)
+
+        opt_axes = np.empty(shape=optobjspec.get_geometry(), dtype='O')
+        obj_axes = np.empty(shape=self.N_objectives, dtype='O')
+        fea_axes = np.empty(shape=1, dtype='O')
+        prm_axes = np.empty(prmspec.get_geometry(), dtype='O')
+        opr_axes = np.empty(optprmspec.get_geometry(), dtype='O')
+        cpr_axes = np.empty(corprmspec.get_geometry(), dtype='O')
+
+        for idx, ax in np.ndenumerate(opt_axes): 
+            opt_axes[idx] = fig.add_subplot(optobjspec[idx])
+
+        for idx, ax in np.ndenumerate(obj_axes): 
+            obj_axes[idx] = fig.add_subplot(objspec[0,idx[0]])
+
+        for idx, ax in np.ndenumerate(prm_axes): 
+            prm_axes[idx] = fig.add_subplot(prmspec[idx])
+
+        for idx, ax in np.ndenumerate(opr_axes): 
+            opr_axes[idx] = fig.add_subplot(optprmspec[idx])
+
+        for idx, ax in np.ndenumerate(cpr_axes): 
+            cpr_axes[idx] = fig.add_subplot(corprmspec[idx])
+
+        fea_axes[0] = fig.add_subplot(objspec[0, 1])
+
+        return fig, opt_axes, obj_axes, fea_axes, prm_axes , opr_axes, cpr_axes 
+
+
+    def plot_best(self):
+        param_names = np.array(self.raw_param_dtype.names)
+        param_dim = self.param_dim 
+        N_iter_arr = np.arange(self.N_params)
+
+        prm_str = ''
+        for idx, prm in enumerate(param_names):
+            prm_str += '{!s}: {:f}, {:f} '.format(self.param_props['syn'][idx], np.mean(self.best_prm[prm]), np.mean(self.bestmean_prm[prm]))
+
+        prmcomb = np.array([i for i in it.combinations(range(param_dim), r=2)], dtype=np.uint32)
+        N_prmcomb = prmcomb.shape[0]
+
+        xcat = self.fil_arr[0,1]
+        boxwidth = (xcat[-1]-xcat[0])/10
+        plotshap = ['o', 's', 'D', 'X', '^']
+        N_fil_cell_max = max(self.N_fils, self.N_cells)
+        colors = plt.get_cmap('tab10').colors if N_fil_cell_max <=10 else mpl.cm.get_cmap('tab20').colors
+
+        fig, opt_axes, obj_axes, fea_axes, prm_axes , opr_axes, cpr_axes = self.get_fig_axes() 
+
+        titnote='Marker shape: sampling set; when axis is specific for gid, colors represent trials, else gids; black represents mean_rate (objective)'
+        fig.suptitle('{!s}\n{!s}\n{!s}\n{!s}'.format(self.pop_props[self.population][0], self.suffix, titnote, prm_str))
+
+        for i in range(self.N_objectives): 
+            ytop = self.target[i]*5 if self.target[i]<10 else self.target[i]*3
+            for j in range(self.N_fils):
+                obj_axes[i].scatter(xcat, self.bestmean_arr[j, :], marker=plotshap[j], color='k')
+                obj_axes[i].axhline(self.target[0], color='k', ls='--')
+                for tidx in range(self.N_trials):
+                    obj_axes[i].scatter(xcat, self.best_arr[j,:, i,tidx], marker=plotshap[j], color=colors[tidx], facecolors='none', lw=0.5)
+
+                    fea_axes[0].scatter(xcat, self.best_Vmean[j,:, i,tidx], marker=plotshap[j], color=colors[tidx], facecolors='none', lw=0.5)
+
+            obj_axes[i].set_ylabel(r'Firing Rate [spikes/s]')
+
+        fea_axes[0].set_ylabel(r'Mean voltage [mV]')
+        fea_axes[0].axhline(self.pop_props[self.population][1], color='k', lw=0.5)
+        fea_axes[0].axhline(self.pop_props[self.population][2], color='k', lw=0.5)
+
+        for i, prm in enumerate(param_names): 
+            prm_axes[0,i].axhline(self.param_props['lo_bound'][i], color='k', ls='--')
+            prm_axes[0,i].axhline(self.param_props['up_bound'][i], color='k', ls='--')
+            prm_axes[0,i].set_ylabel(r'${!s}$ weight'.format(self.param_props['syn'][i]))
+            tit = self.param_props['presyn_lab'][i] 
+            prm_axes[0,i].set_title(tit)
+
+            opr_axes[0,i].axhline(self.param_props['lo_bound'][i], color='k', ls='--')
+            opr_axes[0,i].axhline(self.param_props['up_bound'][i], color='k', ls='--')
+            opr_axes[0,i].set_ylabel(r'${!s}$ weight'.format(self.param_props['syn'][i]))
+            opr_axes[0,i].set_xlabel(r'Iteration Index')
+
+            for cidx, cell in enumerate(xcat): 
+                prm_axes[0,i].boxplot(np.ravel(self.best_prm[prm][:,cidx, 0,:]), vert=True, positions=[cell], showmeans=True, widths=boxwidth)
+
+            for j in range(self.N_fils):
+                prm_axes[0,i].scatter(xcat, self.bestmean_prm[prm][j, :], marker=plotshap[j], color='k')
+                for tidx in range(self.N_trials):
+                    prm_axes[0,i].scatter(xcat, self.best_prm[prm][j,:, 0,tidx], marker=plotshap[j], color=colors[tidx], facecolors='none', lw=0.5)
+                
+                for cidx, cell in enumerate(xcat): 
+                    ref_cell = self.fil_arr[j,0][self.head_group]['{:d}'.format(cell)]
+                    opr_axes[0,i].scatter(N_iter_arr, np.array(ref_cell['parameters'][prm]),  marker=plotshap[j], color=colors[cidx], facecolors='none', lw=0.01, s=1)
+                    opr_axes[0,i].scatter(self.bestmean_idx[j,cidx], self.bestmean_prm[prm][j,cidx],  marker=plotshap[j], color=colors[cidx], edgecolor='k', lw=0.5, s=15, zorder=100)
+
+                    for tidx in range(self.N_trials):
+                        opr_axes[0,i].scatter(self.best_idx[j,cidx,0,tidx], self.best_prm[prm][j,cidx, 0, tidx],  marker=plotshap[j], color=colors[cidx], s=4)
+
+
+        opt_val_arr = np.empty(shape=(self.N_fils, self.N_cells, self.N_params, self.N_objectives, self.N_trials))
+        for fidx, filobj in enumerate(self.fil_arr[:,0]):
+            for cidx, cell in enumerate(self.fil_arr[fidx, 1]):
+                ref_cell = filobj[self.head_group]['{:d}'.format(cell)] 
+                opt_val_arr[fidx,cidx] = ref_cell['features']['trial_objs']
+                ref_ax = opt_axes[0,cidx]
+                ref_ax.scatter(N_iter_arr, self.obj_val_mean_arr[fidx, cidx,:,0], marker=plotshap[fidx], color='k', facecolors='none', lw=0.01, s=1, zorder=200)
+                ref_ax.axhline(self.target[0], color='k', ls='--', zorder=0.25)
+                for tidx in range(self.N_trials):
+                    ref_ax.scatter(N_iter_arr, opt_val_arr[fidx,cidx,:,0,tidx], marker=plotshap[fidx], color=colors[tidx], facecolors='none', lw=0.01, s=1, zorder=1)
+
+                for combidx in range(N_prmcomb):
+                    comb  = prmcomb[combidx, : ]
+                    i, j = comb
+
+                    cpr_axes[0,combidx].axvline(self.param_props['lo_bound'][i], color='k', ls='--')
+                    cpr_axes[0,combidx].axvline(self.param_props['up_bound'][i], color='k', ls='--')
+                    cpr_axes[0,combidx].axhline(self.param_props['lo_bound'][j], color='k', ls='--')
+                    cpr_axes[0,combidx].axhline(self.param_props['up_bound'][j], color='k', ls='--')
+
+                    cpr_axes[0,combidx].set_xlabel(r'${!s}$ {!s}'.format(self.param_props['syn'][i], self.param_props['presyn_lab'][i]))
+                    cpr_axes[0,combidx].set_ylabel(r'${!s}$ {!s}'.format(self.param_props['syn'][j], self.param_props['presyn_lab'][j]))
+                    cpr_axes[0,combidx].scatter(np.array(ref_cell['parameters'][param_names[i]]),  np.array(ref_cell['parameters'][param_names[j]]), marker=plotshap[fidx], color=colors[cidx], facecolors='none', lw=0.01, s=1)
+
+                    cpr_axes[0,combidx].scatter(np.ravel(self.best_prm[param_names[i]][fidx,cidx, 0,:]), np.ravel(self.best_prm[param_names[j]][fidx,cidx, 0,:]), marker=plotshap[fidx], color=colors[cidx], s=4)
+                    cpr_axes[0,combidx].scatter(np.ravel(self.bestmean_prm[param_names[i]][fidx,cidx]), np.ravel(self.bestmean_prm[param_names[j]][fidx,cidx]), marker=plotshap[fidx], color=colors[cidx], edgecolor='k', lw=0.5, s=15, zorder=100)
+
+
+
+        for cidx, cell in enumerate(self.fil_arr[0, 1]):
 
 
     def plot_best(self):
@@ -402,47 +539,105 @@ def distribute_chores(fil_list, fil_dir, Combined=True, prefix=None):
     
 if __name__ == '__main__':
 
-    remote=False
+    remote=True
 
-    fil_dir='/scratch1/04119/pmoolcha/HDM/dentate/results/netclamp' if remote else '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp'
+    fil_dir='/scratch1/04119/pmoolcha/HDM/new_dentate/results/netclamp' if remote else '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp'
         
 
-    interneuron_opt  = [
-       ['distgfs.network_clamp.AAC_20210402_163643_04893658.h5',
-        'distgfs.network_clamp.AAC_20210402_163643_27137089.h5',
-        'distgfs.network_clamp.AAC_20210402_163643_36010476.h5',
-        'distgfs.network_clamp.AAC_20210402_163644_49937004.h5',
-        'distgfs.network_clamp.AAC_20210402_163643_53499406.h5',],
-       ['distgfs.network_clamp.BC_20210402_163643_52357252.h5',
-        'distgfs.network_clamp.BC_20210402_163643_74865768.h5',
-        'distgfs.network_clamp.BC_20210402_163643_01503844.h5',
-        'distgfs.network_clamp.BC_20210402_163643_28135771.h5',
-        'distgfs.network_clamp.BC_20210402_163643_93454042.h5',],
-       ['distgfs.network_clamp.HC_20210402_163643_15879716.h5',
-        'distgfs.network_clamp.HC_20210402_163643_53736785.h5',
-        'distgfs.network_clamp.HC_20210402_163644_28682721.h5',
-        'distgfs.network_clamp.HC_20210402_163643_45419272.h5',
-        'distgfs.network_clamp.HC_20210402_163643_63599789.h5',],
-       ['distgfs.network_clamp.HCC_20210402_163643_12260638.h5',
-        'distgfs.network_clamp.HCC_20210402_163643_17609813.h5',
-        'distgfs.network_clamp.HCC_20210402_163643_33236209.h5',
-        'distgfs.network_clamp.HCC_20210402_163643_71407528.h5',
-        'distgfs.network_clamp.HCC_20210402_163644_92055940.h5',],
-       ['distgfs.network_clamp.IS_20210402_163643_04259860.h5',
-        'distgfs.network_clamp.IS_20210402_163643_11745958.h5',
-        'distgfs.network_clamp.IS_20210402_163643_49627038.h5',
-        'distgfs.network_clamp.IS_20210402_163644_75940072.h5',
-        'distgfs.network_clamp.IS_20210402_163643_84013649.h5',],
-       ['distgfs.network_clamp.MOPP_20210402_163643_29079471.h5',
-        'distgfs.network_clamp.MOPP_20210402_163643_31571230.h5',
-        'distgfs.network_clamp.MOPP_20210402_163644_45373570.h5',
-        'distgfs.network_clamp.MOPP_20210402_163643_68839073.h5',
-        'distgfs.network_clamp.MOPP_20210402_163643_85763600.h5',],
-       ['distgfs.network_clamp.NGFC_20210402_163644_12740157.h5',
-        'distgfs.network_clamp.NGFC_20210402_163643_95844113.h5',
-        'distgfs.network_clamp.NGFC_20210402_163643_97895890.h5',
-        'distgfs.network_clamp.NGFC_20210402_163643_93872787.h5',
-        'distgfs.network_clamp.NGFC_20210402_163644_96772370.h5',],
-    ]
+    interneuron_opt  = [ 
+[
+            'distgfs.network_clamp.AAC_20210422_193222_04893658.h5',
+            'distgfs.network_clamp.AAC_20210422_193222_27137089.h5',
+            'distgfs.network_clamp.AAC_20210422_193223_36010476.h5',
+            'distgfs.network_clamp.AAC_20210422_193223_49937004.h5',
+            'distgfs.network_clamp.AAC_20210422_193223_53499406.h5',
+],
+[
+            'distgfs.network_clamp.BC_20210422_193223_93454042.h5',
+            'distgfs.network_clamp.BC_20210422_193227_52357252.h5',
+            'distgfs.network_clamp.BC_20210422_193228_01503844.h5',
+            'distgfs.network_clamp.BC_20210422_193228_28135771.h5',
+],
+[
+            'distgfs.network_clamp.HC_20210422_193233_15879716.h5',
+            'distgfs.network_clamp.HC_20210422_193236_28682721.h5',
+            'distgfs.network_clamp.HC_20210422_193236_45419272.h5',
+            'distgfs.network_clamp.HC_20210422_193236_53736785.h5',
+            'distgfs.network_clamp.HC_20210422_193236_63599789.h5',
+],
+[
+            'distgfs.network_clamp.HCC_20210422_193228_33236209.h5',
+            'distgfs.network_clamp.HCC_20210422_193232_12260638.h5',
+            'distgfs.network_clamp.HCC_20210422_193232_17609813.h5',
+            'distgfs.network_clamp.HCC_20210422_193233_71407528.h5',
+            'distgfs.network_clamp.HCC_20210422_193233_92055940.h5',
+],
+[
+            'distgfs.network_clamp.IS_20210422_213208_75940072.h5',
+],
+[
+            'distgfs.network_clamp.MOPP_20210422_213404_31571230.h5',
+            'distgfs.network_clamp.MOPP_20210422_213404_45373570.h5',
+            'distgfs.network_clamp.MOPP_20210422_213512_68839073.h5',
+            'distgfs.network_clamp.MOPP_20210422_213512_85763600.h5',
+            'distgfs.network_clamp.MOPP_20210422_214312_29079471.h5',
+],
+[
+            'distgfs.network_clamp.NGFC_20210422_235515_12740157.h5',
+            'distgfs.network_clamp.NGFC_20210422_235518_97895890.h5',
+            'distgfs.network_clamp.NGFC_20210422_235800_93872787.h5',
+            'distgfs.network_clamp.NGFC_20210422_235801_96772370.h5',
+            'distgfs.network_clamp.NGFC_20210422_235802_95844113.h5',
+],
+]
+    newint_opt = [
+[
+    'distgfs.network_clamp.AAC_20210423_205858_36010476.h5',
+    'distgfs.network_clamp.AAC_20210423_205858_53499406.h5',
+]
+]
+    popo=[[
+    'distgfs.network_clamp.AAC_20210423_205858_04893658.h5',
+    'distgfs.network_clamp.AAC_20210423_205858_49937004.h5',
+    'distgfs.network_clamp.AAC_20210423_205858_27137089.h5',
+],
+[
+    'distgfs.network_clamp.BC_20210423_210051_01503844.h5',
+    'distgfs.network_clamp.BC_20210423_205910_93454042.h5',
+    'distgfs.network_clamp.BC_20210423_205955_74865768.h5',
+    'distgfs.network_clamp.BC_20210423_210051_52357252.h5',
+    'distgfs.network_clamp.BC_20210423_210803_28135771.h5',
+],
+[
+    'distgfs.network_clamp.HC_20210423_211716_15879716.h5',
+    'distgfs.network_clamp.HC_20210423_211528_45419272.h5',
+    'distgfs.network_clamp.HC_20210423_211839_28682721.h5',
+    'distgfs.network_clamp.HC_20210423_211900_53736785.h5',
+    'distgfs.network_clamp.HC_20210423_212004_63599789.h5',
+],
+[
+    'distgfs.network_clamp.HCC_20210423_211101_92055940.h5',
+    'distgfs.network_clamp.HCC_20210423_211035_33236209.h5',
+    'distgfs.network_clamp.HCC_20210423_211128_17609813.h5',
+    'distgfs.network_clamp.HCC_20210423_211127_71407528.h5',
+    'distgfs.network_clamp.HCC_20210423_211330_12260638.h5',
+],
+[
+    'distgfs.network_clamp.MOPP_20210423_225834_45373570.h5',
+    'distgfs.network_clamp.MOPP_20210423_225855_85763600.h5',
+    'distgfs.network_clamp.MOPP_20210423_225756_68839073.h5',
+    'distgfs.network_clamp.MOPP_20210423_225756_31571230.h5',
+    'distgfs.network_clamp.MOPP_20210423_230054_29079471.h5',
+],
+[
+    'distgfs.network_clamp.NGFC_20210423_230155_95844113.h5',
+    'distgfs.network_clamp.NGFC_20210423_230350_93872787.h5',
+    'distgfs.network_clamp.NGFC_20210423_231033_96772370.h5',
+    'distgfs.network_clamp.NGFC_20210423_230002_12740157.h5',
+    'distgfs.network_clamp.NGFC_20210423_230142_97895890.h5',
+],
+]
 
-    distribute_chores(interneuron_opt, fil_dir, Combined=True, prefix=None)
+
+
+    distribute_chores(newint_opt, fil_dir, Combined=True, prefix=None)
