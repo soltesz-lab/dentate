@@ -26,7 +26,7 @@ class P3D2(object):
             3D location
         radius : float
         type : int
-            Type asscoiated with the segment according to SWC standards
+            Type associated with the segment according to SWC standards
         """
         self.xyz = xyz
         self.radius = radius
@@ -1467,7 +1467,7 @@ def init_biophysics(cell, env=None, reset_cable=True, correct_cm=False, correct_
                     update_biophysics_by_sec_type(cell, sec_type)
     if correct_g_pas:
         correct_cell_for_spines_g_pas(cell, env, verbose=verbose)
-
+    init_spike_detector(cell)
 
 def reset_cable_by_node(cell, node, verbose=True):
     """
@@ -2143,8 +2143,8 @@ def report_topology(cell, env, node=None):
                                                  syn_types=[env.Synapse_Types['inhibitory']]))
 
     diams_str = ', '.join('%.2f' % node.sec.diam3d(i) for i in range(node.sec.n3d()))
-    report = 'node: %s, L: %.1f, diams: [%s], children: %i, exc_syns: %i, inh_syns: %i' % \
-             (node.name, node.sec.L, diams_str, len(node.children), num_exc_syns, num_inh_syns)
+    report = 'node: %s, L: %.1f, diams: [%s], nseg: %i, children: %i, exc_syns: %i, inh_syns: %i' % \
+             (node.name, node.sec.L, diams_str, node.sec.nseg, len(node.children), num_exc_syns, num_inh_syns)
     if node.parent is not None:
         report += ', parent: %s; connection_loc: %.1f' % (node.parent.name, node.connection_loc)
     logger.info(report)
@@ -2565,7 +2565,6 @@ def make_neurotree_cell(template_class, gid=0, dataset_path="", neurotree_dict={
     vloc = neurotree_dict['section_topology']['loc']
     swc_type = neurotree_dict['swc_type']
 
-    logger.info(f"template_class = {template_class}")
     cell = template_class(gid, dataset_path, secnodes, vlayer, vsrc, vdst, vloc, vx, vy, vz, vradius, swc_type)
     return cell
 
