@@ -437,7 +437,7 @@ class NetClampParam:
             coords = [(i,j) for i in range(n_rows-1) for j in range(n_cols)]
             rem = num - (n_rows-1) * n_cols
             for j in range(rem):
-                coords.append((i+1,j))
+                coords.append((n_rows-1, j))
 
         return (n_rows, n_cols), coords
 
@@ -521,9 +521,6 @@ if __name__ == '__main__':
 [
     'distgfs.network_clamp.AAC_20210423_205858_36010476.h5',
     'distgfs.network_clamp.AAC_20210423_205858_53499406.h5',
-]
-]
-    popo=[[
     'distgfs.network_clamp.AAC_20210423_205858_04893658.h5',
     'distgfs.network_clamp.AAC_20210423_205858_49937004.h5',
     'distgfs.network_clamp.AAC_20210423_205858_27137089.h5',
@@ -572,8 +569,53 @@ if __name__ == '__main__':
 ],
 ]
     
+    pairwise = [
+#[
+#        'distgfs.network_clamp.AAC_20210404_122356_49937004.h5',
+#        'distgfs.network_clamp.AAC_20210404_122356_53499406.h5',
+#        'distgfs.network_clamp.AAC_20210404_122356_36010476.h5',
+#        'distgfs.network_clamp.AAC_20210404_122356_27137089.h5',
+#        'distgfs.network_clamp.AAC_20210404_122356_04893658.h5',
+#],
+#[
+#        'distgfs.network_clamp.BC_20210404_122356_74865768.h5',
+#        'distgfs.network_clamp.BC_20210404_122356_52357252.h5',
+#        'distgfs.network_clamp.BC_20210404_122356_28135771.h5',
+#        'distgfs.network_clamp.BC_20210404_122356_93454042.h5',
+#        'distgfs.network_clamp.BC_20210405_130348_01503844.h5',
+#],
+#[
+#        'distgfs.network_clamp.HCC_20210404_124301_33236209.h5',
+#        'distgfs.network_clamp.HCC_20210404_124358_71407528.h5',
+#        'distgfs.network_clamp.HCC_20210404_124301_92055940.h5',
+#        'distgfs.network_clamp.HCC_20210404_124358_17609813.h5',
+#],
+[
+        'distgfs.network_clamp.HC_20210404_203555_15879716.h5',
+        'distgfs.network_clamp.HC_20210404_204057_45419272.h5',
+        'distgfs.network_clamp.HC_20210404_205135_28682721.h5',
+        'distgfs.network_clamp.HC_20210404_204313_53736785.h5',
+],
+#[
+#        'distgfs.network_clamp.MOPP_20210404_221007_31571230.h5',
+#        'distgfs.network_clamp.MOPP_20210404_222410_85763600.h5',
+#        'distgfs.network_clamp.MOPP_20210404_222410_68839073.h5',
+#        'distgfs.network_clamp.MOPP_20210404_222410_45373570.h5',
+#        'distgfs.network_clamp.MOPP_20210405_051112_29079471.h5',
+#],
+#[
+#        'distgfs.network_clamp.NGFC_20210405_051412_97895890.h5',
+#        'distgfs.network_clamp.NGFC_20210404_224448_12740157.h5',
+#        'distgfs.network_clamp.NGFC_20210405_052414_93872787.h5',
+#        'distgfs.network_clamp.NGFC_20210405_052833_95844113.h5',
+#        'distgfs.network_clamp.NGFC_20210405_053112_96772370.h5',
+#],
+#[
+#        'distgfs.network_clamp.IS_20210404_144931_49627038.h5',
+#],
+]
 
 
-
-    distribute_chores(interneuron_opt, fil_dir, Combined=True, prefix='GlobalExc')
-    distribute_chores(newint_opt, fil_dir, Combined=True, prefix='CombinedCompartments')
+#    distribute_chores(interneuron_opt, fil_dir, Combined=True, prefix='GlobalExc')
+#    distribute_chores(newint_opt, fil_dir, Combined=True, prefix='CombinedCompartments')
+    distribute_chores(pairwise, fil_dir, Combined=True, prefix='Pairwise')
