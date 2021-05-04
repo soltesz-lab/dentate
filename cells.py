@@ -735,6 +735,7 @@ class BiophysCell(object):
             # Allows for a cell to be created and for a new mech_dict to be constructed programmatically from scratch
             self.init_mech_dict = dict()
             self.mech_dict = dict()
+        init_cable(self)
         init_spike_detector(self)
 
     @property
@@ -1431,6 +1432,12 @@ def export_mech_dict(cell, mech_file_path=None, output_dir=None):
             mech_file_path = output_dir + '/' + mech_file_name
     write_to_yaml(mech_file_path, cell.mech_dict, convert_scalars=True)
     logger.info('Exported mechanism dictionary to %s' % mech_file_path)
+
+
+def init_cable(cell, verbose=False):
+    for sec_type in cell.nodes:
+        for node in cell.nodes[sec_type]:
+            reset_cable_by_node(cell, node, verbose=verbose)
 
 
 def init_biophysics(cell, env=None, reset_cable=True, correct_cm=False, correct_g_pas=False, reset_mech_dict=False,
