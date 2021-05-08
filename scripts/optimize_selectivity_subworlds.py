@@ -66,34 +66,6 @@ def main(optimize_config_file_path, output_dir, export, export_file_path, label,
                                 interface=interface)
 
 
-
-def read_target_rate_vector(context, eps=1e-2):
-    """
-    """
-
-    target_rate_map_arena = context.init_params['target_rate_map_arena']
-    target_rate_map_trajectory = context.init_params['target_rate_map_trajectory']
-    target_rate_map_path = context.init_params['target_rate_map_path']
-    target_rate_map_namespace = context.init_params.get('target_rate_map_namespace', 'Input Spikes')
-    trj_x, trj_y, trj_d, trj_t = stimulus.read_trajectory(target_rate_map_path, target_rate_map_arena, target_rate_map_trajectory)
-
-    time_range = (0., min(np.max(trj_t), context.init_params['tstop']))
-    time_step = context.env.stimulus_config['Temporal Resolution']
-    context.time_bins = np.arange(time_range[0], time_range[1], time_step)
-    context.state_time_bins = np.arange(time_range[0], time_range[1], time_step)[:-1]
-
-    input_namespace = '%s %s %s' % (target_rate_map_namespace, target_rate_map_arena, target_rate_map_trajectory)
-    it = read_cell_attribute_selection(target_rate_map_path, context.population, namespace=input_namespace,
-                                        selection=[context.gid], mask=set(['Trajectory Rate Map']),
-                                        comm=context.comm)
-    _, attr_dict = next(it)
-    trj_rate_map = attr_dict['Trajectory Rate Map']
-    target_rate_vector = np.interp(context.state_time_bins, trj_t, trj_rate_map)
-
-    target_rate_vector[np.isclose(target_rate_vector, 0., atol=1e-4, rtol=1e-4)] = 0.
-    
-    
-    return target_rate_vector
     
 
     
@@ -125,9 +97,7 @@ def config_worker():
     param_initial_dict = {}
     param_range_tuples = []
 
-    param_bounds, param_names, param_initial_dict, param_range_tuples = \
-        network_clamp.optimize_params(context.env, context.population, 'synaptic',
-                                      context.param_config_name)
+    opt_param_config = optimization_params(env.netclamp_config.optimize_parameters, [population], param_config_name, param_type)
 
     if (context.population in context.env.netclamp_config.optimize_parameters['synaptic']):
         opt_params = context.env.netclamp_config.optimize_parameters['synaptic'][context.population]

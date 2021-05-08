@@ -246,6 +246,7 @@ def eval_network(env, network_config, from_param_list, network_params, network_p
     
     if env.comm.rank == 0:
         logger.info("*** Updating network parameters ...")
+        logger.info(pprint.pformat(param_tuple_values))
     update_network_params(env, param_tuple_values)
 
     env.checkpoint_clear_data = False

@@ -374,6 +374,7 @@ class ConstantInputCellConfig(object):
         rate_map = np.ones_like(x, dtype=np.float32) * self.peak_rate
         return rate_map
 
+
 def gaussian(x, mu, sig):
     return np.exp(-np.power(x - mu, 2.) / (2 * np.power(sig, 2.)))
     

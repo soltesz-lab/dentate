@@ -8,7 +8,6 @@ from functools import partial
 import click
 import numpy as np
 from mpi4py import MPI
-from neuroh5.io import scatter_read_cell_attribute_selection, read_cell_attribute_info
 from collections import defaultdict, namedtuple
 import dentate
 from dentate import network, network_clamp, synapses, spikedata, stimulus, utils, optimization
@@ -301,7 +300,7 @@ def compute_objectives(features, operational_config, opt_targets):
     for key in objective_names:
         feature_val = all_features[key]
         if key in target_vals:
-            objective = feature_val - target_vals[key]
+            objective = (feature_val - target_vals[key])**2
             logger.info(f'objective {key}: {objective} target: {target_vals[key]} feature: {feature_val}')
         else:
             objective = feature_val

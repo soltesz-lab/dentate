@@ -5,7 +5,7 @@ import h5py
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 from dentate.env import Env
 from dentate.stimulus import InputSelectivityConfig, choose_input_selectivity_type, get_2D_arena_spatial_mesh, \
-    get_input_cell_config, generate_input_selectivity_features
+    generate_input_selectivity_features
 from dentate.utils import *
 
 logger = get_script_logger(os.path.basename(__file__))
