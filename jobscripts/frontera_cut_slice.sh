@@ -3,15 +3,15 @@
 #SBATCH -J dentate_cut_slice # Job name
 #SBATCH -o ./results/dentate_cut_slice.o%j       # Name of stdout output file
 #SBATCH -e ./results/dentate_cut_slice.e%j       # Name of stderr error file
-#SBATCH -p normal      # Queue (partition) name
-#SBATCH -N 20             # Total # of nodes 
+#SBATCH -p development      # Queue (partition) name
+#SBATCH -N 10             # Total # of nodes 
 #SBATCH --ntasks-per-node=56            # # of mpi tasks per node
 #SBATCH -t 1:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
-module load python3
-module load phdf5/1.12.0
+#module load python3
+#module load phdf5
 
 set -x
 
@@ -32,10 +32,11 @@ ibrun python3 ./scripts/cut_slice.py \
     --config-prefix=./config \
     --dataset-prefix="$SCRATCH/striped/dentate" \
     --output-path=$results_path \
-    --io-size=20 \
+    --io-size=64 \
     --spike-input-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h\
 5" \
     --spike-input-namespace='Input Spikes A Diag' \
-    --distance-limits -2000 -1800 \
+    --spike-input-attr="Spike Train" \
+    --distance-limits -2000 0 \
     --write-selection \
     --verbose

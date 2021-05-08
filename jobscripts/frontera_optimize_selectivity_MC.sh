@@ -30,7 +30,7 @@ export nworkers=$((12 * 24))
 if test "$3" == ""; then
 mpirun -rr -n $nworkers python3 optimize_selectivity.py  -c Network_Clamp_GC_Exc_Sat_SLN_IN_Izh_extent.yaml \
     -p MC -t 9500 -g $1  --n-trials 1 --trial-regime mean --problem-regime every \
-    --nprocs-per-worker=1 --n-iter=3 --n-initial=1200 --num-generations=200 --population-size=300 --resample-fraction 0.9 \
+    --nprocs-per-worker=1 --n-iter=10 --n-initial=200 --num-generations=200 --population-size=300 --resample-fraction 0.9 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/striped/dentate \
     --results-path $SCRATCH/dentate/results/netclamp/MC_20210307 \
@@ -44,7 +44,7 @@ mpirun -rr -n $nworkers python3 optimize_selectivity.py  -c Network_Clamp_GC_Exc
 else
 mpirun -rr -n $nworkers python3 optimize_selectivity.py  -c Network_Clamp_GC_Exc_Sat_SLN_IN_Izh_extent.yaml \
     -p MC -t 9500 -g $1 --n-trials 1 --trial-regime mean --problem-regime every \
-    --nprocs-per-worker=1 --n-iter=2 --n-initial=400 --num-generations=200 --population-size=300 --resample-fraction 0.9 \
+    --nprocs-per-worker=1 --n-iter=2 --n-initial=200 --num-generations=200 --population-size=300 --resample-fraction 0.9 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/striped/dentate \
     --results-path $SCRATCH/dentate/results/netclamp/MC_20210307 \

@@ -15,7 +15,6 @@ import dentate
 from dentate import synapses, spikedata, stimulus, utils
 from dentate.env import Env
 from dentate.utils import viewitems
-from neuroh5.io import scatter_read_cell_attribute_selection, read_cell_attribute_info
 from enum import Enum, IntEnum, unique
 
 SynParam = namedtuple('SynParam',

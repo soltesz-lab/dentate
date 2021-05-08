@@ -3,7 +3,7 @@
 #SBATCH -J eval_DG_network # Job name
 #SBATCH -o ./results/eval_DG_network.o%j       # Name of stdout output file
 #SBATCH -e ./results/eval_DG_network.e%j       # Name of stderr error file
-#SBATCH -p normal      # Queue (partition) name
+#SBATCH -p development      # Queue (partition) name
 #SBATCH -N 16             # Total # of nodes 
 #SBATCH --ntasks-per-node=56 # # of mpi tasks per node
 #SBATCH -t 0:45:00        # Run time (hh:mm:ss)

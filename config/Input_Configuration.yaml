@@ -154,6 +154,39 @@ Field Width Concentration Factor:
   grid: 0.7
   place: 0.871
 
+Theta Wave:
+  Phase Distribution:
+    slope: 16.5
+    offset: 0.0
+  frequency: 5.0
+
+Theta Modulation:
+  MPP:
+    phase: [180, 360]
+  LPP:
+    phase: [180, 360]
+  CA3c:
+    phase: [0, 180]
+  GC: 
+    phase: [0, 135]
+  MC: 
+    phase: [0, 90]
+  AAC: 
+    phase: [90, 360]
+  BC: 
+    phase: [90, 360]
+  HC: 
+    phase: [90, 360]
+  HCC: 
+    phase: [90, 360]
+  IS: 
+    phase: [90, 360]
+  MOPP: 
+    phase: [90, 360]
+  NGFC: 
+    phase: [90, 360]
+    
+
 Arena:
   A:
     Domain:

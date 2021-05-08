@@ -238,6 +238,51 @@ BC:
     - GABA_B
     - weight
     - 0.11982843445053448
+  1039001:
+  - - BC
+    - BC
+    - - basal
+      - soma
+    - GABA_A
+    - weight
+    - 0.10512872302932394
+  - - BC
+    - HC
+    - apical
+    - GABA_A
+    - weight
+    - 0.9767981816616946
+  - - BC
+    - HCC
+    - apical
+    - GABA_A
+    - weight
+    - 0.5651116122142961
+  - - BC
+    - IS
+    - - apical
+      - basal
+    - GABA_A
+    - weight
+    - 0.6691634599247661
+  - - BC
+    - MOPP
+    - apical
+    - GABA_A
+    - weight
+    - 0.11372389670573924
+  - - BC
+    - NGFC
+    - apical
+    - GABA_A
+    - weight
+    - 0.49944550843943536
+  - - BC
+    - NGFC
+    - apical
+    - GABA_B
+    - weight
+    - 0.11982843445053448
 MOPP:
   1052650:
   - - MOPP
