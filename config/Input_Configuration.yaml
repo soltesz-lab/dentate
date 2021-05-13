@@ -154,38 +154,48 @@ Field Width Concentration Factor:
   grid: 0.7
   place: 0.871
 
-Theta Wave:
-  Phase Distribution:
+Global Oscillation:
+  frequency: 5.0 # oscillation frequency
+  Phase Distribution:  # parameters of phase distribution along septotemporal axis
     slope: 16.5
     offset: 0.0
-  frequency: 5.0
-
-Theta Modulation:
-  MPP:
-    phase: [180, 360]
-  LPP:
-    phase: [180, 360]
-  CA3c:
-    phase: [0, 180]
-  GC: 
-    phase: [0, 135]
-  MC: 
-    phase: [0, 90]
-  AAC: 
-    phase: [90, 360]
-  BC: 
-    phase: [90, 360]
-  HC: 
-    phase: [90, 360]
-  HCC: 
-    phase: [90, 360]
-  IS: 
-    phase: [90, 360]
-  MOPP: 
-    phase: [90, 360]
-  NGFC: 
-    phase: [90, 360]
-    
+  Phase Modulation: # cell type-specific modulation
+    MPP:
+      phase: [0, 60] # range of preferred phases
+      depth: 0.8 # depth of modulation
+    LPP:
+      phase: [90, 180]
+      depth: 0.5
+    CA3c:
+      phase: [0, 180]
+      depth: 0.9
+    GC: 
+      phase: [0, 135]
+      depth: 0.5
+    MC: 
+      phase: [0, 90]
+      depth: 0.7
+    AAC: 
+      phase: [90, 180]
+      depth: 0.7
+    BC: 
+      phase: [90, 180]
+      depth: 0.7
+    HC: 
+      phase: [90, 180]
+      depth: 0.7
+    HCC: 
+      phase: [90, 180]
+      depth: 0.7
+    IS: 
+      phase: [90, 180]
+      depth: 0.7
+    MOPP: 
+      phase: [90, 180]
+      depth: 0.7
+    NGFC: 
+      phase: [90, 180]
+      depth: 0.7
 
 Arena:
   A:

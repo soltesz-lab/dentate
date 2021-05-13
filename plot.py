@@ -3114,7 +3114,7 @@ def plot_spike_rates(input_path, namespace_id, config_path=None, include = ['eac
 
 
 
-def plot_spike_rates_with_features(spike_input_path, spike_namespace_id, arena_id, trajectory_id, target_rate_map_path, target_rate_map_namespace, config_path=None, include = ['eachPop'], include_artificial=True, time_range = None, time_variable='t', meansub=False, max_units = None, labels = 'legend', bin_size = 100., threshold=None, graph_type='raster2d', progress=False, **kwargs):
+def plot_spike_rates_with_features(spike_input_path, spike_namespace_id, arena_id, trajectory_id, target_input_features_path, target_input_features_namespace, config_path=None, include = ['eachPop'], include_artificial=True, time_range = None, time_variable='t', meansub=False, max_units = None, labels = 'legend', bin_size = 100., threshold=None, graph_type='raster2d', progress=False, **kwargs):
     ''' 
     Plot of network firing rates and input features. Returns the figure handle.
 
@@ -3134,13 +3134,13 @@ def plot_spike_rates_with_features(spike_input_path, spike_namespace_id, arena_i
         env = Env(config_file=config_path)
         if env.analysis_config is not None:
             baks_config.update(env.analysis_config['Firing Rate Inference'])
-        
-    (population_ranges, N) = read_population_ranges(input_path)
-    population_names  = read_population_names(input_path)
+    else:
+        raise RuntimeError("plot_spike_rates_with_features: config_file must be provided.") 
 
-    input_feature_namespace = '%s %s %s' % (target_rate_map_namespace, arena_id, trajectory_id)
 
-    trj_x, trj_y, trj_d, trj_t = stimulus.read_trajectory(target_rate_map_path, arena_id, trajectory_id)
+            
+    (population_ranges, N) = read_population_ranges(spike_input_path)
+    population_names  = read_population_names(spike_input_path)
     
     pop_num_cells = {}
     for k in population_names:
@@ -3152,7 +3152,7 @@ def plot_spike_rates_with_features(spike_input_path, spike_namespace_id, arena_i
         for pop in population_names:
             include.append(pop)
 
-    spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable,
+    spkdata = spikedata.read_spike_events (spike_input_path, include, spike_namespace_id, spike_train_attr_name=time_variable,
                                            time_range=time_range, include_artificial=include_artificial)
     
     spkpoplst        = spkdata['spkpoplst']
@@ -3174,6 +3174,7 @@ def plot_spike_rates_with_features(spike_input_path, spike_namespace_id, arena_i
             spksel  = list(spkdict.items())[0:max_units]
             spkdict = dict(spksel)
         sdf_dict = spikedata.spike_density_estimate(subset, spkdict, time_bins, progress=progress, **baks_config)
+        
         i = 0
         rate_dict = {}
         for ind, dct in viewitems(sdf_dict):
@@ -3182,7 +3183,7 @@ def plot_spike_rates_with_features(spike_input_path, spike_namespace_id, arena_i
                 meansub_rates = rates - np.mean(rates)
                 peak        = np.mean(rates[np.where(rates >= np.percentile(rates, 90.))[0]])
                 peak_index  = np.where(rates == np.max(rates))[0][0]
-                rate_dict[i] = { 'rate': rates, 'meansub': meansub_rates, 'peak': peak, 'peak index': peak_index }
+                rate_dict[ind] = { 'rate': rates, 'meansub': meansub_rates, 'peak': peak, 'peak index': peak_index }
                 i = i+1
             if max_units is not None:
                 if i >= max_units:
@@ -3190,12 +3191,16 @@ def plot_spike_rates_with_features(spike_input_path, spike_namespace_id, arena_i
         spkrate_dict[subset] = rate_dict
         logger.info(('Calculated spike rates for %i cells in population %s' % (len(rate_dict), subset)))
 
-        target_gids = list(spk_rate_dict[subset].keys())
-        it = read_cell_attribute_selection(target_rate_map_path, subset, namespace=input_feature_namespace,
-                                           selection=target_gids, mask=set(['Trajectory Rate Map']))
-        trj_rate_maps = { gid: attr_dict['Trajectory Rate Map'] for gid, attr_dict in it }
-
-        target_rate_vector_dict[subset] = { gid: np.interp(time_bins, trj_t, trj_rate_maps[gid])
+        target_gids = list(spkrate_dict[subset].keys())
+        trj_rate_maps = stimulus.rate_maps_from_features(env, subset, 
+                                                         target_input_features_path, 
+                                                         target_input_features_namespace,
+                                                         arena_id=arena_id,
+                                                         trajectory_id=trajectory_id,
+                                                         cell_index_set=set(target_gids),
+                                                         time_range=time_range,
+                                                         include_time=True)
+        target_rate_vector_dict[subset] = { gid: np.interp(time_bins, trj_rate_maps[gid][0], trj_rate_maps[gid][1])
                                             for gid in trj_rate_maps }
         logger.info(('Calculated target spike rates for %i cells in population %s' % (len(target_gids), subset)))
 
@@ -3209,29 +3214,28 @@ def plot_spike_rates_with_features(spike_input_path, spike_namespace_id, arena_i
         pop_rates = spkrate_dict[subset]
         pop_target_rates = target_rate_vector_dict[subset]
         
-        peak_lst = []
+        ind_peak_lst = []
         for ind, rate_dict in viewitems(pop_rates):
             rate       = rate_dict['rate']
             peak_index = rate_dict['peak index']
-            peak_lst.append(peak_index)
+            ind_peak_lst.append((ind, peak_index))
 
-        ind_peak_lst = list(enumerate(peak_lst))
-        del(peak_lst)
         ind_peak_lst.sort(key=lambda i_x: i_x[1])
 
         if meansub:
             rate_lst = [ pop_rates[i]['meansub'] for i, _ in ind_peak_lst ]
         else:
             rate_lst = [ pop_rates[i]['rate'] for i, _ in ind_peak_lst ]
-        del(ind_peak_lst)
 
         rate_matrix = np.matrix(rate_lst, dtype=np.float32)
         del(rate_lst)
 
-        target_rate_lst = [ pop_target_rates[i] for i, _ in ind_peak_lst ]
+        target_rate_lst = [ pop_target_rates[i] for i, _ in ind_peak_lst if i in pop_target_rates ]
         target_rate_matrix = np.matrix(target_rate_lst, dtype=np.float32)
         del(target_rate_lst)
+        del(ind_peak_lst)
 
+        
         color = dflt_colors[iplot%len(dflt_colors)]
 
         plt.subplot(len(spkpoplst),2,(iplot*2)+1)  # if subplot, create new subplot
@@ -3259,6 +3263,7 @@ def plot_spike_rates_with_features(spike_input_path, spike_namespace_id, arena_i
             
         plt.subplot(len(spkpoplst),2,(iplot*2)+2)  # if subplot, create new subplot
         if graph_type == 'raster2d':
+            plt.title ('%s Target Firing Rate' % str(subset), fontsize=fig_options.fontSize)
             im = plt.imshow(target_rate_matrix, origin='upper', aspect='auto', interpolation='none',
                             extent=[time_range[0], time_range[1], 0, target_rate_matrix.shape[0]], cmap=fig_options.colormap)
             im.axes.tick_params(labelsize=fig_options.fontSize)
@@ -3287,9 +3292,9 @@ def plot_spike_rates_with_features(spike_input_path, spike_namespace_id, arena_i
             filename = fig_options.saveFig
         else:
             if meansub:
-                filename = '%s meansub firing rate.%s' % (namespace_id, fig_options.figFormat)
+                filename = '%s meansub firing rate.%s' % (spike_namespace_id, fig_options.figFormat)
             else:
-                filename = '%s firing rate.%s' % (namespace_id, fig_options.figFormat)
+                filename = '%s firing rate.%s' % (spike_namespace_id, fig_options.figFormat)
         plt.savefig(filename)
                 
     # show fig 

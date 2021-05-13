@@ -18,4 +18,5 @@ Local Field Potential:              30.0e+6 ## Selecting cells to sample extrace
 Input Spiketrains:                  50.0e+6 ## Spike trains of stimulus and proxy input cells
 Soma Locations:                     60.0e+6 ## Soma locations
 Gap Junctions:                      70.0e+6 ## Soma locations
+Phase Preference:                   90.0e+6 ## Global oscillatory phase preference
 

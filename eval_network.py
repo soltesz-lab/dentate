@@ -133,9 +133,10 @@ def main(config_path, params_id, n_samples, target_features_path, target_feature
             continue
         my_cell_index_set = set(env.biophys_cells[pop_name].keys())
         trj_rate_maps = {}
-        trj_rate_maps = rate_maps_from_features(env, pop_name, target_features_path, 
-                                                target_features_namespace,
+        trj_rate_maps = rate_maps_from_features(env, pop_name,
                                                 cell_index_set=list(my_cell_index_set),
+                                                input_features_path=target_features_path, 
+                                                input_features_namespace=target_features_namespace,
                                                 time_range=time_range)
         target_trj_rate_map_dict[pop_name] = trj_rate_maps
 
