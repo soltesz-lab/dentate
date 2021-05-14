@@ -161,41 +161,41 @@ Global Oscillation:
     offset: 0.0
   Phase Modulation: # cell type-specific modulation
     MPP:
-      phase: [0, 60] # range of preferred phases
+      phase: [135, 360] # range of preferred phases
       depth: 0.8 # depth of modulation
     LPP:
-      phase: [90, 180]
+      phase: [135, 360]
       depth: 0.5
     CA3c:
-      phase: [0, 180]
+      phase: [0, 360]
       depth: 0.9
     GC: 
-      phase: [0, 135]
+      phase: [0, 150]
       depth: 0.5
     MC: 
       phase: [0, 90]
-      depth: 0.7
+      depth: 0.8
     AAC: 
-      phase: [90, 180]
-      depth: 0.7
+      phase: [90, 270]
+      depth: 0.8
     BC: 
-      phase: [90, 180]
-      depth: 0.7
+      phase: [90, 270]
+      depth: 0.8
     HC: 
-      phase: [90, 180]
-      depth: 0.7
+      phase: [180, 360]
+      depth: 0.8
     HCC: 
-      phase: [90, 180]
-      depth: 0.7
+      phase: [180, 360]
+      depth: 0.8
     IS: 
-      phase: [90, 180]
-      depth: 0.7
+      phase: [180, 360]
+      depth: 0.8
     MOPP: 
-      phase: [90, 180]
-      depth: 0.7
+      phase: [0, 180]
+      depth: 0.8
     NGFC: 
-      phase: [90, 180]
-      depth: 0.7
+      phase: [0, 180]
+      depth: 0.8
 
 Arena:
   A:

@@ -5,7 +5,7 @@ from collections import defaultdict, ChainMap
 from mpi4py import MPI
 from dentate.utils import get_module_logger, object, range, str, Struct, gauss2d, gaussian, viewitems
 from dentate.stgen import get_inhom_poisson_spike_times_by_thinning
-from neuroh5.io import bcast_cell_attributes, read_cell_attributes, append_cell_attributes, NeuroH5CellAttrGen, scatter_read_cell_attribute_selection
+from neuroh5.io import read_cell_attributes, append_cell_attributes, NeuroH5CellAttrGen, scatter_read_cell_attribute_selection
 import h5py
 
 
@@ -923,9 +923,6 @@ def generate_input_spike_trains(env, population, selectivity_type_names, traject
     if time_range is not None:
         if time_range[0] is None:
             time_range[0] = 0.0
-            
-    if phase_mod and (distances_dict is None):
-        raise RuntimeError("generate_input_spike_trains: when phase_mod is True, distances_dict is required")
 
     t, x, y, d = trajectory
 
@@ -949,7 +946,7 @@ def generate_input_spike_trains(env, population, selectivity_type_names, traject
                                               selectivity_type_names=selectivity_type_names,
                                               selectivity_attr_dict=selectivity_attr_dict,
                                               phase_mod_function=phase_mod_function)
-    rate_map = input_cell_config.get_rate_map(x=x, y=y, phi=osc_phi)
+    rate_map = input_cell_config.get_rate_map(x=x, y=y, phi=osc_phi if phase_mod_function else None)
     if (selectivity_type_name != 'constant') and (equilibrate is not None):
         equilibrate_filter, equilibrate_len = equilibrate
         rate_map[:equilibrate_len] = np.multiply(rate_map[:equilibrate_len], equilibrate_filter)
@@ -1297,7 +1294,7 @@ def rate_maps_from_features (env, population, cell_index_set, input_features_pat
             this_phase_shift, this_phase_pref = population_phase_dict[gid]
             x, d = global_oscillation_phase_mod(env, population, this_phase_pref)
             phase_mod_ip = Rbf(x, d, function="gaussian")
-            phase_mod_function=lambda phi: phase_mod_ip(np.mod(phi + this_phase_shift, 180.))
+            phase_mod_function=lambda phi: phase_mod_ip(np.mod(phi + this_phase_shift, 360.))
         input_cell_config = get_input_cell_config(selectivity_type=this_selectivity_type,
                                                   selectivity_type_names=selectivity_type_names,
                                                   selectivity_attr_dict=selectivity_attr_dict,
@@ -1380,7 +1377,7 @@ def global_oscillation_signal(env, t):
          phase: [<start float>, <end float>] # range of preferred phases
          depth: <float> # depth of modulation
 
-    Returns: time, signal value, phase 0-180 degrees
+    Returns: time, signal value, phase 0-360 degrees
     """
     
     from scipy.signal import hilbert
@@ -1389,15 +1386,14 @@ def global_oscillation_signal(env, t):
     if global_oscillation_config is None:
         return None, None, None
     F = global_oscillation_config['frequency']
-    period = 1./F
     y = np.cos(2*np.pi*F*(t/1000.))
     yn = hilbert(y)
     phi = np.angle(yn)
     phiz = np.argwhere(np.isclose(phi, 0.0))
     phi[phiz] = 0.
-    idxs = np.argwhere(np.isclose(np.mod(t, period), 0.0, rtol=4e-5, atol=4e-5)).flat
+    idxs = np.argwhere(np.isclose(phi, 0.0, rtol=4e-5, atol=4e-5)).flat
     phi_lst = np.split(phi, idxs)
-    phi_udeg = np.concatenate([ np.mod(np.rad2deg(np.unwrap(elem)), 180.) for elem in phi_lst ])
+    phi_udeg = np.concatenate([ np.rad2deg(np.unwrap(elem)) for elem in phi_lst ])
 
     return t, y, phi_udeg
 
@@ -1447,7 +1443,7 @@ def global_oscillation_phase_mod(env, population, phase_pref, bin_size=1):
     Computes oscillatory phase preferences for all cells in the given population.
     Uses the "Global Oscillation" entry in the input configuration. See `global_oscillation_signal` for a description of the configuration format.
 
-    Returns: a tuple of arrays x, d where x contains phases 0-180 degrees, and d contains the corresponding modulation [0 - 1].
+    Returns: a tuple of arrays x, d where x contains phases 0-360 degrees, and d contains the corresponding modulation [0 - 1].
     """
 
     global_oscillation_config = env.stimulus_config['Global Oscillation']
@@ -1457,7 +1453,7 @@ def global_oscillation_phase_mod(env, population, phase_pref, bin_size=1):
     fw = 2. * np.sqrt(2. * np.log(100.))
     phase_sig = (phase_range[1] - phase_range[0]) / fw
 
-    x = np.arange(0, 180, bin_size)
+    x = np.arange(0, 360, bin_size)
     d = np.ones_like(x) * (1.0 - mod_depth)
 
     d += gaussian(x, mu=phase_pref, sig=phase_sig, A=mod_depth)
