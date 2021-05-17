@@ -56,7 +56,7 @@ class Env(object):
                  dataset_prefix=None, config_prefix=None,
                  results_path=None, results_file_id=None, results_namespace_id=None, 
                  node_rank_file=None, node_allocation=None, io_size=0, recording_profile=None, recording_fraction=1.0,
-                 tstop=0., v_init=-65, stimulus_onset=0.0, n_trials=1, 
+                 tstart=0., tstop=0., v_init=-65, stimulus_onset=0.0, n_trials=1, 
                  max_walltime_hours=0.5, checkpoint_interval=500.0, checkpoint_clear_data=True, nrn_timeout=600,
                  results_write_time=0, dt=None, ldbal=False, lptbal=False, 
                  cell_selection_path=None, microcircuit_inputs=False,
@@ -77,7 +77,8 @@ class Env(object):
         :param node_allocation: iterable; gids assigned to the current MPI ranks; cannot be specified together with node_rank_file
         :param io_size: int; the number of MPI ranks to be used for I/O operations
         :param recording_profile: str; intracellular recording configuration to use
-        :param tstop: int; physical time to simulate (ms)
+        :param tsart: float; start of physical time to simulate (ms)
+        :param tstop: float; end of physical time to simulate (ms)
         :param v_init: float; initialization membrane potential (mV)
         :param stimulus_onset: float; starting time of stimulus (ms)
         :param max_walltime_hours: float; maximum wall time (hours)
@@ -176,6 +177,7 @@ class Env(object):
         self.v_init = float(v_init)
 
         # simulation time [ms]
+        self.tstart = float(tstart)
         self.tstop = float(tstop)
 
         # stimulus onset time [ms]

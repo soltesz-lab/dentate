@@ -54,14 +54,14 @@ mpirun -rr -n 205 \
     --verbose \
     --nprocs-per-worker=139 \
     --n-iter=5 \
-    --n-initial=300 --num-generations=200 --population-size=300 --initial-method="slh" --resample-fraction 0.9 \
+    --n-initial=300 --num-generations=200 --population-size=200 --initial-method="slh" --resample-fraction 0.9 \
     --no_cleanup \
     --arena_id=A --trajectory_id=Diag \
     --template_paths=$MODEL_HOME/dgc/Mateos-Aparicio2014:$DG_HOME/templates \
     --dataset_prefix="$DATA_PREFIX" \
     --config_prefix=$DG_HOME/config \
     --results_path=$results_path \
-    --spike_input_path="$DATA_PREFIX/Slice/dentatenet_Full_Scale_GC_Exc_Sat_SLN_selection_neg2000_neg1925um_20210426_compressed.h5" \
+    --spike_input_path="$DATA_PREFIX/Slice/dentatenet_Full_Scale_GC_Exc_Sat_SLN_selection_neg2000_neg1925um_phasemod_20210515_compressed.h5" \
     --spike_input_namespace='Input Spikes A Diag' \
     --spike_input_attr='Spike Train' \
     --max_walltime_hours=24.0 \

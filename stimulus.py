@@ -220,7 +220,8 @@ class GridInputCellConfig(object):
         if phi is not None:
             rate_array *= self.phase_mod_function(phi)
             mean_rate_mod = np.mean(rate_array)
-            rate_array *= mean_rate / mean_rate_mod
+            if mean_rate_mod > 0.:
+                rate_array *= mean_rate / mean_rate_mod
         return rate_array
 
 
@@ -353,7 +354,8 @@ class PlaceInputCellConfig(object):
         if phi is not None:
             rate_array *= self.phase_mod_function(phi)
             mean_rate_mod = np.mean(rate_array)
-            rate_array *= mean_rate / mean_rate_mod
+            if mean_rate_mod > 0.:
+                rate_array *= mean_rate / mean_rate_mod
 
         return rate_array
 
@@ -406,7 +408,8 @@ class ConstantInputCellConfig(object):
         if phi is not None:
             rate_array *= self.phase_mod_function(phi)
             mean_rate_mod = np.mean(rate_array)
-            rate_array *= mean_rate / mean_rate_mod
+            if mean_rate_mod > 0.:
+                rate_array *= mean_rate / mean_rate_mod
 
         return rate_array
 

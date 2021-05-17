@@ -1296,7 +1296,7 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
     env.t_vec.resize(0)
     env.id_vec.resize(0)
 
-    h.t = 0
+    h.t = env.tstart
     env.simtime.reset()
     h.finitialize(env.v_init)
     h.finitialize(env.v_init)
@@ -1309,7 +1309,7 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
 
     if (env.checkpoint_interval is not None):
         if env.checkpoint_interval > 1.:
-            tsegments = np.concatenate((np.arange(0, tstop, env.checkpoint_interval)[1:], np.asarray([tstop])))
+            tsegments = np.concatenate((np.arange(env.tstart, tstop, env.checkpoint_interval)[1:], np.asarray([tstop])))
         else:
             raise RuntimeError("Invalid checkpoint interval length")
     else:
