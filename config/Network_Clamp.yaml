@@ -227,11 +227,11 @@ Synaptic Optimization:
             AMPA:
               weight:
                 a: [1.0, 10.0]
-        !!python/tuple [MC, ConMC]:
-          apical:
-            AMPA:
-              weight: 
-                a: [1.0, 2.0]
+#        !!python/tuple [MC, ConMC]:
+#          apical:
+#            AMPA:
+#              weight: 
+#                a: [1.0, 2.0]
         AAC:
           ais:
             GABA_A:
@@ -483,7 +483,7 @@ Synaptic Optimization:
     Targets:
       state:
         v:
-          baseline: -60.0
+          baseline: -65.0
           threshold: -30.0
       firing rate: 5.0
       fraction active: 0.33

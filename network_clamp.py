@@ -366,7 +366,8 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
         
 
     if t_range is not None:
-        env.tstop = t_range[1] - t_range[0]
+        env.tstart = t_range[0]
+        env.tstop = t_range[1]
 
 
     env.comm.barrier()
@@ -452,7 +453,7 @@ def run(env, cvode=False, pc_runworker=False):
 
     h.cvode_active(1 if cvode else 0)
     
-    h.t = 0.0
+    h.t = float(env.tstart)
     h.dt = env.dt
     tstop = float(env.tstop)
     if 'Equilibration Duration' in env.stimulus_config:
@@ -572,7 +573,7 @@ def run_with(env, param_dict, cvode=False, pc_runworker=False):
 
     h.cvode_active(1 if cvode else 0)
 
-    h.t = 0.0
+    h.t = float(env.tstart)
     h.dt = env.dt
     tstop = float(env.tstop)
     if 'Equilibration Duration' in env.stimulus_config:

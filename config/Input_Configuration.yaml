@@ -175,6 +175,9 @@ Global Oscillation:
     MC: 
       phase: [0, 90]
       depth: 0.8
+    ConMC: 
+      phase: [0, 90]
+      depth: 0.8
     AAC: 
       phase: [90, 270]
       depth: 0.8
@@ -209,9 +212,9 @@ Arena:
         run velocity: 30.  # cm/s
 
       ## passing through the main diagonals of the arena
-      MainDiags:
-        path: [[-100, -100], [0, 0], [-100, 100],  [0, 0], [100, 100], [0, 0], [100, -100]]
-        run velocity: 30.  # cm/s
+#      MainDiags:
+#        path: [[-100, -100], [0, 0], [-100, 100],  [0, 0], [100, 100], [0, 0], [100, -100]]
+#        run velocity: 30.  # cm/s
         
         
     default run velocity: 30.  # cm/s

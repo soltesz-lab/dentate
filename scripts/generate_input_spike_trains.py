@@ -1,6 +1,6 @@
 
 import click
-import copy, random
+import copy, random, gc
 from mpi4py import MPI
 from scipy.interpolate import Rbf
 import h5py
@@ -311,6 +311,7 @@ def main(config, config_prefix, selectivity_path, selectivity_namespace, coords_
                                                    chunk_size=chunk_size, value_chunk_size=value_chunk_size)
                         del spikes_attr_dict
                         spikes_attr_dict = dict()
+                        gc.collect()
 
                         if debug and iter_count == 10:
                             break
