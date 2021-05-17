@@ -735,6 +735,7 @@ class BiophysCell(object):
             # Allows for a cell to be created and for a new mech_dict to be constructed programmatically from scratch
             self.init_mech_dict = dict()
             self.mech_dict = dict()
+        init_cable(self)
         init_spike_detector(self)
 
     @property
@@ -1433,6 +1434,12 @@ def export_mech_dict(cell, mech_file_path=None, output_dir=None):
     logger.info('Exported mechanism dictionary to %s' % mech_file_path)
 
 
+def init_cable(cell, verbose=False):
+    for sec_type in cell.nodes:
+        for node in cell.nodes[sec_type]:
+            reset_cable_by_node(cell, node, verbose=verbose)
+
+
 def init_biophysics(cell, env=None, reset_cable=True, correct_cm=False, correct_g_pas=False, reset_mech_dict=False,
                     verbose=True):
     """
@@ -2047,6 +2054,39 @@ def custom_filter_by_branch_order(cell, node, baseline, rules, donor, branch_ord
     branch_order = int(branch_order)
     if get_branch_order(cell, node) < branch_order:
         return False
+    return rules
+
+
+def custom_filter_modify_slope_if_terminal(cell, node, baseline, rules, donor, **kwargs):
+    """
+    Allows the provided rule to be applied if the provided node is a terminal branch. Adjusts the specified slope based
+    on the length of the associated section.
+    :param cell: :class:'BiophysCell'
+    :param node: :class:'SHocNode'
+    :param baseline: float
+    :param rules: dict
+    :param donor: :class:'SHocNode' or None
+    :return: dict or False
+    """
+    if not is_terminal(node):
+        return False
+    start_val = baseline
+    if 'min' in rules:
+        end_val = rules['min']
+        direction = -1
+    elif 'max' in rules:
+        end_val = rules['max']
+        direction = 1
+    else:
+        raise RuntimeError('custom_filter_modify_slope_if_terminal: no min or max target value specified for sec_type: '
+                           '%s' % node.type)
+    slope = (end_val - start_val) / node.sec.L
+    if 'slope' in rules:
+        if direction < 0.:
+            slope = min(rules['slope'], slope)
+        else:
+            slope = max(rules['slope'], slope)
+    rules['slope'] = slope
     return rules
 
 

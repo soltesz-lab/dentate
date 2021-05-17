@@ -1739,7 +1739,8 @@ def apply_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, 
     new_rules = copy.deepcopy(rules)
     del new_rules['custom']
     new_rules['value'] = baseline
-    new_rules = func(cell, node, baseline, new_rules, donor, **custom)
+    new_rules = func(cell, node, baseline, new_rules, donor, env=env, syn_ids=syn_ids, syn_name=syn_name,
+                     param_name=param_name, **custom)
     if new_rules:
         apply_syn_mech_rules(cell, env, syn_name, param_name, new_rules, 
                              node=node, syn_ids=syn_ids, donor=donor,
