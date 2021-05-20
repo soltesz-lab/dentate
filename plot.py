@@ -2742,11 +2742,11 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
                   arena_id=target_input_features_arena_id,
                   trajectory_id=target_input_features_trajectory_id)
         target_trj_rate_maps = stimulus.rate_maps_from_features(env, state_pop_name,
-                                                       target_input_features_path, 
-                                                       target_input_features_namespace,
-                                                       cell_index_set=[gid],
-                                                       time_range=time_range,
-                                                       include_time=True)
+                                                                cell_index_set=[gid],
+                                                                input_features_path=target_input_features_path, 
+                                                                input_features_namespace=target_input_features_namespace,
+                                                                time_range=time_range,
+                                                                include_time=True)
         target_rate_time, target_rate = target_trj_rate_maps[gid]
 
     
