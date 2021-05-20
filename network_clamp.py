@@ -5,7 +5,7 @@ import os, sys, copy, uuid, pprint, time, gc
 
 from collections import defaultdict, namedtuple
 from mpi4py import MPI
-from neuroh5.io import read_cell_attribute_selection, scatter_read_cell_attribute_selection, read_cell_attribute_info
+from neuroh5.io import bcast_cell_attributes, read_cell_attribute_selection, scatter_read_cell_attribute_selection, read_cell_attribute_info
 import numpy as np
 import click
 from dentate import io_utils, spikedata, synapses, stimulus, cell_clamp, optimization
@@ -16,7 +16,9 @@ from dentate.utils import is_interactive, is_iterable, Context, list_find, list_
 from dentate.utils import write_to_yaml, read_from_yaml, get_trial_time_indices, get_trial_time_ranges, get_low_pass_filtered_trace, contiguous_ranges
 from dentate.cell_clamp import init_biophys_cell
 from dentate.stimulus import rate_maps_from_features
+from dentate.stimulus import global_oscillation_signal, global_oscillation_phase_shift, global_oscillation_phase_pref, global_oscillation_phase_mod
 from dentate.optimization import SynParam, ProblemRegime, TrialRegime, optimization_params, opt_eval_fun
+from scipy.interpolate import Rbf
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
@@ -152,7 +154,8 @@ def init_inputs_from_spikes(env, presyn_sources, time_range,
 
 def init_inputs_from_features(env, presyn_sources, time_range,
                               input_features_path, input_features_namespaces,
-                              arena_id, trajectory_id, spike_train_attr_name='t', n_trials=1, seed=None):
+                              arena_id, trajectory_id, phase_mod=False, soma_positions_dict=None,
+                              spike_train_attr_name='t', n_trials=1, seed=None):
     """Initializes presynaptic spike sources from a file with input selectivity features represented as firing rates."""
 
     populations = sorted(presyn_sources.keys())
@@ -190,6 +193,8 @@ def init_inputs_from_features(env, presyn_sources, time_range,
         d = d[t_range_inds]
     trajectory = t, x, y, d
 
+    osc_t, osc_y, osc_phi = global_oscillation_signal(env, t)
+    
     equilibrate = stimulus.get_equilibration(env)
 
     input_source_dict = {}
@@ -197,6 +202,19 @@ def init_inputs_from_features(env, presyn_sources, time_range,
         selection = list(presyn_sources[population])
         logger.info(f'generating spike trains in time range {time_range} '
                     f'for {len(selection)} inputs from presynaptic population {population}...')
+
+        num_cells=len(selection)
+        population_phase_dict = None
+        if phase_mod:
+            population_phase_prefs = global_oscillation_phase_pref(env, population, num_cells=num_cells)
+            population_soma_positions = soma_positions_dict[population]
+            position_array = np.asarray([ population_soma_positions[k][0] for k in sorted(selection) ])
+            population_phase_shifts = global_oscillation_phase_shift(env, position_array)
+            population_phase_dict = {}
+            for i, gid in enumerate(sorted(selection)):
+                population_phase_dict[gid] = (population_phase_prefs[i],
+                                              population_phase_shifts[i])
+
         
         pop_index = int(env.Populations[population])
         spikes_attr_dict = {}
@@ -208,9 +226,17 @@ def init_inputs_from_features(env, presyn_sources, time_range,
                                                                         mask=set(input_features_attr_names), 
                                                                         comm=env.comm)
             for gid, selectivity_attr_dict in input_features_iter:
-                spikes_attr_dict[gid] = stimulus.generate_input_spike_trains(env, selectivity_type_names,
-                                                                             trajectory, gid, selectivity_attr_dict,
-                                                                             equilibrate=equilibrate,
+
+                phase_mod_function = None
+                if phase_mod:
+                    this_phase_pref, this_phase_shift = population_phase_dict[gid]
+                    x, d = global_oscillation_phase_mod(env, population, this_phase_pref)
+                    phase_mod_ip = Rbf(x, d, function="thin_plate", smooth=0.1)
+                    phase_mod_function=lambda phi: phase_mod_ip(np.mod(phi + this_phase_shift, 360.))
+
+                spikes_attr_dict[gid] = stimulus.generate_input_spike_trains(env, population, selectivity_type_names, trajectory, gid,
+                                                                             selectivity_attr_dict, equilibrate=equilibrate,
+                                                                             phase_mod_function=phase_mod_function, osc_phi=osc_phi,
                                                                              spike_train_attr_name=spike_train_attr_name,
                                                                              n_trials=n_trials,
                                                                              return_selectivity_features=False,
@@ -228,8 +254,8 @@ def init_inputs_from_features(env, presyn_sources, time_range,
 
 def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_trials=1,
          spike_events_path=None, spike_events_namespace='Spike Events', spike_train_attr_name='t',
-         input_features_path=None, input_features_namespaces=None, 
-         generate_weights_pops=set([]), t_min=None, t_max=None, write_cell=False, plot_cell=False,
+         input_features_path=None, input_features_namespaces=None, coords_path=None, distances_namespace='Arc Distances',
+         phase_mod=False, generate_weights_pops=set([]), t_min=None, t_max=None, write_cell=False, plot_cell=False,
          input_seed=None, cooperative_init=False, worker=None):
     """
     Instantiates a cell and all its synapses and connections and loads
@@ -242,6 +268,9 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
 
     """
 
+    if phase_mod and coords_path is None:
+        raise RuntimeError("network_clamp.init: when phase_mod is True, coords_path must be provided")
+    
     if env.cell_selection is None:
         env.cell_selection = {}
     selection = env.cell_selection.get(pop_name, [])
@@ -290,6 +319,7 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
 
     ## Determine presynaptic populations that connect to this cell type
     presyn_names = sorted(env.projection_dict[pop_name])
+    all_populations = [pop_name] + presyn_names
     
     weight_source_dict = {}
     for presyn_name in presyn_names:
@@ -334,6 +364,15 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
             presyn_sources[presyn_name] = env.comm.scatter(None, root=0)
         env.comm.barrier()
 
+    soma_positions_dict = None
+    if coords_path is not None:
+        soma_positions_dict = {}
+        for population in all_populations:
+            distances = bcast_cell_attributes(coords_path, population, namespace=distances_namespace, root=0)
+            soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
+            del distances
+            soma_positions_dict[population] = soma_distances
+
     input_source_dict = None
     if (worker is not None) and cooperative_init:
         if (worker.worker_id == 1):
@@ -344,8 +383,10 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
             elif input_features_path is not None:
                 input_source_dict = init_inputs_from_features(env, presyn_sources, t_range,
                                                               input_features_path, input_features_namespaces,
-                                                              arena_id, trajectory_id, spike_train_attr_name, n_trials,
-                                                              seed=input_seed)
+                                                              arena_id=arena_id, trajectory_id=trajectory_id,
+                                                              spike_train_attr_name=spike_train_attr_name, n_trials=n_trials,
+                                                              seed=input_seed, phase_mod=phase_mod,
+                                                              soma_positions_dict=soma_positions_dict)
             else:
                 raise RuntimeError('network_clamp.init: neither input spikes nor input features are provided')
             req = worker.merged_comm.isend(input_source_dict, tag=InitMessageTag['input'].value, dest=0)
@@ -360,7 +401,11 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
         elif input_features_path is not None:
             input_source_dict = init_inputs_from_features(env, presyn_sources, t_range,
                                                           input_features_path, input_features_namespaces,
-                                                          arena_id, trajectory_id, spike_train_attr_name, n_trials)
+                                                          arena_id=arena_id, trajectory_id=trajectory_id,
+                                                          spike_train_attr_name=spike_train_attr_name, n_trials=n_trials,
+                                                          seed=input_seed, phase_mod=phase_mod,
+                                                          soma_positions_dict=soma_positions_dict)
+
         else:
             raise RuntimeError('network_clamp.init: neither input spikes nor input features are provided')
         
@@ -611,7 +656,7 @@ def run_with(env, param_dict, cvode=False, pc_runworker=False):
 
 
 
-def init_state_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, n_trials, trial_regime, problem_regime, param_type, param_config_name, recording_profile, state_variable, state_filter, target_value, use_coreneuron, cooperative_init, dt, worker,  **kwargs):
+def init_state_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, coords_path, distances_namespace, phase_mod, n_trials, trial_regime, problem_regime, param_type, param_config_name, recording_profile, state_variable, state_filter, target_value, use_coreneuron, cooperative_init, dt, worker,  **kwargs):
 
     params = dict(locals())
     env = Env(**params)
@@ -621,10 +666,12 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
     my_cell_index_set = init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
                              spike_events_path, spike_events_namespace=spike_events_namespace, 
                              spike_train_attr_name=spike_events_t,
+                             coords_path=coords_path, distances_namespace=distances_namespace,
+                             phase_mod=phase_mod,
                              input_features_path=input_features_path,
                              input_features_namespaces=input_features_namespaces,
                              generate_weights_pops=set(generate_weights), 
-                             t_min=t_min, t_max=t_max, cooperative_init=cooperative_init, 
+                             t_min=t_min, t_max=t_max, cooperative_init=cooperative_init,
                              worker=worker)
 
     time_step = env.stimulus_config['Temporal Resolution']
@@ -692,7 +739,7 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
     return opt_eval_fun(problem_regime, my_cell_index_set, eval_problem)
 
 
-def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, n_trials, trial_regime, problem_regime, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, param_type, param_config_name, recording_profile, target_rate, use_coreneuron, cooperative_init, dt, worker, **kwargs):
+def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, n_trials, trial_regime, problem_regime, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, coords_path, distances_namespace, phase_mod, input_features_path, input_features_namespaces, param_type, param_config_name, recording_profile, target_rate, use_coreneuron, cooperative_init, dt, worker, **kwargs):
 
 
     params = dict(locals())
@@ -703,6 +750,7 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
     my_cell_index_set = init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
                              spike_events_path=spike_events_path, spike_events_namespace=spike_events_namespace, 
                              spike_train_attr_name=spike_events_t,
+                             coords_path=coords_path, distances_namespace=distances_namespace, phase_mod=phase_mod,
                              input_features_path=input_features_path,
                              input_features_namespaces=input_features_namespaces,
                              generate_weights_pops=set(generate_weights),
@@ -842,6 +890,7 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
                           generate_weights, t_max, t_min,
                           opt_iter, template_paths, dataset_prefix, config_prefix, results_path,
                           spike_events_path, spike_events_namespace, spike_events_t,
+                          coords_path, distances_namespace, phase_mod,
                           input_features_path, input_features_namespaces,
                           param_type, param_config_name, recording_profile,
                           target_features_path, target_features_namespace,
@@ -856,6 +905,8 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
     my_cell_index_set = init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
                              spike_events_path, spike_events_namespace=spike_events_namespace, 
                              spike_train_attr_name=spike_events_t,
+                             coords_path=coords_path, distances_namespace=distances_namespace,
+                             phase_mod=phase_mod,
                              input_features_path=input_features_path,
                              input_features_namespaces=input_features_namespaces,
                              generate_weights_pops=set(generate_weights), 
@@ -1106,6 +1157,9 @@ def dist_run(init_params, cell_index_set, results_file_id=None, pop_param_tuple_
     spike_events_path = init_params['spike_events_path']
     spike_events_namespace = init_params['spike_events_namespace']
     spike_events_t = init_params['spike_events_t']
+    coords_path = init_params['coords_path']
+    distances_namespace = init_params['distances_namespace']
+    phase_mod = init_params['phase_mod']
     input_features_path = init_params['input_features_path']
     input_features_namespaces = init_params['input_features_namespaces']
     generate_weights = init_params.get('generate_weights', [])
@@ -1115,7 +1169,8 @@ def dist_run(init_params, cell_index_set, results_file_id=None, pop_param_tuple_
     input_seed = init_params.get('input_seed', None)
     
     init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
-         spike_events_path, spike_events_namespace=spike_events_namespace, 
+         spike_events_path, spike_events_namespace=spike_events_namespace,
+         coords_path=coords_path, distances_namespace=distances_namespace, phase_mod=phase_mod,
          spike_train_attr_name=spike_events_t,
          input_features_path=input_features_path,
          input_features_namespaces=input_features_namespaces,
@@ -1275,6 +1330,11 @@ def show(config_file, population, gid, arena_id, trajectory_id, template_paths, 
               help='namespace containing spike times')
 @click.option("--spike-events-t", required=False, type=str, default='t',
               help='name of variable containing spike times')
+@click.option("--coords-path", type=click.Path(),
+              help='path to neuroh5 file containing cell positions (required for phase-modulated input)')
+@click.option("--distances-namespace", type=str, default='Arc Distances',
+              help='namespace containing soma distances (required for phase-modulated inputs)')
+@click.option('--phase-mod', is_flag=True, help='enable phase-modulated inputs')
 @click.option("--input-features-path", required=False, type=click.Path(),
               help='path to neuroh5 file containing input selectivity features')
 @click.option("--input-features-namespaces", type=str, multiple=True, required=False, default=['Place Selectivity', 'Grid Selectivity'],
@@ -1299,6 +1359,7 @@ def show(config_file, population, gid, arena_id, trajectory_id, template_paths, 
 def go(config_file, population, dt, gids, gid_selection_file, arena_id, trajectory_id, generate_weights, t_max, t_min,
        template_paths, dataset_prefix, config_prefix,
        spike_events_path, spike_events_namespace, spike_events_t,
+       coords_path, distances_namespace, phase_mod,
        input_features_path, input_features_namespaces, n_trials, params_path,
        results_path, results_file_id, results_namespace_id, use_coreneuron,
        plot_cell, write_cell, profile_memory, recording_profile, input_seed):
@@ -1382,6 +1443,7 @@ def go(config_file, population, dt, gids, gid_selection_file, arena_id, trajecto
         init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
              spike_events_path, spike_events_namespace=spike_events_namespace,
              spike_train_attr_name=spike_events_t,
+             coords_path=coords_path, distances_namespace=distances_namespace, phase_mod=phase_mod,
              input_features_path=input_features_path,
              input_features_namespaces=input_features_namespaces,
              generate_weights_pops=set(generate_weights),
@@ -1440,6 +1502,11 @@ def go(config_file, population, dt, gids, gid_selection_file, arena_id, trajecto
               help='namespace containing input spike times')
 @click.option("--spike-events-t", required=False, type=str, default='t',
               help='name of variable containing spike times')
+@click.option("--coords-path", type=click.Path(),
+              help='path to neuroh5 file containing cell positions (required for phase-modulated input)')
+@click.option("--distances-namespace", type=str, default='Arc Distances',
+              help='namespace containing soma distances (required for phase-modulated inputs)')
+@click.option('--phase-mod', is_flag=True, help='enable phase-modulated inputs')
 @click.option("--input-features-path", required=False, type=click.Path(),
               help='path to neuroh5 file containing input selectivity features')
 @click.option("--input-features-namespaces", type=str, multiple=True, required=False, default=['Place Selectivity', 'Grid Selectivity'],
@@ -1466,7 +1533,8 @@ def optimize(config_file, population, dt, gids, gid_selection_file, arena_id, tr
              nprocs_per_worker, opt_epsilon, opt_seed, opt_iter, 
              template_paths, dataset_prefix, config_prefix,
              param_config_name, param_type, recording_profile, results_file, results_path,
-             spike_events_path, spike_events_namespace, spike_events_t, 
+             spike_events_path, spike_events_namespace, spike_events_t,
+             coords_path, distances_namespace, phase_mod,
              input_features_path, input_features_namespaces, n_trials, trial_regime, problem_regime,
              target_features_path, target_features_namespace, target_state_variable,
              target_state_filter, use_coreneuron, cooperative_init, target):
@@ -1531,6 +1599,7 @@ def optimize(config_file, population, dt, gids, gid_selection_file, arena_id, tr
         init(env, population, cell_index_set, arena_id, trajectory_id, n_trials,
              spike_events_path, spike_events_namespace=spike_events_namespace, 
              spike_train_attr_name=spike_events_t,
+             coords_path=coords_path, distances_namespace=distances_namespace, phase_mod=phase_mod,
              input_features_path=input_features_path,
              input_features_namespaces=input_features_namespaces,
              generate_weights_pops=set(generate_weights), 

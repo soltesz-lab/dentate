@@ -3192,12 +3192,11 @@ def plot_spike_rates_with_features(spike_input_path, spike_namespace_id, arena_i
         logger.info(('Calculated spike rates for %i cells in population %s' % (len(rate_dict), subset)))
 
         target_gids = list(spkrate_dict[subset].keys())
-        trj_rate_maps = stimulus.rate_maps_from_features(env, subset, 
-                                                         target_input_features_path, 
-                                                         target_input_features_namespace,
+        trj_rate_maps = stimulus.rate_maps_from_features(env, subset, cell_index_set=set(target_gids),
+                                                         input_features_path=target_input_features_path, 
+                                                         input_features_namespace=target_input_features_namespace,
                                                          arena_id=arena_id,
                                                          trajectory_id=trajectory_id,
-                                                         cell_index_set=set(target_gids),
                                                          time_range=time_range,
                                                          include_time=True)
         target_rate_vector_dict[subset] = { gid: np.interp(time_bins, trj_rate_maps[gid][0], trj_rate_maps[gid][1])
