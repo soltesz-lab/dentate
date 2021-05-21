@@ -1436,7 +1436,7 @@ def global_oscillation_phase_pref(env, population, num_cells, local_random=None)
     fw = 2. * np.sqrt(2. * np.log(100.))
     phase_scale = (phase_range[1] - phase_range[0]) / fw
     s = local_random.normal(loc=phase_loc, scale=phase_scale, size=num_cells) + phase_range[0]
-    s = np.clip(s, phase_range[0], phase_range[1])
+    s = np.mod(s, 360)
     
     return s
 
