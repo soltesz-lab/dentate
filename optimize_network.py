@@ -120,11 +120,8 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
         resample_fraction = 0.1
     
     # Create an optimizer
-    #feature_names = ['mean_peak_rate', 'mean_trough_rate', 
-    #                 'max_infld_rate', 'min_infld_rate', 'mean_infld_rate', 'mean_outfld_rate', 
-    #                 'mean_peak_state', 'mean_trough_state', 'mean_outfld_state']
-    #feature_dtypes = [(feature_name, np.float32) for feature_name in feature_names]
-    constraint_names = [f'{target_pop_name} positive_rate' for target_pop_name in target_populations ]
+    feature_dtypes = [(feature_name, np.float32) for feature_name in objective_names]
+    constraint_names = [f'{target_pop_name} positive rate' for target_pop_name in target_populations ]
     dmosopt_params = {'opt_id': 'dmosopt_optimize_network',
                       'obj_fun_init_name': init_objfun, 
                       'obj_fun_init_module': 'dentate.optimize_network',
@@ -135,6 +132,7 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
                       'problem_parameters': {},
                       'space': hyperprm_space,
                       'objective_names': objective_names,
+                      'feature_dtypes': feature_dtypes,
                       'constraint_names': constraint_names,
                       'n_initial': n_initial,
                       'initial_maxiter': initial_maxiter,
@@ -237,15 +235,15 @@ def network_objfun(env, operational_config, opt_targets,
 
 
 
-def compute_objectives(features, operational_config, opt_targets):
+def compute_objectives(local_features, operational_config, opt_targets):
 
-    all_features = {}
+    all_features_dict = {}
     constraints = []
     
     target_populations = operational_config['target_populations']
     for pop_name in target_populations:
         
-        pop_features_dicts = [ features_dict[0][pop_name] for features_dict in features ]
+        pop_features_dicts = [ features_dict[0][pop_name] for features_dict in local_features ]
 
         sum_mean_rate = 0.
         sum_target_rate_dist_residual = 0.
@@ -284,22 +282,25 @@ def compute_objectives(features, operational_config, opt_targets):
             mean_target_rate_dist_residual = sum_target_rate_dist_residual / n_target_rate_map
 
         logger.info(f'population {pop_name}: n_active = {n_active} n_total = {n_total} mean rate = {mean_rate}')
-        logger.info(f'population {pop_name}: n_target_rate_map = {n_target_rate_map} sum_target_rate_dist_residual = {sum_target_rate_dist_residual}')
+        logger.info(f'population {pop_name}: n_target_rate_map = {n_target_rate_map} target_rate_dist_residual: sum = {sum_target_rate_dist_residual} mean = {mean_target_rate_dist_residual}')
 
-        all_features['%s fraction active' % pop_name] = fraction_active
-        all_features['%s firing rate' % pop_name] = mean_rate
+        all_features_dict['%s fraction active' % pop_name] = fraction_active
+        all_features_dict['%s firing rate' % pop_name] = mean_rate
         if mean_target_rate_dist_residual is not None:
-            all_features['%s target rate dist residual' % pop_name] = mean_target_rate_dist_residual
+            all_features_dict['%s target rate dist residual' % pop_name] = mean_target_rate_dist_residual
 
         rate_constr = mean_rate if mean_rate > 0. else -1. 
         constraints.append(rate_constr)
 
     objective_names = operational_config['objective_names']
+    feature_dtypes = [(feature_name, np.float32) for feature_name in objective_names]
+
     target_vals = opt_targets
     target_ranges = opt_targets
     objectives = []
+    features = []
     for key in objective_names:
-        feature_val = all_features[key]
+        feature_val = all_features_dict[key]
         if key in target_vals:
             objective = (feature_val - target_vals[key])**2
             logger.info(f'objective {key}: {objective} target: {target_vals[key]} feature: {feature_val}')
@@ -307,8 +308,11 @@ def compute_objectives(features, operational_config, opt_targets):
             objective = feature_val
             logger.info(f'objective {key}: {objective} feature: {feature_val}')
         objectives.append(objective)
+        features.append(feature_val)
 
-    result = (np.asarray(objectives), np.asarray(constraints, dtype=np.float32))
+    result = (np.asarray(objectives),
+              np.array([tuple(features)], dtype=np.dtype(feature_dtypes)),
+              np.asarray(constraints, dtype=np.float32))
 
     return {0: result}
 
