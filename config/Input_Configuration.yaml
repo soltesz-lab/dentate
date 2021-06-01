@@ -185,19 +185,19 @@ Global Oscillation:
       phase: [180, 540]
       depth: 0.8
     HC: 
-      phase: [180, 540]
+      phase: [200, 560]
       depth: 0.8
     HCC: 
-      phase: [180, 540]
+      phase: [60, 240]
       depth: 0.8
     IS: 
       phase: [180, 540]
       depth: 0.8
     MOPP: 
-      phase: [180, 400]
+      phase: [180, 450]
       depth: 0.8
     NGFC: 
-      phase: [180, 400]
+      phase: [180, 450]
       depth: 0.8
 
 Arena:

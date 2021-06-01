@@ -2,11 +2,10 @@
 import click
 import copy, random, gc
 from mpi4py import MPI
-from scipy.interpolate import Rbf
 import h5py
 from dentate.env import Env
 from dentate.stimulus import get_input_cell_config, generate_linear_trajectory, generate_input_spike_trains, get_equilibration
-from dentate.stimulus import global_oscillation_signal, global_oscillation_phase_shift, global_oscillation_phase_pref, global_oscillation_phase_mod
+from dentate.stimulus import global_oscillation_signal, global_oscillation_phase_shift, global_oscillation_phase_pref, global_oscillation_phase_mod, make_phase_mod_function
 from dentate.utils import *
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, bcast_cell_attributes, read_population_ranges
 
@@ -161,10 +160,18 @@ def main(config, config_prefix, selectivity_path, selectivity_namespace, coords_
     if coords_path is not None:
         soma_positions_dict = {}
         for population in populations:
+            reference_u_arc_distance_bounds = None
+            if rank == 0:
+                with h5py.File(coords_path, 'r') as coords_f:
+                    reference_u_arc_distance_bounds = \
+                     coords_f['Populations'][population][distances_namespace].attrs['Reference U Min'], \
+                     coords_f['Populations'][population][distances_namespace].attrs['Reference U Max']
+            comm.barrier()
+            reference_u_arc_distance_bounds = comm.bcast(reference_u_arc_distance_bounds, root=0)
             distances = bcast_cell_attributes(coords_path, population, namespace=distances_namespace, root=0)
-            soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
+            abs_positions = { k: v['U Distance'][0] - reference_u_arc_distance_bounds[0] for (k,v) in distances }
+            soma_positions_dict[population] = abs_positions
             del distances
-            soma_positions_dict[population] = soma_distances
         
     if arena_id not in env.stimulus_config['Arena']:
         raise RuntimeError('Arena with ID: %s not specified by configuration at file path: %s' %
@@ -254,8 +261,9 @@ def main(config, config_prefix, selectivity_path, selectivity_namespace, coords_
             if phase_mod:
                 population_phase_prefs = global_oscillation_phase_pref(env, population, num_cells=num_cells)
                 population_soma_positions = soma_positions_dict[population]
-                position_array = np.asarray([ population_soma_positions[k][0] for k in sorted(population_soma_positions) ])
+                position_array = np.asarray([ population_soma_positions[k] for k in sorted(population_soma_positions) ])
                 population_phase_shifts = global_oscillation_phase_shift(env, position_array)
+                logger.info(f'population {population} phase shifts: {population_phase_shifts}')
                 population_phase_dict = {}
                 for i in range(num_cells):
                     gid = pop_start + i
@@ -284,9 +292,7 @@ def main(config, config_prefix, selectivity_path, selectivity_namespace, coords_
                         phase_mod_function = None
                         if phase_mod:
                             this_phase_pref, this_phase_shift = population_phase_dict[gid]
-                            x, d = global_oscillation_phase_mod(env, population, this_phase_pref)
-                            phase_mod_ip = Rbf(x, d, function="gaussian")
-                            phase_mod_function=lambda phi: phase_mod_ip(np.mod(phi + this_phase_shift, 360.))
+                            phase_mod_function=make_phase_mod_function(env, population, this_phase_pref, this_phase_shift) 
                         
                         spikes_attr_dict[gid] = \
                             generate_input_spike_trains(env, population, selectivity_type_names, trajectory,

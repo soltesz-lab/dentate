@@ -1208,7 +1208,7 @@ def bin_stimulus_features(features, t, bin_size, time_range):
 
 def rate_maps_from_features (env, population, cell_index_set, input_features_path=None, input_features_namespace=None, 
                              input_features_dict=None, arena_id=None, trajectory_id=None, time_range=None,
-                             include_time=False, phase_mod=False, distances_dict=None):
+                             include_time=False, phase_mod=False, soma_positions=None):
     
     """Initializes presynaptic spike sources from a file with input selectivity features represented as firing rates."""
 
@@ -1231,15 +1231,8 @@ def rate_maps_from_features (env, population, cell_index_set, input_features_pat
     spatial_resolution = float(env.stimulus_config['Spatial Resolution'])
     temporal_resolution = float(env.stimulus_config['Temporal Resolution'])
 
-    if phase_mod and (distances_dict is None):
-        raise RuntimeError("rate_maps_from_features: when phase_mod is True, distances_dict must be provided")
-    
-    soma_positions = None
-    if distances_dict is not None:
-        soma_positions = {}
-        for k in distances_dict:
-            soma_positions[k] = distances_dict[k][0]
-    
+    if phase_mod and (positions_dict is None):
+        raise RuntimeError("rate_maps_from_features: when phase_mod is True, positions_dict must be provided")
     
     input_features_attr_names = ['Selectivity Type', 'Num Fields', 'Field Width', 'Peak Rate',
                                  'Module ID', 'Grid Spacing', 'Grid Orientation',
@@ -1268,6 +1261,7 @@ def rate_maps_from_features (env, population, cell_index_set, input_features_pat
     if soma_positions is not None:
         position_array = np.asarray([ soma_positions[k] for k in cell_index_set ])
         population_phase_shifts = global_oscillation_phase_shift(env, position_array)
+        
     population_phase_dict = None
     if population_phase_shifts is not None:
         population_phase_dict = {}
@@ -1294,10 +1288,9 @@ def rate_maps_from_features (env, population, cell_index_set, input_features_pat
 
         phase_mod_function = None
         if phase_mod:
-            this_phase_shift, this_phase_pref = population_phase_dict[gid]
-            x, d = global_oscillation_phase_mod(env, population, this_phase_pref)
-            phase_mod_ip = Rbf(x, d, function="gaussian")
-            phase_mod_function=lambda phi: phase_mod_ip(np.mod(phi + this_phase_shift, 360.))
+            this_phase_pref, this_phase_shift = population_phase_dict[gid]
+            phase_mod_function=make_phase_mod_function(env, population, this_phase_pref, this_phase_shift) 
+
         input_cell_config = get_input_cell_config(selectivity_type=this_selectivity_type,
                                                   selectivity_type_names=selectivity_type_names,
                                                   selectivity_attr_dict=selectivity_attr_dict,
@@ -1452,7 +1445,8 @@ def global_oscillation_phase_mod(env, population, phase_pref, bin_size=1):
     global_oscillation_config = env.stimulus_config['Global Oscillation']
     phase_mod_config = global_oscillation_config['Phase Modulation'][population]
     phase_range = phase_mod_config['phase']
-    mod_depth = phase_mod_config['depth']
+    mod_depth_baseline = phase_mod_config['depth']
+    mod_depth = mod_depth_baseline
     fw = 2. * np.sqrt(2. * np.log(100.))
     phase_sig = (phase_range[1] - phase_range[0]) / fw
 
@@ -1462,3 +1456,11 @@ def global_oscillation_phase_mod(env, population, phase_pref, bin_size=1):
     d += gaussian(x, mu=phase_pref, sig=phase_sig, A=mod_depth)
 
     return x, d
+
+def make_phase_mod_function(env, population, phase_pref, phase_shift, rbf_kernel="thin_plate"):
+
+    x, d = global_oscillation_phase_mod(env, population, phase_pref)
+    phase_mod_ip = Rbf(x, d, function=rbf_kernel)
+    res=lambda phi: phase_mod_ip(np.mod(phi + phase_shift, 360.))
+
+    return res

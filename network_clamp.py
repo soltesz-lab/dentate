@@ -6,6 +6,7 @@ import os, sys, copy, uuid, pprint, time, gc
 from collections import defaultdict, namedtuple
 from mpi4py import MPI
 from neuroh5.io import bcast_cell_attributes, read_cell_attribute_selection, scatter_read_cell_attribute_selection, read_cell_attribute_info
+import h5py
 import numpy as np
 import click
 from dentate import io_utils, spikedata, synapses, stimulus, cell_clamp, optimization
@@ -16,9 +17,8 @@ from dentate.utils import is_interactive, is_iterable, Context, list_find, list_
 from dentate.utils import write_to_yaml, read_from_yaml, get_trial_time_indices, get_trial_time_ranges, get_low_pass_filtered_trace, contiguous_ranges
 from dentate.cell_clamp import init_biophys_cell
 from dentate.stimulus import rate_maps_from_features
-from dentate.stimulus import global_oscillation_signal, global_oscillation_phase_shift, global_oscillation_phase_pref, global_oscillation_phase_mod
+from dentate.stimulus import global_oscillation_signal, global_oscillation_phase_shift, global_oscillation_phase_pref, global_oscillation_phase_mod, make_phase_mod_function
 from dentate.optimization import SynParam, ProblemRegime, TrialRegime, optimization_params, opt_eval_fun
-from scipy.interpolate import Rbf
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
@@ -210,8 +210,10 @@ def init_inputs_from_features(env, presyn_sources, time_range,
         if phase_mod:
             population_phase_prefs = global_oscillation_phase_pref(env, population, num_cells=num_cells)
             population_soma_positions = soma_positions_dict[population]
-            position_array = np.asarray([ population_soma_positions[k][0] for k in sorted(selection) ])
+            position_array = np.asarray([ population_soma_positions[k] for k in sorted(selection) ])
             population_phase_shifts = global_oscillation_phase_shift(env, position_array)
+            logger.info(f'population {population} positions: {position_array}')
+            logger.info(f'population {population} phase shifts: {population_phase_shifts}')
             population_phase_dict = {}
             for i, gid in enumerate(sorted(selection)):
                 population_phase_dict[gid] = (population_phase_prefs[gid - pop_start],
@@ -232,9 +234,8 @@ def init_inputs_from_features(env, presyn_sources, time_range,
                 phase_mod_function = None
                 if phase_mod:
                     this_phase_pref, this_phase_shift = population_phase_dict[gid]
-                    x, d = global_oscillation_phase_mod(env, population, this_phase_pref)
-                    phase_mod_ip = Rbf(x, d, function="gaussian")
-                    phase_mod_function=lambda phi: phase_mod_ip(np.mod(phi + this_phase_shift, 360.))
+                    phase_mod_function=make_phase_mod_function(env, population, this_phase_pref, this_phase_shift) 
+
 
                 spikes_attr_dict[gid] = stimulus.generate_input_spike_trains(env, population, selectivity_type_names, trajectory, gid,
                                                                              selectivity_attr_dict, equilibrate=equilibrate,
@@ -370,10 +371,18 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
     if coords_path is not None:
         soma_positions_dict = {}
         for population in all_populations:
+            reference_u_arc_distance_bounds = None
+            if env.comm.rank == 0:
+                with h5py.File(coords_path, 'r') as coords_f:
+                    reference_u_arc_distance_bounds = \
+                     coords_f['Populations'][population][distances_namespace].attrs['Reference U Min'], \
+                     coords_f['Populations'][population][distances_namespace].attrs['Reference U Max']
+            env.comm.barrier()
+            reference_u_arc_distance_bounds = env.comm.bcast(reference_u_arc_distance_bounds, root=0)
             distances = bcast_cell_attributes(coords_path, population, namespace=distances_namespace, root=0)
-            soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
+            abs_positions = { k: v['U Distance'][0] - reference_u_arc_distance_bounds[0] for (k,v) in distances }
+            soma_positions_dict[population] = abs_positions
             del distances
-            soma_positions_dict[population] = soma_distances
 
     input_source_dict = None
     if (worker is not None) and cooperative_init:
