@@ -38,7 +38,7 @@ ibrun  python3 ./scripts/generate_input_spike_trains.py \
     --config-prefix=./config \
     --phase-mod --coords-path=${dataset_prefix}/dentate/Full_Scale_Control/DG_coords_20190717_compressed.h5 \
     --selectivity-path=${dataset_prefix}/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5 \
-    --output-path=${dataset_prefix}/dentate/Full_Scale_Control/DG_input_spike_trains_phasemod_20210515.h5 \
+    --output-path=${dataset_prefix}/dentate/Full_Scale_Control/DG_input_spike_trains_phasemod_20210521.h5 \
     --value-chunk-size=10000 --chunk-size=10000 --io-size 8 --write-size 20000 \
     --n-trials=3 -v
 

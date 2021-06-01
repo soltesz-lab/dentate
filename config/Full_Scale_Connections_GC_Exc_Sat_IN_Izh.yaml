@@ -197,7 +197,7 @@ Synapses:
           dur_onset: 0.5
           tau_offset: 9.0
           e: 0
-          g_unit: 0.0003
+          g_unit: 0.00055
           weight: 1.0
           sat: 0.9
         NMDA:

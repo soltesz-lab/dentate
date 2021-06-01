@@ -199,11 +199,13 @@ def init_inputs_from_features(env, presyn_sources, time_range,
 
     input_source_dict = {}
     for population in populations:
+        pop_start = int(env.celltypes[population]['start'])
+        num_cells = int(env.celltypes[population]['num'])
+
         selection = list(presyn_sources[population])
         logger.info(f'generating spike trains in time range {time_range} '
                     f'for {len(selection)} inputs from presynaptic population {population}...')
 
-        num_cells=len(selection)
         population_phase_dict = None
         if phase_mod:
             population_phase_prefs = global_oscillation_phase_pref(env, population, num_cells=num_cells)
@@ -212,7 +214,7 @@ def init_inputs_from_features(env, presyn_sources, time_range,
             population_phase_shifts = global_oscillation_phase_shift(env, position_array)
             population_phase_dict = {}
             for i, gid in enumerate(sorted(selection)):
-                population_phase_dict[gid] = (population_phase_prefs[i],
+                population_phase_dict[gid] = (population_phase_prefs[gid - pop_start],
                                               population_phase_shifts[i])
 
         
@@ -231,7 +233,7 @@ def init_inputs_from_features(env, presyn_sources, time_range,
                 if phase_mod:
                     this_phase_pref, this_phase_shift = population_phase_dict[gid]
                     x, d = global_oscillation_phase_mod(env, population, this_phase_pref)
-                    phase_mod_ip = Rbf(x, d, function="thin_plate", smooth=0.1)
+                    phase_mod_ip = Rbf(x, d, function="gaussian")
                     phase_mod_function=lambda phi: phase_mod_ip(np.mod(phi + this_phase_shift, 360.))
 
                 spikes_attr_dict[gid] = stimulus.generate_input_spike_trains(env, population, selectivity_type_names, trajectory, gid,

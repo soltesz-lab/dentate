@@ -61,10 +61,11 @@ def dmosopt_broker_init(broker, *args):
 @click.option("--population-size", type=int, default=100)
 @click.option("--num-generations", type=int, default=200)
 @click.option("--resample-fraction", type=float)
+@click.option("--mutation-rate", type=float)
 @click.option("--collective-mode", type=str, default='gather')
 @click.option("--spawn-startup-wait", type=int, default=30)
 @click.option("--verbose", '-v', is_flag=True)
-def main(config_path, target_features_path, target_features_namespace, optimize_file_dir, optimize_file_name, nprocs_per_worker, n_iter, n_initial, initial_maxiter, initial_method, population_size, num_generations, resample_fraction, collective_mode, spawn_startup_wait, verbose):
+def main(config_path, target_features_path, target_features_namespace, optimize_file_dir, optimize_file_name, nprocs_per_worker, n_iter, n_initial, initial_maxiter, initial_method, population_size, num_generations, resample_fraction, mutation_rate, collective_mode, spawn_startup_wait, verbose):
 
     network_args = click.get_current_context().args
     network_config = {}
@@ -122,7 +123,7 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
     # Create an optimizer
     feature_dtypes = [(feature_name, np.float32) for feature_name in objective_names]
     constraint_names = [f'{target_pop_name} positive rate' for target_pop_name in target_populations ]
-    dmosopt_params = {'opt_id': 'dmosopt_optimize_network',
+    dmosopt_params = {'opt_id': 'dentate.optimize_network',
                       'obj_fun_init_name': init_objfun, 
                       'obj_fun_init_module': 'dentate.optimize_network',
                       'obj_fun_init_args': init_params,
@@ -141,6 +142,7 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
                       'population_size': population_size,
                       'num_generations': num_generations,
                       'resample_fraction': resample_fraction,
+                      'mutation_rate': mutation_rate,
                       'file_path': f'{optimize_file_dir}/{optimize_file_name}',
                       'save': True,
                       'save_eval': 5

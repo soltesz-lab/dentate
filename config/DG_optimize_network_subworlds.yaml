@@ -33,13 +33,13 @@ objective_names:
 - NGFC firing rate
 - NGFC fraction active
 update_context:
-- - dentate.troubleshoot2_optimize_network_subworlds
+- - dentate.optimize_network_subworlds
   - update_network
 get_features_stages:
-- source: dentate.troubleshoot2_optimize_network_subworlds
+- source: dentate.optimize_network_subworlds
   compute_features: compute_network_features
 get_objectives:
-  dentate.troubleshoot2_optimize_network_subworlds: get_objectives
+  dentate.optimize_network_subworlds: get_objectives
 kwargs:
   config_file: Network_Clamp_Slice_neg2000_neg1925um_IN_Izh.yaml
   tstop: 4500.

@@ -276,7 +276,7 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
         trial_rate_features = [np.asarray(trial_inflds, dtype=np.float32).reshape((1, n_trials)), 
                                np.asarray(trial_outflds, dtype=np.float32).reshape((1, n_trials))]
         rate_features = [mean_peak, mean_trough, max_infld, min_infld, mean_infld, mean_outfld, ]
-        rate_constr = [ mean_peak - mean_trough if max_infld > 0. else -1. ]
+        rate_constr = [ mean_peak if max_infld > 0. else -1. ]
         return (np.asarray(residual_inflds), np.asarray(residual_outflds), 
                 trial_rate_features, rate_features, rate_constr)
 
@@ -297,20 +297,21 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
             peak_infld = np.mean(state_value_array[t_peak_idxs])
             trough_infld = np.mean(state_value_array[t_trough_idxs])
             mean_infld = np.mean(state_value_array[t_infld_idxs])
+
+            masked_state_value_array = masked_state_value_arrays[i, :]
+            mean_masked = np.mean(masked_state_value_array)
+            residual_masked = np.mean(masked_state_value_array) - target_outfld
+
+            mean_outfld = mean_masked
             if t_outfld_idxs is not None:
                 mean_outfld = np.mean(state_value_array[t_outfld_idxs])
-                residual_outfld = np.mean(state_value_array[t_outfld_idxs]) - target_outfld
-            else:
-                masked_state_value_array = masked_state_value_arrays[i, :]
-                mean_outfld = np.mean(masked_state_value_array)
-                residual_outfld = np.mean(masked_state_value_array) - target_outfld
                 
             peak_inflds.append(peak_infld)
             trough_inflds.append(trough_infld)
             mean_outflds.append(mean_outfld)
-            residuals_outfld.append(residual_outfld)
+            residuals_outfld.append(residual_masked)
             logger.info(f'selectivity objective: state values of gid {gid}: '
-                        f'peak/trough/mean in/mean out: {peak_infld:.02f} / {trough_infld:.02f} / {mean_infld:.02f} / residual outfld: {residual_outfld:.04f}')
+                        f'peak/trough/mean in/mean out/masked: {peak_infld:.02f} / {trough_infld:.02f} / {mean_infld:.02f} / {mean_outfld:.02f} / residual masked: {residual_masked:.04f}')
 
         state_features = [np.mean(peak_inflds), np.mean(trough_inflds), np.mean(mean_outflds)]
         return (np.asarray(residuals_outfld), state_features)

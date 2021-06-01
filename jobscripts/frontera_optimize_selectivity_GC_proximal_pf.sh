@@ -32,7 +32,7 @@ export UCX_TLS="knem,dc_x"
 
 #cd $SLURM_SUBMIT_DIR
 
-mkdir -p $SCRATCH/dentate/results/netclamp/GC_20210515
+mkdir -p $SCRATCH/dentate/results/netclamp/GC_20210531
 
 export nworkers=$((24 * 24))
 
@@ -40,26 +40,26 @@ if test "$3" == ""; then
 mpirun -rr -n $nworkers python3 optimize_selectivity.py  -c Network_Clamp_GC_Exc_Sat_SLN_IN_Izh_proximal_pf.yaml \
     -p GC -t 9500 -g $1  --n-trials 1 --trial-regime mean --problem-regime every \
     --nprocs-per-worker=1 --n-initial=1200 --n-iter=5 --initial-method="slh" \
-    --num-generations=200 --population-size=300 --resample-fraction=0.9 \
+    --num-generations=200 --population-size=250 --resample-fraction=0.8 \
     --spawn-startup-wait=30 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/striped/dentate \
-    --results-path $SCRATCH/dentate/results/netclamp/GC_20210515 \
+    --results-path $SCRATCH/dentate/results/netclamp/GC_20210531 \
     --config-prefix config  --param-config-name "$2" --selectivity-config-name PP \
     --arena-id A --trajectory-id Diag --use-coreneuron \
     --target-features-path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
     --target-features-namespace 'Place Selectivity' \
-    --spike-events-path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_phasemod_20210515_compressed.h5" \
+    --spike-events-path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_phasemod_20210521_compressed.h5" \
     --spike-events-namespace 'Input Spikes' --spike-events-t 'Spike Train' 
 else
 mpirun -rr -n $nworkers python3 optimize_selectivity.py  -c Network_Clamp_GC_Exc_Sat_SLN_IN_Izh_proximal_pf.yaml \
     -p GC  -t 9500 -g $1 --n-trials 1 --trial-regime mean --problem-regime every \
-    --nprocs-per-worker=1 --n-initial=1200 --n-iter=5  --num-generations=200 --population-size=200 --resample-fraction=0.9 \
+    --nprocs-per-worker=1 --n-initial=1200 --n-iter=5  --num-generations=200 --population-size=250 --resample-fraction=0.5 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/striped/dentate \
-    --results-path $SCRATCH/dentate/results/netclamp/GC_20210515 \
+    --results-path $SCRATCH/dentate/results/netclamp/GC_20210531 \
     --results-file "$3" \
-    --spike-events-path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_phasemod_20210515_compressed.h5" \
+    --spike-events-path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_phasemod_20210521_compressed.h5" \
     --spike-events-namespace 'Input Spikes' --spike-events-t 'Spike Train' \
     --config-prefix config  --param-config-name "$2" --selectivity-config-name PP \
     --arena-id A --trajectory-id Diag --use-coreneuron  \

@@ -1,7 +1,7 @@
 #!/bin/bash -l
-#SBATCH -J troubleshoot2_frontera_optimize_DG_test_network_subworlds
-#SBATCH -o ./results/troubleshoot2_frontera_optimize_DG_test_network_subworlds.%j.o
-#SBATCH -e ./results/troubleshoot2_frontera_optimize_DG_test_network_subworlds.%j.e
+#SBATCH -J frontera_optimize_DG_network_subworlds
+#SBATCH -o ./results/frontera_optimize_DG_network_subworlds.%j.o
+#SBATCH -e ./results/frontera_optimize_DG_network_subworlds.%j.e
 #SBATCH -p development
 #SBATCH -N 3
 #SBATCH -n 168
@@ -30,7 +30,7 @@ cd $WORK/dentate
 distribute.bash ${SCRATCH}/dentate/optimize_DG_network
 
 mpirun python3 -m nested.optimize \
-  --config-file-path=$DG_HOME/config/troubleshoot2_DG_optimize_network_subworlds_config_dbg.yaml \
+  --config-file-path=$DG_HOME/config/DG_optimize_network_subworlds.yaml \
   --output-dir=$SCRATCH/dentate/results \
   --framework=pc \
   --verbose=True \
