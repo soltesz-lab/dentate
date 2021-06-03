@@ -2774,12 +2774,26 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
     S = pop_start_inds[pop_name]
 
     n_plots = len(spkpoplst) + 2
-    plot_height_ratios = [1] * len(spkpoplst) + [2, 2]
+    plot_height_ratios = [1] * len(spkpoplst)
+    if all_spike_hist:
+        n_plots += 1
+        plot_height_ratios.append(1)
+        
+    # Target spike plot
+    plot_height_ratios.append(1)
+    
+    if target_rate is not None:
+        n_plots += 1
+        plot_height_ratios.append(0.5)
+
+    # State plot
+    plot_height_ratios.append(2)
     
     if lowpass_plot_type == 'subplot':
         n_plots += 1
         plot_height_ratios.append(1)
-    
+
+        
     fig, axes = plt.subplots(nrows=n_plots, sharex=True, figsize=fig_options.figSize,
                              gridspec_kw={'height_ratios': plot_height_ratios})
 
@@ -2844,6 +2858,8 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
         lgd_labels = [pop_name + ' (%i active)' % (len(pop_active_cells[pop_name])) for pop_name in spkpoplst if
                       pop_name in avg_rates]
 
+    i_ax = len(include)
+    
     if spktlst:
         if all_spike_hist:
             # Calculate and plot total spike histogram
@@ -2856,55 +2872,56 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
                                    for trial_spkts in all_trial_spkts ]
             sphist_x, sphist_y = sphist(merged_trial_spkts)
             sprate = np.sum(avg_rates[pop_name] for pop_name in avg_rates) / len(avg_rates)
-            ax2 = axes[len(spkpoplst)]
-            ax2.plot(sphist_x, sphist_y, linewidth=1.0)
-            ax2.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
-            ax2.set_xlim(time_range)
-            ax2.set_ylim((np.min(sphist_y), np.max(sphist_y)*2))
+            ax_spk = axes[i_ax]
+            ax_spk.plot(sphist_x, sphist_y, linewidth=1.0)
+            ax_spk.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
+            ax_spk.set_xlim(time_range)
+            ax_spk.set_ylim((np.min(sphist_y), np.max(sphist_y)*2))
             if pop_rates:
                 lgd_label = "mean firing rate: %.3g Hz" % sprate
-                at = AnchoredText(lgd_label, loc='upper right', borderpad=0.01, prop=dict(size=fig_options.fontSize))
-                ax2.add_artist(at)
-        else:
-            # Calculate and plot spike histogram for target gid
-            pop_spkinds, pop_spkts = pop_spk_dict.get(state_pop_name, ([], []))
-            all_trial_spkts = []
-            spk_count = 0
-            for this_trial_spkinds, this_trial_spkts in zip_longest(pop_spkinds, pop_spkts):
-                spk_inds = np.argwhere(this_trial_spkinds == gid)
-                all_trial_spkts.append(this_trial_spkts[spk_inds])
-                spk_count += len(spk_inds)
-            sphist_x, sphist_y = sphist(all_trial_spkts)
-            sprate = spk_count / n_trials  / tsecs            
-            ax2 = axes[len(spkpoplst)]
-            ax2.plot(sphist_x, sphist_y, linewidth=1.0)
-            ax2.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
-            ax2.set_xlim(time_range)
-            ax2.set_ylim((np.min(sphist_y), np.max(sphist_y)*2))
-            if pop_rates:
-                lgd_label = "mean firing rate: %.3g Hz" % sprate
-                at = AnchoredText(lgd_label, loc='upper right', borderpad=0.01, prop=dict(size=fig_options.fontSize))
-                ax2.add_artist(at)
+                at = AnchoredText(lgd_label, loc='upper right', borderpad=0.01,
+                                  prop=dict(size=fig_options.fontSizej))
+                ax_spk.add_artist(at)
+            i_ax += 1
+
+        # Calculate and plot spike histogram for target gid
+        pop_spkinds, pop_spkts = pop_spk_dict.get(state_pop_name, ([], []))
+        spk_count = 0
+        ax_spk = axes[i_ax]
+        for this_trial_spkinds, this_trial_spkts in zip_longest(pop_spkinds, pop_spkts):
+            spk_inds = np.argwhere(this_trial_spkinds == gid)
+            spk_count += len(spk_inds)
+            ax_spk.stem(this_trial_spkts[spk_inds], [0.5]*len(spk_inds), markerfmt=' ')
+            ax_spk.set_yticks([])
+        sprate = spk_count / n_trials  / tsecs            
+        ax_spk.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
+        ax_spk.set_xlim(time_range)
+        if pop_rates:
+            lgd_label = "%s gid %d: %.3g Hz" % (state_pop_name, gid, sprate)
+            at = AnchoredText(lgd_label, loc='upper right', borderpad=0.01, 
+                              prop=dict(size=fig_options.fontSize))
+            ax_spk.add_artist(at)
+        i_ax += 1
 
     if target_rate is not None:
-        norm_target_rate = target_rate / np.max(target_rate)
-        ax2.fill_between(target_rate_time, 0, norm_target_rate, alpha=0.25)
-        ylim = ax2.get_ylim()
-        ax2.set_ylim((0, max(ylim[1], 1.0)))
-                
+        ax_target_rate = axes[i_ax]
+        i_ax += 1
+        ax_target_rate.imshow(target_rate[np.newaxis,:], aspect="auto")
+        ax_target_rate.set_yticks([])
+        
     # Plot intracellular state
-    ax3 = axes[len(spkpoplst)+1]
-    ax3.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
-    ax3.set_ylabel(intracellular_variable, fontsize=fig_options.fontSize)
-    ax3.set_xlim(time_range)
-
+    ax_state = axes[i_ax]
+    ax_state.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
+    ax_state.set_ylabel(intracellular_variable, fontsize=fig_options.fontSize)
+    ax_state.set_xlim(time_range)
+    i_ax += 1
 
     # Plot lowpass-filtered intracellular state if lowpass_plot_type is set to subplot
     if lowpass_plot_type == 'subplot':
-        ax4 = axes[len(spkpoplst)+2]
+        ax_lowpass = axes[i_ax]
+        i_ax += 1
     else:
-        ax4 = None
-
+        ax_lowpass = ax_state
 
     states = indata['states']
     stvplots = []
@@ -2918,16 +2935,12 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
                               for st_x, st_y in zip(st_xs, st_ys)]
             st_x = st_xs[0]
             filtered_st_y = np.mean(filtered_st_ys, axis=0)
+            ax_lowpass.plot(st_x, filtered_st_y, label='%s (filtered)' % pop_name,
+                            linewidth=fig_options.lw, alpha=0.75)
 
             for st_y in st_ys:
                 stvplots.append(
-                    ax3.plot(st_x, st_y, label=pop_name, linewidth=fig_options.lw, alpha=0.5))
-            if lowpass_plot_type == 'overlay':
-                ax3.plot(st_x, filtered_st_y, label='%s (filtered)' % pop_name,
-                         linewidth=fig_options.lw, alpha=0.75)
-            else:
-                ax4.plot(st_x, filtered_st_y, label='%s (filtered)' % pop_name,
-                         linewidth=fig_options.lw, alpha=0.75)
+                    ax_state.plot(st_x, st_y, label=pop_name, linewidth=fig_options.lw, alpha=0.5))
         
 
     if labels == 'legend':
@@ -2936,14 +2949,15 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
             box = ax.get_position()
             ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
         # Add legend
-        lgd = fig.legend(stplots, lgd_labels, loc='center right',
+        lgd = fig.legend(stplots, lgd_labels, loc='center right', 
                          fontsize='small', scatterpoints=1, markerscale=5.,
                          bbox_to_anchor=(1.002, 0.5), bbox_transform=plt.gcf().transFigure)
         fig.artists.append(lgd)
 
     elif labels == 'overlay':
         for i, (pop_name, lgd_label) in enumerate(zip(spkpoplst, lgd_labels)):
-            at = AnchoredText(lgd_label, loc='upper right', borderpad=0.01, prop=dict(size=fig_options.fontSize))
+            at = AnchoredText(lgd_label, loc='upper right', borderpad=0.01,
+                              prop=dict(size=fig_options.fontSize))
             axes[i].add_artist(at)
         max_label_len = max([len(l) for l in lgd_labels])
 
