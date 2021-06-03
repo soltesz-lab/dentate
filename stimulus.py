@@ -123,7 +123,7 @@ class InputSelectivityConfig(object):
 class GridInputCellConfig(object):
     def __init__(self, selectivity_type=None, arena=None, selectivity_config=None,
                  peak_rate=None, distance=None, local_random=None, selectivity_attr_dict=None,
-                 phase_mod_function=None):
+                 phase_mod_config=None):
         """
         :param selectivity_type: int
         :param arena: namedtuple
@@ -133,7 +133,12 @@ class GridInputCellConfig(object):
         :param local_random: :class:'np.random.RandomState'
         :param selectivity_attr_dict: dict
         """
-        self.phase_mod_function = phase_mod_function
+        self.phase_mod_function = None
+        if phase_mod_config is not None:
+            phase_range = phase_mod_config['phase']
+            mod_depth = phase_mod_config['depth']
+            self.phase_mod_function = make_phase_mod_function(phase_range, mod_depth, ...)
+
         if selectivity_attr_dict is not None:
             self.init_from_attr_dict(selectivity_attr_dict)
         elif any([arg is None for arg in [selectivity_type, selectivity_config, peak_rate, distance]]):
@@ -1433,20 +1438,19 @@ def global_oscillation_phase_pref(env, population, num_cells, local_random=None)
     
     return s
 
+#    global_oscillation_config = env.stimulus_config['Global Oscillation']
+#    phase_mod_config = global_oscillation_config['Phase Modulation'][population]
+#    phase_range = phase_mod_config['phase']
+#    mod_depth_baseline = phase_mod_config['depth']
+#
 
-def global_oscillation_phase_mod(env, population, phase_pref, bin_size=1):
+def global_oscillation_phase_mod(phase_range, mod_depth, phase_pref, bin_size=1):
     """
     Computes oscillatory phase preferences for all cells in the given population.
-    Uses the "Global Oscillation" entry in the input configuration. See `global_oscillation_signal` for a description of the configuration format.
 
     Returns: a tuple of arrays x, d where x contains phases 0-360 degrees, and d contains the corresponding modulation [0 - 1].
     """
 
-    global_oscillation_config = env.stimulus_config['Global Oscillation']
-    phase_mod_config = global_oscillation_config['Phase Modulation'][population]
-    phase_range = phase_mod_config['phase']
-    mod_depth_baseline = phase_mod_config['depth']
-    mod_depth = mod_depth_baseline
     fw = 2. * np.sqrt(2. * np.log(100.))
     phase_sig = (phase_range[1] - phase_range[0]) / fw
 
@@ -1457,9 +1461,9 @@ def global_oscillation_phase_mod(env, population, phase_pref, bin_size=1):
 
     return x, d
 
-def make_phase_mod_function(env, population, phase_pref, phase_shift, rbf_kernel="thin_plate"):
+def make_phase_mod_function(phase_range, mod_depth, phase_pref, phase_shift, rbf_kernel="thin_plate"):
 
-    x, d = global_oscillation_phase_mod(env, population, phase_pref)
+    x, d = global_oscillation_phase_mod(phase_range, mod_depth, phase_pref)
     phase_mod_ip = Rbf(x, d, function=rbf_kernel)
     res=lambda phi: phase_mod_ip(np.mod(phi + phase_shift, 360.))
 

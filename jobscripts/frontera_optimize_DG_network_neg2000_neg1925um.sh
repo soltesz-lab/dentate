@@ -54,8 +54,7 @@ mpirun -rr -n 205 \
     --verbose \
     --nprocs-per-worker=139 \
     --n-iter=5 \
-    --n-initial=300 --num-generations=200 --population-size=300 --mutation-rate=0.05 \
-    --initial-method="slh" --resample-fraction 0.9 \
+    --n-initial=300 --num-generations=200 --population-size=400 --resample-fraction 0.67 \
     --no_cleanup \
     --arena_id=A --trajectory_id=Diag \
     --template_paths=$MODEL_HOME/dgc/Mateos-Aparicio2014:$DG_HOME/templates \

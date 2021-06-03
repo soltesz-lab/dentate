@@ -411,7 +411,7 @@ Synaptic Optimization:
           apical:
             AMPA:
               weight: 
-                a: [1.0, 2.0]
+                a: [1.0, 3.0]
         CA3c:
           apical:
             AMPA:

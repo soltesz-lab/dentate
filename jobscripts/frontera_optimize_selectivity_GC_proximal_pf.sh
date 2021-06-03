@@ -40,7 +40,7 @@ if test "$3" == ""; then
 mpirun -rr -n $nworkers python3 optimize_selectivity.py  -c Network_Clamp_GC_Exc_Sat_SLN_IN_Izh_proximal_pf.yaml \
     -p GC -t 9500 -g $1  --n-trials 1 --trial-regime mean --problem-regime every \
     --nprocs-per-worker=1 --n-initial=1200 --n-iter=5 --initial-method="slh" \
-    --num-generations=200 --population-size=250 --resample-fraction=0.8 \
+    --num-generations=200 --population-size=300 --resample-fraction=0.7 \
     --spawn-startup-wait=30 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/striped/dentate \

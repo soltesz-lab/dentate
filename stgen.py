@@ -1,15 +1,8 @@
-from __future__ import division
-
-import random
-from builtins import object
-from builtins import range
-from builtins import str
 
 import numpy as np
 from numpy import array
 from numpy import log
-
-from past.utils import old_div
+from scipy.interpolate import Akima1DInterpolator
 
 
 """
@@ -37,8 +30,8 @@ gamma_hazard - Compute the hazard function for a gamma process with parameters a
 
 def get_inhom_poisson_spike_times_by_thinning(rate, t, dt=0.02, refractory=3., generator=None):
     """
-    Given a time series of instantaneous spike rates in Hz, produce a spike train consistent with an inhomogeneous
-    Poisson process with a refractory period after each spike.
+    Given a time series of instantaneous spike rates in Hz, produce a spike train consistent 
+    with an inhomogeneous Poisson process with a refractory period after each spike.
     :param rate: instantaneous rates in time (Hz)
     :param t: corresponding time values (ms)
     :param dt: temporal resolution for spike times (ms)
@@ -50,7 +43,8 @@ def get_inhom_poisson_spike_times_by_thinning(rate, t, dt=0.02, refractory=3., g
         generator = random
     interp_t = np.arange(t[0], t[-1] + dt, dt)
     try:
-        interp_rate = np.interp(interp_t, t, rate)
+        rate_ip = Akima1DInterpolator(t, rate)
+        interp_rate = rate_ip(interp_t)
     except Exception:
         print('t shape: %s rate shape: %s' % (str(t.shape), str(rate.shape)))
     interp_rate /= 1000.
@@ -67,10 +61,10 @@ def get_inhom_poisson_spike_times_by_thinning(rate, t, dt=0.02, refractory=3., g
     while i < len(interp_t):
         x = generator.uniform(0.0, 1.0)
         if x > 0.:
-            ISI = old_div(-np.log(x), max_rate)
-            i += int(old_div(ISI, dt))
+            ISI = -np.log(x) / max_rate
+            i += int(ISI / dt)
             ISI_memory += ISI
-            if (i < len(interp_t)) and (generator.uniform(0.0, 1.0) <= old_div(interp_rate[i], max_rate)) and ISI_memory >= 0.:
+            if (i < len(interp_t)) and (generator.uniform(0.0, 1.0) <= (interp_rate[i] / max_rate)) and ISI_memory >= 0.:
                 spike_times.append(interp_t[i])
                 ISI_memory = -refractory
     return spike_times
@@ -135,7 +129,7 @@ class StGen(object):
         self.rpy_checked = False
 
     def seed(self, seed):
-        """ seed the gsl rng with a given seed """
+        """ seed the rng with a given seed """
         self.rng.seed(seed)
 
     def poisson_generator(self, rate, t_start=0.0, t_stop=1000.0, debug=False):
@@ -256,7 +250,7 @@ class StGen(object):
         spike_rate = rate[idx]
 
         # thin and return spikes
-        spike_train = ps[rn < old_div(spike_rate, rmax)]
+        spike_train = ps[rn < (spike_rate / rmax)]
 
         return spike_train
 
@@ -352,11 +346,11 @@ class StGen(object):
             # evolve adaptation state
             t_s += isi[i]
 
-            if rn[i] < old_div(a[t_i] * np.exp(-bq[t_i] * np.exp(old_div(-t_s, tau))), rmax):
+            if rn[i] < (a[t_i] * np.exp(-bq[t_i] * np.exp(old_div(-t_s, tau))) / rmax):
                 # keep spike
                 keep[i] = True
                 # remap t_s state
-                t_s = -tau * np.log(np.exp(old_div(-t_s, tau)) + 1)
+                t_s = -tau * np.log(np.exp((-t_s / tau)) + 1)
             i += 1
 
         spike_train = ps[keep]
@@ -469,14 +463,12 @@ class StGen(object):
             t_s += isi[i]
             t_r += isi[i]
 
-            if rn[i] < old_div(
-                    a[t_i] * np.exp(-bq[t_i] * (np.exp(old_div(-t_s, tau_s)) + qrqs * np.exp(old_div(-t_r, tau_r)))),
-                    rmax):
+            if rn[i] < (a[t_i] * np.exp(-bq[t_i] * (np.exp((-t_s / tau_s)) + qrqs * np.exp((-t_r / tau_r)))) / rmax):
                 # keep spike
                 keep[i] = True
                 # remap t_s state
-                t_s = -tau_s * np.log(np.exp(old_div(-t_s, tau_s)) + 1)
-                t_r = -tau_r * np.log(np.exp(old_div(-t_r, tau_r)) + 1)
+                t_s = -tau_s * np.log(np.exp((-t_s / tau_s)) + 1)
+                t_r = -tau_r * np.log(np.exp((-t_r / tau_r)) + 1)
             i += 1
 
         spike_train = ps[keep]
@@ -518,7 +510,7 @@ class StGen(object):
         y = np.zeros(N, float)
         gauss = self.rng.standard_normal(N - 1)
         y[0] = y0
-        fac = old_div(dt, tau)
+        fac = (dt / tau)
         noise = np.sqrt(2 * fac) * sigma
 
         # python loop... bad+slow!
@@ -562,7 +554,7 @@ class StGen(object):
         N = len(t)
         y = np.zeros(N, float)
         y[0] = y0
-        fac = old_div(dt, tau)
+        fac = (dt / tau)
         gauss = fac * y0 + np.sqrt(2 * fac) * sigma * self.rng.standard_normal(N - 1)
         mfac = 1 - fac
 
@@ -613,7 +605,7 @@ class StGen(object):
         N = len(t)
         y = np.zeros(N, float)
         y[0] = y0
-        fac = old_div(dt, tau)
+        fac = (dt / tau)
         gauss = fac * y0 + np.sqrt(2 * fac) * sigma * self.rng.standard_normal(N - 1)
 
         # python loop... bad+slow!
@@ -688,7 +680,7 @@ def shotnoise_fromspikes(spike_train, q, tau, dt=0.1, t_start=None, t_stop=None,
         assert t_stop > t_start
 
     # time of vanishing significance
-    vs_t = -tau * np.log(old_div(eps, q))
+    vs_t = -tau * np.log((eps / q))
 
     if t_stop == None:
         t_stop = st.t_stop
@@ -707,7 +699,7 @@ def shotnoise_fromspikes(spike_train, q, tau, dt=0.1, t_start=None, t_stop=None,
 
     t = np.arange(t_start, t_stop, dt)
 
-    kern = q * np.exp(old_div(-np.arange(0.0, vs_t, dt), tau))
+    kern = q * np.exp((-np.arange(0.0, vs_t, dt) / tau))
 
     idx = np.clip(np.searchsorted(t, st.spike_times, 'right') - 1, 0, len(t) - 1)
 
@@ -736,8 +728,8 @@ def _gen_g_add(spikes, q, tau, t, eps=1.0e-8):
     dt = t[1] - t[0]
 
     # time of vanishing significance
-    vs_t = -tau * np.log(old_div(eps, q))
-    kern = q * np.exp(old_div(-np.arange(0.0, vs_t, dt), tau))
+    vs_t = -tau * np.log((eps / q))
+    kern = q * np.exp((-np.arange(0.0, vs_t, dt) / tau))
 
     vs_idx = len(kern)
 

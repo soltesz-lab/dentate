@@ -1,6 +1,6 @@
 Number Modules: 10
 Spatial Resolution: 3.0  # cm
-Temporal Resolution: 1.0  # ms
+Temporal Resolution: 0.1  # ms
 Equilibration Duration: 250. # ms
 
 # Variances expressed as floor widths of a normal distribution
