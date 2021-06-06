@@ -1462,7 +1462,7 @@ def stationary_phase_mod(t, phase_range, phase_pref, phase_offset, mod_depth, fr
 
     r = phase_range[1] - phase_range[0]
     delta = 2*np.pi - np.deg2rad(phase_pref)
-    y = np.cos(2*np.pi*freq*(t/1000.) - np.deg2rad(phase_offset) + delta) + 1
+    s = np.cos(2*np.pi*freq*(t) - np.deg2rad(phase_offset) + delta) + 1
 
     d = np.clip(mod_depth, 0., 1.)
     mod = s*mod_depth/2. + (1. - mod_depth)
