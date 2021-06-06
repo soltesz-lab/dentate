@@ -42,11 +42,11 @@ def get_inhom_poisson_spike_times_by_thinning(rate, t, dt=0.02, refractory=3., g
     if generator is None:
         generator = random
     interp_t = np.arange(t[0], t[-1] + dt, dt)
-    try:
-        rate_ip = Akima1DInterpolator(t, rate)
-        interp_rate = rate_ip(interp_t)
-    except Exception:
-        print('t shape: %s rate shape: %s' % (str(t.shape), str(rate.shape)))
+#    try:
+    rate_ip = Akima1DInterpolator(t, rate)
+    interp_rate = rate_ip(interp_t)
+#    except Exception:
+#        print('t shape: %s rate shape: %s' % (str(t.shape), str(rate.shape)))
     interp_rate /= 1000.
     spike_times = []
     non_zero = np.where(interp_rate > 1.e-100)[0]

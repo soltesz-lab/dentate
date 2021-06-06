@@ -16,8 +16,7 @@ from dentate.neuron_utils import h, configure_hoc_env
 from dentate.utils import is_interactive, is_iterable, Context, list_find, list_index, range, str, viewitems, zip_longest, get_module_logger, config_logging, generate_results_file_id
 from dentate.utils import write_to_yaml, read_from_yaml, get_trial_time_indices, get_trial_time_ranges, get_low_pass_filtered_trace, contiguous_ranges
 from dentate.cell_clamp import init_biophys_cell
-from dentate.stimulus import rate_maps_from_features
-from dentate.stimulus import global_oscillation_signal, global_oscillation_phase_shift, global_oscillation_phase_pref, global_oscillation_phase_mod, make_phase_mod_function
+from dentate.stimulus import rate_maps_from_features, oscillation_phase_mod_config
 from dentate.optimization import SynParam, ProblemRegime, TrialRegime, optimization_params, opt_eval_fun
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -193,8 +192,6 @@ def init_inputs_from_features(env, presyn_sources, time_range,
         d = d[t_range_inds]
     trajectory = t, x, y, d
 
-    osc_t, osc_y, osc_phi = global_oscillation_signal(env, t)
-    
     equilibrate = stimulus.get_equilibration(env)
 
     input_source_dict = {}
@@ -206,18 +203,9 @@ def init_inputs_from_features(env, presyn_sources, time_range,
         logger.info(f'generating spike trains in time range {time_range} '
                     f'for {len(selection)} inputs from presynaptic population {population}...')
 
-        population_phase_dict = None
+        phase_mod_config_dict = None
         if phase_mod:
-            population_phase_prefs = global_oscillation_phase_pref(env, population, num_cells=num_cells)
-            population_soma_positions = soma_positions_dict[population]
-            position_array = np.asarray([ population_soma_positions[k] for k in sorted(selection) ])
-            population_phase_shifts = global_oscillation_phase_shift(env, position_array)
-            logger.info(f'population {population} positions: {position_array}')
-            logger.info(f'population {population} phase shifts: {population_phase_shifts}')
-            population_phase_dict = {}
-            for i, gid in enumerate(sorted(selection)):
-                population_phase_dict[gid] = (population_phase_prefs[gid - pop_start],
-                                              population_phase_shifts[i])
+            phase_mod_config_dict = oscillation_phase_mod_config(env, population, soma_positions_dict[population])
 
         
         pop_index = int(env.Populations[population])
@@ -231,15 +219,13 @@ def init_inputs_from_features(env, presyn_sources, time_range,
                                                                         comm=env.comm)
             for gid, selectivity_attr_dict in input_features_iter:
 
-                phase_mod_function = None
-                if phase_mod:
-                    this_phase_pref, this_phase_shift = population_phase_dict[gid]
-                    phase_mod_function=make_phase_mod_function(env, population, this_phase_pref, this_phase_shift) 
-
+                phase_mod_config = None
+                if phase_mod_config_dict is not None:
+                    phase_mod_config = phase_mod_config_dict[gid]
 
                 spikes_attr_dict[gid] = stimulus.generate_input_spike_trains(env, population, selectivity_type_names, trajectory, gid,
                                                                              selectivity_attr_dict, equilibrate=equilibrate,
-                                                                             phase_mod_function=phase_mod_function, osc_phi=osc_phi,
+                                                                             phase_mod_config=phase_mod_config,
                                                                              spike_train_attr_name=spike_train_attr_name,
                                                                              n_trials=n_trials,
                                                                              return_selectivity_features=False,

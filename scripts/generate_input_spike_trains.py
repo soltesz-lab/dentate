@@ -5,7 +5,7 @@ from mpi4py import MPI
 import h5py
 from dentate.env import Env
 from dentate.stimulus import get_input_cell_config, generate_linear_trajectory, generate_input_spike_trains, get_equilibration
-from dentate.stimulus import global_oscillation_signal, global_oscillation_phase_shift, global_oscillation_phase_pref, global_oscillation_phase_mod, make_phase_mod_function
+from dentate.stimulus import oscillation_phase_mod_config
 from dentate.utils import *
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, bcast_cell_attributes, read_population_ranges
 
@@ -218,8 +218,6 @@ def main(config, config_prefix, selectivity_path, selectivity_namespace, coords_
         d = comm.bcast(d, root=0)
         trajectory = t, x, y, d
 
-        osc_t, osc_y, osc_phi = global_oscillation_signal(env, t)
-        
         trajectory_namespace = 'Trajectory %s %s' % (arena_id, trajectory_id)
         output_namespace = '%s %s %s' % (spikes_namespace, arena_id, trajectory_id)
 
@@ -257,18 +255,9 @@ def main(config, config_prefix, selectivity_path, selectivity_namespace, coords_
             pop_start = int(population_ranges[population][0])
             num_cells = int(population_ranges[population][1])
 
-            population_phase_dict = None
+            phase_mod_config_dict = None
             if phase_mod:
-                population_phase_prefs = global_oscillation_phase_pref(env, population, num_cells=num_cells)
-                population_soma_positions = soma_positions_dict[population]
-                position_array = np.asarray([ population_soma_positions[k] for k in sorted(population_soma_positions) ])
-                population_phase_shifts = global_oscillation_phase_shift(env, position_array)
-                logger.info(f'population {population} phase shifts: {population_phase_shifts}')
-                population_phase_dict = {}
-                for i in range(num_cells):
-                    gid = pop_start + i
-                    population_phase_dict[gid] = (population_phase_prefs[i],
-                                                  population_phase_shifts[i])
+                phase_mod_config_dict = oscillation_phase_mod_config(env, population, soma_positions_dict[population])
 
             this_spike_hist_sum = defaultdict(lambda: np.zeros(spike_hist_resolution))
 
@@ -288,19 +277,16 @@ def main(config, config_prefix, selectivity_path, selectivity_namespace, coords_
                 for iter_count, (gid, selectivity_attr_dict) in enumerate(selectivity_attr_gen):
                     if gid is not None:
                         context.update(locals())
-
-                        phase_mod_function = None
-                        if phase_mod:
-                            this_phase_pref, this_phase_shift = population_phase_dict[gid]
-                            phase_mod_function=make_phase_mod_function(env, population, this_phase_pref, this_phase_shift) 
-                        
+                        phase_mod_config = None
+                        if phase_mod_config_dict is not None:
+                            phase_mod_config = phase_mod_config_dict[gid]
                         spikes_attr_dict[gid] = \
                             generate_input_spike_trains(env, population, selectivity_type_names, trajectory,
                                                         gid, selectivity_attr_dict, n_trials=n_trials,
                                                         spike_train_attr_name=spike_train_attr_name,
                                                         spike_hist_resolution=spike_hist_resolution,
                                                         equilibrate=equilibrate,
-                                                        phase_mod_function=phase_mod_function, osc_phi=osc_phi,
+                                                        phase_mod_config=phase_mod_config,
                                                         spike_hist_sum=this_spike_hist_sum,
                                                         debug= (debug_callback, context) if debug else False)
                         gid_count += 1

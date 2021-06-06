@@ -1,7 +1,7 @@
 import os, sys, gc, copy, time
 import numpy as np
 from scipy.interpolate import Rbf
-from collections import defaultdict, ChainMap
+from collections import defaultdict, ChainMap, namedtuple
 from mpi4py import MPI
 from dentate.utils import get_module_logger, object, range, str, Struct, gauss2d, gaussian, viewitems
 from dentate.stgen import get_inhom_poisson_spike_times_by_thinning
@@ -12,6 +12,14 @@ import h5py
 ## This logger will inherit its setting from its root logger, dentate,
 ## which is created in module env
 logger = get_module_logger(__name__)
+
+
+PhaseModConfig = namedtuple('PhaseModConfig',
+                           ['phase_range',
+                            'phase_pref',
+                            'phase_offset',
+                            'mod_depth',
+                            'frequency'])
 
 
 class InputSelectivityConfig(object):
@@ -135,13 +143,13 @@ class GridInputCellConfig(object):
         """
         self.phase_mod_function = None
         if phase_mod_config is not None:
-            phase_range = phase_mod_config['phase_range']
-            phase_entry = phase_mod_config['phase_pref']
-            phase_offset = phase_mod_config['phase_offset']
-            mod_depth = phase_mod_config['depth']
-            freq = phase_mod_config['frequency']
+            phase_range = phase_mod_config.phase_range
+            phase_pref = phase_mod_config.phase_pref
+            phase_offset = phase_mod_config.phase_offset
+            mod_depth = phase_mod_config.mod_depth
+            freq = phase_mod_config.frequency
 
-            self.phase_mod_function = lambda x, y, velocity, field_width: spatial2d_phase_mod(x, y, velocity, field_width, phase_range, phase_entry, phase_offset, mod_depth, freq)
+            self.phase_mod_function = lambda x, y, velocity, field_width: spatial2d_phase_mod(x, y, velocity, field_width, phase_range, phase_pref, phase_offset, mod_depth, freq)
 
         if selectivity_attr_dict is not None:
             self.init_from_attr_dict(selectivity_attr_dict)
@@ -237,7 +245,7 @@ class GridInputCellConfig(object):
 class PlaceInputCellConfig(object):
     def __init__(self, selectivity_type=None, arena=None, normalize_scale=True, selectivity_config=None,
                  peak_rate=None, distance=None, modular=None, num_place_field_probabilities=None, field_width=None,
-                 local_random=None, selectivity_attr_dict=None, phase_mod_function=None):
+                 local_random=None, selectivity_attr_dict=None, phase_mod_config=None):
         """
 
         :param selectivity_type: int
@@ -253,7 +261,16 @@ class PlaceInputCellConfig(object):
         :param local_random: :class:'np.random.RandomState'
         :param selectivity_attr_dict: dict
         """
-        self.phase_mod_function = phase_mod_function
+
+        self.phase_mod_function = None
+        if phase_mod_config is not None:
+            phase_range = phase_mod_config.phase_range
+            phase_pref = phase_mod_config.phase_pref
+            phase_offset = phase_mod_config.phase_offset
+            mod_depth = phase_mod_config.mod_depth
+            freq = phase_mod_config.frequency
+
+            self.phase_mod_function = lambda x, y, velocity, field_width: spatial2d_phase_mod(x, y, velocity, field_width, phase_range, phase_pref, phase_offset, mod_depth, freq)
 
         if selectivity_attr_dict is not None:
             self.init_from_attr_dict(selectivity_attr_dict)
@@ -343,7 +360,7 @@ class PlaceInputCellConfig(object):
                 'Y Offset': np.asarray(self.y0, dtype=np.float32)
                 }
 
-    def get_rate_map(self, x, y, scale=1.0, phi=None):
+    def get_rate_map(self, x, y, velocity=None, scale=1.0):
         """
 
         :param x: array
@@ -351,8 +368,8 @@ class PlaceInputCellConfig(object):
         :return: array
         """
         
-        if (phi is not None) and (self.phase_mod_function is None):
-            raise RuntimeError("PlaceInputCellConfig.get_rate_map: when phase phi is provided, cell must have phase_mod_function configured")
+        if (velocity is None) and (self.phase_mod_function is not None):
+            raise RuntimeError("PlaceInputCellConfig.get_rate_map: when phase modulation is provided, velocity must be provided to get_rate_map")
         
         rate_array = np.zeros_like(x, dtype=np.float32)
         for i in range(self.num_fields):
@@ -360,8 +377,10 @@ class PlaceInputCellConfig(object):
         rate_array *= self.peak_rate
         mean_rate = np.mean(rate_array)
         
-        if phi is not None:
-            rate_array *= self.phase_mod_function(phi)
+        if (self.num_fields > 0) and (self.phase_mod_function is not None):
+            mx = x - self.x0[0]
+            my = y - self.y0[0]
+            rate_array *= self.phase_mod_function(mx, my, velocity, self.field_width[0])
             mean_rate_mod = np.mean(rate_array)
             if mean_rate_mod > 0.:
                 rate_array *= mean_rate / mean_rate_mod
@@ -372,7 +391,7 @@ class PlaceInputCellConfig(object):
     
 class ConstantInputCellConfig(object):
     def __init__(self, selectivity_type=None, arena=None, selectivity_config=None,
-                 peak_rate=None, local_random=None, selectivity_attr_dict=None, phase_mod_function=None):
+                 peak_rate=None, local_random=None, selectivity_attr_dict=None, phase_mod_config=None):
         """
         :param selectivity_type: int
         :param arena: namedtuple
@@ -381,7 +400,18 @@ class ConstantInputCellConfig(object):
         :param local_random: :class:'np.random.RandomState'
         :param selectivity_attr_dict: dict
         """
-        self.phase_mod_function = phase_mod_function
+
+        self.phase_mod_function = None
+        if phase_mod_config is not None:
+            phase_range = phase_mod_config.phase_range
+            phase_pref = phase_mod_config.phase_pref
+            phase_offset = phase_mod_config.phase_offset
+            mod_depth = phase_mod_config.mod_depth
+            freq = phase_mod_config.frequency
+            
+            self.phase_mod_function = lambda t: stationary_phase_mod(t, phase_range, phase_pref, phase_offset, mod_depth, freq)
+
+        
         if selectivity_attr_dict is not None:
             self.init_from_attr_dict(selectivity_attr_dict)
         elif any([arg is None for arg in [selectivity_type, selectivity_config, peak_rate, arena]]):
@@ -401,7 +431,7 @@ class ConstantInputCellConfig(object):
                 'Peak Rate': np.array([self.peak_rate], dtype=np.float32),
                 }
 
-    def get_rate_map(self, x, y, phi=None):
+    def get_rate_map(self, x, y, velocity=None):
         """
 
         :param x: array
@@ -409,13 +439,15 @@ class ConstantInputCellConfig(object):
         :return: array
         """
 
-        if (phi is not None) and (self.phase_mod_function is None):
-            raise RuntimeError("ConstantInputCellConfig.get_rate_map: when phase phi is provided, cell must have phase_mod_function configured")
+        if (velocity is None) and (self.phase_mod_function is not None):
+            raise RuntimeError("ConstantInputCellConfig.get_rate_map: when phase config is provided, get_rate_map must be provided with velocity")
         
         rate_array = np.ones_like(x, dtype=np.float32) * self.peak_rate
         mean_rate = np.mean(rate_array)
-        if phi is not None:
-            rate_array *= self.phase_mod_function(phi)
+        if (velocity is not None) and (self.phase_mod_function is not None):
+            d = np.insert(np.cumsum(np.sqrt((np.diff(x) ** 2. + np.diff(y) ** 2.))), 0, 0.)
+            t = d/velocity
+            rate_array *= self.phase_mod_function(t)
             mean_rate_mod = np.mean(rate_array)
             if mean_rate_mod > 0.:
                 rate_array *= mean_rate / mean_rate_mod
@@ -472,7 +504,7 @@ def get_grid_rate_map(x0, y0, spacing, orientation, x, y, a=0.7):
 
 def get_input_cell_config(selectivity_type, selectivity_type_names, population=None, stimulus_config=None,
                           arena=None, selectivity_config=None, distance=None, local_random=None,
-                          selectivity_attr_dict=None, phase_mod_function=None):
+                          selectivity_attr_dict=None, phase_mod_config=None):
     """
 
     :param selectivity_type: int
@@ -484,7 +516,7 @@ def get_input_cell_config(selectivity_type, selectivity_type_names, population=N
     :param distance: float; u arc distance normalized to reference layer
     :param local_random: :class:'np.random.RandomState'
     :param selectivity_attr_dict: dict
-    :param phase_mod_function: function; oscillatory phase modulation
+    :param phase_mod_config: dict; oscillatory phase modulation configuration
     :return: instance of one of various InputCell classes
     """
     if selectivity_type not in selectivity_type_names:
@@ -494,13 +526,13 @@ def get_input_cell_config(selectivity_type, selectivity_type_names, population=N
     if selectivity_attr_dict is not None:
         if selectivity_type_name == 'grid':
             input_cell_config = GridInputCellConfig(selectivity_attr_dict=selectivity_attr_dict,
-                                                    phase_mod_function=phase_mod_function)
+                                                    phase_mod_config=phase_mod_config)
         elif selectivity_type_name == 'place':
             input_cell_config = PlaceInputCellConfig(selectivity_attr_dict=selectivity_attr_dict,
-                                                     phase_mod_function=phase_mod_function)
+                                                     phase_mod_config=phase_mod_config)
         elif selectivity_type_name == 'constant':
             input_cell_config = ConstantInputCellConfig(selectivity_attr_dict=selectivity_attr_dict,
-                                                        phase_mod_function=phase_mod_function)
+                                                        phase_mod_config=phase_mod_config)
         else:
             RuntimeError('get_input_cell_config: selectivity type %s is not supported' % selectivity_type_name)
     elif any([arg is None for arg in [population, stimulus_config, arena]]):
@@ -526,7 +558,7 @@ def get_input_cell_config(selectivity_type, selectivity_type_names, population=N
             input_cell_config = \
                 GridInputCellConfig(selectivity_type=selectivity_type, arena=arena,
                                     selectivity_config=selectivity_config, peak_rate=peak_rate, distance=distance,
-                                    local_random=local_random, phase_mod_function=phase_mod_function)
+                                    local_random=local_random, phase_mod_config=phase_mod_config)
         elif selectivity_type_name == 'place':
             if population in stimulus_config['Non-modular Place Selectivity Populations']:
                 modular = False
@@ -540,11 +572,11 @@ def get_input_cell_config(selectivity_type, selectivity_type_names, population=N
                 PlaceInputCellConfig(selectivity_type=selectivity_type, arena=arena,
                                      selectivity_config=selectivity_config, peak_rate=peak_rate, distance=distance,
                                      modular=modular, num_place_field_probabilities=num_place_field_probabilities,
-                                     local_random=local_random, phase_mod_function=phase_mod_function)
+                                     local_random=local_random, phase_mod_config=phase_mod_config)
         elif selectivity_type_name == 'constant':
             input_cell_config = ConstantInputCellConfig(selectivity_type=selectivity_type, arena=arena,
                                                         selectivity_config=selectivity_config, peak_rate=peak_rate,
-                                                        phase_mod_function=phase_mod_function)
+                                                        phase_mod_config=phase_mod_config)
         else:
             RuntimeError('get_input_cell_config: selectivity type: %s not implemented' % selectivity_type_name)
 
@@ -920,7 +952,7 @@ def generate_input_selectivity_features(env, population, arena, arena_x, arena_y
 
 
 def generate_input_spike_trains(env, population, selectivity_type_names, trajectory, gid, selectivity_attr_dict, spike_train_attr_name='Spike Train',
-                                selectivity_type_name=None, spike_hist_resolution=1000, equilibrate=None, phase_mod_function=False, osc_phi=None,
+                                selectivity_type_name=None, spike_hist_resolution=1000, equilibrate=None, phase_mod_config=None, 
                                 spike_hist_sum=None, return_selectivity_features=True, n_trials=1, merge_trials=True, time_range=None,
                                 comm=None, seed=None, debug=False):
     """
@@ -940,7 +972,10 @@ def generate_input_spike_trains(env, population, selectivity_type_names, traject
             time_range[0] = 0.0
 
     t, x, y, d = trajectory
-
+    abs_d = d - d[0]
+    abs_t = (t - t[0])/1000.
+    velocity = np.insert(abs_d[1:]/abs_t[1:], 0, abs_d[1]/abs_t[1])
+    
     equilibration_duration = float(env.stimulus_config['Equilibration Duration'])
     temporal_resolution = float(env.stimulus_config['Temporal Resolution'])
 
@@ -960,8 +995,8 @@ def generate_input_spike_trains(env, population, selectivity_type_names, traject
     input_cell_config = get_input_cell_config(selectivity_type=this_selectivity_type,
                                               selectivity_type_names=selectivity_type_names,
                                               selectivity_attr_dict=selectivity_attr_dict,
-                                              phase_mod_function=phase_mod_function)
-    rate_map = input_cell_config.get_rate_map(x=x, y=y, phi=osc_phi if phase_mod_function else None)
+                                              phase_mod_config=phase_mod_config)
+    rate_map = input_cell_config.get_rate_map(x=x, y=y, velocity=velocity if phase_mod_config is not None else None)
     if (selectivity_type_name != 'constant') and (equilibrate is not None):
         equilibrate_filter, equilibrate_len = equilibrate
         rate_map[:equilibrate_len] = np.multiply(rate_map[:equilibrate_len], equilibrate_filter)
@@ -1220,7 +1255,7 @@ def bin_stimulus_features(features, t, bin_size, time_range):
 
 def rate_maps_from_features (env, population, cell_index_set, input_features_path=None, input_features_namespace=None, 
                              input_features_dict=None, arena_id=None, trajectory_id=None, time_range=None,
-                             include_time=False, phase_mod=False, soma_positions=None):
+                             include_time=False, phase_mod_config=None):
     
     """Initializes presynaptic spike sources from a file with input selectivity features represented as firing rates."""
 
@@ -1243,9 +1278,6 @@ def rate_maps_from_features (env, population, cell_index_set, input_features_pat
     spatial_resolution = float(env.stimulus_config['Spatial Resolution'])
     temporal_resolution = float(env.stimulus_config['Temporal Resolution'])
 
-    if phase_mod and (positions_dict is None):
-        raise RuntimeError("rate_maps_from_features: when phase_mod is True, positions_dict must be provided")
-    
     input_features_attr_names = ['Selectivity Type', 'Num Fields', 'Field Width', 'Peak Rate',
                                  'Module ID', 'Grid Spacing', 'Grid Orientation',
                                  'Field Width Concentration Factor', 
@@ -1267,19 +1299,10 @@ def rate_maps_from_features (env, population, cell_index_set, input_features_pat
         y = y[t_range_inds]
         d = d[t_range_inds]
 
-    osc_t, osc_y, osc_phi = global_oscillation_signal(env, t)
-    population_phase_prefs = global_oscillation_phase_pref(env, population, num_cells=len(cell_index_set))
-    population_phase_shifts = None
-    if soma_positions is not None:
-        position_array = np.asarray([ soma_positions[k] for k in cell_index_set ])
-        population_phase_shifts = global_oscillation_phase_shift(env, position_array)
-        
-    population_phase_dict = None
-    if population_phase_shifts is not None:
-        population_phase_dict = {}
-        for i, gid in enumerate(cell_index_set):
-            population_phase_dict[gid] = (population_phase_prefs[i], population_phase_shifts[i])
-        
+    abs_d = d - d[0]
+    abs_t = (t - t[0])/1000.
+    velocity = np.insert(abs_d[1:]/abs_t[1:], 0, abs_d[1]/abs_t[1])
+
     input_rate_map_dict = {}
     pop_index = int(env.Populations[population])
 
@@ -1298,17 +1321,12 @@ def rate_maps_from_features (env, population, cell_index_set, input_features_pat
         this_selectivity_type = selectivity_attr_dict['Selectivity Type'][0]
         this_selectivity_type_name = selectivity_type_names[this_selectivity_type]
 
-        phase_mod_function = None
-        if phase_mod:
-            this_phase_pref, this_phase_shift = population_phase_dict[gid]
-            phase_mod_function=make_phase_mod_function(env, population, this_phase_pref, this_phase_shift) 
-
         input_cell_config = get_input_cell_config(selectivity_type=this_selectivity_type,
                                                   selectivity_type_names=selectivity_type_names,
                                                   selectivity_attr_dict=selectivity_attr_dict,
-                                                  phase_mod_function=phase_mod_function)
+                                                  phase_mod_config=phase_mod_config)
         rate_maps = []
-        rate_map = input_cell_config.get_rate_map(x=x, y=y, phi=osc_phi if phase_mod else None)
+        rate_map = input_cell_config.get_rate_map(x=x, y=y, velocity=velocity if phase_mod_config is not None else None)
         rate_map[np.isclose(rate_map, 0., atol=1e-3, rtol=1e-3)] = 0.
 
         if include_time:
@@ -1371,6 +1389,31 @@ def arena_rate_maps_from_features (env, population, input_features_path, input_f
 
 
 
+def oscillation_phase_mod_config(env, population, soma_positions, local_random=None):
+    """
+    Obtains phase modulation configuration for a given neuronal population.
+    """
+    global_oscillation_config = env.stimulus_config['Global Oscillation']
+    frequency = global_oscillation_config['frequency']
+    phase_mod_config = global_oscillation_config['Phase Modulation'][population]
+    phase_range = phase_mod_config['phase range']
+    mod_depth = phase_mod_config['depth']
+
+    population_phase_prefs = global_oscillation_phase_pref(env, population,
+                                                           num_cells=len(soma_positions),
+                                                           local_random=local_random)
+    position_array = np.asarray([ soma_positions[k] for k in sorted(soma_positions) ])
+    population_phase_shifts = global_oscillation_phase_shift(env, position_array)
+        
+    phase_mod_config_dict = {}
+    for i, gid in enumerate(sorted(soma_positions)):
+        phase_mod_config_dict[gid] = PhaseModConfig(phase_range,
+                                                    population_phase_prefs[i],
+                                                    population_phase_shifts[i],
+                                                    mod_depth, frequency)
+
+    return phase_mod_config_dict
+    
 def global_oscillation_phase_shift(env, position):
     """
     Computes the phase shift of the global oscillatory signal for the given position, assumed to be on the long axis. 
@@ -1401,7 +1444,7 @@ def global_oscillation_phase_pref(env, population, num_cells, local_random=None)
     
     global_oscillation_config = env.stimulus_config['Global Oscillation']
     phase_mod_config = global_oscillation_config['Phase Modulation'][population]
-    phase_range = phase_mod_config['phase']
+    phase_range = phase_mod_config['phase range']
     phase_loc = (phase_range[1] - phase_range[0]) / 2.
     fw = 2. * np.sqrt(2. * np.log(100.))
     phase_scale = (phase_range[1] - phase_range[0]) / fw
@@ -1410,12 +1453,7 @@ def global_oscillation_phase_pref(env, population, num_cells, local_random=None)
     
     return s
 
-#   get_global_oscillation_config():
-#    global_oscillation_config = env.stimulus_config['Global Oscillation']
-#    phase_mod_config = global_oscillation_config['Phase Modulation'][population]
-#    phase_range = phase_mod_config['phase range']
-#    mod_depth = phase_mod_config['depth']
-#
+    
 
 def stationary_phase_mod(t, phase_range, phase_pref, phase_offset, mod_depth, freq):
     """

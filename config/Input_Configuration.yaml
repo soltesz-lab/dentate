@@ -57,8 +57,8 @@ Non-modular Place Selectivity Populations:
 
 Peak Rate:
   MPP:
-    grid: 20.0
-    place: 20.0
+    grid: 40.0
+    place: 40.0
   LPP:
     place: 20.0
   GC:
