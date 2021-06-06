@@ -1474,7 +1474,6 @@ def init_biophysics(cell, env=None, reset_cable=True, correct_cm=False, correct_
                     update_biophysics_by_sec_type(cell, sec_type)
     if correct_g_pas:
         correct_cell_for_spines_g_pas(cell, env, verbose=verbose)
-    init_spike_detector(cell)
 
 def reset_cable_by_node(cell, node, verbose=True):
     """

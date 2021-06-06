@@ -135,9 +135,13 @@ class GridInputCellConfig(object):
         """
         self.phase_mod_function = None
         if phase_mod_config is not None:
-            phase_range = phase_mod_config['phase']
+            phase_range = phase_mod_config['phase_range']
+            phase_entry = phase_mod_config['phase_pref']
+            phase_offset = phase_mod_config['phase_offset']
             mod_depth = phase_mod_config['depth']
-            self.phase_mod_function = make_phase_mod_function(phase_range, mod_depth, ...)
+            freq = phase_mod_config['frequency']
+
+            self.phase_mod_function = lambda x, y, velocity, field_width: spatial2d_phase_mod(x, y, velocity, field_width, phase_range, phase_entry, phase_offset, mod_depth, freq)
 
         if selectivity_attr_dict is not None:
             self.init_from_attr_dict(selectivity_attr_dict)
@@ -209,21 +213,21 @@ class GridInputCellConfig(object):
                     np.array([self.grid_field_width_concentration_factor], dtype=np.float32)
                 }
 
-    def get_rate_map(self, x, y, scale=1.0, phi=None):
+    def get_rate_map(self, x, y, velocity=1.0, scale=1.0):
         """
 
         :param x: array
         :param y: array
         :return: array
         """
-        if (phi is not None) and (self.phase_mod_function is None):
-            raise RuntimeError("GridInputCellConfig.get_rate_map: when phase phi is provided, cell must have phase_mod_function configured")
         
         rate_array =  np.multiply(get_grid_rate_map(self.x0, self.y0, scale * self.grid_spacing, self.grid_orientation, x, y,
                                                     a=self.grid_field_width_concentration_factor), self.peak_rate)
         mean_rate = np.mean(rate_array)
-        if phi is not None:
-            rate_array *= self.phase_mod_function(phi)
+        if self.phase_mod_function is not None:
+            mx = x - self.x0
+            my = y - self.y0
+            rate_array *= self.phase_mod_function(mx, my, velocity, self.grid_spacing)
             mean_rate_mod = np.mean(rate_array)
             if mean_rate_mod > 0.:
                 rate_array *= mean_rate / mean_rate_mod
@@ -461,6 +465,9 @@ def get_grid_rate_map(x0, y0, spacing, orientation, x, y, a=0.7):
     rate_map = transfer(inner_sum) / max_rate
 
     return rate_map
+
+    
+    
 
 
 def get_input_cell_config(selectivity_type, selectivity_type_names, population=None, stimulus_config=None,
@@ -1363,41 +1370,6 @@ def arena_rate_maps_from_features (env, population, input_features_path, input_f
     return input_rate_map_dict
 
 
-def global_oscillation_signal(env, t):
-    """
-    Generates an oscillatory signal and phase for phase modulation of input spike trains.
-    Uses the "Global Oscillation" entry in the input configuration.
-    The configuration format is:
-
-      frequency: <float> # oscillation frequency
-      Phase Distribution: # parameters of phase distribution along septotemporal axis
-       slope: <float>
-       offset: <float>
-      Phase Modulation: # cell type-specific modulation
-        <cell type>:
-         phase: [<start float>, <end float>] # range of preferred phases
-         depth: <float> # depth of modulation
-
-    Returns: time, signal value, phase 0-360 degrees
-    """
-    
-    from scipy.signal import hilbert
-
-    global_oscillation_config = env.stimulus_config.get('Global Oscillation', None)
-    if global_oscillation_config is None:
-        return None, None, None
-    F = global_oscillation_config['frequency']
-    y = np.cos(2*np.pi*F*(t/1000.))
-    yn = hilbert(y)
-    phi = np.angle(yn)
-    phiz = np.argwhere(np.isclose(phi, 0.0))
-    phi[phiz] = 0.
-    idxs = np.argwhere(np.isclose(phi, 0.0, rtol=4e-5, atol=4e-5)).flat
-    phi_lst = np.split(phi, idxs)
-    phi_udeg = np.concatenate([ np.rad2deg(np.unwrap(elem)) for elem in phi_lst ])
-
-    return t, y, phi_udeg
-
 
 def global_oscillation_phase_shift(env, position):
     """
@@ -1438,33 +1410,59 @@ def global_oscillation_phase_pref(env, population, num_cells, local_random=None)
     
     return s
 
+#   get_global_oscillation_config():
 #    global_oscillation_config = env.stimulus_config['Global Oscillation']
 #    phase_mod_config = global_oscillation_config['Phase Modulation'][population]
-#    phase_range = phase_mod_config['phase']
-#    mod_depth_baseline = phase_mod_config['depth']
+#    phase_range = phase_mod_config['phase range']
+#    mod_depth = phase_mod_config['depth']
 #
 
-def global_oscillation_phase_mod(phase_range, mod_depth, phase_pref, bin_size=1):
+def stationary_phase_mod(t, phase_range, phase_pref, phase_offset, mod_depth, freq):
     """
-    Computes oscillatory phase preferences for all cells in the given population.
-
-    Returns: a tuple of arrays x, d where x contains phases 0-360 degrees, and d contains the corresponding modulation [0 - 1].
+    Computes stationary oscillatory phase modulation with the given parameters.
     """
 
-    fw = 2. * np.sqrt(2. * np.log(100.))
-    phase_sig = (phase_range[1] - phase_range[0]) / fw
+    r = phase_range[1] - phase_range[0]
+    delta = 2*np.pi - np.deg2rad(phase_pref)
+    y = np.cos(2*np.pi*freq*(t/1000.) - np.deg2rad(phase_offset) + delta) + 1
 
-    x = np.arange(0, 360, bin_size)
-    d = np.ones_like(x) * (1.0 - mod_depth)
+    d = np.clip(mod_depth, 0., 1.)
+    mod = s*mod_depth/2. + (1. - mod_depth)
 
-    d += gaussian(x, mu=phase_pref, sig=phase_sig, A=mod_depth)
+    return mod
 
-    return x, d
 
-def make_phase_mod_function(phase_range, mod_depth, phase_pref, phase_shift, rbf_kernel="thin_plate"):
+def spatial_phase_mod(x, velocity, field_width, phase_range, phase_entry, phase_offset, mod_depth, freq):
+    ''' Non-stationary phase modulation for spatial receptive fields.
+        Calculates modulation according to the equation:
 
-    x, d = global_oscillation_phase_mod(phase_range, mod_depth, phase_pref)
-    phase_mod_ip = Rbf(x, d, function=rbf_kernel)
-    res=lambda phi: phase_mod_ip(np.mod(phi + phase_shift, 360.))
+         s = cos(r*x/field_width + 2*pi*freq*x/velocity - phase_entry - phase_offset + r/2.) + 1
+         mod =  s*mod_depth/2. + (1. - mod_depth)
 
-    return res
+        - position: spatial position
+        - velocity: movement velocity
+        - field_width: receptive field
+        - phase_range: range of preferred phase
+        - phase_entry: receptive field entry phase 
+        - mod_depth: modulation depth
+        - freq: frequency of global oscillation
+    '''
+    r = np.deg2rad(phase_range[1] - phase_range[0])
+    s = np.cos(r*x/field_width + 2*np.pi*freq*x/velocity - np.deg2rad(phase_entry + phase_offset) + r/2.) + 1
+    d = np.clip(mod_depth, 0., 1.)
+    m = s*mod_depth/2. + (1. - mod_depth)
+
+    return m
+
+
+def spatial2d_phase_mod(x, y, velocity, field_width, phase_range, phase_entry, phase_offset, mod_depth, freq):
+
+    x_mod = spatial_phase_mod(x, velocity, field_width, phase_range, phase_entry, phase_offset, 
+                              mod_depth, freq)
+    y_mod = spatial_phase_mod(y, velocity, field_width, phase_range, phase_entry, phase_offset, 
+                              mod_depth, freq)
+
+    m = (x_mod + y_mod) / 2.
+
+    return m
+

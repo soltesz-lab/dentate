@@ -24,7 +24,8 @@ export PATH=${CDTools}/bin:$NEURONROOT/bin:$PATH
 export MODEL_HOME=$HOME/model
 export DG_HOME=$MODEL_HOME/dentate
 
-cd $WORK/dentate
+
+cd $SLURM_SUBMIT_DIR
 
 
 distribute.bash ${SCRATCH}/dentate/optimize_DG_network

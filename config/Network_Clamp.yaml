@@ -1199,7 +1199,7 @@ Synaptic Optimization:
         !!python/tuple [HC, NGFC, MOPP]:
           !!python/tuple [apical, basal, soma]:
             GABA_A:
-              weight: [0.05, 0.33]
+              weight: [0.05, 0.5]
         NGFC:
           !!python/tuple [apical, basal, soma]:
             GABA_B:
@@ -1334,7 +1334,7 @@ Synaptic Optimization:
         !!python/tuple [HC, HCC, MOPP, NGFC]:
           !!python/tuple [apical, basal, soma]:
             GABA_A:
-              weight: [0.05, 0.33]
+              weight: [0.05, 0.5]
         NGFC:
           apical:
             GABA_B:

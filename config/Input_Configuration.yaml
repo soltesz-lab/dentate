@@ -1,6 +1,6 @@
 Number Modules: 10
 Spatial Resolution: 3.0  # cm
-Temporal Resolution: 0.1  # ms
+Temporal Resolution: 1.0  # ms
 Equilibration Duration: 250. # ms
 
 # Variances expressed as floor widths of a normal distribution
@@ -161,43 +161,43 @@ Global Oscillation:
     offset: 0.0
   Phase Modulation: # cell type-specific modulation
     MPP:
-      phase: [135, 360] # range of preferred phases
+      phase range: [135, 360] # range of preferred phases
       depth: 0.8 # depth of modulation
     LPP:
-      phase: [135, 360]
+      phase range: [135, 360]
       depth: 0.5
     CA3c:
-      phase: [0, 360]
+      phase range: [0, 360]
       depth: 0.9
     GC: 
-      phase: [0, 150]
+      phase range: [0, 150]
       depth: 0.5
     MC: 
-      phase: [0, 90]
+      phase range: [0, 90]
       depth: 0.8
     ConMC: 
-      phase: [0, 90]
+      phase range: [0, 90]
       depth: 0.8
     AAC: 
-      phase: [180, 540]
+      phase range: [180, 540]
       depth: 0.8
     BC: 
-      phase: [180, 540]
+      phase range: [180, 540]
       depth: 0.8
     HC: 
-      phase: [200, 560]
+      phase range: [200, 560]
       depth: 0.8
     HCC: 
-      phase: [60, 240]
+      phase range: [60, 240]
       depth: 0.8
     IS: 
-      phase: [180, 540]
+      phase range: [180, 540]
       depth: 0.8
     MOPP: 
-      phase: [180, 450]
+      phase range: [180, 450]
       depth: 0.8
     NGFC: 
-      phase: [180, 450]
+      phase range: [180, 450]
       depth: 0.8
 
 Arena:
