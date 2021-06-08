@@ -67,8 +67,11 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
     time_step = float(env.stimulus_config['Temporal Resolution'])
     equilibration_duration = float(env.stimulus_config.get('Equilibration Duration', 0.))
     
-    target_rate_vector_dict = rate_maps_from_features (env, population, target_features_path, target_features_namespace, 
-                                                       my_cell_index_set, time_range=[0., t_max], 
+    target_rate_vector_dict = rate_maps_from_features (env, population,
+                                                       cell_index_set=my_cell_index_set, 
+                                                       input_features_path=target_features_path,
+                                                       input_features_namespace=target_features_namespace, 
+                                                       time_range=[0., t_max], 
                                                        arena_id=arena_id)
 
 

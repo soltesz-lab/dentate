@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH -p normal      # Queue (partition) name
-#SBATCH -N 12             # Total # of nodes 
+#SBATCH -N 24             # Total # of nodes 
 #SBATCH --ntasks-per-node=56          # # of mpi tasks per node
 #SBATCH -t 6:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
@@ -18,9 +18,11 @@ export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/inte
 export PATH=$NEURONROOT/bin:$PATH
 export MODEL_HOME=$HOME/model
 export DG_HOME=$MODEL_HOME/dentate
+
 export FI_MLX_ENABLE_SPAWN=1
 export I_MPI_HYDRA_TOPOLIB=ipl
 export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=off
+export I_MPI_HYDRA_BRANCH_COUNT=0
 export UCX_TLS="knem,dc_x"
 
 
@@ -30,32 +32,34 @@ export UCX_TLS="knem,dc_x"
 
 #cd $SLURM_SUBMIT_DIR
 
-mkdir -p $SCRATCH/dentate/results/netclamp/20210308
+mkdir -p $SCRATCH/dentate/results/netclamp/GC_20210515
 
-export nworkers=$((12 * 24))
+export nworkers=$((24 * 24))
 
 if test "$3" == ""; then
 mpirun -rr -n $nworkers python3 optimize_selectivity.py  -c Network_Clamp_GC_Exc_Sat_SLN_IN_Izh_proximal_pf.yaml \
     -p GC -t 9500 -g $1  --n-trials 1 --trial-regime mean --problem-regime every \
-    --nprocs-per-worker=1 --n-initial=1000 --n-iter=5  --num-generations=200 --population-size=300 --resample-fraction=0.9 \
+    --nprocs-per-worker=1 --n-initial=1200 --n-iter=5 --initial-method="slh" \
+    --num-generations=200 --population-size=300 --resample-fraction=0.9 \
+    --spawn-startup-wait=30 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/striped/dentate \
-    --results-path $SCRATCH/dentate/results/netclamp/20210308 \
+    --results-path $SCRATCH/dentate/results/netclamp/GC_20210515 \
     --config-prefix config  --param-config-name "$2" --selectivity-config-name PP \
     --arena-id A --trajectory-id Diag --use-coreneuron \
     --target-features-path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
     --target-features-namespace 'Place Selectivity' \
-    --spike-events-path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h5" \
+    --spike-events-path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_phasemod_20210515_compressed.h5" \
     --spike-events-namespace 'Input Spikes' --spike-events-t 'Spike Train' 
 else
 mpirun -rr -n $nworkers python3 optimize_selectivity.py  -c Network_Clamp_GC_Exc_Sat_SLN_IN_Izh_proximal_pf.yaml \
     -p GC  -t 9500 -g $1 --n-trials 1 --trial-regime mean --problem-regime every \
-    --nprocs-per-worker=1 --n-initial=1000 --n-iter=2  --num-generations=200 --population-size=300 --resample-fraction=0.9 \
+    --nprocs-per-worker=1 --n-initial=1200 --n-iter=5  --num-generations=200 --population-size=200 --resample-fraction=0.9 \
     --template-paths $DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/striped/dentate \
-    --results-path $SCRATCH/dentate/results/netclamp/20210308 \
+    --results-path $SCRATCH/dentate/results/netclamp/GC_20210515 \
     --results-file "$3" \
-    --spike-events-path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h5" \
+    --spike-events-path "$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_phasemod_20210515_compressed.h5" \
     --spike-events-namespace 'Input Spikes' --spike-events-t 'Spike Train' \
     --config-prefix config  --param-config-name "$2" --selectivity-config-name PP \
     --arena-id A --trajectory-id Diag --use-coreneuron  \

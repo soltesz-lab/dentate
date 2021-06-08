@@ -6,8 +6,8 @@ Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-Cell Data: dentatenet_Full_Scale_GC_Exc_Sat_SLN_selection_neg2000_neg1800um_20210201_compressed.h5
-Connection Data: dentatenet_Full_Scale_GC_Exc_Sat_SLN_selection_neg2000_neg1800um_20210201_compressed.h5
+Cell Data: dentatenet_Full_Scale_GC_Exc_Sat_SLN_selection_neg2000_neg1800um_20210504_compressed.h5
+Connection Data: dentatenet_Full_Scale_GC_Exc_Sat_SLN_selection_neg2000_neg1800um_20210504_compressed.h5
 #Gap Junction Data: DG_gapjunctions_20181228.h5
 Connection Generator: !include Full_Scale_Connections_GC_Exc_Sat_IN_Izh.yaml
 Recording: !include Recording.yaml

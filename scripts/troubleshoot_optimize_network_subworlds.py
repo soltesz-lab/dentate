@@ -332,9 +332,10 @@ def config_worker():
     target_rate_map_trajectory = context.env.trajectory_id
     for pop_name in context.target_populations:
         my_cell_index_set = set(context.env.biophys_cells[pop_name].keys())
-        trj_rate_maps = rate_maps_from_features(context.env, pop_name, target_rate_map_path, 
-                                                target_rate_map_namespace,
+        trj_rate_maps = rate_maps_from_features(context.env, pop_name,
                                                 cell_index_set=list(my_cell_index_set),
+                                                input_features_path=target_rate_map_path, 
+                                                input_features_namespace=target_rate_map_namespace,
                                                 time_range=time_range)
         if len(trj_rate_maps) > 0:
             context.target_trj_rate_map_dict[pop_name] = trj_rate_maps

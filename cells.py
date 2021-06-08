@@ -26,7 +26,7 @@ class P3D2(object):
             3D location
         radius : float
         type : int
-            Type asscoiated with the segment according to SWC standards
+            Type associated with the segment according to SWC standards
         """
         self.xyz = xyz
         self.radius = radius
@@ -735,6 +735,7 @@ class BiophysCell(object):
             # Allows for a cell to be created and for a new mech_dict to be constructed programmatically from scratch
             self.init_mech_dict = dict()
             self.mech_dict = dict()
+        init_cable(self)
         init_spike_detector(self)
 
     @property
@@ -1433,6 +1434,12 @@ def export_mech_dict(cell, mech_file_path=None, output_dir=None):
     logger.info('Exported mechanism dictionary to %s' % mech_file_path)
 
 
+def init_cable(cell, verbose=False):
+    for sec_type in cell.nodes:
+        for node in cell.nodes[sec_type]:
+            reset_cable_by_node(cell, node, verbose=verbose)
+
+
 def init_biophysics(cell, env=None, reset_cable=True, correct_cm=False, correct_g_pas=False, reset_mech_dict=False,
                     verbose=True):
     """
@@ -1467,7 +1474,7 @@ def init_biophysics(cell, env=None, reset_cable=True, correct_cm=False, correct_
                     update_biophysics_by_sec_type(cell, sec_type)
     if correct_g_pas:
         correct_cell_for_spines_g_pas(cell, env, verbose=verbose)
-
+    init_spike_detector(cell)
 
 def reset_cable_by_node(cell, node, verbose=True):
     """
@@ -2083,6 +2090,39 @@ def custom_filter_modify_slope_if_terminal(cell, node, baseline, rules, donor, *
     return rules
 
 
+def custom_filter_modify_slope_if_terminal(cell, node, baseline, rules, donor, **kwargs):
+    """
+    Allows the provided rule to be applied if the provided node is a terminal branch. Adjusts the specified slope based
+    on the length of the associated section.
+    :param cell: :class:'BiophysCell'
+    :param node: :class:'SHocNode'
+    :param baseline: float
+    :param rules: dict
+    :param donor: :class:'SHocNode' or None
+    :return: dict or False
+    """
+    if not is_terminal(node):
+        return False
+    start_val = baseline
+    if 'min' in rules:
+        end_val = rules['min']
+        direction = -1
+    elif 'max' in rules:
+        end_val = rules['max']
+        direction = 1
+    else:
+        raise RuntimeError('custom_filter_modify_slope_if_terminal: no min or max target value specified for sec_type: '
+                           '%s' % node.type)
+    slope = (end_val - start_val) / node.sec.L
+    if 'slope' in rules:
+        if direction < 0.:
+            slope = min(rules['slope'], slope)
+        else:
+            slope = max(rules['slope'], slope)
+    rules['slope'] = slope
+    return rules
+
+
 def custom_filter_if_terminal(cell, node, baseline, rules, donor, **kwargs):
     """
     Allows the provided rule to be applied if the provided node is a terminal branch.
@@ -2143,8 +2183,8 @@ def report_topology(cell, env, node=None):
                                                  syn_types=[env.Synapse_Types['inhibitory']]))
 
     diams_str = ', '.join('%.2f' % node.sec.diam3d(i) for i in range(node.sec.n3d()))
-    report = 'node: %s, L: %.1f, diams: [%s], children: %i, exc_syns: %i, inh_syns: %i' % \
-             (node.name, node.sec.L, diams_str, len(node.children), num_exc_syns, num_inh_syns)
+    report = 'node: %s, L: %.1f, diams: [%s], nseg: %i, children: %i, exc_syns: %i, inh_syns: %i' % \
+             (node.name, node.sec.L, diams_str, node.sec.nseg, len(node.children), num_exc_syns, num_inh_syns)
     if node.parent is not None:
         report += ', parent: %s; connection_loc: %.1f' % (node.parent.name, node.connection_loc)
     logger.info(report)
@@ -2565,7 +2605,6 @@ def make_neurotree_cell(template_class, gid=0, dataset_path="", neurotree_dict={
     vloc = neurotree_dict['section_topology']['loc']
     swc_type = neurotree_dict['swc_type']
 
-    logger.info(f"template_class = {template_class}")
     cell = template_class(gid, dataset_path, secnodes, vlayer, vsrc, vdst, vloc, vx, vy, vz, vradius, swc_type)
     return cell
 

@@ -1064,8 +1064,9 @@ def init_input_cells(env):
                         spiketrain += float(env.stimulus_config['Equilibration Duration']) + env.stimulus_onset
                         if len(spiketrain) > 0:
                             cell.play(h.Vector(spiketrain))
-                            logger.info("*** Spike train for %s gid %i is of length %i (%g : %g ms)" %
-                                        (pop_name, gid, len(spiketrain), spiketrain[0], spiketrain[-1]))
+                            if rank == 0:
+                                logger.info("*** Spike train for %s gid %i is of length %i (%g : %g ms)" %
+                                            (pop_name, gid, len(spiketrain), spiketrain[0], spiketrain[-1]))
 
 
     gc.collect()
@@ -1115,6 +1116,8 @@ def init_input_cells(env):
                     cell_spikes_items.append(item)
                     
                 for cell_spikes_iter, cell_spikes_attr_info in cell_spikes_items:
+                    if len(cell_spikes_attr_info) == 0:
+                        continue
                     trial_index_attr_index = cell_spikes_attr_info.get(trial_index_attr, None)
                     trial_dur_attr_index = cell_spikes_attr_info.get(trial_dur_attr, None)
                     if (env.spike_input_attr is not None) and (env.spike_input_attr in cell_spikes_attr_info):
@@ -1146,8 +1149,9 @@ def init_input_cells(env):
 
                             input_cell.play(h.Vector(spiketrain))
                             if len(spiketrain) > 0:
-                                logger.info("*** Spike train for %s input source gid %i is of length %i (%g : %g ms)" %
-                                            (pop_name, gid, len(spiketrain), spiketrain[0], spiketrain[-1]))
+                                if rank == 0:
+                                    logger.info("*** Spike train for %s input source gid %i is of length %i (%g : %g ms)" %
+                                                (pop_name, gid, len(spiketrain), spiketrain[0], spiketrain[-1]))
 
             else:
                 if rank == 0:
@@ -1292,8 +1296,9 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
     env.t_vec.resize(0)
     env.id_vec.resize(0)
 
-    h.t = 0
+    h.t = env.tstart
     env.simtime.reset()
+    h.finitialize(env.v_init)
     h.finitialize(env.v_init)
 
     if rank == 0:
@@ -1304,7 +1309,7 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
 
     if (env.checkpoint_interval is not None):
         if env.checkpoint_interval > 1.:
-            tsegments = np.concatenate((np.arange(0, tstop, env.checkpoint_interval)[1:], np.asarray([tstop])))
+            tsegments = np.concatenate((np.arange(env.tstart, tstop, env.checkpoint_interval)[1:], np.asarray([tstop])))
         else:
             raise RuntimeError("Invalid checkpoint interval length")
     else:

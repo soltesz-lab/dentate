@@ -1,12 +1,14 @@
 
 import click
-import copy, random
+import copy, random, gc
 from mpi4py import MPI
+from scipy.interpolate import Rbf
 import h5py
 from dentate.env import Env
 from dentate.stimulus import get_input_cell_config, generate_linear_trajectory, generate_input_spike_trains, get_equilibration
+from dentate.stimulus import global_oscillation_signal, global_oscillation_phase_shift, global_oscillation_phase_pref, global_oscillation_phase_mod
 from dentate.utils import *
-from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
+from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, bcast_cell_attributes, read_population_ranges
 
 logger = get_script_logger(os.path.basename(__file__))
 
@@ -66,6 +68,8 @@ def plot_summed_spike_psth(t, trajectory_id, selectivity_type_name, merged_spike
               default='config')
 @click.option("--selectivity-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--selectivity-namespace", type=str, default='Selectivity')
+@click.option("--coords-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--distances-namespace", type=str, default='Arc Distances')
 @click.option("--arena-id", type=str, default='A')
 @click.option("--populations", '-p', type=str, multiple=True)
 @click.option("--n-trials", type=int, default=1)
@@ -77,6 +81,7 @@ def plot_summed_spike_psth(t, trajectory_id, selectivity_type_name, merged_spike
 @click.option("--output-path", type=click.Path(file_okay=True, dir_okay=False), default=None)
 @click.option("--spikes-namespace", type=str, default='Input Spikes')
 @click.option("--spike-train-attr-name", type=str, default='Spike Train')
+@click.option("--phase-mod", is_flag=True)
 @click.option("--gather", is_flag=True)
 @click.option("--debug", is_flag=True)
 @click.option("--plot", is_flag=True)
@@ -87,9 +92,10 @@ def plot_summed_spike_psth(t, trajectory_id, selectivity_type_name, merged_spike
 @click.option("--fig-format", required=False, type=str, default='svg')
 @click.option("--verbose", '-v', is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, config_prefix, selectivity_path, selectivity_namespace, arena_id, populations, n_trials, io_size, chunk_size,
-         value_chunk_size, cache_size, write_size, output_path, spikes_namespace, spike_train_attr_name, gather,
-         debug, plot, show_fig, save_fig, save_fig_dir, font_size, fig_format,
+def main(config, config_prefix, selectivity_path, selectivity_namespace, coords_path, distances_namespace,
+         arena_id, populations, n_trials, io_size, chunk_size,
+         value_chunk_size, cache_size, write_size, output_path, spikes_namespace, spike_train_attr_name, phase_mod,
+         gather, debug, plot, show_fig, save_fig, save_fig_dir, font_size, fig_format,
          verbose, dry_run):
     """
 
@@ -124,6 +130,10 @@ def main(config, config_prefix, selectivity_path, selectivity_namespace, arena_i
 
     config_logging(verbose)
 
+    if phase_mod and (coords_path is None):
+        raise RuntimeError("generate_input_spike_trains: when phase_mod is True, coords_path is required")
+
+    
     env = Env(comm=comm, config_file=config, config_prefix=config_prefix, template_paths=None)
     if io_size == -1:
         io_size = comm.size
@@ -147,6 +157,15 @@ def main(config, config_prefix, selectivity_path, selectivity_namespace, arena_i
     if len(populations) == 0:
         populations = sorted(population_ranges.keys())
 
+    soma_positions_dict = None
+    if coords_path is not None:
+        soma_positions_dict = {}
+        for population in populations:
+            distances = bcast_cell_attributes(coords_path, population, namespace=distances_namespace, root=0)
+            soma_distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances }
+            del distances
+            soma_positions_dict[population] = soma_distances
+        
     if arena_id not in env.stimulus_config['Arena']:
         raise RuntimeError('Arena with ID: %s not specified by configuration at file path: %s' %
                            (arena_id, config_prefix + '/' + config))
@@ -190,8 +209,10 @@ def main(config, config_prefix, selectivity_path, selectivity_namespace, arena_i
         x = comm.bcast(x, root=0)
         y = comm.bcast(y, root=0)
         d = comm.bcast(d, root=0)
-
         trajectory = t, x, y, d
+
+        osc_t, osc_y, osc_phi = global_oscillation_signal(env, t)
+        
         trajectory_namespace = 'Trajectory %s %s' % (arena_id, trajectory_id)
         output_namespace = '%s %s %s' % (spikes_namespace, arena_id, trajectory_id)
 
@@ -226,6 +247,21 @@ def main(config, config_prefix, selectivity_path, selectivity_namespace, arena_i
         write_every = max(1, int(math.floor(write_size / comm.size)))
         for population in populations:
 
+            pop_start = int(population_ranges[population][0])
+            num_cells = int(population_ranges[population][1])
+
+            population_phase_dict = None
+            if phase_mod:
+                population_phase_prefs = global_oscillation_phase_pref(env, population, num_cells=num_cells)
+                population_soma_positions = soma_positions_dict[population]
+                position_array = np.asarray([ population_soma_positions[k][0] for k in sorted(population_soma_positions) ])
+                population_phase_shifts = global_oscillation_phase_shift(env, position_array)
+                population_phase_dict = {}
+                for i in range(num_cells):
+                    gid = pop_start + i
+                    population_phase_dict[gid] = (population_phase_prefs[i],
+                                                  population_phase_shifts[i])
+
             this_spike_hist_sum = defaultdict(lambda: np.zeros(spike_hist_resolution))
 
             process_time = dict()
@@ -244,12 +280,21 @@ def main(config, config_prefix, selectivity_path, selectivity_namespace, arena_i
                 for iter_count, (gid, selectivity_attr_dict) in enumerate(selectivity_attr_gen):
                     if gid is not None:
                         context.update(locals())
+
+                        phase_mod_function = None
+                        if phase_mod:
+                            this_phase_pref, this_phase_shift = population_phase_dict[gid]
+                            x, d = global_oscillation_phase_mod(env, population, this_phase_pref)
+                            phase_mod_ip = Rbf(x, d, function="gaussian")
+                            phase_mod_function=lambda phi: phase_mod_ip(np.mod(phi + this_phase_shift, 360.))
+                        
                         spikes_attr_dict[gid] = \
-                            generate_input_spike_trains(env, selectivity_type_names, trajectory,
+                            generate_input_spike_trains(env, population, selectivity_type_names, trajectory,
                                                         gid, selectivity_attr_dict, n_trials=n_trials,
                                                         spike_train_attr_name=spike_train_attr_name,
                                                         spike_hist_resolution=spike_hist_resolution,
                                                         equilibrate=equilibrate,
+                                                        phase_mod_function=phase_mod_function, osc_phi=osc_phi,
                                                         spike_hist_sum=this_spike_hist_sum,
                                                         debug= (debug_callback, context) if debug else False)
                         gid_count += 1
@@ -266,6 +311,7 @@ def main(config, config_prefix, selectivity_path, selectivity_namespace, arena_i
                                                    chunk_size=chunk_size, value_chunk_size=value_chunk_size)
                         del spikes_attr_dict
                         spikes_attr_dict = dict()
+                        gc.collect()
 
                         if debug and iter_count == 10:
                             break

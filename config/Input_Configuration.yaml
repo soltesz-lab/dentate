@@ -154,6 +154,52 @@ Field Width Concentration Factor:
   grid: 0.7
   place: 0.871
 
+Global Oscillation:
+  frequency: 5.0 # oscillation frequency
+  Phase Distribution:  # parameters of phase distribution along septotemporal axis
+    slope: 16.5
+    offset: 0.0
+  Phase Modulation: # cell type-specific modulation
+    MPP:
+      phase: [135, 360] # range of preferred phases
+      depth: 0.8 # depth of modulation
+    LPP:
+      phase: [135, 360]
+      depth: 0.5
+    CA3c:
+      phase: [0, 360]
+      depth: 0.9
+    GC: 
+      phase: [0, 150]
+      depth: 0.5
+    MC: 
+      phase: [0, 90]
+      depth: 0.8
+    ConMC: 
+      phase: [0, 90]
+      depth: 0.8
+    AAC: 
+      phase: [180, 540]
+      depth: 0.8
+    BC: 
+      phase: [180, 540]
+      depth: 0.8
+    HC: 
+      phase: [180, 540]
+      depth: 0.8
+    HCC: 
+      phase: [180, 540]
+      depth: 0.8
+    IS: 
+      phase: [180, 540]
+      depth: 0.8
+    MOPP: 
+      phase: [180, 400]
+      depth: 0.8
+    NGFC: 
+      phase: [180, 400]
+      depth: 0.8
+
 Arena:
   A:
     Domain:
@@ -166,9 +212,9 @@ Arena:
         run velocity: 30.  # cm/s
 
       ## passing through the main diagonals of the arena
-      MainDiags:
-        path: [[-100, -100], [0, 0], [-100, 100],  [0, 0], [100, 100], [0, 0], [100, -100]]
-        run velocity: 30.  # cm/s
+#      MainDiags:
+#        path: [[-100, -100], [0, 0], [-100, 100],  [0, 0], [100, 100], [0, 0], [100, -100]]
+#        run velocity: 30.  # cm/s
         
         
     default run velocity: 30.  # cm/s
