@@ -36,12 +36,11 @@ context = Context()
 @click.option("--font-size", type=float, default=14)
 @click.option("--line-width", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
-@click.option("--opt-seed", type=int, help='seed for random sampling of optimization parameters')
 def main(config_file, config_prefix, input_path, spike_namespace, state_namespace, populations, include_artificial,
          target_input_features_path, target_input_features_namespace,
          target_input_features_arena_id, target_input_features_trajectory_id,
          gid, n_trials, spike_hist_bin, all_spike_hist,
-         labels, lowpass_plot_type, legend, state_variable, t_variable, t_max, t_min, font_size, line_width, verbose, opt_seed):
+         labels, lowpass_plot_type, legend, state_variable, t_variable, t_max, t_min, font_size, line_width, verbose):
 
     utils.config_logging(verbose)
     
@@ -56,7 +55,7 @@ def main(config_file, config_prefix, input_path, spike_namespace, state_namespac
     if not populations:
         populations = ['eachPop']
         
-    plot.plot_network_clamp(input_path, spike_namespace, state_namespace, gid=gid,
+    plot.plot_network_clamp_trial(input_path, spike_namespace, state_namespace, gid=gid,
                             target_input_features_path=target_input_features_path,
                             target_input_features_namespace=target_input_features_namespace,
                             target_input_features_arena_id=target_input_features_arena_id,
@@ -66,7 +65,7 @@ def main(config_file, config_prefix, input_path, spike_namespace, state_namespac
                             time_range=time_range, time_variable=t_variable, intracellular_variable=state_variable,
                             all_spike_hist=all_spike_hist, spike_hist_bin=spike_hist_bin, labels=labels, 
                             lowpass_plot_type=lowpass_plot_type, n_trials=n_trials, fontSize=font_size, legend=legend, 
-                            saveFig=True, lw=line_width, opt_seed=opt_seed)
+                            saveFig=True, lw=line_width)
 
     if is_interactive:
         context.update(locals())
