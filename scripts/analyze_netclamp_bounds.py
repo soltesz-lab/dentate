@@ -4,11 +4,13 @@ import numpy as np
 import itertools as it
 import scipy as sp
 import scipy.stats as spst
+from sklearn.gaussian_process import GaussianProcessRegressor as GPR
 import h5py, yaml
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gs
 from matplotlib.backends.backend_pdf import PdfPages
+import pprint
 
 class NetClampParam:
     def __init__(self, fils, fil_dir, prefix=None):
@@ -25,7 +27,7 @@ class NetClampParam:
         self.N_cells = self.fil_arr[idx,1].shape[0]
         self.N_params, self.N_objectives, self.N_trials = ref_features['trial_objs'].shape
 
-        self.get_params_props()
+        self.get_params()
 
         self.target = np.array(self.fil_arr[0,0][self.head_group]['metadata'])[0][0]
 
@@ -50,21 +52,26 @@ class NetClampParam:
                         'MC':   ('Mossy'),
                         }
 
+        self.plot_best()
+
+#        self.get_param_obj_tol()
     #    self.get_param_criteria_arr()
 
-        self.plot_best()
 
        # self.generate_yaml()
 
-    def get_params_props(self):
-        self.raw_param_dtype = np.array(self.ref_point['parameters']).dtype
-        self.param_dim = len(self.raw_param_dtype)
+    def get_params(self):
+        raw_param_dtype = np.array(self.ref_point['parameters']).dtype
+        self.param_names = np.array(raw_param_dtype.names)
+
+        self.param_dtype = np.dtype([(nam, raw_param_dtype.fields[nam][0]) for nam in self.param_names])
+        self.param_dim = self.param_names.shape[0] 
 
         param_dtype = np.dtype([('population', 'U8'), ('presyn', list), ('loc', list), ('syn', 'U8'), ('prop', 'U12'), ('lo_bound', 'f8'), ('up_bound', 'f8'), ('presyn_lab', 'U64')])
         self.param_props = np.empty(shape=self.param_dim, dtype=param_dtype)
 
         self.param_tup = []
-        for pidx, parm in enumerate(self.raw_param_dtype.names):
+        for pidx, parm in enumerate(self.param_names):
             tmp = parm.split('.')
             popu = tmp[0]
             presyn = tmp[1][1:-1].replace("'", "").split(', ') if tmp[1].startswith('(') else [tmp[1]] 
@@ -77,50 +84,43 @@ class NetClampParam:
 
             self.param_props[pidx] = popu, presyn, loc, syn, prop, lo_bnd, up_bnd, presyn_lab
 
+        self.param_arr = np.empty(shape=(self.N_fils, self.N_cells, self.N_params), dtype=self.param_dtype) 
+
         self.population = self.param_props[0]['population'] 
 
     def get_best_arrs(self, target):
         self.obj_val_mean_arr = np.empty(shape=(self.N_fils, self.N_cells, self.N_params, self.N_objectives))
+
         self.best_idx = np.empty(shape=(self.N_fils, self.N_cells, self.N_objectives, self.N_trials), dtype=np.uint32)
         self.best_arr = np.empty(shape=(self.N_fils, self.N_cells, self.N_objectives, self.N_trials))
         self.best_Vmean = np.empty(shape=(self.N_fils, self.N_cells, self.N_objectives, self.N_trials))
-        self.best_prm = np.empty(shape=(self.N_fils, self.N_cells, self.N_objectives, self.N_trials), dtype=self.raw_param_dtype)
-        self.bestmean_idx = np.empty(shape=(self.N_fils, self.N_cells), dtype=np.uint32)
-        self.bestmean_arr = np.empty(shape=(self.N_fils, self.N_cells))
+        self.best_prm = np.empty(shape=(self.N_fils, self.N_cells, self.N_objectives, self.N_trials), dtype=self.param_dtype)
+
+        self.bestmean_idx = np.empty(shape=(self.N_fils, self.N_cells, self.N_objectives), dtype=np.uint32)
+        self.bestmean_arr = np.empty(shape=(self.N_fils, self.N_cells, self.N_objectives))
+        self.bestmean_prm = np.empty(shape=(self.N_fils, self.N_cells, self.N_objectives), dtype=self.param_dtype)
         self.bestmean_V_mean = np.empty(shape=(self.N_fils, self.N_cells))
-        self.bestmean_prm = np.empty(shape=(self.N_fils, self.N_cells), dtype=self.raw_param_dtype)
 
         for fidx, filobj in enumerate(self.fil_arr[:,0]):
             for cidx, cell in enumerate(self.fil_arr[fidx, 1]):
                 ref_cell = filobj[self.head_group]['{:d}'.format(cell)] 
+                for prm in self.param_names:
+                    self.param_arr[fidx, cidx, :][prm] = ref_cell['parameters'][prm] 
                 ref_features = ref_cell['features'] 
                 self.obj_val_mean_arr[fidx, cidx] = np.array(ref_features['mean_rate']) 
                 for i in range(self.N_objectives):
                     np.argmin(np.abs(ref_features['trial_objs'][:, i ,:]-target[i]), axis=0, out=self.best_idx[fidx,cidx, i])
+                    self.bestmean_idx[fidx, cidx, i] = np.argmin(np.abs(self.obj_val_mean_arr[fidx, cidx, :, i]-target[i]))
+
                 for pidx, val in np.ndenumerate(self.best_idx[fidx,cidx]):
                     self.best_arr[fidx, cidx, pidx[0], pidx[1]] = ref_features['trial_objs'][val, pidx[0], pidx[1]]    
-                    self.best_prm[fidx, cidx, pidx[0], pidx[1]] = ref_cell['parameters'][val]
+                    self.best_prm[fidx, cidx, pidx[0], pidx[1]] = self.param_arr[fidx, cidx, val]
                     self.best_Vmean[fidx, cidx, pidx[0], pidx[1]] = ref_features['mean_v'][val, pidx[1]] 
 
-                self.bestmean_idx[fidx, cidx] = np.argmin(np.abs(self.obj_val_mean_arr[fidx, cidx, :, 0]-target[0]))
-                self.bestmean_arr[fidx, cidx] = self.obj_val_mean_arr[fidx, cidx, :, 0][self.bestmean_idx[fidx, cidx]]
-                self.bestmean_prm[fidx, cidx] = ref_cell['parameters'][self.bestmean_idx[fidx, cidx]]
+                for pidx, val in np.ndenumerate(self.bestmean_idx[fidx,cidx]):
+                    self.bestmean_arr[fidx, cidx, pidx] = self.obj_val_mean_arr[fidx, cidx, val, pidx]
+                    self.bestmean_prm[fidx, cidx, pidx] = self.param_arr[fidx, cidx, val] 
 
-        def generate_yaml(Uniform=True):
-            Critlist = []
-            gid_val_arr = np.empty(shape=(self.N_cells, self.N_objectives, self.param_dim, self.N_cells))
-            for cidx, cell in enumerate(self.fil_arr[fidx, 1]):
-                ref_cell = filobj[self.head_group]['{:d}'.format(cell)] 
-                Critlist.append('Uniform_BestGid_{!s}'.format(cell))
-                bestoversam_idx = np.argmin(np.abs(self.bestmean_arr[:,cidx]-target[0]))  
-                bestoversam_prm = self.bestmean_prm[bestoversam_idx, cidx] 
-                parms = np.array([bestoversam_prm[prm] for prm in self.raw_param_dtype.names])
-                for i in range(self.N_cells):
-                    gid_val_arr[cidx,0,:,i] = parms 
-                print(self.population, cell, bestoversam_idx, parms)
-            self.generate_yaml(Critlist, gid_val_arr)
-
-    #    generate_yaml()
 
 
     def generate_yaml(self, CriteriaList=None, gid_val_arr=None):
@@ -220,6 +220,23 @@ class NetClampParam:
                             tmp_arr[objidx, prmidx, cidx] = vparm
             return tmp_arr 
 
+        def generate_yaml(Uniform=True):
+            Critlist = []
+            gid_val_arr = np.empty(shape=(self.N_cells, self.N_objectives, self.param_dim, self.N_cells))
+            for cidx, cell in enumerate(self.fil_arr[fidx, 1]):
+                ref_cell = filobj[self.head_group]['{:d}'.format(cell)] 
+                Critlist.append('Uniform_BestGid_{!s}'.format(cell))
+                bestoversam_idx = np.argmin(np.abs(self.bestmean_arr[:,cidx]-target[0]))  
+                bestoversam_prm = self.bestmean_prm[bestoversam_idx, cidx] 
+
+                parms = np.array([bestoversam_prm[prm] for prm in self.raw_param_dtype.names])
+                for i in range(self.N_cells):
+                    gid_val_arr[cidx,0,:,i] = parms 
+                print(self.population, cell, bestoversam_idx, parms)
+            self.generate_yaml(Critlist, gid_val_arr)
+
+    #    generate_yaml()
+
         CriteriaList = list(criteria_dict.keys()) if CriteriaList is None else CriteriaList
         N_crit = len(CriteriaList)
 
@@ -256,8 +273,8 @@ class NetClampParam:
         return fig, opt_axes, obj_axes, fea_axes
 
     def get_param_axes(self):
-        N_comb = (self.param_dim**2-self.param_dim)//2
-        corprmgrd, corprmcrds = self.get_grid_shape(N_comb)
+        self.N_comb = (self.param_dim**2-self.param_dim)//2
+        corprmgrd, corprmcrds = self.get_grid_shape(self.N_comb)
         hratio = [1,1, corprmgrd[0]]
 
         fig = plt.figure(figsize=(20, 6+corprmgrd[0]*3), constrained_layout=True)
@@ -288,29 +305,31 @@ class NetClampParam:
 
 
     def plot_best(self):
-        param_names = np.array(self.raw_param_dtype.names)
-        param_dim = self.param_dim 
+    #    param_names = np.array(self.param_dtype.names)
+    #    param_dim = self.param_dim 
         N_iter_arr = np.arange(self.N_params)
 
-        prm_str = ''
-        for idx, prm in enumerate(param_names):
-            prm_str += '{!s}: {:f}, {:f} '.format(self.param_props['syn'][idx], np.mean(self.best_prm[prm]), np.mean(self.bestmean_prm[prm]))
+# TODO send to summary page
+ #       prm_str = ''
+ #       for idx, prm in enumerate(param_names):
+ #           prm_str += '{!s}: {:f}, {:f} '.format(self.param_props['syn'][idx], np.mean(self.best_prm[prm]), np.mean(self.bestmean_prm[prm]))
 
-        prmcomb = np.array([i for i in it.combinations(range(param_dim), r=2)], dtype=np.uint32)
-        N_prmcomb = prmcomb.shape[0]
+        self.prmcomb = np.array([i for i in it.combinations(range(self.param_dim), r=2)], dtype=np.uint32)
+        N_prmcomb = self.prmcomb.shape[0]
 
         xcat = self.fil_arr[0,1]
         boxwidth = (xcat[-1]-xcat[0])/10
         plotshap = ['o', 's', 'D', 'X', '^']
         N_fil_cell_max = max(self.N_fils, self.N_cells)
         colors = plt.get_cmap('tab10').colors if N_fil_cell_max <=10 else mpl.cm.get_cmap('tab20').colors
+        self.colors = colors
 
         obj_fig, opt_axes, obj_axes, fea_axes = self.get_obj_axes() 
         prm_fig, prm_axes , opr_axes, cpr_axes, prmcoords  = self.get_param_axes() 
 
         titnote='Marker shape: sampling set; when axis is specific for gid, colors represent trials, else gids; black represents mean_rate (objective)'
         obj_fig.suptitle('{!s}\n{!s}\n{!s}'.format(self.pop_props[self.population][0], self.suffix, titnote))
-        prm_fig.suptitle('{!s}\n{!s}\n{!s}\n{!s}'.format(self.pop_props[self.population][0], self.suffix, titnote, prm_str))
+#        prm_fig.suptitle('{!s}\n{!s}\n{!s}\n{!s}'.format(self.pop_props[self.population][0], self.suffix, titnote, prm_str))
 
         for i in range(self.N_objectives): 
             ytop = self.target[i]*5 if self.target[i]<10 else self.target[i]*3
@@ -328,7 +347,7 @@ class NetClampParam:
         fea_axes[0].axhline(self.pop_props[self.population][1], color='k', lw=0.5)
         fea_axes[0].axhline(self.pop_props[self.population][2], color='k', lw=0.5)
 
-        for i, prm in enumerate(param_names): 
+        for i, prm in enumerate(self.param_names): 
             prm_axes[0,i].axhline(self.param_props['lo_bound'][i], color='k', ls='--')
             prm_axes[0,i].axhline(self.param_props['up_bound'][i], color='k', ls='--')
             prm_axes[0,i].set_ylabel(r'${!s}$ weight'.format(self.param_props['syn'][i]))
@@ -349,8 +368,7 @@ class NetClampParam:
                     prm_axes[0,i].scatter(xcat, self.best_prm[prm][j,:, 0,tidx], marker=plotshap[j], color=colors[tidx], facecolors='none', lw=0.5)
                 
                 for cidx, cell in enumerate(xcat): 
-                    ref_cell = self.fil_arr[j,0][self.head_group]['{:d}'.format(cell)]
-                    opr_axes[0,i].scatter(N_iter_arr, np.array(ref_cell['parameters'][prm]),  marker=plotshap[j], color=colors[cidx], facecolors='none', lw=0.01, s=1)
+                    opr_axes[0,i].scatter(N_iter_arr, self.param_arr[j, cidx][prm],  marker=plotshap[j], color=colors[cidx], facecolors='none', lw=0.01, s=1)
                     opr_axes[0,i].scatter(self.bestmean_idx[j,cidx], self.bestmean_prm[prm][j,cidx],  marker=plotshap[j], color=colors[cidx], edgecolor='k', lw=0.5, s=15, zorder=100)
 
                     for tidx in range(self.N_trials):
@@ -369,7 +387,7 @@ class NetClampParam:
                     ref_ax.scatter(N_iter_arr, opt_val_arr[fidx,cidx,:,0,tidx], marker=plotshap[fidx], color=colors[tidx], facecolors='none', lw=0.01, s=1, zorder=1)
 
                 for combidx, coord in zip(range(N_prmcomb), prmcoords):
-                    comb  = prmcomb[combidx, : ]
+                    comb  = self.prmcomb[combidx, : ]
                     i, j = comb
 
                     cpr_axes[coord].axvline(self.param_props['lo_bound'][i], color='k', ls='--')
@@ -379,10 +397,10 @@ class NetClampParam:
 
                     cpr_axes[coord].set_xlabel(r'${!s}$ {!s}'.format(self.param_props['syn'][i], self.param_props['presyn_lab'][i]))
                     cpr_axes[coord].set_ylabel(r'${!s}$ {!s}'.format(self.param_props['syn'][j], self.param_props['presyn_lab'][j]))
-                    cpr_axes[coord].scatter(np.array(ref_cell['parameters'][param_names[i]]),  np.array(ref_cell['parameters'][param_names[j]]), marker=plotshap[fidx], color=colors[cidx], facecolors='none', lw=0.01, s=1)
+                    cpr_axes[coord].scatter(self.param_arr[fidx, cidx][self.param_names[i]],  self.param_arr[fidx, cidx][self.param_names[j]], marker=plotshap[fidx], color=colors[cidx], facecolors='none', lw=0.01, s=1)
 
-                    cpr_axes[coord].scatter(np.ravel(self.best_prm[param_names[i]][fidx,cidx, 0,:]), np.ravel(self.best_prm[param_names[j]][fidx,cidx, 0,:]), marker=plotshap[fidx], color=colors[cidx], s=4)
-                    cpr_axes[coord].scatter(np.ravel(self.bestmean_prm[param_names[i]][fidx,cidx]), np.ravel(self.bestmean_prm[param_names[j]][fidx,cidx]), marker=plotshap[fidx], color=colors[cidx], edgecolor='k', lw=0.5, s=15, zorder=100)
+                    cpr_axes[coord].scatter(np.ravel(self.best_prm[self.param_names[i]][fidx,cidx, 0,:]), np.ravel(self.best_prm[self.param_names[j]][fidx,cidx, 0,:]), marker=plotshap[fidx], color=colors[cidx], s=4)
+                    cpr_axes[coord].scatter(np.ravel(self.bestmean_prm[self.param_names[i]][fidx,cidx]), np.ravel(self.bestmean_prm[self.param_names[j]][fidx,cidx]), marker=plotshap[fidx], color=colors[cidx], edgecolor='k', lw=0.5, s=15, zorder=100)
 
 
 
@@ -398,11 +416,93 @@ class NetClampParam:
         opt_axes[0,0].set_xlabel(r'Iteration Index')
 
         summ_fig = self.get_summ_fig()
+        tol_fig = self.get_param_obj_tol()
         #fig.savefig(self.plot_filnam, transparent=True)
+        self.plot_filnam = 'Debug.pdf'
         with PdfPages(self.plot_filnam) as pdf:
             pdf.savefig(obj_fig, transparent=True)
             pdf.savefig(prm_fig, transparent=True)
             pdf.savefig(summ_fig, transparent=True)
+            pdf.savefig(tol_fig, transparent=True)
+
+    def get_param_obj_tol(self, tol=0.01):
+        prm_idx = np.empty(shape=(self.N_cells, self.N_objectives), dtype=np.ndarray) 
+        prm_arr = np.empty(shape=(self.N_cells, self.N_objectives), dtype=np.ndarray) 
+        fea_arr = np.empty(shape=(self.N_cells, self.N_objectives), dtype=np.ndarray) 
+
+        colors = plt.get_cmap('tab10').colors if self.N_cells <=10 else mpl.cm.get_cmap('tab20').colors
+
+        for i in range(self.N_objectives):
+            for cidx in range(self.N_cells):
+                tgt = np.array([1.-tol, 1.+tol]) * self.target[i] 
+                objs = self.obj_val_mean_arr[:,cidx,:,i]
+                prm_idx[cidx, i] = np.where((objs>= tgt[0]) & (objs<=tgt[1]))
+                N_prm = prm_idx[cidx, i][0].shape[0]
+                prm_arr[cidx, i] = np.empty(shape=N_prm, dtype=self.param_dtype) 
+                fea_arr[cidx, i] = np.empty(shape=N_prm)
+
+                for idx in range(N_prm):
+                    filidx = prm_idx[cidx, i][0][idx]
+                    prmidx = prm_idx[cidx, i][1][idx]
+
+                    prm_arr[cidx,i][idx] = self.param_arr[filidx, cidx, prmidx]
+                    fea_arr[cidx,i][idx] = self.obj_val_mean_arr[filidx,cidx,idx,i] 
+
+        results = self.get_param_reg(prm_arr, fea_arr)
+
+        corprmgrd, prmcoords = self.get_grid_shape(self.N_comb)
+        N_prmcomb = len(prmcoords)
+
+        self.N_obj_groups =  self.N_objectives
+
+        fig = plt.figure(figsize=(20, self.N_obj_groups * corprmgrd[0]*3), constrained_layout=True)
+        spec = gs.GridSpec(nrows=self.N_obj_groups, ncols=1, figure=fig)
+
+        corprmspec = np.empty(shape=(self.N_obj_groups,2), dtype='O') 
+        for gidx in range(self.N_obj_groups):
+            corprmspec[gidx,0] = spec[gidx,0].subgridspec(*corprmgrd)
+            corprmspec[gidx,1] = np.empty(corprmspec[gidx,0].get_geometry(), dtype='O') 
+            cpr_axes = corprmspec[gidx,1]
+            for idx in prmcoords:
+                cpr_axes[idx] = fig.add_subplot(corprmspec[gidx,0][idx])
+
+            for cidx in range(self.N_cells):
+                for combidx, coord in zip(range(N_prmcomb), prmcoords):
+                    comb  = self.prmcomb[combidx, : ]
+                    i, j = comb
+
+                    cpr_axes[coord].axvline(self.param_props['lo_bound'][i], color='k', ls='--')
+                    cpr_axes[coord].axvline(self.param_props['up_bound'][i], color='k', ls='--')
+                    cpr_axes[coord].axhline(self.param_props['lo_bound'][j], color='k', ls='--')
+                    cpr_axes[coord].axhline(self.param_props['up_bound'][j], color='k', ls='--')
+
+                    cpr_axes[coord].set_xlabel(r'${!s}$ {!s}'.format(self.param_props['syn'][i], self.param_props['presyn_lab'][i]))
+                    cpr_axes[coord].set_ylabel(r'${!s}$ {!s}'.format(self.param_props['syn'][j], self.param_props['presyn_lab'][j]))
+                    cpr_axes[coord].scatter(prm_arr[cidx, gidx][self.param_names[i]], prm_arr[cidx, gidx][self.param_names[j]], color=colors[cidx], facecolors=colors[cidx], lw=0.1, s=2)
+
+        fig.suptitle('Tolerance level: {:.3f}'.format(tol))
+
+        return fig
+
+    def get_param_reg(self, prm_arr, fea_arr, multi_obj=False):
+
+        if not multi_obj:
+            GPR_objs = np.empty(shape=(self.N_cells, self.N_objectives), dtype='O') 
+            for cidx in range(self.N_cells):
+                N_X = prm_arr[cidx, 0].shape[0]
+                X = np.empty(shape=(N_X, self.param_dim))
+                for i in range(self.N_objectives):
+                    Y = fea_arr[cidx, i]
+                    for prmidx, prm in enumerate(self.param_names):
+                        X[:,prmidx] = prm_arr[cidx,i][prm] 
+                    GPR_objs[cidx, i] = GPR().fit(X, Y)
+                  #  GPR_params = GPR_objs[cidx, i].get_params()
+                    GPR_params = GPR_objs[cidx, i].log_marginal_likelihood_value_
+                    y_predicted = GPR_objs[cidx, i].predict(X, return_cov=True)
+                   # scor = GPR_objs[cidx, i].score(X, Y)
+#                    print(N_X, GPR_params.shape)
+                    print(y_predicted[1].shape)
+                        
 
     def get_summ_fig(self):
         fig = plt.figure(figsize=(20, 10), constrained_layout=True)
@@ -414,9 +514,7 @@ class NetClampParam:
         nz_masked = np.ma.masked_equal(self.obj_val_mean_arr[:,:,:,0], 0.0, copy=False)
         minfir_idx = np.unravel_index(np.argmin(np.abs(nz_masked)), nz_masked.shape)
 
-        ref_fil = self.fil_arr[minfir_idx[0],:]
-        ref_cell = ref_fil[0][self.head_group]['{:d}'.format(ref_fil[1][minfir_idx[1]])]
-        param = ref_cell['parameters'][minfir_idx[2]] 
+        param = self.param_arr[minfir_idx] 
 
         table = [[i['presyn'], i['syn'], param[idx]] for idx, i in enumerate(self.param_props)]
         collab = ['PreSynaptic', 'Synapse', 'Min Fir.']
@@ -463,10 +561,38 @@ def distribute_chores(fil_list, fil_dir, Combined=True, prefix=None):
 
     for idx in my_chores:
         NetClampParam(chores[idx], fil_dir=fil_dir, prefix=prefix)
+
+def get_list(fil_dir, tag, optimizer='distgfs', ext='h5', groupSubpop=True):
+    fil_lst_raw = []
+    fil_lst = []
+    subpop_lst = ['GC_', 'MC_', 'AAC_', 'BC_', 'HC_', 'HCC_', 'IS_', 'MOPP_', 'NGFC_']
+    subpop_dict = {k:[] for k in subpop_lst}
+
+    if type(tag) is not list:
+        print('Invalid tag type, must be a list of strings.')
+    else:
+        fil_lst_raw = [f for f in os.listdir(fil_dir) if f.startswith(optimizer) and f.endswith(ext) and any(tg in f for tg in tag)]
+
+    fil_lst_raw = list(set(fil_lst_raw))
+
+    if groupSubpop:
+        for f in fil_lst_raw:
+            subpop = f.split('.')[2].split('_')[0]
+            subpop_dict[subpop+'_'].append(f)
+        for k, v in subpop_dict.items():
+            if len(v):
+                fil_lst.append(v)
+    else:
+        fil_lst = fil_lst_raw
+
+    return fil_lst
+
+    
+
     
 if __name__ == '__main__':
 
-    remote=True
+    remote = False if sys.platform == 'darwin' else True
 
     fil_dir='/scratch1/04119/pmoolcha/HDM/new_dentate/results/netclamp' if remote else '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp'
         
@@ -562,12 +688,12 @@ if __name__ == '__main__':
 ],
 ]
 
-    testfils= [
-[
-        'distgfs.network_clamp.AAC_20210402_163643_27137089.h5',
-#        'distgfs.network_clamp.AAC_20210402_163643_36010476.h5',
-],
-]
+#    testfils= [
+#[
+#        'distgfs.network_clamp.AAC_20210402_163643_27137089.h5',
+##        'distgfs.network_clamp.AAC_20210402_163643_36010476.h5',
+#],
+#]
     
     pairwise = [
 #[
@@ -615,7 +741,9 @@ if __name__ == '__main__':
 #],
 ]
 
+    testfils = get_list(fil_dir, ['AAC_20210402_163643_27137089'])
 
 #    distribute_chores(interneuron_opt, fil_dir, Combined=True, prefix='GlobalExc')
 #    distribute_chores(newint_opt, fil_dir, Combined=True, prefix='CombinedCompartments')
-    distribute_chores(pairwise, fil_dir, Combined=True, prefix='Pairwise')
+#    distribute_chores(pairwise, fil_dir, Combined=True, prefix='Pairwise')
+    distribute_chores(testfils, fil_dir, Combined=True, prefix='Test')
