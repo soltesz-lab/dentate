@@ -1,4 +1,4 @@
-import sys, collections, copy, itertools, math, pprint, time, traceback
+import sys, collections, copy, itertools, math, pprint, uuid, time, traceback
 from functools import reduce
 from collections import defaultdict
 import numpy as np
@@ -106,6 +106,7 @@ class SynapseAttributes(object):
         self.syn_param_rules = syn_param_rules
         self.syn_name_index_dict = {label: index for index, label in enumerate(syn_mech_names)}  # int : mech_name dict
         self.syn_id_attr_dict = defaultdict(lambda: defaultdict(lambda: None))
+        self.syn_id_attr_backup_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: None)))
         self.sec_dict = defaultdict(lambda: defaultdict(lambda: []))
         self.pps_dict = defaultdict(lambda: defaultdict(lambda: SynapsePointProcess(mech={}, netcon={}, vecstim={})))
         self.presyn_names = {id: name for name, id in viewitems(env.Populations)}
@@ -477,6 +478,39 @@ class SynapseAttributes(object):
         :param append: whether to append attribute values with the same attribute name
         """
         self.add_mech_attrs_from_iter(gid, syn_name, iter({syn_id: params}), multiple='error', append=append)
+
+    def stash_mech_attrs(self, pop_name, gid):
+        """
+        Preserves mechanism attributes for the given cell id. 
+
+        :param pop_name: population name
+        :param gid: cell id
+        :param syn_id: synapse id
+        :param syn_name: synapse mechanism name
+        """
+        rules = self.syn_param_rules
+        syn_id_dict = self.syn_id_attr_dict[gid]
+        syn_id_backup_dict = self.syn_id_attr_backup_dict[gid]
+        stash_id = uuid.uuid4()
+        syn_id_backup_dict[stash_id] = copy.deepcopy(syn_id_dict)
+        return stash_id
+
+    def restore_mech_attrs(self, pop_name, gid, stash_id):
+        """
+        Restored mechanism attributes for the given cell id. 
+
+        :param pop_name: population name
+        :param gid: cell id
+        :param syn_id: synapse id
+        :param syn_name: synapse mechanism name
+        """
+        rules = self.syn_param_rules
+        syn_id_backup_dict = self.syn_id_attr_backup_dict[gid][stash_id]
+        if syn_id_backup_dict is not None:
+            self.syn_id_attr_dict[gid] = copy.deepcopy(syn_id_backup_dict)
+            del(self.syn_id_attr_backup_dict[gid][stash_id])
+
+
         
     def modify_mech_attrs(self, pop_name, gid, syn_id, syn_name, params, expr_param_check='ignore'):
         """

@@ -200,13 +200,8 @@ def config_controller():
     utils.config_logging(context.verbose)
     context.logger = utils.get_script_logger(os.path.basename(__file__))
 
-    # TODO: I don't think the controller needs this
-    if 'results_file_id' not in context():
-        context.results_file_id = 'DG_optimize_network_subworlds_%s_%s' % \
-                             (context.interface.worker_id, datetime.datetime.today().strftime('%Y%m%d_%H%M'))
-
     try:
-        context.env = Env(comm=context.controller_comm, results_file_id=context.results_file_id, **context.kwargs)
+        context.env = Env(comm=context.controller_comm, **context.kwargs)
     except Exception as err:
         context.logger.exception(err)
         raise err

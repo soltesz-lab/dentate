@@ -251,7 +251,7 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
 
             rate_vector = rate_vectors[trial_i]
             infld_rate_vector = rate_vector[infld_idxs]
-            outfld_rate_vector = None
+            masked_rate_vector = masked_rate_vectors[trial_i]
             if outfld_idxs is None:
                 outfld_rate_vector = masked_rate_vectors[trial_i]
             else:
@@ -265,7 +265,7 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
             mean_outfld = np.mean(outfld_rate_vector)
 
             residual_infld = np.abs(np.sum(target_infld - infld_rate_vector))
-            residual_outfld = np.square(np.mean(outfld_rate_vector))
+            residual_outfld = np.square(np.mean(masked_rate_vector))
             logger.info(f'selectivity objective: max infld/mean infld/mean peak/trough/mean outfld/residual_infld of gid {gid} trial {trial_i}: '
                         f'{max_infld:.02f} {mean_infld:.02f} {mean_peak:.02f} {mean_trough:.02f} {mean_outfld:.02f} {residual_infld:.04f}')
             residual_inflds.append(residual_infld)
@@ -337,16 +337,15 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
                                                                   selectivity_opt_param_config.mask_param_names,
                                                                   selectivity_opt_param_config.mask_param_tuples)
                                            for gid in my_cell_index_set} }
-        masked_spkdict = run_with(env, masked_run_params)
-        masked_rates_dict = gid_firing_rate_vectors(masked_spkdict, my_cell_index_set)
-        t_s, masked_state_values_dict = gid_state_values(masked_spkdict, equilibration_duration, n_trials, env.t_rec, 
-                                                         state_recs_dict)
-            
-        
         spkdict = run_with(env, run_params)
         rates_dict = gid_firing_rate_vectors(spkdict, my_cell_index_set)
         t_s, state_values_dict = gid_state_values(spkdict, equilibration_duration, n_trials, env.t_rec, 
                                                   state_recs_dict)
+
+        masked_spkdict = run_with(env, masked_run_params)
+        masked_rates_dict = gid_firing_rate_vectors(masked_spkdict, my_cell_index_set)
+        t_s, masked_state_values_dict = gid_state_values(masked_spkdict, equilibration_duration, n_trials, env.t_rec, 
+                                                         state_recs_dict)
         
         
         result = {}
@@ -424,7 +423,7 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
 
 
 def optimize_run(env, population, param_config_name, selectivity_config_name, init_objfun, problem_regime, nprocs_per_worker=1,
-                 n_iter=10, n_initial=30, initial_maxiter=50, initial_method="glp", 
+                 n_iter=10, n_initial=30, initial_maxiter=50, initial_method="glp", optimizer_method="nsga2",
                  population_size=200, num_generations=200, resample_fraction=None, mutation_rate=None,
                  param_type='synaptic', init_params={}, results_file=None, cooperative_init=False, 
                  spawn_startup_wait=None, verbose=False):
@@ -499,6 +498,7 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
                       'mutation_rate': mutation_rate,
                       'initial_maxiter': initial_maxiter,
                       'initial_method': initial_method,
+                      'optimizer': optimizer_method,
                       'file_path': file_path,
                       'save': True,
                       'save_eval' : 5,
@@ -554,6 +554,7 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
 @click.option("--n-initial", type=int, default=30)
 @click.option("--initial-maxiter", type=int, default=50)
 @click.option("--initial-method", type=str, default='glp')
+@click.option("--optimizer-method", type=str, default='nsga2')
 @click.option("--population-size", type=int, default=200)
 @click.option("--num-generations", type=int, default=200)
 @click.option("--resample-fraction", type=float)
@@ -603,7 +604,7 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
 @click.option('--cooperative-init', is_flag=True, help='use a single worker to read model data then send to the remaining workers')
 @click.option("--spawn-startup-wait", type=int)
 def main(config_file, population, dt, gid, gid_selection_file, arena_id, trajectory_id, generate_weights,
-         t_max, t_min,  nprocs_per_worker, n_iter, n_initial, initial_maxiter, initial_method, 
+         t_max, t_min,  nprocs_per_worker, n_iter, n_initial, initial_maxiter, initial_method, optimizer_method,
          population_size, num_generations, resample_fraction, mutation_rate,
          template_paths, dataset_prefix, config_prefix,
          param_config_name, selectivity_config_name, param_type, recording_profile, results_file, results_path, spike_events_path,
@@ -688,8 +689,8 @@ def main(config_file, population, dt, gid, gid_selection_file, arena_id, traject
         
     best = optimize_run(env, population, param_config_name, selectivity_config_name, init_objfun_name, problem_regime=problem_regime,
                         n_iter=n_iter, n_initial=n_initial, initial_maxiter=initial_maxiter, initial_method=initial_method, 
-                        population_size=population_size, num_generations=num_generations, resample_fraction=resample_fraction, 
-                        mutation_rate=mutation_rate, param_type=param_type, init_params=init_params, 
+                        optimizer_method=optimizer_method, population_size=population_size, num_generations=num_generations, 
+                        resample_fraction=resample_fraction, mutation_rate=mutation_rate, param_type=param_type, init_params=init_params, 
                         results_file=results_file, nprocs_per_worker=nprocs_per_worker, cooperative_init=cooperative_init,
                         spawn_startup_wait=spawn_startup_wait, verbose=verbose)
     
