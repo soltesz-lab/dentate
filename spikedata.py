@@ -137,24 +137,25 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
             trial_ind = spkattrs.get(trial_index_attr, np.zeros((slen,),dtype=np.uint8))
             if n_trials == -1:
                 n_trials = len(set(trial_ind))
-            for spk_i, spkt in enumerate(spkattrs[spike_train_attr_name]):
-                    trial_i = trial_ind[spk_i]
-                    if trial_i >= n_trials:
-                        continue
-                    if time_range is not None:
-                       if not ((spkt >= time_range[0]) and (spkt <= time_range[1])):
-                           continue
-                    if merge_trials:
-                        spkt += np.sum(trial_dur[:trial_i])
-                    pop_spkindlst.append(spkind)
-                    pop_spktlst.append(spkt)
-                    pop_spktriallst.append(trial_i)
-                    if spkt < tmin:
-                        tmin = spkt
-                    if spkt > tmax:
-                        tmax = spkt
-                    this_num_cell_spks += 1
-                    active_set.add(spkind)
+            filtered_spk_idxs_by_trial = np.argwhere(trial_ind <= n_trials).ravel()
+            filtered_spkts = spkattrs[spike_train_attr_name][filtered_spk_idxs_by_trial]
+            filtered_trial_ind = trial_ind[filtered_spk_idxs_by_trial]
+            if time_range is not None:
+                filtered_spk_idxs_by_time = np.argwhere(np.logical_and(filtered_spkts >= time_range[0],
+                                                                       filtered_spkts <= time_range[1])).ravel()
+                filtered_spkts = filtered_spkts[filtered_spk_idxs_by_time]
+                filtered_trial_ind = filtered_trial_ind[filtered_spk_idxs_by_time]
+            pop_spkindlst.append(np.repeat([spkind], len(filtered_spkts)).astype(np.uint32))
+            pop_spktriallst.append(filtered_trial_ind)
+            this_num_cell_spks += len(filtered_spkts)
+            active_set.add(spkind)
+            for i, spkt in enumerate(filtered_spkts):
+                trial_i = filtered_trial_ind[i]
+                if merge_trials:
+                    spkt += np.sum(trial_dur[:trial_i])
+                pop_spktlst.append(spkt)
+                tmin = min(tmin, spkt)
+                tmax = max(tmax, spkt)
 
         pop_active_cells[pop_name] = active_set
         num_cell_spks[pop_name] = this_num_cell_spks
@@ -164,9 +165,9 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
 
         pop_spkts = np.asarray(pop_spktlst, dtype=np.float32)
         del (pop_spktlst)
-        pop_spkinds = np.asarray(pop_spkindlst, dtype=np.uint32)
+        pop_spkinds = np.concatenate(pop_spkindlst, dtype=np.uint32)
         del (pop_spkindlst)
-        pop_spktrials = np.asarray(pop_spktriallst, dtype=np.uint32)
+        pop_spktrials = np.concatenate(pop_spktriallst, dtype=np.uint32)
         del (pop_spktriallst)
 
         # Limit to max_spikes

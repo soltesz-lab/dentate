@@ -273,6 +273,7 @@ class Env(object):
                 self.spike_input_attribute_info = \
                      read_cell_attribute_info(self.spike_input_path, sorted(self.Populations.keys()), comm=comm0)
                 self.logger.info('env.spike_input_attribute_info = %s' % str(self.spike_input_attribute_info))
+            self.comm.barrier()
             self.spike_input_attribute_info = self.comm.bcast(self.spike_input_attribute_info, root=0)
 
         if results_path:
