@@ -5708,6 +5708,7 @@ def plot_network_clamp_trial(input_path, spike_namespace, intracellular_namespac
         pop_range = population_ranges[population]
         pop_num_cells[population] = pop_range[1]
         
+    print('trial', gid)
     if gid is None:
         for population in state_info.keys():
             if intracellular_namespace in state_info[population]:
@@ -5720,6 +5721,7 @@ def plot_network_clamp_trial(input_path, spike_namespace, intracellular_namespac
             if (gid >= pop_range[0]) and (gid < pop_range[0] + pop_range[1]):
                 state_pop_name = population
                 break
+
 
     include = list(include)
     
