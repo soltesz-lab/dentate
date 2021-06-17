@@ -2732,7 +2732,9 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
 
     if time_range[0] == time_range[1] or time_range[0] == float('inf') or time_range[1] == float('inf'):
         raise RuntimeError('plot_network_clamp: invalid time_range: %s' % time_range)
+    time_bins  = np.arange(time_range[0], time_range[1], spike_hist_bin)
 
+    baks_config = copy.copy(kwargs)
     target_rate = None
     target_rate_time = None
     if (target_input_features_path is not None) and (target_input_features_namespace is not None):
@@ -2741,6 +2743,10 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
         env = Env(config_file=config_file, config_prefix=config_prefix,
                   arena_id=target_input_features_arena_id,
                   trajectory_id=target_input_features_trajectory_id)
+    
+        if env.analysis_config is not None:
+            baks_config.update(env.analysis_config['Firing Rate Inference'])
+
         target_trj_rate_maps = stimulus.rate_maps_from_features(env, state_pop_name,
                                                                 cell_index_set=[gid],
                                                                 input_features_path=target_input_features_path, 
@@ -2748,8 +2754,7 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
                                                                 time_range=time_range,
                                                                 include_time=True)
         target_rate_time, target_rate = target_trj_rate_maps[gid]
-
-    
+        target_rate_ip = interpolate.Akima1DInterpolator(target_rate_time, target_rate)
 
     maxN = 0
     minN = N
@@ -2782,8 +2787,9 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
     # Target spike plot
     plot_height_ratios.append(1)
     
-    if target_rate is not None:
-        n_plots += 1
+    if target_rate_ip is not None:
+        n_plots += 2
+        plot_height_ratios.append(0.5)
         plot_height_ratios.append(0.5)
 
     # State plot
@@ -2886,14 +2892,24 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
 
         # Calculate and plot spike histogram for target gid
         pop_spkinds, pop_spkts = pop_spk_dict.get(state_pop_name, ([], []))
+        trial_sdf_ips = []
         spk_count = 0
         ax_spk = axes[i_ax]
         for this_trial_spkinds, this_trial_spkts in zip_longest(pop_spkinds, pop_spkts):
             spk_inds = np.argwhere(this_trial_spkinds == gid)
             spk_count += len(spk_inds)
+            if target_rate_ip is not None:
+                sdf_dict = spikedata.spike_density_estimate(state_pop_name, { gid: this_trial_spkts[spk_inds] },
+                                                            time_bins, **baks_config)
+                trial_sdf_rate = sdf_dict[gid]['rate']
+                trial_sdf_time = sdf_dict[gid]['time']
+                trial_sdf_ip = interpolate.Akima1DInterpolator(trial_sdf_time, trial_sdf_rate)
+                trial_sdf_ips.append(trial_sdf_ip)
             ax_spk.stem(this_trial_spkts[spk_inds], [0.5]*len(spk_inds), markerfmt=' ')
             ax_spk.set_yticks([])
-        sprate = spk_count / n_trials  / tsecs            
+        sprate = spk_count / n_trials  / tsecs
+
+        
         ax_spk.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
         ax_spk.set_xlim(time_range)
         if pop_rates:
@@ -2904,10 +2920,18 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
         i_ax += 1
 
     if target_rate is not None:
+        t = np.arange(time_range[0], time_range[1], 1.)
+        trial_sdf_matrix = np.row_stack([trial_sdf_ip(t) for trial_sdf_ip in trial_sdf_ips])
+        mean_sdf = np.mean(trial_sdf_matrix, axis=0)
+        target_rate = target_rate_ip(t)
         ax_target_rate = axes[i_ax]
         i_ax += 1
         ax_target_rate.imshow(target_rate[np.newaxis,:], aspect="auto")
         ax_target_rate.set_yticks([])
+        ax_mean_sdf = axes[i_ax]
+        i_ax += 1
+        ax_mean_sdf.imshow(mean_sdf[np.newaxis,:], aspect="auto")
+        ax_mean_sdf.set_yticks([])
         
     # Plot intracellular state
     ax_state = axes[i_ax]
