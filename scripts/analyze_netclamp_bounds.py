@@ -416,14 +416,14 @@ class NetClampParam:
         opt_axes[0,0].set_xlabel(r'Iteration Index')
 
         summ_fig = self.get_summ_fig()
-        tol_fig = self.get_param_obj_tol()
+    #    tol_fig = self.get_param_obj_tol()
         #fig.savefig(self.plot_filnam, transparent=True)
-        self.plot_filnam = 'Debug.pdf'
+     #   self.plot_filnam = 'Debug.pdf'
         with PdfPages(self.plot_filnam) as pdf:
             pdf.savefig(obj_fig, transparent=True)
             pdf.savefig(prm_fig, transparent=True)
             pdf.savefig(summ_fig, transparent=True)
-            pdf.savefig(tol_fig, transparent=True)
+        #    pdf.savefig(tol_fig, transparent=True)
 
     def get_param_obj_tol(self, tol=0.01):
         prm_idx = np.empty(shape=(self.N_cells, self.N_objectives), dtype=np.ndarray) 
@@ -594,7 +594,7 @@ if __name__ == '__main__':
 
     remote = False if sys.platform == 'darwin' else True
 
-    fil_dir='/scratch1/04119/pmoolcha/HDM/new_dentate/results/netclamp' if remote else '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp'
+    fil_dir='/scratch1/04119/pmoolcha/HDM/dentate/results/netclamp' if remote else '/Volumes/Work/SolteszLab/HDM/dentate/results/netclamp'
         
 
     interneuron_opt  = [ 
@@ -741,9 +741,13 @@ if __name__ == '__main__':
 #],
 ]
 
-    testfils = get_list(fil_dir, ['AAC_20210402_163643_27137089'])
+ #   ModulatedMicroResRange = get_list(fil_dir, ['20210525'])
+    ModuMicroBigRange = get_list(fil_dir, ['20210622_163430', '20210622_163845', '20210622_164202', '20210622_164310'])
 
 #    distribute_chores(interneuron_opt, fil_dir, Combined=True, prefix='GlobalExc')
 #    distribute_chores(newint_opt, fil_dir, Combined=True, prefix='CombinedCompartments')
 #    distribute_chores(pairwise, fil_dir, Combined=True, prefix='Pairwise')
-    distribute_chores(testfils, fil_dir, Combined=True, prefix='Test')
+#    distribute_chores(testfils, fil_dir, Combined=True, prefix='Test')
+
+#    distribute_chores(ModulatedMicroResRange, fil_dir, Combined=True, prefix='ModMctResRng')
+    distribute_chores(ModuMicroBigRange, fil_dir, Combined=True, prefix='ModMctBigRng')

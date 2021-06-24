@@ -1,4 +1,4 @@
-import os, sys, click
+import os, sys, click, h5py
 import dentate
 from dentate import plot, utils
 from dentate.utils import Context, is_interactive
@@ -21,7 +21,7 @@ context = Context()
 @click.option("--target-input-features-namespace", type=str, default='Selectivity Features')
 @click.option("--target-input-features-arena-id", type=str)
 @click.option("--target-input-features-trajectory-id", type=str)
-@click.option("--gid", '-g', type=int)
+@click.option("--gid", '-g', multiple=True, type=int)
 @click.option("--n-trials", '-n', type=int, default=-1)
 @click.option("--spike-hist-bin", type=float, default=5.0)
 @click.option("--all-spike-hist", is_flag=True)
@@ -32,7 +32,7 @@ context = Context()
 @click.option("--t-variable", type=str, default='t')
 @click.option("--t-max", type=float)
 @click.option("--t-min", type=float)
-
+@click.option("--opt-seed", type=int, default=000000)
 @click.option("--font-size", type=float, default=14)
 @click.option("--line-width", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
@@ -40,7 +40,7 @@ def main(config_file, config_prefix, input_path, spike_namespace, state_namespac
          target_input_features_path, target_input_features_namespace,
          target_input_features_arena_id, target_input_features_trajectory_id,
          gid, n_trials, spike_hist_bin, all_spike_hist,
-         labels, lowpass_plot_type, legend, state_variable, t_variable, t_max, t_min, font_size, line_width, verbose):
+         labels, lowpass_plot_type, legend, state_variable, t_variable, t_max, t_min, opt_seed, font_size, line_width, verbose):
 
     utils.config_logging(verbose)
     
@@ -55,17 +55,26 @@ def main(config_file, config_prefix, input_path, spike_namespace, state_namespac
     if not populations:
         populations = ['eachPop']
         
-    plot.plot_network_clamp_trial(input_path, spike_namespace, state_namespace, gid=gid,
-                            target_input_features_path=target_input_features_path,
-                            target_input_features_namespace=target_input_features_namespace,
-                            target_input_features_arena_id=target_input_features_arena_id,
-                            target_input_features_trajectory_id=target_input_features_trajectory_id,
-                            config_prefix=config_prefix, config_file=config_file,
-                            include=populations, include_artificial=include_artificial,
-                            time_range=time_range, time_variable=t_variable, intracellular_variable=state_variable,
-                            all_spike_hist=all_spike_hist, spike_hist_bin=spike_hist_bin, labels=labels, 
-                            lowpass_plot_type=lowpass_plot_type, n_trials=n_trials, fontSize=font_size, legend=legend, 
-                            saveFig=True, lw=line_width)
+    if not len(gid):
+        f = h5py.File(input_path, 'r')
+        pop_f = f['Parameters']
+        popul_f = list(pop_f.keys())[0]
+        gid = tuple(pop_f[popul_f].keys())
+        f.close()
+        
+
+    for mg in gid:
+        plot.plot_network_clamp_trial(input_path, spike_namespace, state_namespace, gid=int(mg),
+                                target_input_features_path=target_input_features_path,
+                                target_input_features_namespace=target_input_features_namespace,
+                                target_input_features_arena_id=target_input_features_arena_id,
+                                target_input_features_trajectory_id=target_input_features_trajectory_id,
+                                config_prefix=config_prefix, config_file=config_file,
+                                include=populations, include_artificial=include_artificial,
+                                time_range=time_range, time_variable=t_variable, intracellular_variable=state_variable,
+                                all_spike_hist=all_spike_hist, spike_hist_bin=spike_hist_bin, labels=labels, 
+                                lowpass_plot_type=lowpass_plot_type, n_trials=n_trials, opt_seed=opt_seed, fontSize=font_size, legend=legend, 
+                                saveFig=True, lw=line_width)
 
     if is_interactive:
         context.update(locals())
