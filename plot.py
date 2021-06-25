@@ -2737,6 +2737,7 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
     baks_config = copy.copy(kwargs)
     target_rate = None
     target_rate_time = None
+    target_rate_ip = None
     if (target_input_features_path is not None) and (target_input_features_namespace is not None):
         if config_file is None:
             raise RuntimeError("plot_network_clamp: config_file must be provided with target_input_features_path.") 
@@ -2905,7 +2906,8 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
                 trial_sdf_time = sdf_dict[gid]['time']
                 trial_sdf_ip = interpolate.Akima1DInterpolator(trial_sdf_time, trial_sdf_rate)
                 trial_sdf_ips.append(trial_sdf_ip)
-            ax_spk.stem(this_trial_spkts[spk_inds], [0.5]*len(spk_inds), markerfmt=' ')
+            if len(spk_inds) > 0:
+                ax_spk.stem(this_trial_spkts[spk_inds], [0.5]*len(spk_inds), markerfmt=' ')
             ax_spk.set_yticks([])
         sprate = spk_count / n_trials  / tsecs
 
@@ -5635,11 +5637,13 @@ def plot_2D_histogram(hist, x_edges, y_edges, norm=None, ylabel=None, xlabel=Non
         vmax = np.max(H)
     fig, axes = plt.subplots(figsize=fig_options.figSize)
 
+    pcm_cmap = None
     pcm_boundaries = np.arange(vmin, vmax, .1)
-    cmap_pls = plt.cm.get_cmap(fig_options.colormap, len(pcm_boundaries))
-    pcm_colors = list(cmap_pls(np.arange(len(pcm_boundaries))))
-    pcm_cmap = mpl.colors.ListedColormap(pcm_colors[:-1], "")
-    pcm_cmap.set_under(pcm_colors[0], alpha=0.0)
+    if len(pcm_boundaries) > 0:
+        cmap_pls = plt.cm.get_cmap(fig_options.colormap, len(pcm_boundaries))
+        pcm_colors = list(cmap_pls(np.arange(len(pcm_boundaries))))
+        pcm_cmap = mpl.colors.ListedColormap(pcm_colors[:-1], "")
+        pcm_cmap.set_under(pcm_colors[0], alpha=0.0)
     
     pcm = axes.pcolormesh(x_edges, y_edges, H.T, vmin=vmin, vmax=vmax, cmap=pcm_cmap)
     
