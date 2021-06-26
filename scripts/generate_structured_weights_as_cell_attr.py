@@ -451,7 +451,6 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
         arena_x, arena_y = stimulus.get_2D_arena_spatial_mesh(arena, spatial_resolution,
                                                               margin=arena_margin_size)
 
-        logger.info(f"Rank {env.comm.rank}: destination gid {destination_gid}: target_selectivity_features_dict = {target_selectivity_features_dict}")
         selection = list(target_selectivity_features_dict.keys())
 
         initial_weights_by_source_gid_dict = defaultdict(lambda: dict())
@@ -575,6 +574,9 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                  fig_kwargs={'gid': destination_gid,
                                                              'field_width': target_field_width_dict[destination_gid]})
             input_rate_maps_by_source_gid_dict.clear()
+
+            target_map_flat = target_selectivity_features_dict[destination_gid]['Arena Rate Map'].flat
+            arena_map_residual_sum = np.sum(np.abs(arena_LS_map - target_map_flat))
             output_features_dict[destination_gid] = \
                { fld: target_selectivity_features_dict[destination_gid][fld]
                  for fld in ['Selectivity Type',
@@ -582,8 +584,9 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                              'Field Width',
                              'Peak Rate',
                              'X Offset',
-                             'Y Offset']}
-
+                             'Y Offset',]}
+            output_features_dict[destination_gid]['Rate Map Residual Sum'] = np.asarray([arena_map_residual_sum], dtype=np.float32)
+            
             this_structured_syn_id_count = structured_syn_id_count[destination_gid]
             output_syn_ids = np.empty(this_structured_syn_id_count, dtype='uint32')
             LTD_output_weights = np.empty(this_structured_syn_id_count, dtype='float32')
@@ -597,9 +600,9 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                      i += 1
             LTP_output_weights_dict[destination_gid] = {'syn_id': output_syn_ids, synapse_name: LTP_output_weights}
             LTD_output_weights_dict[destination_gid] = {'syn_id': output_syn_ids, synapse_name: LTD_output_weights}
-
-            logger.info('Rank %i; destination: %s; gid %i; generated structured weights for %i inputs in %.2f '
-                        's' % (rank, destination, destination_gid, len(output_syn_ids), time.time() - local_time))
+            logger.info(f'Rank {rank}; destination: {destination}; gid {destination_gid}; '
+                        f'generated structured weights for {len(output_syn_ids)} inputs in {time.time() - local_time:.2f} s; '
+                        f'residual sum is {arena_map_residual_sum:.2f}')
             gid_count += 1
             gc.collect()
 

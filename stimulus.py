@@ -1,6 +1,7 @@
 import os, sys, gc, copy, time
 import numpy as np
 from scipy.interpolate import Rbf
+from scipy.ndimage import gaussian_filter
 from collections import defaultdict, ChainMap, namedtuple
 from mpi4py import MPI
 from dentate.utils import get_module_logger, object, range, str, Struct, gauss2d, gaussian, viewitems
@@ -374,6 +375,7 @@ class PlaceInputCellConfig(object):
         rate_array = np.zeros_like(x, dtype=np.float32)
         for i in range(self.num_fields):
             rate_array = np.maximum(rate_array, get_place_rate_map(self.x0[i], self.y0[i], self.field_width[i] * scale, x, y))
+        rate_array = gaussian_filter(rate_array, sigma=5)
         rate_array *= self.peak_rate
         mean_rate = np.mean(rate_array)
         

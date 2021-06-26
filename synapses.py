@@ -634,7 +634,6 @@ class SynapseAttributes(object):
         for syn_id, params_dict in params_iter:
             syn = syn_id_dict[syn_id]
             if syn is None:
-                print(sorted(syn_id_dict.keys()))
                 raise RuntimeError('add_mech_attrs_from_iter: '
                                    'gid %i synapse id %i has not been created yet' % (gid, syn_id))
             if syn_index in syn.attr_dict:
@@ -2610,9 +2609,8 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
 
 
     lsqr_target_map = np.asarray(np.copy(scaled_target_map) - scaled_background_map, dtype=np.float32)
-    res = scipy.sparse.linalg.lsmr(scaled_input_matrix,
-                                   lsqr_target_map,
-                                   atol=optimize_tol, btol=optimize_tol,
+    res = scipy.sparse.linalg.lsmr(scaled_input_matrix, 
+                                   lsqr_target_map, maxiter=1000, 
                                    damp=0.1, show=True)
     lsqr_delta_weights = np.asarray(res[0], dtype=np.float32)
 
@@ -2666,9 +2664,14 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
             
         LS_delta_weights = np.copy(w)
     else:
+        constraints = ()
         method_options = {'disp': verbose, 'maxiter': max_opt_iter}
         if optimize_method == 'L-BFGS-B':
             method_options['maxfun'] = 1000000
+        if optimize_method == 'SLSQP':
+            initial_weights_sum = np.sum(initial_LS_delta_weights)
+            n = len(initial_LS_delta_weights)
+            constraints = scipy.optimize.LinearConstraint(np.ones((1,n)), initial_weights_sum, np.inf)
         result = opt.minimize(activation_map_residual,
                               initial_LS_delta_weights, 
                               jac=activation_map_residual_grad if optimize_grad else None,
@@ -2676,6 +2679,7 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
                               method=optimize_method,
                               bounds=opt_bounds,
                               tol=optimize_tol,
+                              constraints=constraints,
                               options=method_options)
         if not result.success:
             logger.info('initial weights for gid %d: %s' % (destination_gid, str(initial_weight_dict)))
@@ -2684,7 +2688,6 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
             logger.info('non-structured input rate map for gid %d: %s' % (destination_gid, str(non_structured_input_rate_map_dict)))
             raise RuntimeError("Error in structured weight optimization for gid %d" % destination_gid)
         LS_delta_weights = np.array(result.x)
-
     
     LS_delta_map = np.dot(scaled_input_matrix,
                           np.asarray(LS_delta_weights + initial_weight_array,
