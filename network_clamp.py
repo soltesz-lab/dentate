@@ -790,6 +790,7 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
         state_recs_dict[gid] = record_cell(env, population, gid, recording_profile=recording_profile)
 
     target_v_threshold = opt_targets[f'{population} state']['v'].get('threshold', None)
+    target_v_margin = opt_targets[f'{population} state']['v'].get('margin', -1.0)
     if target_v_threshold is None:
         raise RuntimeError(f'network_clamp: network clamp optimization configuration for population {population} '
                            f'must have state variable v threshold setting in section Targets')
@@ -887,7 +888,7 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
             features_dict[gid] = feature_array
 
         for gid in my_cell_index_set:
-            if np.mean(features_dict[gid]['mean_v']) >= target_v_threshold:
+            if np.mean(features_dict[gid]['mean_v']) >= target_v_threshold - target_v_margin:
                 objectives_dict[gid] -= 1e6
 
         return objectives_dict, features_dict
