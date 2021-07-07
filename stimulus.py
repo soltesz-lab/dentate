@@ -851,6 +851,21 @@ def get_2D_arena_spatial_mesh(arena, spatial_resolution=5., margin=0., indexing=
     return np.meshgrid(arena_x, arena_y, indexing=indexing)
 
 
+def get_2D_arena_grid(arena, spatial_resolution=5., margin=0., indexing='ij'):
+    """
+
+    :param arena: namedtuple
+    :param spatial_resolution: float (cm)
+    :param margin: float
+    :return: tuple of array
+    """
+    arena_x_bounds, arena_y_bounds = get_2D_arena_bounds(arena=arena, margin=margin)
+    arena_x = np.arange(arena_x_bounds[0], arena_x_bounds[1] + spatial_resolution / 2., spatial_resolution)
+    arena_y = np.arange(arena_y_bounds[0], arena_y_bounds[1] + spatial_resolution / 2., spatial_resolution)
+
+    return arena_x, arena_y
+
+
 def generate_linear_trajectory(trajectory, temporal_resolution=1., equilibration_duration=None):
     """
     Construct coordinate arrays for a spatial trajectory, considering run velocity to interpolate at the specified

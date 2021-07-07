@@ -2607,19 +2607,6 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
     #input_matrix_pinv = V.dot(D.conj().T).dot(U.conj().T)
     #SVD_delta_weights = np.dot(input_matrix_pinv, scaled_target_map)
 
-
-    lsqr_target_map = np.asarray(np.copy(scaled_target_map) - scaled_background_map, dtype=np.float32)
-    res = scipy.sparse.linalg.lsmr(scaled_input_matrix, 
-                                   lsqr_target_map, maxiter=1000, 
-                                   damp=0.1, show=True)
-    lsqr_delta_weights = np.asarray(res[0], dtype=np.float32)
-
-    lb = 0.
-    ub = max_delta_weight
-    initial_LS_bounds = (lb, ub)
-    
-    initial_LS_delta_weights = np.clip(lsqr_delta_weights, initial_LS_bounds[0], initial_LS_bounds[1])
-
     def activation_map_residual(weights, input_matrix, target_map):
         a = np.dot(np.asarray(input_matrix, dtype=np.float32),
                    np.asarray(weights, dtype=np.float32))
@@ -2636,9 +2623,18 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
         grad = -1./N * np.dot(input_matrix.T, e)
         return np.asarray(grad, dtype=np.float64)
 
-    
+    lsqr_target_map = np.asarray(np.copy(scaled_target_map) - scaled_background_map, dtype=np.float32)
+    res = scipy.sparse.linalg.lsmr(scaled_input_matrix, 
+                                   lsqr_target_map, maxiter=1000, 
+                                   damp=0.1, show=True)
+    lsqr_delta_weights = np.asarray(res[0], dtype=np.float32)
     opt_bounds = [ (-(max_weight_decay_fraction * x), max_delta_weight)
                    for x in initial_weight_array ]
+
+    initial_LS_bounds = (np.asarray([b[0] for b in opt_bounds]), np.asarray([b[1] for b in opt_bounds]))
+    initial_LS_delta_weights = np.clip(lsqr_delta_weights, initial_LS_bounds[0], initial_LS_bounds[1])
+    
+
     if optimize_method == 'dogbox':
         result = opt.least_squares(activation_map_residual, initial_LS_delta_weights,
                                    jac=activation_map_residual_grad if optimize_grad else None,
