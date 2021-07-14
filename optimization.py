@@ -360,6 +360,22 @@ def opt_reduce_every_features(items):
             result[k] = (yd[k], fd[k])
     return result
 
+def opt_reduce_every_features_constraints(items):
+    result = {}
+    features = {}
+    for yd, fd, cd in items:
+        for k in yd:
+            result[k] = (yd[k], fd[k], cd[k])
+    return result
+
+def opt_reduce_every_constraints(items):
+    result = {}
+    features = {}
+    for yd, cd in items:
+        for k in yd:
+            result[k] = (yd[k], cd[k])
+    return result
+
 def opt_reduce_mean(xs):
     ks = list(xs[0].keys())
     vs = { k: [] for k in ks }
