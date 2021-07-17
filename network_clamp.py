@@ -160,6 +160,7 @@ def init_inputs_from_features(env, presyn_sources, time_range,
                               spike_train_attr_name='t', n_trials=1, seed=None):
     """Initializes presynaptic spike sources from a file with input selectivity features represented as firing rates."""
 
+    logger.info(f'init_inputs_from_features: seed = {seed}')
     populations = sorted(presyn_sources.keys())
 
     if time_range is not None:
@@ -769,6 +770,7 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
                              t_min=t_min, t_max=t_max, cooperative_init=cooperative_init,
                              worker=worker)
 
+    tsecs = (t_max-t_min) / 1e3
     time_step = env.stimulus_config['Temporal Resolution']
     equilibration_duration = float(env.stimulus_config.get('Equilibration Duration', 0.))
 
@@ -816,9 +818,10 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
 
             rate_dict = spikedata.spike_rates(spkdict1)
             for gid in cell_index_set:
+                this_rate = rate_dict[gid] / tsecs
                 logger.info(f'firing rate objective: spike times of gid {gid}: {pprint.pformat(spkdict1[gid])}')
-                logger.info(f'firing rate objective: rate of gid {gid} is {rate_dict[gid]:.02f}')
-                rates_dict[gid].append(rate_dict[gid])
+                logger.info(f'firing rate objective: rate of gid {gid} is {this_rate:.02f}')
+                rates_dict[gid].append(this_rate)
 
         return rates_dict
     
