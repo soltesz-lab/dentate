@@ -150,7 +150,7 @@ class GridInputCellConfig(object):
             mod_depth = phase_mod_config.mod_depth
             freq = phase_mod_config.frequency
 
-            self.phase_mod_function = lambda x, y, velocity, field_width: spatial2d_phase_mod(x, y, velocity, field_width, phase_range, phase_pref, phase_offset, mod_depth, freq)
+            self.phase_mod_function = lambda x, y, velocity, field_width, initial_phase=0: spatial2d_phase_mod(x, y, velocity, field_width, phase_range, phase_pref, phase_offset+initial_phase, mod_depth, freq)
 
         if selectivity_attr_dict is not None:
             self.init_from_attr_dict(selectivity_attr_dict)
@@ -222,7 +222,7 @@ class GridInputCellConfig(object):
                     np.array([self.grid_field_width_concentration_factor], dtype=np.float32)
                 }
 
-    def get_rate_map(self, x, y, velocity=1.0, scale=1.0):
+    def get_rate_map(self, x, y, velocity=1.0, scale=1.0, initial_phase=0.):
         """
 
         :param x: array
@@ -236,7 +236,7 @@ class GridInputCellConfig(object):
         if self.phase_mod_function is not None:
             mx = x - self.x0
             my = y - self.y0
-            rate_array *= self.phase_mod_function(mx, my, velocity, self.grid_spacing)
+            rate_array *= self.phase_mod_function(mx, my, velocity, self.grid_spacing, initial_phase=initial_phase)
             mean_rate_mod = np.mean(rate_array)
             if mean_rate_mod > 0.:
                 rate_array *= mean_rate / mean_rate_mod
@@ -271,7 +271,7 @@ class PlaceInputCellConfig(object):
             mod_depth = phase_mod_config.mod_depth
             freq = phase_mod_config.frequency
 
-            self.phase_mod_function = lambda x, y, velocity, field_width: spatial2d_phase_mod(x, y, velocity, field_width, phase_range, phase_pref, phase_offset, mod_depth, freq)
+            self.phase_mod_function = lambda x, y, velocity, field_width, initial_phase=0.: spatial2d_phase_mod(x, y, velocity, field_width, phase_range, phase_pref, phase_offset+initial_phase, mod_depth, freq)
 
         if selectivity_attr_dict is not None:
             self.init_from_attr_dict(selectivity_attr_dict)
@@ -361,7 +361,7 @@ class PlaceInputCellConfig(object):
                 'Y Offset': np.asarray(self.y0, dtype=np.float32)
                 }
 
-    def get_rate_map(self, x, y, velocity=None, scale=1.0):
+    def get_rate_map(self, x, y, velocity=None, scale=1.0, initial_phase=0.0):
         """
 
         :param x: array
@@ -382,7 +382,7 @@ class PlaceInputCellConfig(object):
         if (self.num_fields > 0) and (self.phase_mod_function is not None):
             mx = x - self.x0[0]
             my = y - self.y0[0]
-            rate_array *= self.phase_mod_function(mx, my, velocity, self.field_width[0])
+            rate_array *= self.phase_mod_function(mx, my, velocity, self.field_width[0], initial_phase=initial_phase)
             mean_rate_mod = np.mean(rate_array)
             if mean_rate_mod > 0.:
                 rate_array *= mean_rate / mean_rate_mod
@@ -411,7 +411,7 @@ class ConstantInputCellConfig(object):
             mod_depth = phase_mod_config.mod_depth
             freq = phase_mod_config.frequency
             
-            self.phase_mod_function = lambda t: stationary_phase_mod(t, phase_range, phase_pref, phase_offset, mod_depth, freq)
+            self.phase_mod_function = lambda t, initial_phase=0.: stationary_phase_mod(t, phase_range, phase_pref, phase_offset+initial_phase, mod_depth, freq)
 
         
         if selectivity_attr_dict is not None:
@@ -433,7 +433,7 @@ class ConstantInputCellConfig(object):
                 'Peak Rate': np.array([self.peak_rate], dtype=np.float32),
                 }
 
-    def get_rate_map(self, x, y, velocity=None):
+    def get_rate_map(self, x, y, velocity=None, initial_phase=0.0):
         """
 
         :param x: array
@@ -449,7 +449,7 @@ class ConstantInputCellConfig(object):
         if (velocity is not None) and (self.phase_mod_function is not None):
             d = np.insert(np.cumsum(np.sqrt((np.diff(x) ** 2. + np.diff(y) ** 2.))), 0, 0.)
             t = d/velocity
-            rate_array *= self.phase_mod_function(t)
+            rate_array *= self.phase_mod_function(t, initial_phase=initial_phase)
             mean_rate_mod = np.mean(rate_array)
             if mean_rate_mod > 0.:
                 rate_array *= mean_rate / mean_rate_mod
@@ -969,7 +969,7 @@ def generate_input_selectivity_features(env, population, arena, arena_x, arena_y
 
 
 def generate_input_spike_trains(env, population, selectivity_type_names, trajectory, gid, selectivity_attr_dict, spike_train_attr_name='Spike Train',
-                                selectivity_type_name=None, spike_hist_resolution=1000, equilibrate=None, phase_mod_config=None, 
+                                selectivity_type_name=None, spike_hist_resolution=1000, equilibrate=None, phase_mod_config=None, initial_phases=None,
                                 spike_hist_sum=None, return_selectivity_features=True, n_trials=1, merge_trials=True, time_range=None,
                                 comm=None, seed=None, debug=False):
     """
@@ -999,6 +999,10 @@ def generate_input_spike_trains(env, population, selectivity_type_names, traject
     local_random = np.random.RandomState()
     input_spike_train_seed = int(env.model_config['Random Seeds']['Input Spiketrains'])
 
+    if phase_mod_config is not None:
+        if (n_trials > 1) and (initial_phases is None):
+            initial_phases = global_oscillation_initial_phases(env, n_trials)
+            
     if seed is None:
         local_random.seed(int(input_spike_train_seed + gid))
     else:
@@ -1013,10 +1017,6 @@ def generate_input_spike_trains(env, population, selectivity_type_names, traject
                                               selectivity_type_names=selectivity_type_names,
                                               selectivity_attr_dict=selectivity_attr_dict,
                                               phase_mod_config=phase_mod_config)
-    rate_map = input_cell_config.get_rate_map(x=x, y=y, velocity=velocity if phase_mod_config is not None else None)
-    if (selectivity_type_name != 'constant') and (equilibrate is not None):
-        equilibrate_filter, equilibrate_len = equilibrate
-        rate_map[:equilibrate_len] = np.multiply(rate_map[:equilibrate_len], equilibrate_filter)
 
     trial_duration = np.max(t) - np.min(t)
     if time_range is not None:
@@ -1024,7 +1024,16 @@ def generate_input_spike_trains(env, population, selectivity_type_names, traject
         
     spike_trains = []
     trial_indices = []
+    initial_phase = 0.
     for i in range(n_trials):
+        if initial_phases is not None:
+            initial_phase = initial_phases[i]
+        rate_map = input_cell_config.get_rate_map(x=x, y=y, velocity=velocity if phase_mod_config is not None else None,
+                                                  initial_phase=initial_phase)
+        if (selectivity_type_name != 'constant') and (equilibrate is not None):
+            equilibrate_filter, equilibrate_len = equilibrate
+            rate_map[:equilibrate_len] = np.multiply(rate_map[:equilibrate_len], equilibrate_filter)
+
         spike_train = np.asarray(get_inhom_poisson_spike_times_by_thinning(rate_map, t, dt=temporal_resolution,
                                                                            generator=local_random),
                                  dtype=np.float32)
@@ -1434,7 +1443,8 @@ def oscillation_phase_mod_config(env, population, soma_positions, local_random=N
 def global_oscillation_phase_shift(env, position):
     """
     Computes the phase shift of the global oscillatory signal for the given position, assumed to be on the long axis. 
-    Uses the "Global Oscillation" entry in the input configuration. See `global_oscillation_signal` for a description of the configuration format.
+    Uses the "Global Oscillation" entry in the input configuration. 
+    See `global_oscillation_signal` for a description of the configuration format.
     """
 
     global_oscillation_config = env.stimulus_config['Global Oscillation']
@@ -1449,7 +1459,8 @@ def global_oscillation_phase_shift(env, position):
 def global_oscillation_phase_pref(env, population, num_cells, local_random=None):
     """
     Computes oscillatory phase preferences for all cells in the given population.
-    Uses the "Global Oscillation" entry in the input configuration. See `global_oscillation_signal` for a description of the configuration format.
+    Uses the "Global Oscillation" entry in the input configuration. 
+    See `global_oscillation_signal` for a description of the configuration format.
 
     Returns: an array of phase preferences of length equal to the population size.
     """
@@ -1469,6 +1480,30 @@ def global_oscillation_phase_pref(env, population, num_cells, local_random=None)
     s = np.mod(s, 360)
     
     return s
+
+
+def global_oscillation_initial_phases(env, n_trials, local_random=None):
+    """
+    Computes initial oscillatory phases for multiple trials.
+    Uses the "Global Oscillation" entry in the input configuration. 
+    See `global_oscillation_signal` for a description of the configuration format.
+
+    Returns: an array of phases in radians of length equal to n_trials.
+    """
+
+    seed = int(env.model_config['Random Seeds']['Initial Phase'])
+
+    if local_random is None:
+        local_random = np.random.RandomState(seed)
+
+    s = [0.]
+    if n_trials > 1:
+        for i in range(n_trials-1):
+            s.append(local_random.uniform(0.0, 360.0))
+
+    a = np.deg2rad(np.asarray(s))
+    
+    return a
 
     
 
