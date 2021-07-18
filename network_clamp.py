@@ -698,7 +698,7 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
 
 
     recording_profile = { 'label': f'network_clamp.state.{state_variable}',
-                          'dt': 0.1,
+                          'dt': None if use_coreneuron else 0.1,
                           'section quantity': {
                               state_variable: { 'swc types': ['soma'] }
                             }
@@ -770,7 +770,9 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
                              t_min=t_min, t_max=t_max, cooperative_init=cooperative_init,
                              worker=worker)
 
-    tsecs = (t_max-t_min) / 1e3
+    time_range = (t_min if t_min is not None else 0., t_max)
+    tsecs = ((time_range[1]-time_range[0]) / 1e3)
+
     time_step = env.stimulus_config['Temporal Resolution']
     equilibration_duration = float(env.stimulus_config.get('Equilibration Duration', 0.))
 
@@ -781,7 +783,7 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
     param_tuples = opt_param_config.param_tuples
 
     recording_profile = { 'label': f'network_clamp.rate.v',
-                          'dt': 0.1,
+                          'dt': None if use_coreneuron else 0.1,
                           'section quantity': {
                               'v': { 'swc types': ['soma'] }
                             }
@@ -816,9 +818,8 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
                 else:
                     spkdict1[gid] = np.asarray([], dtype=np.float32)
 
-            rate_dict = spikedata.spike_rates(spkdict1)
             for gid in cell_index_set:
-                this_rate = rate_dict[gid] / tsecs
+                this_rate = len(spkdict1[gid]) / tsecs
                 logger.info(f'firing rate objective: spike times of gid {gid}: {pprint.pformat(spkdict1[gid])}')
                 logger.info(f'firing rate objective: rate of gid {gid} is {this_rate:.02f}')
                 rates_dict[gid].append(this_rate)
