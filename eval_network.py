@@ -151,7 +151,106 @@ def main(config_path, params_id, n_samples, target_features_path, target_feature
             result.append((param_tuple, x[i]))
         return result
 
-    eval_network(env, network_config, from_param_list, network_param_spec, network_param_values, params_id,
+    config_logging(verbose)
+    logger = utils.get_script_logger(os.path.basename(__file__))
+
+    if params_id is None:
+        if n_samples is None:
+            raise RuntimeError("Neither params_id nor n_samples is provided")
+        logger.info("Generating parameter lattice ...")
+        generate_param_lattice(config_path, n_samples, output_file_dir, output_file_name, verbose)
+        return
+
+    network_args = click.get_current_context().args
+    network_config = {}
+    for arg in network_args:
+        kv = arg.split("=")
+        if len(kv) > 1:
+            k,v = kv
+            network_config[k.replace('--', '').replace('-', '_')] = v
+        else:
+            k = kv[0]
+            network_config[k.replace('--', '').replace('-', '_')] = True
+
+    run_ts = datetime.datetime.today().strftime('%Y%m%d_%H%M')
+
+    if output_file_name is None:
+        output_file_name=f"network_features_{run_ts}.h5"
+    output_path = f'{output_file_dir}/{output_file_name}'
+
+    eval_config = read_from_yaml(config_path, include_loader=utils.IncludeLoader)
+    eval_config['run_ts'] = run_ts
+    if target_features_path is not None:
+        eval_config['target_features_path'] = target_features_path
+    if target_features_namespace is not None:
+        eval_config['target_features_namespace'] = target_features_namespace
+
+    network_param_spec_src = eval_config['param_spec']
+    network_param_values = eval_config['param_values']
+
+    feature_names = eval_config['feature_names']
+    target_populations = eval_config['target_populations']
+
+    network_config.update(eval_config.get('kwargs', {}))
+    network_config['results_file_id'] = 'DG_eval_network_%d_%s' % \
+                                        (params_id, eval_config['run_ts'])
+
+    env = init_network(comm=MPI.COMM_WORLD, kwargs=network_config)
+    gc.collect()
+
+    t_start = 50.
+    t_stop = env.tstop
+    time_range = (t_start, t_stop)
+
+    target_trj_rate_map_dict = {}
+    target_features_arena = env.arena_id
+    target_features_trajectory = env.trajectory_id
+    for pop_name in target_populations:
+        if ('%s target rate dist residual' % pop_name) not in feature_names:
+            continue
+        my_cell_index_set = set(env.biophys_cells[pop_name].keys())
+        trj_rate_maps = {}
+        trj_rate_maps = rate_maps_from_features(env, pop_name,
+                                                cell_index_set=list(my_cell_index_set),
+                                                input_features_path=target_features_path, 
+                                                input_features_namespace=target_features_namespace,
+                                                time_range=time_range)
+        target_trj_rate_map_dict[pop_name] = trj_rate_maps
+
+
+    network_param_spec = make_param_spec(target_populations, network_param_spec_src)
+
+    def from_param_list(x):
+        result = []
+        for i, (param_name, param_tuple) in enumerate(zip(network_param_spec.param_names, network_param_spec.param_tuples)):
+            param_range = param_tuple.param_range
+#            assert((x[i] >= param_range[0]) and (x[i] <= param_range[1]))
+            result.append((param_tuple, x[i]))
+        return result
+
+    def from_param_dict(x):
+        result = []
+        for pop_name, param_specs in viewitems(x):
+            keyfun = lambda kv: str(kv[0])
+            for source, source_dict in sorted(viewitems(param_specs), key=keyfun):
+                for sec_type, sec_type_dict in sorted(viewitems(source_dict), key=keyfun):
+                    for syn_name, syn_mech_dict in sorted(viewitems(sec_type_dict), key=keyfun):
+                        for param_fst, param_rst in sorted(viewitems(syn_mech_dict), key=keyfun):
+                            if isinstance(param_rst, dict):
+                                for const_name, const_value in sorted(viewitems(param_rst)):
+                                    param_path = (param_fst, const_name)
+                                    param_tuple = SynParam(pop_name, source, sec_type, syn_name, param_path, const_value)
+                                    result.append(param_tuple, const_value)
+                            else:
+                                param_name = param_fst
+                                param_value = param_rst
+                                param_tuple = SynParam(pop_name, source, sec_type, syn_name, param_name, param_value)
+                                result.append(param_tuple, param_value)
+        return result
+
+    eval_network(env, network_config,
+                 from_param_list, from_param_dict,
+                 network_param_spec, network_param_values, params_id,
                  target_trj_rate_map_dict, t_start, t_stop, 
                  target_populations, output_path)
 
@@ -240,10 +339,15 @@ def init_network(comm, kwargs):
     return env
 
 
-def eval_network(env, network_config, from_param_list, network_params, network_param_values, params_id, target_trj_rate_map_dict, t_start, t_stop, target_populations, output_path):
+def eval_network(env, network_config, from_param_list, from_param_dict, network_params, network_param_values, params_id, target_trj_rate_map_dict, t_start, t_stop, target_populations, output_path):
 
     x = network_param_values[params_id]
-    param_tuple_values = from_param_list(x)
+    if isinstance(x, list):
+        param_tuple_values = from_param_list(x)
+    elif isinstance(x, dict):
+        param_tuple_values = from_param_dict(x)
+    else:
+        raise RuntimeError(f"eval_network: invalid input parameters argument {x}")
     
     if env.comm.rank == 0:
         logger.info("*** Updating network parameters ...")
