@@ -279,6 +279,7 @@ class PlaceInputCellConfig(object):
                                           num_place_field_probabilities]]):
             raise RuntimeError('PlaceInputCellConfig: missing argument(s) required for object construction')
         else:
+            self.rate_map_residual_sum = None
             if local_random is None:
                 local_random = np.random.RandomState()
             self.selectivity_type = selectivity_type
@@ -325,6 +326,7 @@ class PlaceInputCellConfig(object):
                 self.y0.append(this_y0)
 
     def init_from_attr_dict(self, selectivity_attr_dict):
+        self.rate_map_residual_sum = selectivity_attr_dict['Rate Map Residual Sum'][0]
         self.selectivity_type = selectivity_attr_dict['Selectivity Type'][0]
         self.peak_rate = selectivity_attr_dict['Peak Rate'][0]
         self.module_id = selectivity_attr_dict.get('Module ID', [0])[0]
@@ -345,6 +347,8 @@ class PlaceInputCellConfig(object):
 
         gathered_cell_attr_dict['Module ID'] = self.module_id
         gathered_cell_attr_dict['Num Fields'] = self.num_fields
+        if self.rate_map_residual_sum is not None:
+            gathered_cell_attr_dict['Rate Map Residual Sum'] = self.rate_map_residual_sum
 
         count = len(self.field_width)
         gathered_comp_attr_dict['Field Width'] = self.field_width
