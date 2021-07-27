@@ -19,4 +19,4 @@ Input Spiketrains:                  50.0e+6 ## Spike trains of stimulus and prox
 Soma Locations:                     60.0e+6 ## Soma locations
 Gap Junctions:                      70.0e+6 ## Soma locations
 Phase Preference:                   90.0e+6 ## Global oscillatory phase preference
-
+Initial Phase:                      91.0e+6 ## Initial global oscillatory phase
