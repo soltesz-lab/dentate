@@ -20,7 +20,7 @@ script_name = os.path.basename(__file__)
 @click.option("--fig-size", type=(float,float), default=(15,8))
 @click.option("--labels", type=str, default='legend')
 @click.option("--save-format", type=str, default='png')
-@click.option("--include-artificial/--exclude-artificial", type=bool, default=True, is_flag=True)
+@click.option("--include-artificial/--exclude-artificial", default=True, is_flag=True)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
 def main(spike_events_path, spike_events_namespace, populations, max_spikes, spike_hist_bin, t_variable, t_max, t_min, font_size, fig_size, labels, save_format, include_artificial, verbose):
 
