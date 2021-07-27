@@ -29,11 +29,12 @@ sys.excepthook = mpi_excepthook
 @click.option("--distances-namespace", '-n', type=str, default='Arc Distances')
 @click.option("--bin-distance", type=float, default=100.)
 @click.option("--selectivity-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--selectivity-namespace", '-s', type=str, default='Selectivity')
 @click.option("--subset-seed", type=int, default=0)
 @click.option("--arena-id", type=str, default='A')
 @click.option("--populations", '-p', type=str, multiple=True)
 @click.option("--io-size", type=int, default=-1)
-@click.option("--cache-size", type=int, default=50)
+@click.option("--cache-size", type=int, default=50000)
 @click.option("--verbose", '-v', is_flag=True)
 @click.option("--debug", is_flag=True)
 @click.option("--show-fig", is_flag=True)
@@ -43,7 +44,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--fig-size", type=(float, float), default=(15, 8))
 @click.option("--colormap", type=str)
 @click.option("--fig-format", required=False, type=str, default='svg')
-def main(config, config_prefix, coords_path, distances_namespace, bin_distance, selectivity_path, subset_seed, arena_id,
+def main(config, config_prefix, coords_path, distances_namespace, bin_distance, selectivity_path, selectivity_namespace, subset_seed, arena_id,
          populations, io_size, cache_size, verbose, debug, show_fig, save_fig, save_fig_dir, font_size, fig_size, colormap,
          fig_format):
     """
@@ -107,7 +108,7 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
             valid_selectivity_namespaces[population] = []
             with h5py.File(selectivity_path, 'r') as selectivity_f:
                 for this_namespace in selectivity_f['Populations'][population]:
-                    if 'Selectivity %s' % arena_id in this_namespace:
+                    if f'{selectivity_namespace} {arena_id}' in this_namespace:
                         valid_selectivity_namespaces[population].append(this_namespace)
                 if len(valid_selectivity_namespaces[population]) == 0:
                     raise RuntimeError('plot_input_selectivity_features: no selectivity data in arena: %s found '
