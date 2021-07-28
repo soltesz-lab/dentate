@@ -222,10 +222,11 @@ def main(config_path, params_id, n_samples, target_features_path, target_feature
 
     def from_param_list(x):
         result = []
-        for i, (param_name, param_tuple) in enumerate(zip(network_param_spec.param_names, network_param_spec.param_tuples)):
-            param_range = param_tuple.param_range
-#            assert((x[i] >= param_range[0]) and (x[i] <= param_range[1]))
-            result.append((param_tuple, x[i]))
+        for pop_param in x:
+            this_population, source, sec_type, syn_name, param_path, param_val = pop_param
+            param_tuple = SynParam(this_population, source, sec_type, syn_name, param_path, None)
+            result.append((param_tuple, param_val))
+
         return result
 
     def from_param_dict(x):
