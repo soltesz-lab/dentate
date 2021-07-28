@@ -280,7 +280,6 @@ proc biophys() {
             insert KAsom
             r = 10
     	    gmax_KAsom =  g_KA_dend * r^(distance(x)/1000)
-            printf("gmax_KAsom(%f) = %f\n", distance(x), g_KA_dend * r^(distance(x)/1000))
             if (gmax_KAsom < 0.) {
                 gmax_KAsom = 0.
             }
