@@ -147,7 +147,7 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
     param_names = opt_param_config.param_names
     param_tuples = opt_param_config.param_tuples
 
-    N_objectives = 3
+    N_objectives = 2
     feature_names = ['mean_peak_rate', 'mean_trough_rate', 
                      'max_infld_rate', 'min_infld_rate', 'mean_infld_rate', 'mean_outfld_rate', 
                      'mean_peak_state', 'mean_trough_state', 'mean_outfld_state']
@@ -238,7 +238,6 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
 
         n_trials = len(rate_vectors)
         residual_inflds = []
-        residual_outflds = []
         trial_inflds = []
         trial_outflds = []
 
@@ -265,20 +264,18 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
             mean_outfld = np.mean(outfld_rate_vector)
 
             residual_infld = np.abs(np.sum(target_infld - infld_rate_vector))
-            residual_outfld = np.square(np.mean(masked_rate_vector))
             logger.info(f'selectivity objective: max infld/mean infld/mean peak/trough/mean outfld/residual_infld of gid {gid} trial {trial_i}: '
                         f'{max_infld:.02f} {mean_infld:.02f} {mean_peak:.02f} {mean_trough:.02f} {mean_outfld:.02f} {residual_infld:.04f}')
             residual_inflds.append(residual_infld)
-            residual_outflds.append(residual_outfld)
             trial_inflds.append(mean_infld)
             trial_outflds.append(mean_outfld)
 
         trial_rate_features = [np.asarray(trial_inflds, dtype=np.float32).reshape((1, n_trials)), 
                                np.asarray(trial_outflds, dtype=np.float32).reshape((1, n_trials))]
         rate_features = [mean_peak, mean_trough, max_infld, min_infld, mean_infld, mean_outfld, ]
-        rate_constr = [ mean_peak if max_infld > 0. else -1. ]
-        return (np.asarray(residual_inflds), np.asarray(residual_outflds), 
-                trial_rate_features, rate_features, rate_constr)
+        #rate_constr = [ mean_peak if max_infld > 0. else -1. ]
+        rate_constr = [ mean_peak - mean_trough if max_infld > 0. else -1. ]
+        return (np.asarray(residual_inflds), trial_rate_features, rate_features, rate_constr)
 
     
     def trial_state_residuals(gid, target_outfld, t_peak_idxs, t_trough_idxs, t_infld_idxs, t_outfld_idxs, state_values, masked_state_values):
@@ -378,40 +375,35 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
             logger.info(f'selectivity objective: max rates of gid {gid}: '
                         f'{list([np.max(rate_vector) for rate_vector in rate_vectors])}')
 
-            infld_residuals, outfld_residuals, trial_rate_features, rate_features, rate_constr = \
+            infld_residuals, trial_rate_features, rate_features, rate_constr = \
               trial_snr_residuals(gid, peak_idxs, trough_idxs, infld_idxs, outfld_idxs, 
                                   rate_vectors, masked_rate_vectors, target_rate_vector)
             state_residuals, state_features = trial_state_residuals(gid, state_baseline,
                                                                     t_peak_idxs, t_trough_idxs, t_infld_idxs, t_outfld_idxs,
                                                                     state_values, masked_state_values)
-            trial_obj_features = np.row_stack((infld_residuals, outfld_residuals, state_residuals))
+            trial_obj_features = np.row_stack((infld_residuals, state_residuals))
             
             if trial_regime == 'mean':
                 mean_infld_residual = np.mean(infld_residuals)
-                mean_outfld_residual = np.mean(outfld_residuals)
                 mean_state_residual = np.mean(state_residuals)
                 infld_objective = mean_infld_residual
-                outfld_objective = mean_outfld_residual
                 state_objective = abs(mean_state_residual)
                 logger.info(f'selectivity objective: mean peak/trough/mean infld/mean outfld/mean state residual of gid {gid}: '
-                            f'{mean_infld_residual:.04f} {mean_outfld_residual:.04f} {mean_state_residual:.04f}')
+                            f'{mean_infld_residual:.04f} {mean_state_residual:.04f}')
             elif trial_regime == 'best':
                 min_infld_residual_index = np.argmin(infld_residuals)
                 min_infld_residual = infld_residuals[min_infld_index]
                 infld_objective = min_infld_residual
-                min_outfld_residual_index = np.argmin(outfld_residuals)
-                min_outfld_residual = outfld_residuals[min_outfld_index]
-                outfld_objective = min_outfld_residual
                 min_state_residual = np.min(np.abs(state_residuals))
                 state_objective = min_state_residual
                 logger.info(f'selectivity objective: mean peak/trough/max infld/max outfld/min state residual of gid {gid}: '
-                            f'{min_infld_residual:.04f} {min_outfld_residual:.04f} {min_state_residual:.04f}')
+                            f'{min_infld_residual:.04f} {min_state_residual:.04f}')
             else:
                 raise RuntimeError(f'selectivity_rate_objective: unknown trial regime {trial_regime}')
 
             logger.info(f"rate_features: {rate_features} state_features: {state_features} obj_features: {trial_obj_features}")
 
-            result[gid] = (np.asarray([ infld_objective, outfld_objective, state_objective ], 
+            result[gid] = (np.asarray([ infld_objective, state_objective ], 
                                       dtype=np.float32), 
                            np.array([tuple(rate_features+state_features+[trial_obj_features]+trial_rate_features)], 
                                     dtype=np.dtype(feature_dtypes)),
@@ -467,11 +459,11 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
     if resample_fraction < 0.1:
         resample_fraction = 0.1
 
-    objective_names = ['residual_infld', 'residual_outfld', 'residual_state']
+    objective_names = ['residual_infld', 'residual_state']
     feature_names = ['mean_peak_rate', 'mean_trough_rate', 
                      'max_infld_rate', 'min_infld_rate', 'mean_infld_rate', 'mean_outfld_rate', 
                      'mean_peak_state', 'mean_trough_state', 'mean_outfld_state']
-    N_objectives = 3
+    N_objectives = 2
     feature_dtypes = [(feature_name, np.float32) for feature_name in feature_names]
     feature_dtypes.append(('trial_objs', np.float32, (N_objectives, n_trials)))
     feature_dtypes.append(('trial_mean_infld_rate', (np.float32, (1, n_trials))))
