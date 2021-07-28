@@ -5,7 +5,7 @@
 #SBATCH -p development
 #SBATCH -N 3
 #SBATCH -n 168
-#SBATCH -t 2:00:00
+#SBATCH -t 0:30:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=BEGIN,END,FAIL
 
@@ -47,7 +47,7 @@ mpirun python3 -m nested.optimize \
   --spike_input_path="$DATA_PREFIX/Slice/dentatenet_Full_Scale_GC_Exc_Sat_SLN_selection_neg2000_neg1925um_phasemod_20210526_compressed.h5" \
   --spike_input_namespace='Input Spikes A Diag' \
   --spike_input_attr='Spike Train' \
-  --target_rate_mappath="$DATA_PREFIX/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
+  --target_rate_map_path="$DATA_PREFIX/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
   --target_rate_map_namespace="Place Selectivity" \
   --max_walltime_hours=2.0 \
   --t_start=0. \

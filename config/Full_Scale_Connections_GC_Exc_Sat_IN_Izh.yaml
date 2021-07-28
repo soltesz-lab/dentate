@@ -1002,7 +1002,7 @@ Synapses:
           dur_onset: 0.37
           tau_offset: 10.48
           e: -75
-          g_unit: 0.0001
+          g_unit: 0.0005
           weight: 1.0
 Connection Velocity: !include Connection_Velocity.yaml
 Gap Junctions: !include Gap_Junctions_Control.yaml

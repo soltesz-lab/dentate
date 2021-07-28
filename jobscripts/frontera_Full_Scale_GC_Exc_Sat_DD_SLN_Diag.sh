@@ -6,7 +6,7 @@
 #SBATCH -p normal      # Queue (partition) name
 #SBATCH -N 512             # Total # of nodes 
 #SBATCH --ntasks-per-node=56            # # of mpi tasks per node
-#SBATCH -t 12:00:00        # Run time (hh:mm:ss)
+#SBATCH -t 4:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
