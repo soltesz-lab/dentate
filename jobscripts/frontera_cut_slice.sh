@@ -6,7 +6,7 @@
 #SBATCH -p development      # Queue (partition) name
 #SBATCH -N 10             # Total # of nodes 
 #SBATCH --ntasks-per-node=56            # # of mpi tasks per node
-#SBATCH -t 1:00:00        # Run time (hh:mm:ss)
+#SBATCH -t 2:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
@@ -37,6 +37,6 @@ ibrun python3 ./scripts/cut_slice.py \
 5" \
     --spike-input-namespace='Input Spikes A Diag' \
     --spike-input-attr="Spike Train" \
-    --distance-limits -2000 -1925 \
+    --distance-limits -2000 0 \
     --write-selection \
     --verbose
