@@ -12,11 +12,11 @@
 #
 
 
-module load intel/18.0.5
 module load python3
 module load phdf5
-export NEURONROOT=$SCRATCH/bin/nrnpython3_intel18
-export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel18:$PYTHONPATH
+
+export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
 export DATA_PREFIX=$SCRATCH/striped/dentate/Full_Scale_Control
 
 set -x
@@ -32,10 +32,12 @@ ibrun python3 ./scripts/generate_structured_weights_as_cell_attr.py \
     --non-structured-weights-namespace='Normal Weights' \
     --non-structured-weights-path=$DATA_PREFIX/DG_MC_syn_weights_LN_20210107_compressed.h5 \
     --output-weights-namespace='Structured Weights' \
-    --output-weights-path=$DATA_PREFIX/DG_MC_syn_weights_S_20210107.h5 \
+    --output-weights-path=$DATA_PREFIX/DG_MC_syn_weights_S_20210708.h5 \
+    --output-features-namespace='Random Place Input Features' \
+    --output-features-path=$DATA_PREFIX/DG_MC_syn_weights_S_20210708.h5 \
     --connections-path=$DATA_PREFIX/DG_IN_connections_20210107_compressed.h5 \
     --input-features-path=$DATA_PREFIX/DG_input_features_20200910_compressed.h5 \
     --arena-id=A --optimize-tol 1e-3 --optimize-grad --arena-margin=0.3 \
-    --max-delta-weight=10 --max-weight-decay-fraction=0.5 --target-amplitude=10 \
-    --io-size=96 --value-chunk-size=10000 --chunk-size=10000 --write-size=0 -v --dry-run
+    --max-delta-weight=10 --max-weight-decay-fraction=0.5 --target-amplitude=3 \
+    --io-size=96 --value-chunk-size=10000 --chunk-size=10000 --write-size=0 -v 
 

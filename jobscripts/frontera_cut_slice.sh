@@ -6,7 +6,7 @@
 #SBATCH -p development      # Queue (partition) name
 #SBATCH -N 10             # Total # of nodes 
 #SBATCH --ntasks-per-node=56            # # of mpi tasks per node
-#SBATCH -t 1:00:00        # Run time (hh:mm:ss)
+#SBATCH -t 2:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
@@ -33,10 +33,10 @@ ibrun python3 ./scripts/cut_slice.py \
     --dataset-prefix="$SCRATCH/striped/dentate" \
     --output-path=$results_path \
     --io-size=64 \
-    --spike-input-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_phasemod_20210521_compressed.h\
+    --spike-input-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_phasemod_20210606_compressed.h\
 5" \
     --spike-input-namespace='Input Spikes A Diag' \
     --spike-input-attr="Spike Train" \
-    --distance-limits -2000 -1800 \
+    --distance-limits -2000 0 \
     --write-selection \
     --verbose

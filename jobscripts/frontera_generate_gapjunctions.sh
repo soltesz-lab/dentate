@@ -2,7 +2,7 @@
 #
 #SBATCH -J generate_gapjunctions
 #SBATCH -o ./results/generate_gapjunctions.%j.o
-#SBATCH -N 1
+#SBATCH -N 2
 #SBATCH -n 56
 #SBATCH -p development      # Queue (partition) name
 #SBATCH -t 2:00:00
@@ -12,11 +12,14 @@
 #
 
 module load python3
-module load phdf5/1.8.16
+module load phdf5
 
-export NEURONROOT=$HOME/bin/nrnpython3
-export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages:$PYTHONPATH
-export PATH=$NEURONROOT/x86_64/bin:$PATH
+export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
+export PATH=$NEURONROOT/bin:$PATH
+export MODEL_HOME=$HOME/model
+export DG_HOME=$MODEL_HOME/dentate
+export DATA_PREFIX=$SCRATCH/striped/dentate
 
 set -x
 
@@ -24,10 +27,10 @@ set -x
 ibrun python3 ./scripts/generate_gapjunctions.py \
     --config=./config/Full_Scale_Basis.yaml \
     --types-path=./datasets/dentate_h5types_gj.h5 \
-    --forest-path=$SCRATCH/dentate/Full_Scale_Control/DG_IN_forest_20191112_compressed.h5 \
-    --connectivity-path=$SCRATCH/dentate/Full_Scale_Control/DG_gapjunctions_20191112.h5 \
+    --forest-path=$DATA_PREFIX/Full_Scale_Control/DG_IN_forest_syns_20210107_compressed.h5 \
+    --connectivity-path=$DATA_PREFIX/Full_Scale_Control/DG_gapjunctions_20210728.h5 \
     --connectivity-namespace="Gap Junctions" \
-    --coords-path=$SCRATCH/dentate/Full_Scale_Control/DG_coords_20190717_compressed.h5 \
+    --coords-path=$DATA_PREFIX/Full_Scale_Control/DG_coords_20190717_compressed.h5 \
     --coords-namespace="Coordinates" \
     --io-size=24 -v
 
