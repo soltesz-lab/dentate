@@ -326,7 +326,9 @@ class PlaceInputCellConfig(object):
                 self.y0.append(this_y0)
 
     def init_from_attr_dict(self, selectivity_attr_dict):
-        self.rate_map_residual_sum = selectivity_attr_dict['Rate Map Residual Sum'][0]
+        self.rate_map_residual_sum = None
+        if 'Rate Map Residual Sum' in selectivity_attr_dict:
+            self.rate_map_residual_sum = selectivity_attr_dict['Rate Map Residual Sum'][0]
         self.selectivity_type = selectivity_attr_dict['Selectivity Type'][0]
         self.peak_rate = selectivity_attr_dict['Peak Rate'][0]
         self.module_id = selectivity_attr_dict.get('Module ID', [0])[0]
