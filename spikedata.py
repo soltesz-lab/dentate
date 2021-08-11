@@ -134,7 +134,7 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
                     continue
             slen = len(spkattrs[spike_train_attr_name])
             trial_dur = spkattrs.get(trial_dur_attr, np.asarray([0.]))
-            trial_ind = spkattrs.get(trial_index_attr, np.zeros((slen,),dtype=np.uint8))
+            trial_ind = spkattrs.get(trial_index_attr, np.zeros((slen,),dtype=np.uint8))[:slen]
             if n_trials == -1:
                 n_trials = len(set(trial_ind))
             filtered_spk_idxs_by_trial = np.argwhere(trial_ind <= n_trials).ravel()

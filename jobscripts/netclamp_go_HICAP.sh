@@ -1,6 +1,6 @@
 export DATA_PREFIX=$SCRATCH/striped/dentate
 
-ibrun -n 1 python3  network_clamp.py go -c 20201022_Network_Clamp_GC_Exc_Sat_SLN_IN_Izh.yaml \
+ibrun -n 1 python3  network_clamp.py go -c Network_Clamp_GC_Exc_Sat_SLN_IN_Izh.yaml \
          --template-paths templates \
          -p HCC -g 1043250 -t 9500 --dt 0.001 \
          --dataset-prefix $DATA_PREFIX \
@@ -10,6 +10,6 @@ ibrun -n 1 python3  network_clamp.py go -c 20201022_Network_Clamp_GC_Exc_Sat_SLN
          --input-features-namespaces 'Grid Selectivity' \
          --input-features-namespaces 'Constant Selectivity' \
          --arena-id A --trajectory-id Diag \
-         --results-path results/netclamp \
-         --params-path config/20201105_Izhi_compiled.yaml
+         --results-path results/netclamp --use-coreneuron --phase-mod \
+         --params-path 
 
