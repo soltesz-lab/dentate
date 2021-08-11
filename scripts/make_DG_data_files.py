@@ -1,5 +1,10 @@
-import h5py
+import h5py, pathlib
 from dentate.utils import viewitems
+
+def h5_copy_dataset(f_src, f_dst, dset_path):
+    print(f"Copying {dset_path} from {f_src} to {f_dst} ...")
+    target_path = str(pathlib.Path(dset_path).parent)
+    f_src.copy(f_src[dset_path], f_dst[target_path])
 
 h5types_file = 'dentate_h5types.h5'
 
@@ -7,8 +12,8 @@ DG_populations = ["AAC", "BC", "GC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC", "M
 DG_IN_populations = ["AAC", "BC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC"]
 DG_EXT_populations = ["MPP", "LPP", "CA3c", "ConMC"]
 
-DG_cells_file = "DG_Cells_Full_Scale_20210726.h5"
-DG_connections_file = "DG_Connections_Full_Scale_20210113.h5"
+DG_cells_file = "DG_Cells_Full_Scale_20210808.h5"
+DG_connections_file = "DG_Connections_Full_Scale_20210808.h5"
 
 DG_GC_coordinate_file  = "DG_coords_20190717_compressed.h5"
 DG_IN_coordinate_file  = "DG_coords_20190717_compressed.h5"
@@ -41,7 +46,7 @@ connectivity_files = {
 }
 
 DG_vecstim_file_dict = { 
-    'A Diag': "DG_input_spike_trains_20200910_compressed.h5",
+    'A Diag': "DG_input_spike_trains_phasemod_20210606_compressed.h5"
 
 }
 
@@ -133,70 +138,84 @@ syn_weight_files = {
 
 }
 
-## Creates H5Types entries
-with h5py.File(DG_cells_file, 'w') as f:
-    input_file  = h5py.File(h5types_file,'r')
-    input_file.copy('/H5Types',f)
-    input_file.close()
-with h5py.File(DG_connections_file, 'w') as f:
-    input_file  = h5py.File(h5types_file,'r')
-    input_file.copy('/H5Types',f)
-    input_file.close()
+# ## Creates H5Types entries
+# with h5py.File(DG_cells_file, 'w') as f:
+#     input_file  = h5py.File(h5types_file,'r')
+#     h5_copy_dataset(input_file, f, '/H5Types')
+#     input_file.close()
+# with h5py.File(DG_connections_file, 'w') as f:
+#     input_file  = h5py.File(h5types_file,'r')
+#     h5_copy_dataset(input_file, f, '/H5Types')
+#     input_file.close()
 
-## Creates coordinates entries
-with h5py.File(DG_cells_file, 'a') as f:
+# ## Creates coordinates entries
+# with h5py.File(DG_cells_file, 'a') as f_dst:
 
-    grp = f.create_group("Populations")
+#     grp = f_dst.create_group("Populations")
                 
-    for p in DG_populations:
-        grp.create_group(p)
+#     for p in DG_populations:
+#         grp.create_group(p)
 
-    for p in DG_populations:
-        coords_file = coordinate_files[p]
-        coords_ns   = coordinate_namespaces[p]
-        grp[p]["Coordinates"] = h5py.ExternalLink(coords_file,"/Populations/%s/%s" % (p, coords_ns))
-        grp[p]["Arc Distances"] = h5py.ExternalLink(coords_file,"/Populations/%s/%s" % (p, distances_ns))
+#     for p in DG_populations:
+#         coords_file = coordinate_files[p]
+#         coords_ns   = coordinate_namespaces[p]
+#         coords_dset_path = f"/Populations/{p}/{coords_ns}"
+#         distances_dset_path = f"/Populations/{p}/Arc Distances"
+#         with h5py.File(coords_file, 'r') as f_src:
+#             h5_copy_dataset(f_src, f_dst, coords_dset_path)
+#             h5_copy_dataset(f_src, f_dst, distances_dset_path)
 
-## Creates forest entries and synapse attributes
-with h5py.File(DG_cells_file, 'a') as f:
 
-    grp = f["Populations"]
+# ## Creates forest entries and synapse attributes
+# with h5py.File(DG_cells_file, 'a') as f_dst:
 
-    for p in DG_populations:
-        if p in forest_files:
-            forest_file = forest_files[p]
-            forest_syns_file = forest_syns_files[p]
-            grp[p]["Trees"] = h5py.ExternalLink(forest_file,"/Populations/%s/Trees" % p)
-            grp[p]["Synapse Attributes"] = h5py.ExternalLink(forest_syns_file,"/Populations/%s/Synapse Attributes" % p)
+#     for p in DG_populations:
+#         if p in forest_files:
+#             forest_file = forest_files[p]
+#             forest_syns_file = forest_syns_files[p]
+#             forest_dset_path = f"/Populations/{p}/Trees"
+#             forest_syns_dset_path = f"/Populations/{p}/Synapse Attributes"
+#             with h5py.File(forest_file, 'r') as f_src:
+#                 h5_copy_dataset(f_src, f_dst, forest_dset_path)
+#             with h5py.File(forest_syns_file, 'r') as f_src:
+#                 h5_copy_dataset(f_src, f_dst, forest_syns_dset_path)
 
-    for p in DG_populations:
-        if p in syn_weight_files:
-            weight_dict = syn_weight_files[p]
-            for w in weight_dict:
-                if isinstance(weight_dict[w], tuple):
-                    grp[p][w] = h5py.ExternalLink(weight_dict[w][1],"/Populations/%s/%s" % (p,weight_dict[w][0]))
-                else:
-                    grp[p][w] = h5py.ExternalLink(weight_dict[w],"/Populations/%s/%s" % (p,w))
+#     for p in DG_populations:
+#         if p in syn_weight_files:
+#             weight_dict = syn_weight_files[p]
+#             for w in weight_dict:
+#                 if isinstance(weight_dict[w], tuple):
+#                     syn_weight_file = weight_dict[w][1]
+#                     syn_weight_dset_path = f"/Populations/{p}/{weight_dict[w][0]}"
+#                 else:
+#                     syn_weight_file = weight_dict[w]
+#                     syn_weight_dset_path = f"/Populations/{p}/{w}"
+#                 with h5py.File(syn_weight_file, 'r') as f_src:
+#                     h5_copy_dataset(f_src, f_dst, syn_weight_dset_path)
+                
 
 ## Creates connectivity entries
-with h5py.File(DG_connections_file, 'a') as f:
+with h5py.File(DG_connections_file, 'a') as f_dst:
 
-    grp = f.create_group("Projections")
-               
+    if 'Projections' not in f_dst:
+        f_dst.create_group("Projections")
+
     for p in DG_IN_populations:
-        grp[p] = h5py.ExternalLink(connectivity_files[p],"/Projections/%s" % p)
+        with h5py.File(connectivity_files[p], 'r') as f_src:
+            h5_copy_dataset(f_src, f_dst, f"/Projections/{p}")
     
-    grp['GC'] = h5py.ExternalLink(connectivity_files['GC'],"/Projections/%s" % 'GC')
+    with h5py.File(connectivity_files['GC'], 'r') as f_src:
+        h5_copy_dataset(f_src, f_dst, f"/Projections/GC")
 
 ## Creates vector stimulus entries
-with h5py.File(DG_cells_file, 'a') as f:
-
-    grp = f["Populations"]
+with h5py.File(DG_cells_file, 'a') as f_dst:
 
     for (vecstim_ns, vecstim_file) in viewitems(vecstim_dict):
-        for p in DG_EXT_populations:
-            grp[p][vecstim_ns] = h5py.ExternalLink(vecstim_file,"/Populations/%s/%s" % (p, vecstim_ns))
-        grp['GC'][vecstim_ns] = h5py.ExternalLink(vecstim_file,"/Populations/%s/%s" % ('GC', vecstim_ns))
+        with h5py.File(vecstim_file, 'r') as f_src:
+            for p in DG_EXT_populations:
+                h5_copy_dataset(f_src, f_dst, f"/Populations/{p}/{vecstim_ns}")
+            h5_copy_dataset(f_src, f_dst, f"/Populations/GC/{vecstim_ns}")
+
     if DG_remap_vecstim_file_dict is not None:
         for stim_id, vecstim_file in viewitems(DG_remap_vecstim_file_dict):
             vecstim_ns = 'Input Spikes %s' % stim_id
