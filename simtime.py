@@ -10,7 +10,7 @@ logger = get_module_logger(__name__)
 
 class SimTimeEvent(object):
 
-    def __init__(self, pc, tstop, max_walltime_hours, results_write_time, setup_time, dt_status=1.0, dt_checksimtime=5.0):
+    def __init__(self, pc, tstop, max_walltime_hours, results_write_time, setup_time, dt_status=1.0, dt_checksimtime=10.0):
         if (int(pc.id()) == 0):
             logger.info("*** allocated wall time is %.2f hours" % (max_walltime_hours))
         wt = time.time()
