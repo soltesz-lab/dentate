@@ -148,7 +148,8 @@ def read_spike_events(input_file, population_names, namespace_id, spike_train_at
             pop_spkindlst.append(np.repeat([spkind], len(filtered_spkts)).astype(np.uint32))
             pop_spktriallst.append(filtered_trial_ind)
             this_num_cell_spks += len(filtered_spkts)
-            active_set.add(spkind)
+            if len(filtered_spkts) > 0:
+                active_set.add(spkind)
             for i, spkt in enumerate(filtered_spkts):
                 trial_i = filtered_trial_ind[i]
                 if merge_trials:

@@ -3,7 +3,7 @@ Dentate Gyrus network initialization routines.
 """
 __author__ = 'See AUTHORS.md'
 
-import os, sys, gc, time
+import os, sys, gc, time, pprint
 import numpy as np
 from mpi4py import MPI
 
@@ -36,7 +36,7 @@ def ld_bal(env):
     max_sum_cx = env.pc.allreduce(sum_cx, 2)
     sum_cx = env.pc.allreduce(sum_cx, 1)
     if rank == 0:
-        logger.info("*** expected load balance %.2f" % (((sum_cx / nhosts) / max_sum_cx)))
+        logger.info(f"*** expected load balance {(((sum_cx / nhosts) / max_sum_cx)):.2f}")
 
 
 def lpt_bal(env):
@@ -65,7 +65,7 @@ def lpt_bal(env):
         parts = lpt.lpt(allpairs, nhosts)
         lpt.statistics(parts)
         part_rank = 0
-        with open('parts.%d' % nhosts, 'w') as fp:
+        with open(f'parts.{nhosts}', 'w') as fp:
             for part in parts:
                 for x in part[1]:
                     fp.write('%d %d\n' % (x[1], part_rank))
@@ -86,14 +86,14 @@ def connect_cells(env):
     syn_attrs = env.synapse_attributes
 
     if rank == 0:
-        logger.info('*** Connectivity file path is %s' % connectivity_file_path)
+        logger.info(f'*** Connectivity file path is {connectivity_file_path}')
         logger.info('*** Reading projections: ')
 
     biophys_cell_count = 0
     for (postsyn_name, presyn_names) in sorted(viewitems(env.projection_dict)):
 
         if rank == 0:
-            logger.info('*** Reading projections of population %s' % postsyn_name)
+            logger.info(f'*** Reading projections of population {postsyn_name}')
 
         synapse_config = env.celltypes[postsyn_name]['synapses']
         if 'correct_for_spines' in synapse_config:
@@ -114,7 +114,7 @@ def connect_cells(env):
             weight_dicts = synapse_config['weights']
 
         if rank == 0:
-            logger.info('*** Reading synaptic attributes of population %s' % (postsyn_name))
+            logger.info(f'*** Reading synaptic attributes of population {postsyn_name}')
 
         cell_attr_namespaces = ['Synapse Attributes']
 
@@ -147,7 +147,7 @@ def connect_cells(env):
                 weights_namespaces = weight_dict['namespace']
 
                 if rank == 0:
-                    logger.info('*** Reading synaptic weights of population %s from namespaces %s' % (postsyn_name, str(weights_namespaces)))
+                    logger.info(f'*** Reading synaptic weights of population {postsyn_name} from namespaces {weights_namespaces}')
 
                 if env.node_allocation is None:
                     weight_attr_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
@@ -178,9 +178,8 @@ def connect_cells(env):
                         for syn_name, syn_name_index in syn_name_inds:
                             if syn_name not in syn_attrs.syn_mech_names:
                                 if rank == 0 and first_gid == gid:
-                                    logger.warning('*** connect_cells: population: %s; gid: %i; syn_name: %s '
-                                                   'not found in network configuration' %
-                                                   (postsyn_name, gid, syn_name))
+                                    logger.warning(f'*** connect_cells: population: {postsyn_name}; gid: {gid}; syn_name: {syn_name} '
+                                                   'not found in network configuration')
                             else:
                                 weights_values = cell_weights_tuple[syn_name_index]
                                 assert(len(weights_syn_ids) == len(weights_values))
@@ -190,8 +189,7 @@ def connect_cells(env):
                                                                                if expr_closure else [{'weight': x} for x in weights_values]),
                                                                    multiple=multiple_weights, append=append_weights)
                                 if rank == 0 and gid == first_gid:
-                                    logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
-                                                (postsyn_name, gid, len(weights_values), syn_name, weights_namespace))
+                                    logger.info(f'*** connect_cells: population: {postsyn_name}; gid: {gid}; found {len(weights_values)} {syn_name} synaptic weights ({weights_namespace})')
                     expr_closure = None
                     append_weights = True
                     multiple_weights='overwrite'
@@ -202,7 +200,7 @@ def connect_cells(env):
         for presyn_name in presyn_names:
             env.comm.barrier()
             if rank == 0:
-                logger.info('Rank %i: Reading projection %s -> %s' % (rank, presyn_name, postsyn_name))
+                logger.info(f'Rank {rank}: Reading projection {presyn_name} -> {postyn_name}')
             if env.node_allocation is None:
                 (graph, a) = scatter_read_graph(connectivity_file_path, comm=env.comm, io_size=env.io_size,
                                                 projections=[(presyn_name, postsyn_name)],
@@ -213,7 +211,7 @@ def connect_cells(env):
                                                 projections=[(presyn_name, postsyn_name)],
                                                 namespaces=['Synapses', 'Connections'])
             if rank == 0:
-                logger.info('Rank %i: Read projection %s -> %s' % (rank, presyn_name, postsyn_name))
+                logger.info(f'Rank {rank}: Read projection {presyn_name} -> {postsyn_name}')
             edge_iter = graph[postsyn_name][presyn_name]
 
             last_time = time.time()
@@ -228,9 +226,8 @@ def connect_cells(env):
 
             syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, syn_edge_iter)
             if rank == 0:
-                logger.info('Rank %i: took %.02f s to initialize edge attributes for projection %s -> %s' % \
-                            (rank, time.time() - last_time, presyn_name, postsyn_name))
-            del graph[postsyn_name][presyn_name]
+                logger.info(f'Rank {rank}: took {time.time() - last_time:.02f} s to initialize edge attributes for projection {presyn_name} -> {postsyn_name}')
+                del graph[postsyn_name][presyn_name]
 
             
         first_gid = None
@@ -250,8 +247,7 @@ def connect_cells(env):
                                           verbose=((rank == 0) and (first_gid == gid)))
                     synapses.init_syn_mech_attrs(biophys_cell, env)
                 except KeyError:
-                    raise KeyError('*** connect_cells: population: %s; gid: %i; could not initialize biophysics' %
-                                     (postsyn_name, gid))
+                    raise KeyError(f'*** connect_cells: population: {postsyn_name}; gid: {gid}; could not initialize biophysics')
 
     gc.collect()
 
@@ -278,14 +274,14 @@ def connect_cells(env):
         if first_gid is None:
             first_gid = gid
         if not env.pc.gid_exists(gid):
-            logger.info("connect_cells: rank %i: gid %d does not exist" % (rank, gid))
+            logger.info(f"connect_cells: rank {rank}: gid {gid} does not exist")
         assert(gid in env.gidset)
         assert(env.pc.gid_exists(gid))
         postsyn_cell = env.pc.gid2cell(gid)
         postsyn_name = find_gid_pop(env.celltypes, gid)
 
         if rank == 0 and gid == first_gid:
-            logger.info('Rank %i: configuring synapses for gid %i' % (rank, gid))
+            logger.info(f'Rank {rank}: configuring synapses for gid {gid}')
 
         last_time = time.time()
         
@@ -297,9 +293,8 @@ def connect_cells(env):
             unique=unique, insert=True, insert_netcons=True)
 
         if rank == 0 and gid == first_gid:
-            logger.info('Rank %i: took %.02f s to configure %i synapses, %i synaptic mechanisms, %i network '
-                        'connections for gid %d' % \
-                        (rank, time.time() - last_time, syn_count, mech_count, nc_count, gid))
+            logger.info(f'Rank {rank}: took {time.time() - last_time:.02f} s to configure {syn_count} synapses, {mech_count} synaptic mechanisms, {nc_count} network '
+                        'connections for gid {gid}')
 
         env.edge_count[postsyn_name] += syn_count
 
@@ -315,8 +310,7 @@ def connect_cells(env):
     gc.collect()
 
     if rank == 0:
-        logger.info('Rank %i: took %.02f s to configure all synapses' %
-                    (rank, time.time() - start_time))
+        logger.info(f'Rank {rank}: took {time.time() - start_time:.02f} s to configure all synapses')
 
 
 def find_gid_pop(celltypes, gid):
@@ -346,7 +340,7 @@ def connect_cell_selection(env):
     syn_attrs = env.synapse_attributes
 
     if rank == 0:
-        logger.info('*** Connectivity file path is %s' % connectivity_file_path)
+        logger.info(f'*** Connectivity file path is {connectivity_file_path}')
         logger.info('*** Reading projections: ')
 
     selection_pop_names = sorted(viewkeys(env.cell_selection))
@@ -354,7 +348,7 @@ def connect_cell_selection(env):
     for postsyn_name in sorted(viewkeys(env.projection_dict)):
 
         if rank == 0:
-            logger.info('*** Postsynaptic population: %s' % postsyn_name)
+            logger.info(f'*** Postsynaptic population: {postsyn_name}')
 
         if postsyn_name not in selection_pop_names:
             continue
@@ -382,7 +376,7 @@ def connect_cell_selection(env):
             weight_dicts = synapse_config['weights']
 
         if rank == 0:
-            logger.info('*** Reading synaptic attributes of population %s' % (postsyn_name))
+            logger.info(f'*** Reading synaptic attributes of population {postsyn_name}')
 
         syn_attrs_iter, syn_attrs_info = read_cell_attribute_selection(forest_file_path, postsyn_name, selection=gid_range,
                                                                        namespace='Synapse Attributes', comm=env.comm, 
@@ -402,7 +396,7 @@ def connect_cell_selection(env):
                 weights_namespaces = weight_dict['namespace']
 
                 if rank == 0:
-                    logger.info('*** Reading synaptic weights of population %s from namespaces %s' % (postsyn_name, str(weights_namespaces)))
+                    logger.info(f'*** Reading synaptic weights of population {postsyn_name} from namespaces {weights_namespaces}')
                     
                 append_weights = False
                 multiple_weights='error'
@@ -426,9 +420,8 @@ def connect_cell_selection(env):
                         for syn_name, syn_name_index in syn_name_inds:
                             if syn_name not in syn_attrs.syn_mech_names:
                                 if rank == 0 and first_gid == gid:
-                                    logger.warning('*** connect_cells: population: %s; gid: %i; syn_name: %s '
-                                                'not found in network configuration' %
-                                                (postsyn_name, gid, syn_name))
+                                    logger.warning(f'*** connect_cells: population: {postsyn_name}; gid: {gid}; syn_name: {syn_name} '
+                                                   'not found in network configuration')
                             else:
                                 weights_values = cell_weights_tuple[syn_name_index]
                                 syn_attrs.add_mech_attrs_from_iter(gid, syn_name,
@@ -438,8 +431,8 @@ def connect_cell_selection(env):
                                                                    multiple=multiple_weights, append=append_weights)
 
                                 if rank == 0 and gid == first_gid:
-                                    logger.info('*** connect_cells: population: %s; gid: %i; found %i %s synaptic weights (%s)' %
-                                            (postsyn_name, gid, len(weights_values), syn_name, weights_namespace))
+                                    logger.info(f'*** connect_cells: population: {postsyn_name}; gid: {gid}; '
+                                                f'found {len(weights_values)} {syn_name} synaptic weights ({weights_namespace})')
                 multiple_weights='overwrite'
                 append_weights=True
                 del syn_weights_iter
@@ -453,7 +446,7 @@ def connect_cell_selection(env):
         if postsyn_name in graph:
             for presyn_name in presyn_names:
 
-                logger.info('*** Connecting %s -> %s' % (presyn_name, postsyn_name))
+                logger.info(f'*** Connecting {presyn_name} -> {postsyn_name}')
 
                 edge_iter = graph[postsyn_name][presyn_name]
                 
@@ -483,8 +476,7 @@ def connect_cell_selection(env):
                                               env=env, verbose=((rank == 0) and (first_gid == gid)))
                         synapses.init_syn_mech_attrs(biophys_cell, env)
                 except KeyError:
-                    raise KeyError('connect_cells: population: %s; gid: %i; could not initialize biophysics'
-                                     % (postsyn_name, gid))
+                    raise KeyError(f'connect_cells: population: {postsyn_name}; gid: {gid}; could not initialize biophysics')
 
 
     ##
@@ -520,9 +512,8 @@ def connect_cell_selection(env):
             unique=unique, insert=True, insert_netcons=True)
 
         if rank == 0 and gid == first_gid:
-            logger.info('Rank %i: took %.02f s to configure %i synapses, %i synaptic mechanisms, %i network '
-                        'connections for gid %d; cleanup flag is %s' % \
-                        (rank, time.time() - last_time, syn_count, mech_count, nc_count, gid, str(env.cleanup)))
+            logger.info(f'Rank {rank}: took {time.time() - last_time.02f} s to configure {syn_count} synapses, {mech_count} synaptic mechanisms, '
+                        f'{nc_count} network connections for gid {gid}; cleanup flag is {env.cleanup}')
             hoc_cell = env.pc.gid2cell(gid)
             if hasattr(hoc_cell, 'all'):
                 for sec in list(hoc_cell.all):
@@ -567,7 +558,7 @@ def connect_gjs(env):
         ggid = 2e6
         for name in sorted(viewkeys(gapjunctions)):
             if rank == 0:
-                logger.info("*** Creating gap junctions %s" % str(name))
+                logger.info(f'*** Creating gap junctions {name}')
             prj = graph[name[0]][name[1]]
             attrmap = a[(name[1], name[0])]
             cc_src_idx = attrmap['Coupling strength']['Source']
@@ -619,8 +610,7 @@ def connect_gjs(env):
 
             del graph[name[0]][name[1]]
 
-        logger.info('*** host %d: created total %i gap junctions: %i intraprocessor %i interprocessor' %
-                    (rank, num_gj, num_gj_intra, num_gj_inter))
+        logger.info(f'*** rank {rank}: created total {num_gj} gap junctions: {num_gj_intra} intraprocessor {num_gj_inter} interprocessor')
 
 
 def make_cells(env):
@@ -641,10 +631,10 @@ def make_cells(env):
     pop_names = sorted(viewkeys(env.celltypes))
 
     if rank == 0:
-        logger.info("Population attributes: %s" % str(env.cell_attribute_info))
+        logger.info(f"Population attributes: {pprint.pformat(env.cell_attribute_info)}")
     for pop_name in pop_names:
         if rank == 0:
-            logger.info("*** Creating population %s" % pop_name)
+            logger.info(f'*** Creating population {pop_name}')
             
         
         template_name = env.celltypes[pop_name].get('template', None)
@@ -654,21 +644,22 @@ def make_cells(env):
         template_name_lower = template_name.lower()
         if template_name_lower != 'izhikevich' and template_name_lower != 'vecstim':    
             load_cell_template(env, pop_name, bcast_template=True)
-
                 
         if 'mech_file_path' in env.celltypes[pop_name]:
             mech_dict = env.celltypes[pop_name]['mech_dict']
             mech_file_path = env.celltypes[pop_name]['mech_file_path']
             if rank == 0:
-                logger.info('*** Mechanism file for population %s is %s' % (pop_name, str(mech_file_path)))
+                logger.info(f'*** Mechanism file for population {pop_name} is {mech_file_path}')
         else:
             mech_dict = None
 
-        is_reduced = (template_name.lower() == 'izhikevich')
+        is_izhikevich = (template_name.lower() == 'izhikevich')
+        is_PR = (template_name.lower() == 'pr_nrn')
+        
         num_cells = 0
         if (pop_name in env.cell_attribute_info) and ('Trees' in env.cell_attribute_info[pop_name]):
             if rank == 0:
-                logger.info("*** Reading trees for population %s" % pop_name)
+                logger.info(f"*** Reading trees for population {pop_name}")
 
             if env.node_allocation is None:
                 (trees, forestSize) = scatter_read_trees(data_file_path, pop_name, comm=env.comm, \
@@ -677,20 +668,24 @@ def make_cells(env):
                 (trees, forestSize) = scatter_read_trees(data_file_path, pop_name, comm=env.comm, \
                                                          io_size=env.io_size, node_allocation=env.node_allocation)
             if rank == 0:
-                logger.info("*** Done reading trees for population %s" % pop_name)
+                logger.info(f"*** Done reading trees for population {pop_name}")
 
             first_gid = None
             for i, (gid, tree) in enumerate(trees):
                 if rank == 0:
-                    logger.info("*** Creating %s gid %i" % (pop_name, gid))
+                    logger.info(f"*** Creating {pop_name} gid {gid}")
 
                 if first_gid is None:
                     first_gid = gid
 
-                if is_reduced:
+                if is_izhikevich:
                     izhikevich_cell = cells.make_izhikevich_cell(gid=gid, pop_name=pop_name,
                                                                  env=env, mech_dict=mech_dict)
                     cells.register_cell(env, pop_name, gid, izhikevich_cell)
+                elif is_PR:
+                    PR_cell = cells.make_PR_cell(gid=gid, pop_name=pop_name,
+                                                 env=env, mech_dict=mech_dict)
+                    cells.register_cell(env, pop_name, gid, PR_cell)
                 else:
                     hoc_cell = cells.make_hoc_cell(env, pop_name, gid, neurotree_dict=tree)
                     if mech_dict is None:
@@ -703,8 +698,7 @@ def make_cells(env):
                         # cells.init_spike_detector(biophys_cell)
                         cells.register_cell(env, pop_name, gid, biophys_cell)
                         if rank == 0 and gid == first_gid:
-                            logger.info('*** make_cells: population: %s; gid: %i; loaded biophysics from path: %s' %
-                                        (pop_name, gid, mech_file_path))
+                            logger.info(f'*** make_cells: population: {pop_name}; gid: {gid}; loaded biophysics from path: {mech_file_path}')
 
                     if rank == 0 and first_gid == gid:
                         if hasattr(hoc_cell, 'all'):
@@ -717,7 +711,7 @@ def make_cells(env):
             
         elif (pop_name in env.cell_attribute_info) and ('Coordinates' in env.cell_attribute_info[pop_name]):
             if rank == 0:
-                logger.info("*** Reading coordinates for population %s" % pop_name)
+                logger.info(f"*** Reading coordinates for population {pop_name}")
 
             if env.node_allocation is None:
                 cell_attr_dict = scatter_read_cell_attributes(data_file_path, pop_name,
@@ -731,7 +725,7 @@ def make_cells(env):
                                                               comm=env.comm, io_size=env.io_size,
                                                               return_type='tuple')
             if rank == 0:
-                logger.info("*** Done reading coordinates for population %s" % pop_name)
+                logger.info(f"*** Done reading coordinates for population {pop_name}")
 
             coords_iter, coords_attr_info = cell_attr_dict['Coordinates']
 
@@ -740,12 +734,16 @@ def make_cells(env):
             z_index = coords_attr_info.get('Z Coordinate', None)
             for i, (gid, cell_coords) in enumerate(coords_iter):
                 if rank == 0:
-                    logger.info("*** Creating %s gid %i" % (pop_name, gid))
+                    logger.info(f"*** Creating {pop_name} gid {gid}")
 
-                if is_reduced:
+                if is_izhikevich:
                     izhikevich_cell = cells.make_izhikevich_cell(gid=gid, pop_name=pop_name,
                                                                  env=env, mech_dict=mech_dict)
                     cells.register_cell(env, pop_name, gid, izhikevich_cell)
+                elif is_PR:
+                    PR_cell = cells.make_PR_cell(gid=gid, pop_name=pop_name,
+                                                         env=env, mech_dict=mech_dict)
+                    cells.register_cell(env, pop_name, gid, PR_cell)
                 else:
                     hoc_cell = cells.make_hoc_cell(env, pop_name, gid)
                     cell_x = cell_coords[x_index][0]
@@ -755,7 +753,7 @@ def make_cells(env):
                     cells.register_cell(env, pop_name, gid, hoc_cell)
                 num_cells += 1
         else:
-            raise RuntimeError("make_cells: unknown cell configuration type for cell type %s" % pop_name)
+            raise RuntimeError(f"make_cells: unknown cell configuration type for cell type {pop_name}")
 
         h.define_shape()
 
@@ -770,7 +768,7 @@ def make_cells(env):
         recording_set = env.comm.bcast(recording_set, root=0)
         env.recording_sets[pop_name] = recording_set
         del pop_biophys_gids_per_rank
-        logger.info("*** Rank %i: Created %i cells from population %s" % (rank, num_cells, pop_name))
+        logger.info(f"*** Rank {rank}: Created {num_cells} cells from population {pop_name}")
 
     # if node rank map has not been created yet, create it now
     if env.node_allocation is None:
@@ -797,7 +795,7 @@ def make_cell_selection(env):
 
     for pop_name in pop_names:
         if rank == 0:
-            logger.info("*** Creating selected cells from population %s" % pop_name)
+            logger.info(f"*** Creating selected cells from population {pop_name}")
 
         template_name = env.celltypes[pop_name]['template']
         template_name_lower = template_name.lower()
@@ -813,30 +811,35 @@ def make_cell_selection(env):
         else:
             mech_dict = None
 
-        is_reduced = (template_name.lower() == 'izhikevich')
+        is_izhikevich = (template_name.lower() == 'izhikevich')
+        is_PR = (template_name.lower() == 'pr_nrn')
         num_cells = 0
         
             
         if (pop_name in env.cell_attribute_info) and ('Trees' in env.cell_attribute_info[pop_name]):
             if rank == 0:
-                logger.info("*** Reading trees for population %s" % pop_name)
+                logger.info(f"*** Reading trees for population {pop_name}")
 
             (trees, _) = read_tree_selection(data_file_path, pop_name, gid_range, comm=env.comm)
             if rank == 0:
-                logger.info("*** Done reading trees for population %s" % pop_name)
+                logger.info(f"*** Done reading trees for population {pop_name}")
 
             first_gid = None
             for i, (gid, tree) in enumerate(trees):
 
                 if rank == 0:
-                    logger.info("*** Creating %s gid %i" % (pop_name, gid))
+                    logger.info(f"*** Creating {pop_name} gid {gid}")
                 if first_gid == None:
                     first_gid = gid
 
-                if is_reduced:
+                if is_izhikevich:
                     izhikevich_cell = cells.make_izhikevich_cell(gid=gid, pop_name=pop_name,
                                                                  env=env, param_dict=mech_dict)
                     cells.register_cell(env, pop_name, gid, izhikevich_cell)
+                elif is_PR:
+                    PR_cell = cells.make_PR_cell(gid=gid, pop_name=pop_name,
+                                                 env=env, param_dict=mech_dict)
+                    cells.register_cell(env, pop_name, gid, PR_cell)
                 else:
                     hoc_cell = cells.make_hoc_cell(env, pop_name, gid, neurotree_dict=tree)
                     if mech_file_path is None:
@@ -849,8 +852,7 @@ def make_cell_selection(env):
                         # cells.init_spike_detector(biophys_cell)
                         cells.register_cell(env, pop_name, gid, biophys_cell)
                         if rank == 0 and gid == first_gid:
-                            logger.info('*** make_cell_selection: population: %s; gid: %i; loaded biophysics from path: %s' %
-                                        (pop_name, gid, mech_file_path))
+                            logger.info(f'*** make_cell_selection: population: {pop_name}; gid: {gid}; loaded biophysics from path: {mech_file_path}')
                             
 
                 if rank == 0 and first_gid == gid:
@@ -863,7 +865,7 @@ def make_cell_selection(env):
 
         elif (pop_name in env.cell_attribute_info) and ('Coordinates' in env.cell_attribute_info[pop_name]):
             if rank == 0:
-                logger.info("*** Reading coordinates for population %s" % pop_name)
+                logger.info(f"*** Reading coordinates for population {pop_name}")
 
             coords_iter, coords_attr_info = read_cell_attribute_selection(data_file_path, pop_name, selection=gid_range, 
                                                                           namespace='Coordinates', comm=env.comm, 
@@ -873,16 +875,20 @@ def make_cell_selection(env):
             z_index = coords_attr_info.get('Z Coordinate', None)
 
             if rank == 0:
-                logger.info("*** Done reading coordinates for population %s" % pop_name)
+                logger.info(f"*** Done reading coordinates for population {pop_name}")
 
             for i, (gid, cell_coords_tuple) in enumerate(coords_iter):
                 if rank == 0:
-                    logger.info("*** Creating %s gid %i" % (pop_name, gid))
+                    logger.info(f"*** Creating {pop_name} gid {gid}")
 
-                if is_reduced:
+                if is_izhikevich:
                     izhikevich_cell = cells.make_izhikevich_cell(gid=gid, pop_name=pop_name,
                                                                  env=env, param_dict=mech_dict)
                     cells.register_cell(env, pop_name, gid, izhikevich_cell)
+                elif is_PR:
+                    PR_cell = cells.make_PR_cell(gid=gid, pop_name=pop_name,
+                                                 env=env, param_dict=mech_dict)
+                    cells.register_cell(env, pop_name, gid, PR_cell)
                 else:
                     hoc_cell = cells.make_hoc_cell(env, pop_name, gid)
 
@@ -895,7 +901,7 @@ def make_cell_selection(env):
                 num_cells += 1
 
         h.define_shape()
-        logger.info("*** Rank %i: Created %i cells from population %s" % (rank, num_cells, pop_name))
+        logger.info(f"*** Rank {rank}: Created {num_cells} cells from population {pop_name}")
 
 
     if env.node_allocation is None:
@@ -928,13 +934,13 @@ def make_input_cell_selection(env):
             spike_generator = None
         else:
             if env.netclamp_config is None:
-                logger.warning("make_input_cell_selection: population %s has neither input spike trains nor input generator configuration" % pop_name)
+                logger.warning(f"make_input_cell_selection: population {pop_name} has neither input spike trains nor input generator configuration")
                 spike_generator = None
             else:
                 if pop_name in env.netclamp_config.input_generators:
                     spike_generator = env.netclamp_config.input_generators[pop_name]
                 else:
-                    raise RuntimeError("make_input_cell_selection: population %s has neither input spike trains nor input generator configuration" % pop_name)
+                    raise RuntimeError(f"make_input_cell_selection: population {pop_name} has neither input spike trains nor input generator configuration")
 
         if spike_generator is not None:
             input_source_dict = {pop_index: {'generator': spike_generator}}
@@ -957,7 +963,7 @@ def make_input_cell_selection(env):
         created_input_sources[pop_name] = set(created_input_gids)
 
         if rank == 0:
-            logger.info('*** Rank %i: created %s input sources for gids %s' % (rank, pop_name, str(created_input_gids)))
+            logger.info(f'*** Rank {rank}: created {pop_name} input sources for gids {created_input_gids}')
 
     env.microcircuit_input_sources = created_input_sources
 
@@ -987,7 +993,7 @@ def init_input_cells(env):
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
     if rank == 0:
-        logger.info("*** Stimulus onset is %g ms" % env.stimulus_onset)
+        logger.info(f"*** Stimulus onset is {env.stimulus_onset} ms")
 
     dataset_path = env.dataset_path
     input_file_path = env.data_file_path
@@ -1000,8 +1006,7 @@ def init_input_cells(env):
 
         if 'spike train' in env.celltypes[pop_name]:
             if env.arena_id and env.trajectory_id:
-                vecstim_namespace = '%s %s %s' % (env.celltypes[pop_name]['spike train']['namespace'], \
-                                                env.arena_id, env.trajectory_id)
+                vecstim_namespace = f"{env.celltypes[pop_name]['spike train']['namespace']} {env.arena_id} {env.trajectory_id}"
             else:
                 vecstim_namespace = env.celltypes[pop_name]['spike train']['namespace']
             vecstim_attr = env.celltypes[pop_name]['spike train']['attribute']
@@ -1014,7 +1019,7 @@ def init_input_cells(env):
 
             if has_vecstim:
                 if rank == 0:
-                    logger.info("*** Initializing stimulus population %s from namespace %s" % (pop_name, vecstim_namespace))
+                    logger.info(f"*** Initializing stimulus population {pop_name} from namespace {vecstim_namespace}")
 
                 if env.cell_selection is None:
                     if env.node_allocation is None:
@@ -1065,8 +1070,7 @@ def init_input_cells(env):
                         if len(spiketrain) > 0:
                             cell.play(h.Vector(spiketrain))
                             if rank == 0:
-                                logger.info("*** Spike train for %s gid %i is of length %i (%g : %g ms)" %
-                                            (pop_name, gid, len(spiketrain), spiketrain[0], spiketrain[-1]))
+                                logger.info(f"*** Spike train for {pop_name} gid {gid} is of length {len(spiketrain)} ({spiketrain[0]} : {spiketrain[-1]} ms)")
 
 
     gc.collect()
@@ -1096,7 +1100,7 @@ def init_input_cells(env):
                     spike_input_source_loc.append((input_file_path, env.spike_input_ns))
 
             if rank == 0:
-                logger.info("*** Initializing input source %s from locations %s" % (pop_name, str(spike_input_source_loc)))
+                logger.info(f"*** Initializing input source {pop_name} from locations {spike_input_source_loc}")
                     
             if has_spike_train:
 
@@ -1127,13 +1131,14 @@ def init_input_cells(env):
                     elif 'Spike Train' in viewkeys(cell_spikes_attr_info):
                         spike_train_attr_index = cell_spikes_attr_info.get('Spike Train', None)
                     elif len(this_gid_range) > 0:
-                        raise RuntimeError("init_input_cells: unable to determine spike train attribute for population %s in spike input file %s; namespace %s; attr keys %s" % (pop_name, env.spike_input_path, env.spike_input_ns, str(list(viewkeys(cell_spikes_attr_info)))))
+                        raise RuntimeError(f"init_input_cells: unable to determine spike train attribute for population {pop_name} in spike input file {env.spike_input_path};"
+                                           f" namespace {env.spike_input_ns}; attr keys {list(viewkeys(cell_spikes_attr_info))}")
                         
                     for gid, cell_spikes_tuple in cell_spikes_iter:
                         if not (env.pc.gid_exists(gid)):
                             continue
                         if gid not in env.artificial_cells[pop_name]:
-                            logger.info('init_input_cells: Rank %i: env.artificial_cells[%s] = %s this_gid_range = %s' % (rank, pop_name, str(env.artificial_cells[pop_name]), str(this_gid_range)))
+                            logger.info(f'init_input_cells: Rank {rank}: env.artificial_cells[{pop_name}] = {env.artificial_cells[pop_name]} this_gid_range = {this_gid_range}')
                         input_cell = env.artificial_cells[pop_name][gid]
 
                         spiketrain = cell_spikes_tuple[spike_train_attr_index]
@@ -1150,12 +1155,13 @@ def init_input_cells(env):
                             input_cell.play(h.Vector(spiketrain))
                             if len(spiketrain) > 0:
                                 if rank == 0:
-                                    logger.info("*** Spike train for %s input source gid %i is of length %i (%g : %g ms)" %
-                                                (pop_name, gid, len(spiketrain), spiketrain[0], spiketrain[-1]))
+                                    logger.info(f"*** Spike train for {pop_name} gid {gid} is of length {len(spiketrain)} ({spiketrain[0]} : {spiketrain[-1]} ms)")
+                                
 
             else:
                 if rank == 0:
-                    logger.warning('No spike train data found for population %s in spike input file %s; namespace: %s' % (pop_name, env.spike_input_path, env.spike_input_ns))
+                    logger.warning(f'No spike train data found for population {pop_name} in spike input file {env.spike_input_path}; '
+                                   f'namespace: {env.spike_input_ns}')
             
     gc.collect()
                     
@@ -1192,16 +1198,16 @@ def init(env):
 
     env.mkcellstime = time.time() - st
     if rank == 0:
-        logger.info("*** Cells created in %g seconds" % env.mkcellstime)
+        logger.info(f"*** Cells created in {env.mkcellstime} s")
     local_num_cells = imapreduce(viewitems(env.cells), lambda kv: len(kv[1]), lambda ax, x: ax+x)
-    logger.info("*** Rank %i created %i cells" % (rank, local_num_cells))
+    logger.info(f"*** Rank {rank} created {local_num_cells} cells")
     if env.cell_selection is None:
         st = time.time()
         connect_gjs(env)
         env.pc.setup_transfer()
         env.connectgjstime = time.time() - st
         if rank == 0:
-            logger.info("*** Gap junctions created in %g seconds" % env.connectgjstime)
+            logger.info(f"*** Gap junctions created in {env.connectgjstime} s")
 
     if env.profile_memory and rank == 0:
         profile_memory(logger)
@@ -1222,7 +1228,7 @@ def init(env):
 
     st = time.time()
     if rank == 0:
-        logger.info("*** Creating connections: time = %g seconds" % st)
+        logger.info(f"*** Creating connections: time = {st} s")
     if env.cell_selection is None:
         connect_cells(env)
     else:
@@ -1232,11 +1238,11 @@ def init(env):
     env.connectcellstime = time.time() - st
 
     if rank == 0:
-        logger.info("*** Done creating connections: time = %g seconds" % time.time())
+        logger.info(f"*** Done creating connections: time = {time.time()} s")
     if rank == 0:
-        logger.info("*** Connections created in %g seconds" % env.connectcellstime)
+        logger.info(f"*** Connections created in {env.connectcellstime} s")
     edge_count = int(sum([env.edge_count[dest] for dest in env.edge_count]))
-    logger.info("*** Rank %i created %i connections" % (rank, edge_count))
+    logger.info(f"*** Rank {rank} created {edge_count} connections")
     
     if env.profile_memory and rank == 0:
         profile_memory(logger)
@@ -1245,7 +1251,7 @@ def init(env):
     init_input_cells(env)
     env.mkstimtime = time.time() - st
     if rank == 0:
-        logger.info("*** Stimuli created in %g seconds" % env.mkstimtime)
+        logger.info(f"*** Stimuli created in {env.mkstimtime} s")
     setup_time = env.mkcellstime + env.mkstimtime + env.connectcellstime + env.connectgjstime + lfp_time
     max_setup_time = env.pc.allreduce(setup_time, 2)  ## maximum value
     equilibration_duration = float(env.stimulus_config.get('Equilibration Duration', 0.))
@@ -1278,7 +1284,7 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
 
     if rank == 0:
         if output:
-            logger.info("Creating results file %s" % env.results_file_path)
+            logger.info(f"Creating results file {env.results_file_path}")
             io_utils.mkout(env, env.results_file_path)
 
     if rank == 0:
@@ -1323,18 +1329,18 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
         else:
             h.tstop = env.simtime.tstop
         if rank == 0:
-            logger.info("*** Running simulation up to %.2f ms" % h.tstop)
+            logger.info(f"*** Running simulation up to {h.tstop:.2f} ms")
         env.pc.timeout(env.nrn_timeout)
         env.pc.psolve(h.tstop)
         if env.use_coreneuron:
             h.t = h.tstop
         if output:
             if rank == 0:
-                logger.info("*** Writing spike data up to %.2f ms" % h.t)
+                logger.info(f"*** Writing spike data up to {h.t:.2f} ms")
             io_utils.spikeout(env, env.results_file_path, t_start=env.last_checkpoint, clear_data=env.checkpoint_clear_data)
             if env.recording_profile is not None:
                 if rank == 0:
-                    logger.info("*** Writing intracellular data up to %.2f ms" % h.t)
+                    logger.info(f"*** Writing intracellular data up to {h.t:.2f} ms")
                 io_utils.recsout(env, env.results_file_path, t_start=env.last_checkpoint, clear_data=env.checkpoint_clear_data)
             env.last_checkpoint = h.t
     if output_syn_spike_count:
@@ -1367,21 +1373,21 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
     maxgj = gjvect.max()
 
     if rank == 0:
-        logger.info("Execution time summary for host %i:" % rank)
-        logger.info("  created cells in %g seconds" % env.mkcellstime)
-        logger.info("  connected cells in %g seconds" % env.connectcellstime)
-        logger.info("  created gap junctions in %g seconds" % env.connectgjstime)
-        logger.info("  ran simulation in %g seconds" % comptime)
-        logger.info("  spike communication time: %g seconds" % env.pc.send_time())
-        logger.info("  event handling time: %g seconds" % env.pc.event_time())
-        logger.info("  numerical integration time: %g seconds" % env.pc.integ_time())
-        logger.info("  voltage transfer time: %g seconds" % gjtime)
+        logger.info(f"Execution time summary for host {rank}: \n"
+                    f"  created cells in {env.mkcellstime} s\n"
+                    f"  connected cells in {env.connectcellstime} s\n"
+                    f"  created gap junctions in {env.connectgjstime} s\n"
+                    f"  ran simulation in {comptime} s\n"
+                    f"  spike communication time: {env.pc.send_time()} s\n"
+                    f"  event handling time: {env.pc.event_time()} s\n"
+                    f"  numerical integration time: {env.pc.integ_time()} s\n"
+                    f"  voltage transfer time: {gjtime} s\n")
         if maxcw > 0:
-            logger.info("Load balance = %g" % (meancomp / maxcw))
+            logger.info(f"Load balance = {(meancomp / maxcw)}\n")
         if meangj > 0:
-            logger.info("Mean/max voltage transfer time: %g / %g seconds" % (meangj, maxgj))
+            logger.info("Mean/max voltage transfer time: {meangj} / {maxgj} s\n")
             for i in range(nhosts):
-                logger.debug("Voltage transfer time on host %i: %g seconds" % (i, gjvect.x[i]))
+                logger.debug("Voltage transfer time on host {i}: {gjvect.x[i]} s\n")
 
     if shutdown:
         env.pc.runworker()

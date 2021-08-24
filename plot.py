@@ -1132,7 +1132,7 @@ def plot_cell_tree(population, gid, tree_dict, line_width=1., sample=0.05, color
 ## Plot biophys cell tree 
 def plot_biophys_cell_tree (env, biophys_cell, node_filters={'swc_types': ['apical', 'basal']},
                             plot_synapses=False, synapse_filters=None, syn_source_threshold=0.0,
-                            line_width=3., **kwargs): 
+                            line_width=8., **kwargs): 
     ''' 
     Plot cell morphology and optionally synapse locations.
 
@@ -2310,9 +2310,16 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
 
     # Calculate spike histogram if requested
     if spike_hist:
-        all_spkts = np.concatenate([np.concatenate(lst, axis=0) for lst in spktlst])
-        sphist_y, bin_edges = np.histogram(all_spkts, bins = np.arange(time_range[0], time_range[1], spike_hist_bin))
-        sphist_x = bin_edges[:-1]+(spike_hist_bin / 2)
+        all_spkts = []
+        sphist_x = None
+        sphist_y = None
+        bin_edges = None
+        if len(spktlst) > 0:
+            all_spkts = np.concatenate([np.concatenate(lst, axis=0) for lst in spktlst])
+            sphist_y, bin_edges = np.histogram(all_spkts, bins = np.arange(time_range[0], time_range[1], spike_hist_bin))
+            sphist_x = bin_edges[:-1]+(spike_hist_bin / 2)
+        else:
+            spike_hist = None
 
     maxN = 0
     minN = N
@@ -2334,10 +2341,13 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
 
     pop_spk_dict = { pop_name: (pop_spkinds, pop_spkts) for (pop_name, pop_spkinds, pop_spkts) in zip(spkpoplst, spkindlst, spktlst) }
 
+    n_subplots = 1
     if spike_hist is None:
-        fig, axes = plt.subplots(nrows=len(spkpoplst), sharex=True, figsize=fig_options.figSize)
+        n_subplots = max(len(spkpoplst), 1)
+        fig, axes = plt.subplots(nrows=n_subplots, sharex=True, figsize=fig_options.figSize)
     elif spike_hist == 'subplot':
-        fig, axes = plt.subplots(nrows=len(spkpoplst)+1, sharex=True, figsize=fig_options.figSize,
+        n_subplots = max(len(spkpoplst), 1) + 1
+        fig, axes = plt.subplots(nrows=n_subplots, sharex=True, figsize=fig_options.figSize,
                                  gridspec_kw={'height_ratios': [1]*len(spkpoplst) + [2]})
     fig.suptitle ('DG Spike Raster', fontsize=fig_options.fontSize)
 
@@ -2352,7 +2362,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
 
         if max_spikes is not None:
             if int(max_spikes) < len(pop_spkinds):
-               logger.info(('  Displaying only randomly sampled %i out of %i spikes for population %s' % (max_spikes, len(pop_spkts), pop_name)))
+               logger.info(f'Loading only randomly sampled {max_spikes} out of {len(pop_spkts)} spikes for population {pop_name}')
                sample_inds = np.random.randint(0, len(pop_spkinds)-1, size=int(max_spikes))
                pop_spkts   = pop_spkts[sample_inds]
                pop_spkinds = pop_spkinds[sample_inds]
@@ -2386,33 +2396,35 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
             yaxis.set_ticklabels([pop_name])
             yaxis.set_tick_params(length=0)
             a.get_xaxis().set_tick_params(length=0)
-        
-    # Plot spike histogram
-    pch = interpolate.pchip(sphist_x, sphist_y)
-    res_npts = int((sphist_x.max() - sphist_x.min()))
-    sphist_x_res = np.linspace(sphist_x.min(), sphist_x.max(), res_npts, endpoint=True)
-    sphist_y_res = pch(sphist_x_res)
 
-    if spike_hist == 'overlay':
-        ax2 = axes[-1].twinx()
-        ax2.plot (sphist_x_res, sphist_y_res, linewidth=0.5)
-        ax2.set_ylabel('Spike count', fontsize=fig_options.fontSize) # add yaxis label in opposite side
-        ax2.set_xlim(time_range)
-    elif spike_hist == 'subplot':
-        ax2=axes[-1]
-        ax2.plot (sphist_x_res, sphist_y_res, linewidth=1.0)
-        ax2.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
-        ax2.set_ylabel('Spikes', fontsize=fig_options.fontSize)
-        ax2.set_xlim(time_range)
+    if spike_hist:
+        # Plot spike histogram
+        pch = interpolate.pchip(sphist_x, sphist_y)
+        res_npts = int((sphist_x.max() - sphist_x.min()))
+        sphist_x_res = np.linspace(sphist_x.min(), sphist_x.max(), res_npts, endpoint=True)
+        sphist_y_res = pch(sphist_x_res)
+
+        if spike_hist == 'overlay':
+            ax2 = axes[-1].twinx()
+            ax2.plot (sphist_x_res, sphist_y_res, linewidth=0.5)
+            ax2.set_ylabel('Spike count', fontsize=fig_options.fontSize) # add yaxis label in opposite side
+            ax2.set_xlim(time_range)
+        elif spike_hist == 'subplot':
+            ax2=axes[-1]
+            ax2.plot (sphist_x_res, sphist_y_res, linewidth=1.0)
+            ax2.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
+            ax2.set_ylabel('Spikes', fontsize=fig_options.fontSize)
+            ax2.set_xlim(time_range)
         
 #    locator=MaxNLocator(prune='both', nbins=10)
 #    ax2.xaxis.set_major_locator(locator)
     
     if labels == 'legend':
         # Shrink axes by 15%
-        for ax in axes:
-            box = ax.get_position()
-            ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
+        if n_subplots > 1:
+            for ax in axes:
+                box = ax.get_position()
+                ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
         if pop_rates:
             lgd_labels = [ '%s (%.02f%% active; %.3g Hz)' % (pop_name, info[0], info[1]) for pop_name, info in zip_longest(spkpoplst, lgd_info) ]
         else:

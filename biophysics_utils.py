@@ -8,7 +8,7 @@ from collections import defaultdict
 from mpi4py import MPI
 import numpy as np
 import h5py
-from dentate.cells import make_biophys_cell, make_izhikevich_cell, get_branch_order, get_dendrite_origin, get_distance_to_node, \
+from dentate.cells import make_biophys_cell, make_izhikevich_cell, make_PR_cell, get_branch_order, get_dendrite_origin, get_distance_to_node, \
     init_biophysics, is_terminal, report_topology, modify_mech_param
 from dentate.env import Env
 from dentate.neuron_utils import h, configure_hoc_env
@@ -477,11 +477,16 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
 
     mech_file_path = config_prefix + '/' + mech_file
     template_name = env.celltypes[pop_name]['template']
-    if template_name == 'Izhikevich':
+    if template_name.lower() == 'izhikevich':
         cell = make_izhikevich_cell(env, pop_name=pop_name, gid=gid,
                                     load_synapses=True, load_connections=True,
                                     load_edges=load_edges, load_weights=load_weights,
                                     mech_file_path=mech_file_path)
+    elif template_name.lower() == 'pr_nrn':
+        cell = make_PR_cell(env, pop_name=pop_name, gid=gid,
+                            load_synapses=True, load_connections=True,
+                            load_edges=load_edges, load_weights=load_weights,
+                            mech_file_path=mech_file_path)
     else:
         cell = make_biophys_cell(env, pop_name=pop_name, gid=gid,
                                  load_synapses=True, load_connections=True,

@@ -97,8 +97,8 @@ def generate_weights(env, weight_source_rules, this_syn_attrs):
                 weights_dict[presyn_id] = \
                     synapses.generate_normal_weights(weights_name, mu, sigma, seed, source_syn_dict)
             else:
-                raise RuntimeError('network_clamp.generate_weights: unknown weight generator rule class %s' % \
-                                   weight_rule['class'])
+                raise RuntimeError('network_clamp.generate_weights: unknown weight generator rule class '
+                                   f'{weight_rule['class']}')
 
     return weights_dict
 
@@ -1001,7 +1001,8 @@ def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, tra
         min_mse_index = np.argmin(mses)
         min_mse = mses[max_mse_index]
 
-        logger.info('firing rate objective: max firing rate min/max of gid %i: %.02f / %.02f Hz' % (gid, np.min(rate_vector[min_mse_index]), np.max(rate_vectors[min_mse_index])))
+        logger.info(f'firing rate objective: max firing rate min/max of gid {gid}: '
+                    f'{np.min(rate_vector[min_mse_index]):.02f} / {np.max(rate_vectors[min_mse_index]):.02f} Hz')
 
         return min_mse
 
@@ -1047,7 +1048,7 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
         else:
             file_path = f'distgfs.network_clamp.{env.results_file_id}.h5'
     else:
-        file_path = '%s/%s' % (env.results_path, results_file)
+        file_path = f'{env.results_path}/{results_file}'
     problem_ids = None
     reduce_fun_name = None
     if ProblemRegime[problem_regime] == ProblemRegime.every:

@@ -1,7 +1,7 @@
 import collections, os, sys, traceback, copy, datetime, math, pprint
 import numpy as np
 from dentate.neuron_utils import h, d_lambda, default_hoc_sec_lists, default_ordered_sec_types, freq, make_rec, \
-    load_cell_template, HocCellInterface, IzhiCellAttrs, default_izhi_cell_attrs_dict
+    load_cell_template, HocCellInterface, IzhiCellAttrs, default_izhi_cell_attrs_dict, PRconfig
 from dentate.utils import get_module_logger, map, range, zip, zip_longest, viewitems, read_from_yaml, write_to_yaml, Promise
 from neuroh5.io import read_cell_attribute_selection, read_graph_selection, read_tree_selection
 
@@ -572,6 +572,126 @@ class STree2(object):
     def __str__(self):
         return "STree2 (" + str(len(self.get_nodes())) + " nodes)"
 
+
+class PRneuron(object):
+    """
+    An implementation of a Pinsky-Rinzel-type reduced biophysical neuron model for simulation in NEURON.
+    Conforms to the same API as BiophysCell.
+    """
+    def __init__(self, gid, pop_name, env=None, cell_config=None, mech_dict=None):
+        """
+
+        :param gid: int
+        :param pop_name: str
+        :param env: :class:'Env'
+        :param cell_config: :namedtuple:'PRconfig'
+        """
+        self._gid = gid
+        self._pop_name = pop_name
+        self.tree = STree2()  # Builds a simple tree to store nodes of type 'SHocNode'
+        self.count = 0  # Keep track of number of nodes
+        if env is not None:
+            for sec_type in env.SWC_Types:
+                if sec_type not in default_ordered_sec_types:
+                    raise AttributeError('Warning! unexpected SWC Type definitions found in Env')
+        self.nodes = {key: [] for key in default_ordered_sec_types}
+        self.mech_file_path = None
+        self.init_mech_dict = dict(mech_dict) if mech_dict is not None else None
+        self.mech_dict = dict(mech_dict) if mech_dict is not None else None
+        
+        self.random = np.random.RandomState()
+        self.random.seed(self.gid)
+        self.spike_detector = None
+        self.spike_onset_delay = 0.
+        self.is_reduced = True
+        if not isinstance(cell_config, PRconfig):
+            raise RuntimeError('PRneuron: argument cell_attrs must be of type PRconfig')
+
+        self.pr_nrn = h.PR
+        param_dict = { 'pp': cell_config.pp,
+                       'Ltotal': cell_config.Ltotal,
+                       'gc': cell_config.gc,
+                       'soma_gmax_Na': cell_config.soma_gmax_Na,
+                       'soma_gmax_K': cell_config.soma_gmax_K,
+                       'soma_g_pas': cell_config.soma_g_pas,
+                       'dend_gmax_Ca': cell_config.dend_gmax_Ca,
+                       'dend_gmax_KCa': cell_config.dend_gmax_KCa,
+                       'dend_gmax_KAHP': cell_config.dend_gmax_KAHP,
+                       'dend_g_pas':  cell_config.dend_g_pas,
+        }
+
+        PR_nrn = h.PR_nrn(param_dict)
+        PR_nrn.init_ic(cell_config.V_rest)
+
+        self.hoc_cell = PR_nrn
+
+        append_section(self, 'soma', sec_index=0, sec=PR_nrn.soma)
+        append_section(self, 'dend', sec_index=1, sec=PR_nrn.dend)
+        connect_nodes(self.soma, self.dend, connect_hoc_sections=False)
+        
+        init_spike_detector(self, self.tree.root, loc=0.5, threshold=cell_config.V_threshold)
+
+
+    def update_cell_attrs(self, **kwargs):
+        for attr_name, attr_val in kwargs.items():
+            if attr_name in PRconfig._fields:
+                setattr(self.hoc_cell, attr_name, attr_val)
+
+    @property
+    def gid(self):
+        return self._gid
+
+    @property
+    def pop_name(self):
+        return self._pop_name
+
+    @property
+    def soma(self):
+        return self.nodes['soma']
+
+    @property
+    def dend(self):
+        return self.nodes['dend']
+
+    @property
+    def axon(self):
+        return self.nodes['axon']
+
+    @property
+    def basal(self):
+        return self.nodes['basal']
+
+    @property
+    def apical(self):
+        return self.nodes['apical']
+
+    @property
+    def trunk(self):
+        return self.nodes['trunk']
+
+    @property
+    def tuft(self):
+        return self.nodes['tuft']
+
+    @property
+    def spine(self):
+        return self.nodes['spine_head']
+
+    @property
+    def spine_head(self):
+        return self.nodes['spine_head']
+
+    @property
+    def spine_neck(self):
+        return self.nodes['spine_neck']
+
+    @property
+    def ais(self):
+        return self.nodes['ais']
+
+    @property
+    def hillock(self):
+        return self.nodes['hillock']
 
 class IzhiCell(object):
     """
@@ -2908,6 +3028,49 @@ def make_biophys_cell(env, pop_name, gid,
                              load_weights=load_weights, weight_dict=weight_dict, 
                              set_edge_delays=set_edge_delays, **kwargs)
     
+    env.biophys_cells[pop_name][gid] = cell
+    return cell
+
+
+def make_PR_cell(env, pop_name, gid, mech_file_path=None, mech_dict=None,
+                 tree_dict=None,  load_synapses=False, synapses_dict=None, 
+                 load_edges=False, connection_graph=None,
+                 load_weights=False, weight_dict=None, 
+                 set_edge_delays=True, **kwargs):
+    """
+    :param env: :class:'Env'
+    :param pop_name: str
+    :param gid: int
+    :param mech_file_path: str (path)
+    :param mech_dict: dict
+    :param synapses_dict: dict
+    :param weight_dicts: list of dict
+    :param load_synapses: bool
+    :param load_edges: bool
+    :param load_weights: bool
+    :param set_edge_delays: bool
+    :return: :class:'IzhikevichCell'
+    """
+
+    if mech_dict is None and mech_file_path is None:
+        raise RuntimeError('make_PR_cell: mech_dict or mech_file_path must be specified')
+
+    if mech_dict is None and mech_file_path is not None:
+        mech_dict = read_from_yaml(mech_file_path)
+
+    cell = PRneuron(gid=gid, pop_name=pop_name, env=env,
+                    cell_attrs=IzhiCellAttrs(**mech_dict['PinskyRinzel']),
+                    mech_dict={ k: mech_dict[k] for k in mech_dict if k != 'PinskyRinzel' })
+
+    circuit_flag = load_edges or load_weights or load_synapses or synapses_dict or weight_dict or connection_graph
+    if circuit_flag:
+        init_circuit_context(env, pop_name, gid, 
+                             load_synapses=load_synapses,
+                             synapses_dict=synapses_dict,
+                             load_edges=load_edges, connection_graph=connection_graph,
+                             load_weights=load_weights, weight_dict=weight_dict, 
+                             set_edge_delays=set_edge_delays, **kwargs)
+        
     env.biophys_cells[pop_name][gid] = cell
     return cell
 
