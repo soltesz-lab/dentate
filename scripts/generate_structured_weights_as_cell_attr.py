@@ -59,11 +59,11 @@ def init_selectivity_config(destination_gid, spatial_resolution,
                             arena, arena_margin, arena_margin_size, 
                             coordinates, field_width, field_width_scale, peak_rate, 
                             target_selectivity_type, selectivity_type_index,
-                            dst_input_features_attr_dict, target_selectivity_features_dict,
+                            input_features_attr_dict, target_selectivity_features_dict,
                             target_selectivity_config_dict, target_field_width_dict, logger=None):
 
-    assert(destination_gid in dst_input_features_attr_dict)
-    this_target_selectivity_features_dict = dst_input_features_attr_dict[destination_gid]
+    assert(destination_gid in input_features_attr_dict)
+    this_target_selectivity_features_dict = input_features_attr_dict[destination_gid]
     if logger is not None:
         logger.info("init_selectivity_config: feature_dict for gid %i is %s" % (destination_gid, this_target_selectivity_features_dict))
     this_target_selectivity_features_dict['Selectivity Type'] = np.asarray([target_selectivity_type], dtype=np.uint8)
