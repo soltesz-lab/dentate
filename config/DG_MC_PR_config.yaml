@@ -1,0 +1,13 @@
+PinskyRinzel:
+  pp: 0.39730626
+  Ltotal: 106.239456
+  gc: 40.0 
+  soma_gmax_Na: 0.042636033
+  soma_gmax_K: 0.05146966
+  soma_g_pas: 8.012425e-05
+  dend_gmax_Ca: 0.030261166
+  dend_gmax_KCa: 0.056676455
+  dend_gmax_KAHP: 0.0031438698
+  dend_g_pas: 0.00026529282
+  V_threshold: -44.0
+  V_rest: -65.0
