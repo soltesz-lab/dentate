@@ -607,7 +607,6 @@ class PRneuron(object):
         if not isinstance(cell_config, PRconfig):
             raise RuntimeError('PRneuron: argument cell_attrs must be of type PRconfig')
 
-        self.pr_nrn = h.PR
         param_dict = { 'pp': cell_config.pp,
                        'Ltotal': cell_config.Ltotal,
                        'gc': cell_config.gc,
@@ -625,9 +624,9 @@ class PRneuron(object):
 
         self.hoc_cell = PR_nrn
 
-        append_section(self, 'soma', sec_index=0, sec=PR_nrn.soma)
-        append_section(self, 'dend', sec_index=1, sec=PR_nrn.dend)
-        connect_nodes(self.soma, self.dend, connect_hoc_sections=False)
+        soma_node = append_section(self, 'soma', sec_index=0, sec=PR_nrn.soma)
+        apical_node = append_section(self, 'apical', sec_index=1, sec=PR_nrn.dend)
+        connect_nodes(self.soma[0], self.apical[0], connect_hoc_sections=False)
         
         init_spike_detector(self, self.tree.root, loc=0.5, threshold=cell_config.V_threshold)
 
@@ -648,10 +647,6 @@ class PRneuron(object):
     @property
     def soma(self):
         return self.nodes['soma']
-
-    @property
-    def dend(self):
-        return self.nodes['dend']
 
     @property
     def axon(self):
@@ -3036,7 +3031,7 @@ def make_PR_cell(env, pop_name, gid, mech_file_path=None, mech_dict=None,
                  tree_dict=None,  load_synapses=False, synapses_dict=None, 
                  load_edges=False, connection_graph=None,
                  load_weights=False, weight_dict=None, 
-                 set_edge_delays=True, **kwargs):
+                 set_edge_delays=True, bcast_template=True, **kwargs):
     """
     :param env: :class:'Env'
     :param pop_name: str
@@ -3051,6 +3046,7 @@ def make_PR_cell(env, pop_name, gid, mech_file_path=None, mech_dict=None,
     :param set_edge_delays: bool
     :return: :class:'IzhikevichCell'
     """
+    load_cell_template(env, pop_name, bcast_template=bcast_template)
 
     if mech_dict is None and mech_file_path is None:
         raise RuntimeError('make_PR_cell: mech_dict or mech_file_path must be specified')
@@ -3059,7 +3055,7 @@ def make_PR_cell(env, pop_name, gid, mech_file_path=None, mech_dict=None,
         mech_dict = read_from_yaml(mech_file_path)
 
     cell = PRneuron(gid=gid, pop_name=pop_name, env=env,
-                    cell_attrs=IzhiCellAttrs(**mech_dict['PinskyRinzel']),
+                    cell_config=PRconfig(**mech_dict['PinskyRinzel']),
                     mech_dict={ k: mech_dict[k] for k in mech_dict if k != 'PinskyRinzel' })
 
     circuit_flag = load_edges or load_weights or load_synapses or synapses_dict or weight_dict or connection_graph

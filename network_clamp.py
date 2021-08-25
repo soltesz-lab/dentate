@@ -98,7 +98,7 @@ def generate_weights(env, weight_source_rules, this_syn_attrs):
                     synapses.generate_normal_weights(weights_name, mu, sigma, seed, source_syn_dict)
             else:
                 raise RuntimeError('network_clamp.generate_weights: unknown weight generator rule class '
-                                   f'{weight_rule['class']}')
+                                   f'{weight_rule["class"]}')
 
     return weights_dict
 

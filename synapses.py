@@ -862,14 +862,22 @@ def insert_hoc_cell_syns(env, gid, cell, syn_ids, syn_params, unique=False, inse
         if is_reduced:
             if (swc_type == swc_type_soma) and (cell_soma is not None):
                 sec = cell_soma
-            if (swc_type == swc_type_apical) and (cell_dendrite is not None):
+            elif (swc_type == swc_type_axon) and (cell_soma is not None):
+                sec = cell_soma
+            elif (swc_type == swc_type_ais) and (cell_soma is not None):
+                sec = cell_soma
+            elif (swc_type == swc_type_hill) and (cell_soma is not None):
+                sec = cell_soma
+            elif (swc_type == swc_type_apical) and (cell_dendrite is not None):
                 sec = cell_dendrite
-            if (swc_type == swc_type_basal) and (cell_dendrite is not None):
+            elif (swc_type == swc_type_basal) and (cell_dendrite is not None):
                 sec = cell_dendrite
             else:
                 sec = py_sections[0]
         else:
             sec = py_sections[syn_section]
+
+
         if swc_type in syns_dict_by_type:
             syns_dict = syns_dict_by_type[swc_type]
         else:

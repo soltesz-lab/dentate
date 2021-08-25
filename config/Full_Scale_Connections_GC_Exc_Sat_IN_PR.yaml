@@ -228,7 +228,7 @@ Synapses:
           dur_onset: 1.5
           tau_offset: 11.0
           e: -75
-          g_unit: 0.0002
+          g_unit: 0.002
           weight: 0.1
     BC:   
       type: inhibitory
@@ -242,14 +242,14 @@ Synapses:
             dur_onset: 0.6
             tau_offset: 9.0
             e: -75
-            g_unit: 0.0003
+            g_unit: 0.001
             weight: 0.1
         apical:
           GABA_A:
             dur_onset: 0.6
             tau_offset: 9.0
             e: -75
-            g_unit: 0.0003
+            g_unit: 0.001
             weight: 0.1
     AAC:  
       type: inhibitory
@@ -275,7 +275,7 @@ Synapses:
           dur_onset: 1.5
           tau_offset: 10.0
           e: -75
-          g_unit: 0.000125
+          g_unit: 0.002
           weight: 0.1
   HC:
     GC:   
