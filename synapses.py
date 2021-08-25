@@ -2620,6 +2620,8 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
                                    lsqr_target_map, maxiter=1000, 
                                    damp=0.1, show=True)
     lsqr_delta_weights = np.asarray(res[0], dtype=np.float32)
+
+    
     opt_bounds = [ (-(max_weight_decay_fraction * x), max_delta_weight)
                    for x in initial_weight_array ]
 
