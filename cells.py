@@ -617,10 +617,13 @@ class PRneuron(object):
                        'dend_gmax_KCa': cell_config.dend_gmax_KCa,
                        'dend_gmax_KAHP': cell_config.dend_gmax_KAHP,
                        'dend_g_pas':  cell_config.dend_g_pas,
+                       'dend_d_Caconc':  cell_config.dend_d_Caconc,
+                       'global_cm':  cell_config.global_cm,
+                       'global_diam':  cell_config.global_diam,
         }
 
         PR_nrn = h.PR_nrn(param_dict)
-        PR_nrn.init_ic(cell_config.V_rest)
+        PR_nrn.soma.ic_constant = cell_config.ic_constant
 
         self.hoc_cell = PR_nrn
 

@@ -35,6 +35,9 @@ PRconfig = namedtuple('PRconfig', ['pp', 'Ltotal', 'gc',
                                    'dend_gmax_KCa',
                                    'dend_gmax_KAHP',
                                    'dend_g_pas',
+                                   'dend_d_Caconc',
+                                   'global_cm',
+                                   'global_diam',
                                    'V_rest',
                                    'V_threshold'])
 
