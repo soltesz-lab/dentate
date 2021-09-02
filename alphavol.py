@@ -1,19 +1,96 @@
 """Alpha Shape implementation."""
-from __future__ import division
 
+import sys, itertools
 from collections import namedtuple
-
 import numpy as np
 from numpy.core.umath_tests import inner1d
 from scipy.spatial import Delaunay
-
-from past.utils import old_div
+from scipy.linalg import null_space
+import networkx as nx
 
 AlphaShape = namedtuple('AlphaShape', ['points', 'simplices', 'bounds'])
 
 
+def tri_graph(triangles):
+    """
+    Returns a graph of the triangulation edges.
+    """
+    G = nx.Graph()
+    nodeset = set(list(triangles.ravel()))
+    G.add_nodes_from(nodeset)
+    
+    for i in range(triangles.shape[0]):
+        s = triangles[i, :]
+        es = [(s[0], s[1]), 
+              (s[0], s[2]),
+              (s[1], s[2])]
+        for e in es:
+            sl = [i]
+            if G.has_edge(e[0], e[1]):
+                ed = G.get_edge_data(e[0], e[1])
+                ed['triangle'] = sl + ed['triangle_list']
+            else:
+                G.add_edge(e[0], e[1], triangle_list=sl)
+    return G
+    
+    
+
+def angular_deviation(P):
+    """
+    Computes angle between two 3d triangles that share two vertices.
+    """
+    P1, P2, P3, P4 = P
+    E = P1 - P2 
+    Q = null_space(E.T)
+    v1 = Q.T * (P3 - P1)
+    v2 = Q.T * (P4 - P1)
+    theta1 = np.arctan2(v1[1], v1[0])
+    theta2 = np.arctan2(v2[1], v2[0])
+    theta = np.mod(theta1 - theta2, 2. * np.pi) # radians
+    return theta
+
+
+    
+def feature_edges(G, points, theta=1e-6):
+    """
+    A feature edge is a triangulation edge that has any of the following attributes:
+
+    - The edge belongs to only one triangle.
+    - The edge is shared by more than two triangles.
+    - The edge is shared by a pair of triangles with angular deviation greater than the angle theta.
+    """
+
+    result = []
+    for u, v, triangle_list in G.edges.data("triangle_list"):
+        if triangle_list is not None:
+            if len(triangle_list) == 1:
+                result.append((u, v))
+            elif len(triangle_list) > 2:
+                result.append((u, v))
+            else:
+                if len(triangle_list) > 1:
+                    triangle_pairs = itertools.combinations(triangle_list, 2)
+                    triangle_thetas = map(lambda p: angular_deviation(points[set(list(p[0]) + list(p[1])), :]), triangle_pairs)
+                    if np.any(triangle_thetas > theta):
+                        result.append((u, v))
+    return result
+
+
+def true_boundary(simplices, points):
+
+    G = tri_graph(simplices)
+    
+    # Find edges attached to two coplanar faces
+    E0 = set(G.edges)
+    E1 = set(feature_edges(G, points, 1e-6))
+    E2 = E0 - E1
+    if len(E2) == 0:
+        return simplices
+
+
 def volumes(simplices, points):
     """Volumes/areas of tetrahedra/triangles."""
+    
     A = points[simplices[:, 0], :]
     B = np.subtract(points[simplices[:, 1], :], A)
     C = np.subtract(points[simplices[:, 2], :], A)
@@ -29,6 +106,7 @@ def volumes(simplices, points):
         vol = np.subtract(np.multiply(B[:, 0], C[:, 1]) - np.multiply(B[:, 1], C[:, 0]))
         vol = np.abs(vol) / 2.
 
+        
     return vol
 
 
@@ -50,12 +128,12 @@ def circumcenters(simplices, points):
     del xyz_sqsum
 
     ## circumcenter of the sphere
-    x0 = old_div(Dx, (2.0 * a))
-    y0 = old_div(Dy, (2.0 * a))
-    z0 = old_div(Dz, (2.0 * a))
+    x0 = Dx / (2.0 * a)
+    y0 = Dy / (2.0 * a)
+    z0 = Dz / (2.0 * a)
 
     ## circumradius
-    r = old_div(np.sqrt((Dx ** 2) + (Dy ** 2) + (Dz ** 2) - 4.0 * a * c), (2.0 * np.abs(a)))
+    r = np.sqrt((Dx ** 2) + (Dy ** 2) + (Dz ** 2) - 4.0 * a * c) / (2.0 * np.abs(a))
 
     return ((x0, y0, z0), r)
 
@@ -81,6 +159,7 @@ def free_boundary(simplices):
     if len(bidxs) == 0:
         raise RuntimeError("alpha.free_boundary: unable to determine facets that belong only to one simplex")
     return ufacets[bidxs]
+
 
 
 def alpha_shape(pts, radius, tri=None):
@@ -118,25 +197,33 @@ def alpha_shape(pts, radius, tri=None):
 
     ## Delaunay triangulation
     if tri is None:
-        tri = Delaunay(pts, qhull_options="QJ")
-
+        volpts = self.ev(hru, hrv, hrl).reshape(3, -1).T
+        qhull_options = 'QJ'
+        tri = Delaunay(volpts, qhull_options=qhull_options)
+    
     ## Check for zero volume tetrahedra since
     ## these can be of arbitrary large circumradius
     holes = False
+    nz_index = None
     if dim == 3:
         n = tri.simplices.shape[0]
         vol = volumes(tri.simplices, tri.points)
         epsvol = 1e-12 * np.sum(vol) / float(n)
-        nz_simplices = tri.simplices[np.where(vol > epsvol), :][0]
-        holes = nz_simplices.shape[0] < n
-    assert (holes is False)
-
+        nz_index = np.argwhere(vol > epsvol).ravel()
+        holes = len(nz_index) < n
+        
     ## Limit circumradius of simplices
-    _, rcc = circumcenters(tri.simplices, tri.points)
+    nz_simplices = tri.simplices
+    if nz_index is not None:
+        nz_simplices = tri.simplices[nz_index, :]
+    _, rcc = circumcenters(nz_simplices, tri.points)
     rccidxs = np.where(rcc < radius)[0]
-    T = tri.simplices[rccidxs, :]
+    T = nz_simplices[rccidxs, :]
     rcc = rcc[rccidxs]
-
     bnd = free_boundary(T)
-
+    if holes:
+        # The removal of zero volume tetrahedra causes false boundary
+        # faces in the interior of the volume. Take care of these.
+        bnd = true_boundary(bnd, tri.points)
+        
     return AlphaShape(tri.points, T, bnd)

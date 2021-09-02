@@ -1,4 +1,4 @@
-param_config_name: "Weight exc inh microcircuit"
+param_config_name: "Weight exc inh microcircuit wide"
 objective_names:
 - GC target rate dist residual
 - GC firing rate

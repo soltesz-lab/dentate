@@ -1,18 +1,12 @@
 """Implements a parametric surface as a tuple of RBF instances, one for u and v.
 Based on code from bspline_surface.py
 """
-from __future__ import division
 
 import math
-from builtins import object
-from builtins import range
 from collections import namedtuple
-
 import numpy as np
-
 import rbf
 import rbf.basis
-from past.utils import old_div
 from rbf.interpolate import RBFInterpolant
 
 
@@ -65,7 +59,7 @@ def cartesian_product(arrays, out=None):
     if out is None:
         out = np.zeros([n, len(arrays)], dtype=dtype)
 
-    m = old_div(n, arrays[0].size)
+    m = n / arrays[0].size
     out[:, 0] = np.repeat(arrays[0], m)
     if arrays[1:]:
         cartesian_product(arrays[1:], out=out[0:m, 1:])
@@ -406,7 +400,7 @@ def test_uv_isospline():
     nvpts = V.shape[0]
     # Plot u,v-isosplines on the surface
     upts = srf(U, V[0], L)
-    vpts = srf(U[int(old_div(nupts, 2))], V, L)
+    vpts = srf(U[int(nupts / 2)], V, L)
 
     srf.mplot_surface(color=(0, 1, 0), opacity=1.0, ures=10, vres=10)
 

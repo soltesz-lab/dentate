@@ -383,7 +383,7 @@ Synapses:
       type: inhibitory
       sections: [apical]
       layers: [Hilus]
-      proportions: [0.99]
+      proportions: [0.66]
       contacts: 3.0
       mechanisms:
         GABA_A:
@@ -396,7 +396,7 @@ Synapses:
       type: inhibitory
       sections: [apical, soma]
       layers: [Hilus, Hilus]
-      proportions: [0.01, 1.0]
+      proportions: [0.34, 1.0]
       contacts: 1.0
       mechanisms:
         GABA_A:
@@ -410,7 +410,7 @@ Synapses:
       type: excitatory
       sections: [soma, basal, basal]
       layers: [Hilus, Hilus, GCL]
-      proportions: [1.0, 0.85, 1.0]
+      proportions: [1.0, 0.8, 1.0]
       contacts: 1.0
       mechanisms:
           AMPA:
@@ -450,7 +450,7 @@ Synapses:
       type: excitatory
       sections: [basal]
       layers: [Hilus]
-      proportions: [0.15]
+      proportions: [0.2]
       contacts: 1.0
       mechanisms:
         AMPA:
@@ -492,7 +492,7 @@ Synapses:
       type: inhibitory
       sections: [basal, soma]
       layers: [Hilus, Hilus]
-      proportions: [0.67, 1.0]
+      proportions: [0.5, 1.0]
       contacts: 5.0
       swctype mechanisms:
         basal:
@@ -579,7 +579,7 @@ Synapses:
       type: inhibitory
       sections: [basal, apical]
       layers: [Hilus, Hilus]
-      proportions: [0.33, 1.0]
+      proportions: [0.5, 1.0]
       contacts: 1.0
       swctype mechanisms:
         basal:
@@ -770,7 +770,7 @@ Synapses:
       type: excitatory
       sections: [soma, basal, apical, apical]
       layers: [Hilus, Hilus, Hilus, GCL]
-      proportions: [0.68, 0.68, 0.68, 1.0]
+      proportions: [0.6, 0.4, 0.4, 1.0]
       swctype mechanisms:
         apical:
           AMPA:
@@ -800,7 +800,7 @@ Synapses:
       type: excitatory
       sections: [soma, basal, apical, apical]
       layers: [Hilus, Hilus, Hilus, IML]
-      proportions: [0.32, 0.12, 0.12, 1.0]
+      proportions: [0.4, 0.4, 0.4, 1.0]
       swctype mechanisms:
         apical:
           AMPA:
@@ -839,11 +839,23 @@ Synapses:
           g_unit: 0.0005
           weight: 1.0
           sat: 0.9
+    BC: 
+      type: inhibitory
+      sections: [basal, apical, apical, soma]
+      layers: [Hilus, GCL, Hilus, Hilus]
+      proportions: [0.3, 0.5, 0.3, 0.5]
+      mechanisms:
+          GABA_A:
+            dur_onset: 0.46
+            tau_offset: 4.43
+            e: -75
+            g_unit: 0.0018
+            weight: 1.0
     HCC:  
       type: inhibitory
       sections: [basal, apical, apical, apical]
       layers: [Hilus, Hilus, GCL, IML]
-      proportions: [0.3, 0.3, 1.0, 1.0]
+      proportions: [0.3, 0.3, 0.5, 1.0]
       swctype mechanisms:
         apical:
           GABA_A:
@@ -863,7 +875,7 @@ Synapses:
       type: inhibitory
       sections: [apical, apical]
       layers: [MML, OML]
-      proportions: [0.56, 0.56]
+      proportions: [0.9, 0.8]
       mechanisms:
         GABA_A:
           dur_onset:  4.2
@@ -881,7 +893,7 @@ Synapses:
       type: inhibitory
       sections: [apical, apical]
       layers: [MML, OML]
-      proportions: [0.44, 0.44]
+      proportions: [0.1, 0.2]
       mechanisms:
         GABA_A:
           dur_onset:  4.2
@@ -893,7 +905,7 @@ Synapses:
       type: inhibitory
       sections: [basal, apical, soma]
       layers: [Hilus, Hilus, Hilus]
-      proportions: [0.7, 0.7, 1.0]
+      proportions: [0.4, 0.4, 0.5]
       swctype mechanisms:
         apical:
           GABA_A:
