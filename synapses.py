@@ -841,6 +841,8 @@ def insert_hoc_cell_syns(env, gid, cell, syn_ids, syn_params, unique=False, inse
     if is_reduced:
         if hasattr(cell, 'soma'):
             cell_soma = cell.soma
+            if isinstance(cell_soma, list):
+                cell_soma = cell_soma[0]
         if hasattr(cell, 'dend'):
             cell_dendrite = cell.dend
 
@@ -887,7 +889,7 @@ def insert_hoc_cell_syns(env, gid, cell, syn_ids, syn_params, unique=False, inse
             mech_params = syn_params['default']
         else:
             mech_params = syn_params[swc_type]
-            
+
         for syn_name, params in viewitems(mech_params):
 
             syn_mech = make_syn_mech(syn_name=syn_name, seg=sec(syn_loc), syns_dict=syns_dict,
