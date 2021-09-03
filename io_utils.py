@@ -4,7 +4,7 @@ from mpi4py import MPI
 import h5py
 import numpy as np
 import dentate
-from dentate.utils import Struct, range, str, viewitems, basestring, Iterable, compose_iter, get_module_logger, get_trial_time_ranges
+from dentate.utils import Struct, range, str, viewitems, Iterable, compose_iter, get_module_logger, get_trial_time_ranges
 from neuroh5.io import write_cell_attributes, append_cell_attributes, append_cell_trees, write_graph, read_cell_attribute_selection, read_tree_selection, read_graph_selection, scatter_read_tree_selection, scatter_read_cell_attribute_selection, scatter_read_graph_selection
 from neuron import h
 
@@ -413,10 +413,10 @@ def get_h5py_attr(attrs, key):
     if key not in attrs:
         raise KeyError('get_h5py_attr: invalid key: %s' % key)
     val = attrs[key]
-    if isinstance(val, basestring):
+    if isinstance(val, str):
         val = np.string_(val).astype(str)
     elif isinstance(val, Iterable) and len(val) > 0:
-        if isinstance(val[0], basestring):
+        if isinstance(val[0], str):
             val = np.array(val, dtype='str')
     return val
 
@@ -430,10 +430,10 @@ def set_h5py_attr(attrs, key, val):
     :param key: str
     :param val: type converted if str or array of str
     """
-    if isinstance(val, basestring):
+    if isinstance(val, str):
         val = np.string_(val)
     elif isinstance(val, Iterable) and len(val) > 0:
-        if isinstance(val[0], basestring):
+        if isinstance(val[0], str):
             val = np.array(val, dtype='S')
     attrs[key] = val
 

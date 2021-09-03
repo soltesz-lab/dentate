@@ -30,7 +30,7 @@ Cell Types:
       density: !include MC_synapse_density.yaml
   HC:
     template: PR_nrn
-    mechanism file: DG_HIPP_PR_config.yaml
+    mechanism file: DG_HICAP_PR_config.yaml
     synapses:
       density: !include HC_synapse_density.yaml
   BC:

@@ -358,7 +358,7 @@ Synapses:
             tau_offset: 6.2
             e: 0
             sat: 0.9
-            g_unit: 0.00025
+            g_unit: 0.005
             weight: 1.0
     MPP:
       type: excitatory
@@ -371,7 +371,7 @@ Synapses:
           dur_onset:  0.5
           tau_offset: 3.0
           e:     0
-          g_unit: 0.0002
+          g_unit: 0.001
           weight: 1.0
     LPP:
       type: excitatory
@@ -384,7 +384,7 @@ Synapses:
           dur_onset:  0.5
           tau_offset: 3.0
           e:     0
-          g_unit: 0.0002
+          g_unit: 0.001
           weight: 1.0
     CA3c:   
       type: excitatory
@@ -397,7 +397,7 @@ Synapses:
           dur_onset: 0.5
           tau_offset: 3.6
           e: 0
-          g_unit: 0.0002
+          g_unit: 0.001
           weight: 1.0
           sat: 0.9
     MC:   
@@ -412,7 +412,7 @@ Synapses:
           tau_offset: 3.6
           e: 0
           sat: 0.9
-          g_unit: 0.00025
+          g_unit: 0.001
           weight: 1.0
     ConMC:   
       type: excitatory
@@ -426,7 +426,7 @@ Synapses:
           tau_offset: 3.6
           e: 0
           sat: 0.9
-          g_unit: 0.0005
+          g_unit: 0.001
           weight: 1.0
     BC:   
       type: inhibitory
@@ -440,14 +440,14 @@ Synapses:
             dur_onset: 0.22
             tau_offset: 3.35
             e: -75
-            g_unit: 0.0005
+            g_unit: 0.001
             weight: 1.0
         soma:
           GABA_A:
             dur_onset: 0.22
             tau_offset: 3.35
             e: -75
-            g_unit: 0.0005
+            g_unit: 0.001
             weight: 1.0
     HCC:  
       type: inhibitory
@@ -460,7 +460,7 @@ Synapses:
           dur_onset: 0.6
           tau_offset: 4.78
           e: -75
-          g_unit: 0.0005
+          g_unit: 0.001
           weight: 1.0
     HC:   
       type: inhibitory
@@ -473,7 +473,7 @@ Synapses:
           dur_onset: 0.46
           tau_offset: 4.43
           e: -75
-          g_unit: 0.0001
+          g_unit: 0.001
           weight: 1.0
     NGFC: 
       type: inhibitory
@@ -486,13 +486,13 @@ Synapses:
           dur_onset:   4.2
           tau_offset: 14.0
           e:    -75
-          g_unit: 0.0005
+          g_unit: 0.001
           weight: 1.0
         GABA_B:
           dur_onset:  50.0
           tau_offset: 200.0
           e:   -90
-          g_unit: 0.0005
+          g_unit: 0.001
           weight: 1.0
     MOPP: 
       type: inhibitory
@@ -505,7 +505,7 @@ Synapses:
           dur_onset:   4.2
           tau_offset: 14.0
           e:    -75
-          g_unit: 0.0005
+          g_unit: 0.001
           weight: 1.0
     IS:
       type: inhibitory
@@ -519,14 +519,14 @@ Synapses:
             dur_onset: 0.46
             tau_offset: 4.43
             e: -75
-            g_unit: 0.0005
+            g_unit: 0.001
             weight: 1.0
         apical:
           GABA_A:
             dur_onset: 0.46
             tau_offset: 4.43
             e: -75
-            g_unit: 0.0005
+            g_unit: 0.00
             weight: 1.0
   AAC:
     GC:   
@@ -540,7 +540,7 @@ Synapses:
           tau_offset: 6.2
           e: 0
           sat: 0.9
-          g_unit: 0.00025
+          g_unit: 0.005
           weight: 1.0
     MPP:
       type: excitatory
@@ -552,7 +552,7 @@ Synapses:
           dur_onset:  0.5
           tau_offset: 3.0
           e:     0
-          g_unit: 0.0002
+          g_unit: 0.002
           weight: 1.0
     LPP:
       type: excitatory
@@ -564,7 +564,7 @@ Synapses:
           dur_onset:  0.5
           tau_offset: 3.0
           e:     0
-          g_unit: 0.0002
+          g_unit: 0.002
           weight: 1.0
     CA3c:   
       type: excitatory
@@ -577,7 +577,7 @@ Synapses:
           dur_onset: 0.5
           tau_offset: 3.6
           e: 0
-          g_unit: 0.0002
+          g_unit: 0.002
           weight: 1.0
           sat: 0.9
     MC:   
@@ -591,7 +591,7 @@ Synapses:
           tau_offset: 3.6
           e: 0
           sat: 0.9
-          g_unit: 0.00025
+          g_unit: 0.0025
           weight: 1.0
     ConMC:   
       type: excitatory
@@ -604,7 +604,7 @@ Synapses:
           tau_offset: 3.6
           e: 0
           sat: 0.9
-          g_unit: 0.0005
+          g_unit: 0.001
           weight: 1.0
     HCC:  
       type: inhibitory
@@ -616,7 +616,7 @@ Synapses:
           dur_onset: 0.6
           tau_offset: 4.78
           e: -75
-          g_unit: 0.0005
+          g_unit: 0.001
           weight: 1.0
     HC:   
       type: inhibitory
@@ -628,7 +628,7 @@ Synapses:
           dur_onset: 0.46
           tau_offset: 4.43
           e: -75
-          g_unit: 0.0005
+          g_unit: 0.001
           weight: 1.0
     NGFC: 
       type: inhibitory
@@ -640,13 +640,13 @@ Synapses:
           dur_onset:   4.2
           tau_offset: 14.0
           e:    -75
-          g_unit: 0.0001
+          g_unit: 0.001
           weight: 1.0
         GABA_B:
           dur_onset:  50.0
           tau_offset: 200.0
           e:   -90
-          g_unit: 0.0001
+          g_unit: 0.001
           weight: 1.0
     MOPP: 
       type: inhibitory
@@ -658,7 +658,7 @@ Synapses:
           dur_onset:   4.2
           tau_offset: 14.0
           e:    -75
-          g_unit: 0.0005
+          g_unit: 0.001
           weight: 1.0
     IS:
       type: inhibitory
@@ -670,7 +670,7 @@ Synapses:
           dur_onset: 0.46
           tau_offset: 4.43
           e: -75
-          g_unit: 0.0005
+          g_unit: 0.001
           weight: 1.0
   HCC:
     MPP:
@@ -684,7 +684,7 @@ Synapses:
           tau_offset: 5.0
           e: 0
           sat: 0.9
-          g_unit: 0.000125
+          g_unit: 0.0025
           weight: 6.085
     LPP:
       type: excitatory
@@ -697,7 +697,7 @@ Synapses:
           tau_offset: 5.0
           e: 0
           sat: 0.9
-          g_unit: 0.000125
+          g_unit: 0.0025
           weight: 6.085
     GC:   
       type: excitatory
@@ -710,7 +710,7 @@ Synapses:
             tau_offset: 6.2
             e: 0
             sat: 0.9
-            g_unit: 0.0002
+            g_unit: 0.002
             weight: 6.085
     MC:   
       type: excitatory
@@ -723,7 +723,7 @@ Synapses:
             tau_offset: 3.6
             e: 0
             sat: 0.9
-            g_unit: 0.0002
+            g_unit: 0.002
             weight: 6.085
     CA3c:   
       type: excitatory
@@ -735,7 +735,7 @@ Synapses:
           dur_onset: 0.3
           tau_offset: 3.6
           e: 0
-          g_unit: 0.000125
+          g_unit: 0.0025
           weight: 6.085
           sat: 0.9
     HCC:  
@@ -749,14 +749,14 @@ Synapses:
             dur_onset: 0.72
             tau_offset: 4.7
             e: -75
-            g_unit: 0.000125
+            g_unit: 0.001
             weight: 0.265
         basal:
           GABA_A:
             dur_onset: 0.72
             tau_offset: 4.7
             e: -75
-            g_unit: 0.000125
+            g_unit: 0.001
             weight: 0.265
     NGFC: 
       type: inhibitory
@@ -768,13 +768,13 @@ Synapses:
           dur_onset:  4.2
           tau_offset: 16.2
           e: -75
-          g_unit: 0.0001
+          g_unit: 0.001
           weight: 0.407
         GABA_B:
           dur_onset:  50.0  # https://physoc.onlinelibrary.wiley.com/doi/abs/10.1113/jphysiol.1993.sp019600
           tau_offset: 200.0  # http://www.jneurosci.org/content/33/18/7961
           e: -90
-          g_unit: 0.0001
+          g_unit: 0.001
           weight: 0.035
     MOPP: 
       type: inhibitory
@@ -786,7 +786,7 @@ Synapses:
           dur_onset:  4.2
           tau_offset: 16.2
           e: -75
-          g_unit: 0.0001
+          g_unit: 0.001
           weight: 0.407
     IS: 
       type: inhibitory
@@ -799,21 +799,21 @@ Synapses:
             dur_onset: 0.72
             tau_offset: 4.43
             e: -75
-            g_unit: 0.0008
+            g_unit: 0.001
             weight: 6.715
         basal:
           GABA_A:
             dur_onset: 0.72
             tau_offset: 4.43
             e: -75
-            g_unit: 0.0008
+            g_unit: 0.001
             weight: 6.715
         soma:
           GABA_A:
             dur_onset: 0.72
             tau_offset: 4.43
             e: -75
-            g_unit: 0.0008
+            g_unit: 0.001
             weight: 6.715
   NGFC:
     MPP:

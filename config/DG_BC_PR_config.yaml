@@ -9,6 +9,9 @@ PinskyRinzel:
   dend_gmax_KCa: 0.06060625
   dend_gmax_KAHP: 0.0013015375
   dend_g_pas: 0.0009665875
+  dend_d_Caconc: 13.
+  global_cm: 1.
+  global_diam: 10.
   ic_constant: 0.00351442
   V_rest: -64.0
   V_threshold: -43.0

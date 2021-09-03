@@ -12,8 +12,8 @@ DG_populations = ["AAC", "BC", "GC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC", "M
 DG_IN_populations = ["AAC", "BC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC"]
 DG_EXT_populations = ["MPP", "LPP", "CA3c", "ConMC"]
 
-DG_cells_file = "DG_Cells_Full_Scale_20210808.h5"
-DG_connections_file = "DG_Connections_Full_Scale_20210808.h5"
+DG_cells_file = "DG_Cells_Full_Scale_20210827.h5"
+DG_connections_file = "DG_Connections_Full_Scale_20210827.h5"
 
 DG_GC_coordinate_file  = "DG_coords_20190717_compressed.h5"
 DG_IN_coordinate_file  = "DG_coords_20190717_compressed.h5"
@@ -30,8 +30,8 @@ DG_GC_syn_weights_S_file = "DG_GC_syn_weights_S_20210708_compressed.h5"
 DG_MC_syn_weights_LN_file = "DG_MC_syn_weights_LN_20210107_compressed.h5"
 DG_MC_syn_weights_S_file = "DG_MC_syn_weights_S_20210708_compressed.h5"
 
-DG_GC_connectivity_file = "DG_GC_connections_20210107_compressed.h5"
-DG_IN_connectivity_file = "DG_IN_connections_20210107_compressed.h5"
+DG_GC_connectivity_file = "DG_GC_connections_20210827_compressed.h5"
+DG_IN_connectivity_file = "DG_IN_connections_20210827_compressed.h5"
 
 connectivity_files = {
     'AAC': DG_IN_connectivity_file,
@@ -138,60 +138,61 @@ syn_weight_files = {
 
 }
 
-# ## Creates H5Types entries
-# with h5py.File(DG_cells_file, 'w') as f:
-#     input_file  = h5py.File(h5types_file,'r')
-#     h5_copy_dataset(input_file, f, '/H5Types')
-#     input_file.close()
-# with h5py.File(DG_connections_file, 'w') as f:
-#     input_file  = h5py.File(h5types_file,'r')
-#     h5_copy_dataset(input_file, f, '/H5Types')
-#     input_file.close()
+## Creates H5Types entries
+with h5py.File(DG_cells_file, 'w') as f:
+    input_file  = h5py.File(h5types_file,'r')
+    h5_copy_dataset(input_file, f, '/H5Types')
+    input_file.close()
 
-# ## Creates coordinates entries
-# with h5py.File(DG_cells_file, 'a') as f_dst:
+with h5py.File(DG_connections_file, 'w') as f:
+    input_file  = h5py.File(h5types_file,'r')
+    h5_copy_dataset(input_file, f, '/H5Types')
+    input_file.close()
 
-#     grp = f_dst.create_group("Populations")
+## Creates coordinates entries
+with h5py.File(DG_cells_file, 'a') as f_dst:
+
+    grp = f_dst.create_group("Populations")
                 
-#     for p in DG_populations:
-#         grp.create_group(p)
+    for p in DG_populations:
+        grp.create_group(p)
 
-#     for p in DG_populations:
-#         coords_file = coordinate_files[p]
-#         coords_ns   = coordinate_namespaces[p]
-#         coords_dset_path = f"/Populations/{p}/{coords_ns}"
-#         distances_dset_path = f"/Populations/{p}/Arc Distances"
-#         with h5py.File(coords_file, 'r') as f_src:
-#             h5_copy_dataset(f_src, f_dst, coords_dset_path)
-#             h5_copy_dataset(f_src, f_dst, distances_dset_path)
+    for p in DG_populations:
+        coords_file = coordinate_files[p]
+        coords_ns   = coordinate_namespaces[p]
+        coords_dset_path = f"/Populations/{p}/{coords_ns}"
+        distances_dset_path = f"/Populations/{p}/Arc Distances"
+        with h5py.File(coords_file, 'r') as f_src:
+            h5_copy_dataset(f_src, f_dst, coords_dset_path)
+            h5_copy_dataset(f_src, f_dst, distances_dset_path)
 
 
 # ## Creates forest entries and synapse attributes
-# with h5py.File(DG_cells_file, 'a') as f_dst:
+with h5py.File(DG_cells_file, 'a') as f_dst:
 
-#     for p in DG_populations:
-#         if p in forest_files:
-#             forest_file = forest_files[p]
-#             forest_syns_file = forest_syns_files[p]
-#             forest_dset_path = f"/Populations/{p}/Trees"
-#             forest_syns_dset_path = f"/Populations/{p}/Synapse Attributes"
-#             with h5py.File(forest_file, 'r') as f_src:
-#                 h5_copy_dataset(f_src, f_dst, forest_dset_path)
-#             with h5py.File(forest_syns_file, 'r') as f_src:
-#                 h5_copy_dataset(f_src, f_dst, forest_syns_dset_path)
+    for p in DG_populations:
+        if p in forest_files:
+            forest_file = forest_files[p]
+            forest_syns_file = forest_syns_files[p]
+            forest_dset_path = f"/Populations/{p}/Trees"
+            forest_syns_dset_path = f"/Populations/{p}/Synapse Attributes"
+            with h5py.File(forest_file, 'r') as f_src:
+                h5_copy_dataset(f_src, f_dst, forest_dset_path)
+            with h5py.File(forest_syns_file, 'r') as f_src:
+                h5_copy_dataset(f_src, f_dst, forest_syns_dset_path)
 
-#     for p in DG_populations:
-#         if p in syn_weight_files:
-#             weight_dict = syn_weight_files[p]
-#             for w in weight_dict:
-#                 if isinstance(weight_dict[w], tuple):
-#                     syn_weight_file = weight_dict[w][1]
-#                     syn_weight_dset_path = f"/Populations/{p}/{weight_dict[w][0]}"
-#                 else:
-#                     syn_weight_file = weight_dict[w]
-#                     syn_weight_dset_path = f"/Populations/{p}/{w}"
-#                 with h5py.File(syn_weight_file, 'r') as f_src:
-#                     h5_copy_dataset(f_src, f_dst, syn_weight_dset_path)
+    for p in DG_populations:
+        if p in syn_weight_files:
+            weight_dict = syn_weight_files[p]
+            for w in weight_dict:
+                if isinstance(weight_dict[w], tuple):
+                    syn_weight_file = weight_dict[w][1]
+                    syn_weight_dset_path = f"/Populations/{p}/{weight_dict[w][0]}"
+                else:
+                    syn_weight_file = weight_dict[w]
+                    syn_weight_dset_path = f"/Populations/{p}/{w}"
+                with h5py.File(syn_weight_file, 'r') as f_src:
+                    h5_copy_dataset(f_src, f_dst, syn_weight_dset_path)
                 
 
 ## Creates connectivity entries
