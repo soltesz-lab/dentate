@@ -24,7 +24,7 @@ from dentate.env import Env
 from dentate.synapses import get_syn_filter_dict, get_syn_mech_param
 from dentate.utils import get_module_logger, Promise, Struct, add_bins, update_bins, finalize_bins
 from dentate.utils import power_spectrogram, butter_bandpass_filter, apply_filter, kde_scipy, make_geometric_graph, viewitems, \
-    zip_longest, basestring
+    zip_longest
 from dentate.neuron_utils import interplocs
 from dentate.io_utils import get_h5py_attr, set_h5py_attr
 
@@ -268,7 +268,7 @@ def plot_vertex_metrics(env, connectivity_path, coords_path, vertex_metrics_name
         ax.set_aspect('equal')
     
         if fig_options.saveFig:
-            if isinstance(fig_options.saveFig, basestring):
+            if isinstance(fig_options.saveFig, str):
                 filename = fig_options.saveFig
             else:
                 filename = '%s to %s %s %s.%s' % (source, destination, metric, graph_type, fig_options.figFormat)
@@ -359,7 +359,7 @@ def plot_vertex_distribution(connectivity_path, coords_path, distances_namespace
             ax3.tick_params(labelsize=fig_options.fontSize)
             
             if fig_options.saveFig:
-                if isinstance(fig_options.saveFig, basestring):
+                if isinstance(fig_options.saveFig, str):
                     filename = fig_options.saveFig
                 else:
                     filename = 'Connection distance %s to %s.%s' % (source, destination, fig_options.figFormat)
@@ -518,7 +518,7 @@ def plot_single_vertex_dist(env, connectivity_path, coords_path, distances_names
             show_figure()
 
         if fig_options.saveFig:
-            if isinstance(fig_options.saveFig, basestring):
+            if isinstance(fig_options.saveFig, str):
                 filename = fig_options.saveFig
             else:
                 filename = 'Connection distance %s %s to %s gid %i.%s' % (direction, source, destination, target_gid, fig_options.figFormat)
@@ -589,7 +589,7 @@ def plot_tree_metrics(env, forest_path, coords_path, population, metric_namespac
     fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
     
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, basestring):
+        if isinstance(fig_options.saveFig, str):
             filename = fig_options.saveFig
         else:
             filename = population+' %s.%s' % (metric, fig_options.figFormat)
@@ -649,7 +649,7 @@ def plot_tree_metric_histogram(env, forest_path, population, metric_namespace='T
     ax.set_title('%s for population: %s' % (metric, population), fontsize=fig_options.fontSize)
     
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, basestring):
+        if isinstance(fig_options.saveFig, str):
             filename = fig_options.saveFig
         else:
             filename = population+' %s.%s' % (metric, fig_options.figFormat)
@@ -731,7 +731,7 @@ def plot_positions(env, label, distances, bin_size=50., graph_type ='kde', **kwa
     ax.set_aspect('equal')
     
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, basestring):
+        if isinstance(fig_options.saveFig, str):
             filename = fig_options.saveFig
         else:
             filename = '%s Positions.%s' % (label, fig_options.figFormat)
@@ -808,7 +808,7 @@ def plot_coordinates(coords_path, population, namespace, index = 0, graph_type =
     ax.set_title('Coordinate distribution for population: %s' % (population), fontsize=fig_options.fontSize)
     
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, basestring):
+        if isinstance(fig_options.saveFig, str):
             filename = fig_options.saveFig
         else:
             filename = population+' Coordinates.%s' % fig_options.figFormat
@@ -880,7 +880,7 @@ def plot_projected_coordinates(coords_path, population, namespace, index = 0, gr
     ax.set_title('Coordinate distribution for population: %s' % (population), fontsize=fig_options.fontSize)
     
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, basestring):
+        if isinstance(fig_options.saveFig, str):
             filename = fig_options.saveFig
         else:
             filename = population+' Coordinates.%s' % fig_options.figFormat
@@ -946,7 +946,7 @@ def plot_reindex_positions(env, coords_path, population, distances_namespace='Ar
     fig.colorbar(pcm, ax=ax, shrink=0.5, aspect=20)
     
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, basestring):
+        if isinstance(fig_options.saveFig, str):
             filename = fig_options.saveFig
         else:
             filename = population+' Reindex Positions.%s' % fig_options.figFormat
@@ -1639,7 +1639,7 @@ def plot_population_density(population, soma_coords, distances_namespace, max_u,
     cbar.ax.set_ylabel('Counts')
 
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, basestring):
+        if isinstance(fig_options.saveFig, str):
             filename = fig_options.saveFig
         else:
             filename = distances_namespace+' '+'density.%s' % fig_options.figFormat
@@ -1734,7 +1734,7 @@ def plot_lfp(config, input_path, time_range = None, compute_psd=False, window_si
 
     # save figure
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, basestring):
+        if isinstance(fig_options.saveFig, str):
             filename = fig_options.saveFig
         else:
             filename = namespace_id+'.%s' % fig_options.figFormat
@@ -1801,7 +1801,7 @@ def plot_lfp_spectrogram(config, input_path, time_range = None, window_size=4096
 
     # save figure
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, basestring):
+        if isinstance(fig_options.saveFig, str):
             filename = fig_options.saveFig
         else:
             filename = namespace_id+'.%s' % fig_options.figFormat
@@ -1964,7 +1964,7 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
         
     # save figure
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, basestring):
+        if isinstance(fig_options.saveFig, str):
             filename = fig_options.saveFig
         else:
             filename = input_path+' '+'state.%s' % fig_options.figFormat
@@ -2123,7 +2123,7 @@ def plot_axial_current (input_path, namespace_ids, include = ['eachPop'], time_r
         
     # save figure
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, basestring):
+        if isinstance(fig_options.saveFig, str):
             filename = fig_options.saveFig
         else:
             filename = input_path+' '+'state.%s' % fig_options.figFormat
@@ -2474,7 +2474,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     
     # save figure
     if fig_options.saveFig:
-       if isinstance(fig_options.saveFig, basestring):
+       if isinstance(fig_options.saveFig, str):
            filename = fig_options.saveFig
        else:
            filename = namespace_id+' '+'raster.%s' % fig_options.figFormat
@@ -3005,7 +3005,7 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
     # save figure
     ts = time.strftime("%Y%m%d_%H%M%S") 
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, basestring):
+        if isinstance(fig_options.saveFig, str):
             filename = fig_options.saveFig
         else:
             filename = 'Network Clamp %s %i.%s' % (state_pop_name, gid, fig_options.figFormat) if opt_seed is None else 'NetworkClamp_{!s}_{:d}_{!s}_{:08d}.{!s}'.format(state_pop_name, gid, ts, opt_seed, fig_options.figFormat)
@@ -3149,7 +3149,7 @@ def plot_spike_rates(input_path, namespace_id, config_path=None, include = ['eac
             plt.xlabel('Time (ms)', fontsize=fig_options.fontSize)
 
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, basestring):
+        if isinstance(fig_options.saveFig, str):
             filename = fig_options.saveFig
         else:
             if meansub:
@@ -3339,7 +3339,7 @@ def plot_spike_rates_with_features(spike_input_path, spike_namespace_id, arena_i
             plt.xlabel('Time (ms)', fontsize=fig_options.fontSize)
 
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, basestring):
+        if isinstance(fig_options.saveFig, str):
             filename = fig_options.saveFig
         else:
             if meansub:
@@ -3537,7 +3537,7 @@ def plot_spike_histogram (input_path, namespace_id, config_path=None, include = 
 
 
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, basestring):
+        if isinstance(fig_options.saveFig, str):
             filename = fig_options.saveFig
         else:
             filename = namespace_id+' '+'histogram.%s' % fig_options.figFormat
@@ -3671,7 +3671,7 @@ def plot_spike_distribution_per_cell (input_path, namespace_id, include = ['each
         plt.subplots_adjust(right=(0.9-0.012*maxLabelLen))
 
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, basestring):
+        if isinstance(fig_options.saveFig, str):
             filename = fig_options.saveFig
         else:
             filename = namespace_id+' '+'distribution.%s' % fig_options.figFormat
@@ -3835,7 +3835,7 @@ def plot_spike_distribution_per_time (input_path, namespace_id, config_path=None
 
 
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, basestring):
+        if isinstance(fig_options.saveFig, str):
             filename = fig_options.saveFig
         else:
             filename = namespace_id+' '+'distribution.%s' % fig_options.figFormat
@@ -4002,7 +4002,7 @@ def plot_place_cells(features_path, population, nfields=1, to_plot=100, **kwargs
         plt.colorbar(img, ax=axes[i%axes_dim, (i / axes_dim)])
  
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, basestring):
+        if isinstance(fig_options.saveFig, str):
             title = fig_options.saveFig
         else:
             title = 'Place-Fields.png'
@@ -4312,7 +4312,7 @@ def plot_spike_PSD (input_path, namespace_id, include = ['eachPop'], include_art
 
     # save figure
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, basestring):
+        if isinstance(fig_options.saveFig, str):
             filename = fig_options.saveFig
         else:
             filename = namespace_id+' '+'rate PSD.%s' % fig_options.figFormat
@@ -4429,7 +4429,7 @@ def plot_selectivity_metrics (env, coords_path, features_path, distances_namespa
     ax.set_aspect('equal')
 
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, basestring):
+        if isinstance(fig_options.saveFig, str):
             filename = fig_options.saveFig
         else:
             filename = '%s-%s-%s.%s' % (population, selectivity_type, metric, fig_options.figFormat)
@@ -4485,7 +4485,7 @@ def plot_stimulus_ratemap(env, input_path, namespace_id, population, arena_id=No
     
     # save figure
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, basestring):
+        if isinstance(fig_options.saveFig, str):
             filename = fig_options.saveFig
         else:
             filename = namespace_id+'_'+'ratemap.%s' % fig_options.figFormat
@@ -4591,7 +4591,7 @@ def plot_stimulus_spatial_rate_map(env, input_path, coords_path, arena_id, traje
 
         # save figure
         if fig_options.saveFig:
-            if isinstance(fig_options.saveFig, basestring):
+            if isinstance(fig_options.saveFig, str):
                 filename = fig_options.saveFig
             else:
                 filename = '%s %s spatial ratemap.%s' % (population, stimulus_namespace, fig_options.figFormat)
@@ -4843,9 +4843,9 @@ def plot_synaptic_attribute_distribution(cell, env, syn_name, param_name, filter
     if svg_title is not None:
         remember_font_size = mpl.rcParams['font.size']
         mpl.rcParams['font.size'] = 20
-    if sec_types is None or (isinstance(sec_types, basestring) and sec_types == 'dend'):
+    if sec_types is None or (isinstance(sec_types, str) and sec_types == 'dend'):
         sec_types = ['basal', 'trunk', 'apical', 'tuft']
-    elif isinstance(sec_types, basestring) and sec_types == 'all':
+    elif isinstance(sec_types, str) and sec_types == 'all':
         sec_types = default_ordered_sec_types
     elif not all(sec_type in default_ordered_sec_types for sec_type in sec_types):
         raise ValueError('plot_synaptic_attribute_distribution: unrecognized sec_types: %s' % str(sec_types))
@@ -5185,9 +5185,9 @@ def plot_mech_param_distribution(cell, mech_name, param_name, export=None, overw
     if svg_title is not None:
         remember_font_size = mpl.rcParams['font.size']
         mpl.rcParams['font.size'] = 20
-    if sec_types is None or (isinstance(sec_types, basestring) and sec_types == 'dend'):
+    if sec_types is None or (isinstance(sec_types, str) and sec_types == 'dend'):
         sec_types = ['basal', 'trunk', 'apical', 'tuft']
-    elif isinstance(sec_types, basestring) and sec_types == 'all':
+    elif isinstance(sec_types, str) and sec_types == 'all':
         sec_types = default_ordered_sec_types
     elif not all(sec_type in default_ordered_sec_types for sec_type in sec_types):
         raise ValueError('plot_mech_param_distribution: unrecognized sec_types: %s' % str(sec_types))
@@ -5314,9 +5314,9 @@ def plot_cable_param_distribution(cell, mech_name, export=None, overwrite=False,
     if svg_title is not None:
         remember_font_size = mpl.rcParams['font.size']
         mpl.rcParams['font.size'] = 20
-    if sec_types is None or (isinstance(sec_types, basestring) and sec_types == 'dend'):
+    if sec_types is None or (isinstance(sec_types, str) and sec_types == 'dend'):
         sec_types = ['basal', 'trunk', 'apical', 'tuft']
-    elif isinstance(sec_types, basestring) and sec_types == 'all':
+    elif isinstance(sec_types, str) and sec_types == 'all':
         sec_types = default_ordered_sec_types
     elif not all(sec_type in default_ordered_sec_types for sec_type in sec_types):
         raise ValueError('plot_synaptic_attribute_distribution: unrecognized sec_types: %s' % str(sec_types))
@@ -6029,7 +6029,7 @@ def plot_network_clamp_trial(input_path, spike_namespace, intracellular_namespac
     # save figure
     ts = time.strftime("%Y%m%d_%H%M%S") 
     if fig_options.saveFig:
-        if isinstance(fig_options.saveFig, basestring):
+        if isinstance(fig_options.saveFig, str):
             filename = fig_options.saveFig
         else:
             filename = 'Network_Clamp_%s_ %i.pdf' % (state_pop_name, gid) if opt_seed is None else 'NetworkClamp_{!s}_{:d}_{!s}_{:08d}.{!s}'.format(state_pop_name, gid, ts, opt_seed, fig_options.figFormat)
