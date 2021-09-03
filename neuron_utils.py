@@ -261,12 +261,10 @@ def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v
             ri = None
     elif (sec is not None) and (loc is not None):
         hocobj = sec(loc)
-        logger.info(f'cell.soma.__class__.__name__ = {cell.soma.__class__.__name__}')
         if cell.soma.__class__.__name__.lower() == "section":
             origin = cell.soma
         else:
             origin = list(cell.soma)[0]
-        logger.info(f'origin = {origin}')
         h.distance(sec=origin)
         distance = h.distance(loc, sec=sec)
         ri = h.ri(loc, sec=sec)
