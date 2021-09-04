@@ -1,7 +1,7 @@
 export DATA_PREFIX=/media/igr/d865f900-7fcd-45c7-a7a7-bd2a7391bc40/Data/DG
 
 python3 network_clamp.py go -c Network_Clamp_GC_Exc_Sat_SLN_IN_PR.yaml \
-        -p NGFC -g 1044650 -t 9500 --dt 0.01 --use-coreneuron \
+        -p MOPP -g 1052650 -t 9500 --dt 0.01 --use-coreneuron \
         --dataset-prefix $DATA_PREFIX \
         --template-paths templates:$HOME/src/model/DGC/Mateos-Aparicio2014:$HOME/src/model/XPPcode \
         --config-prefix config \
