@@ -232,7 +232,7 @@ def spikeout(env, output_path, t_start=None, clear_data=False):
     n_trials = env.n_trials
 
     t_vec = env.t_vec.as_numpy()
-    id_vec = env.id_vec.as_numpy()
+    id_vec = np.asarray(env.id_vec.as_numpy(), dtype=np.uint32)
 
     trial_time_ranges = get_trial_time_ranges(env.t_rec.to_python(), env.n_trials)
     trial_time_bins = [ t_trial_start for t_trial_start, t_trial_end in trial_time_ranges ] 

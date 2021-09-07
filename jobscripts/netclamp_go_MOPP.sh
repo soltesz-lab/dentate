@@ -9,5 +9,5 @@ python3 network_clamp.py go -c Network_Clamp_GC_Exc_Sat_SLN_IN_PR.yaml \
         --input-features-namespaces 'Place Selectivity' \
         --input-features-namespaces 'Grid Selectivity' \
         --input-features-namespaces 'Constant Selectivity' \
-        --arena-id A --trajectory-id Diag \
+        --arena-id A --trajectory-id Diag --phase-mod \
         --results-path results/netclamp

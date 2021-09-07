@@ -1,7 +1,7 @@
 import os, sys
 import click
 from dentate import env, utils, io_utils
-from env import Env
+from dentate.env import Env
 
 
 @click.command()
