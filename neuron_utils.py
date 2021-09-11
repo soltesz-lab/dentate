@@ -182,6 +182,7 @@ def configure_hoc_env(env, bcast_template=False):
             h.load_file(path)
     h.cvode.use_fast_imem(1)
     h.cvode.cache_efficient(1)
+    h.secondorder = 2
     h('objref pc, nc, nil')
     h('strdef dataset_path')
     if hasattr(env, 'dataset_path'):
