@@ -1,18 +1,52 @@
 :  Vector stream of events
 
+COMMENT
+A VecStim is an artificial spiking cell that generates
+events at times that are specified in a Vector.
+
+HOC Example:
+
+// assumes spt is a Vector whose elements are all > 0
+// and are sorted in monotonically increasing order
+objref vs
+vs = new VecStim()
+vs.play(spt)
+// now launch a simulation, and vs will produce spike events
+// at the times contained in spt
+
+Python Example:
+
+from neuron import h
+spt = h.Vector(10).indgen(1, 0.2)
+vs = h.VecStim()
+vs.play(spt)
+
+def pr():
+  print (h.t)
+
+nc = h.NetCon(vs, None)
+nc.record(pr)
+
+cvode = h.CVode()
+h.finitialize()
+cvode.solve(20)
+
+ENDCOMMENT
+
 NEURON {
 	THREADSAFE
 	ARTIFICIAL_CELL VecStim
 	BBCOREPOINTER ptr
-        RANGE xpos, ypos, zpos, gid   
-    }
-    
-    PARAMETER {
+	RANGE xpos, ypos, zpos, gid
+}
+
+PARAMETER {
     xpos = 0
     ypos = 0
     zpos = 0
     gid = 0
 }
+
 
 ASSIGNED {
 	index
@@ -29,6 +63,16 @@ INITIAL {
 	}
 }
 
+FUNCTION is_art() {
+     is_art=1
+}
+
+PROCEDURE position(a, b, c) { 
+	xpos = a
+	ypos = b
+	zpos = c
+}
+
 NET_RECEIVE (w) {
 	if (flag == 1) {
 		net_event(t)
@@ -39,31 +83,16 @@ NET_RECEIVE (w) {
 	}
 }
 
-FUNCTION is_art() {
-	is_art=1
-}
-
-PROCEDURE position(a, b, c) { 
-	xpos = a
-	ypos = b
-	zpos = c
-}
-
 DESTRUCTOR {
 VERBATIM
+#if !NRNBBCORE
 	void* vv = (void*)(_p_ptr);  
         if (vv) {
 		hoc_obj_unref(*vector_pobj(vv));
 	}
-ENDVERBATIM
-}
-
-VERBATIM
-#include <stdint.h>
-#if NRNBBCORE
-#include "coreneuron/utils/ivocvect.hpp"
 #endif
 ENDVERBATIM
+}
 
 PROCEDURE element() {
 VERBATIM	
@@ -91,6 +120,7 @@ ENDVERBATIM
 PROCEDURE play() {
 VERBATIM
 #if !NRNBBCORE
+  {
 	void** pv;
 	void* ptmp = NULL;
 	if (ifarg(1)) {
@@ -102,52 +132,49 @@ VERBATIM
 		hoc_obj_unref(*vector_pobj(*pv));
 	}
 	*pv = ptmp;
+  }
 #endif
 ENDVERBATIM
 }
 
 VERBATIM
-static void bbcore_write(double* dArray, int* iArray, int* doffset, int* ioffset, _threadargsproto_) {
-#if !NRNBBCORE
-        uint32_t dsize = 0;
-        if (_p_ptr) {
-          dsize = (uint32_t)vector_capacity(_p_ptr);
-        }
-        if (iArray) {
-                uint32_t* ia = ((uint32_t*)iArray) + *ioffset;
-                void* vec = _p_ptr;
-                ia[0] = dsize;
-
-                double *da = dArray + *doffset;
-                double *dv;
-                if(dsize) {
-                  dv = vector_vec(vec);
-                }
-                int iInt;
-                for (iInt = 0; iInt < dsize; ++iInt) {
-                  da[iInt] = dv[iInt];
-                }
-        }
-        *ioffset += 1;
-        *doffset += dsize;
-#endif
+static void bbcore_write(double* xarray, int* iarray, int* xoffset, int* ioffset, _threadargsproto_) {
+  int i, dsize, *ia;
+  double *xa, *dv;
+  dsize = 0;
+  if (_p_ptr) {
+    dsize = vector_capacity(_p_ptr);
+  }
+  if (xarray) {
+    void* vec = _p_ptr;
+    ia = iarray + *ioffset;
+    xa = xarray + *xoffset;
+    ia[0] = dsize;
+    if (dsize) {
+      dv = vector_vec(vec);
+      for (i = 0; i < dsize; ++i) {
+         xa[i] = dv[i];
+      }
+    }
+  }
+  *ioffset += 1;
+  *xoffset += dsize;
 }
 
-static void bbcore_read(double* dArray, int* iArray, int* doffset, int* ioffset, _threadargsproto_) {
-        assert(!_p_ptr);
-        uint32_t* ia = ((uint32_t*)iArray) + *ioffset;
-        int dsize = ia[0];
-        *ioffset += 1;
-
-        double *da = dArray + *doffset;
-        _p_ptr = vector_new1(dsize);  /* works for dsize=0 */
-        double *dv = vector_vec(_p_ptr);
-        int iInt;
-        for (iInt = 0; iInt < dsize; ++iInt)
-        {
-          dv[iInt] = da[iInt];
-        }
-        *doffset += dsize;
+static void bbcore_read(double* xarray, int* iarray, int* xoffset, int* ioffset, _threadargsproto_) {
+  int dsize, i, *ia;
+  double *xa, *dv;
+//  assert(!_p_ptr);
+  xa = xarray + *xoffset;
+  ia = iarray + *ioffset;
+  dsize = ia[0];
+  _p_ptr = vector_new1(dsize);
+  dv = vector_vec(_p_ptr);
+  for (i = 0; i < dsize; ++i) {
+    dv[i] = xa[i];
+  }
+  *xoffset += dsize;
+  *ioffset += 1;
 }
+
 ENDVERBATIM
-
