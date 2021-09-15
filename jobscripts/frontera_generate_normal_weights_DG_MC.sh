@@ -11,14 +11,13 @@
 #SBATCH --mail-type=BEGIN
 #
 
-module load intel/18.0.5
 module load python3
 module load phdf5
 
 
-export NEURONROOT=$SCRATCH/bin/nrnpython3_intel18
-export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel18:$PYTHONPATH
-
+export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
+export DATA_PREFIX=$SCRATCH/striped2/dentate
 
 set -x
 
@@ -29,8 +28,8 @@ ibrun python3 ./scripts/generate_normal_weights_as_cell_attr.py \
     -d MC -s GC -s MC \
     --config=Full_Scale_Basis.yaml \
     --config-prefix=./config \
-    --weights-path=$SCRATCH/striped/dentate/Full_Scale_Control/DG_MC_syn_weights_LN_20210107.h5 \
-    --connections-path=$SCRATCH/striped/dentate/Full_Scale_Control/DG_IN_connections_20210107.h5 \
+    --weights-path=$DATA_PREFIX/Full_Scale_Control/DG_MC_syn_weights_LN_20210908.h5 \
+    --connections-path=$DATA_PREFIX/Full_Scale_Control/DG_IN_connections_20210827_compressed.h5 \
     --io-size=20  --value-chunk-size=10000 --chunk-size=10000 --write-size=0 -v
 
 

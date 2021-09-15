@@ -36,4 +36,4 @@ ibrun -n 1  python3 network_clamp.py go  -c Network_Clamp_GC_Exc_Sat_SLN_IN_PR.y
     --input-features-namespaces 'Constant Selectivity' \
     --phase-mod --coords-path "$DATA_PREFIX/Full_Scale_Control/DG_coords_20190717_compressed.h5" \
     --arena-id A --trajectory-id Diag \
-    --params-path $SCRATCH/dentate/results/netclamp/network_clamp.optimize.NGFC_20210906_215702_NOS73977568.yaml
+    --params-path $SCRATCH/dentate/results/netclamp/network_clamp.optimize.NGFC_20210907_164001_NOS05912971.yaml

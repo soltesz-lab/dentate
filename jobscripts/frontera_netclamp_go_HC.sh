@@ -22,9 +22,9 @@ export MODEL_HOME=$HOME/model
 export DG_HOME=$MODEL_HOME/dentate
 export DATA_PREFIX=$SCRATCH/striped2/dentate
 
-cd $SLURM_SUBMIT_DIR
+#cd $SLURM_SUBMIT_DIR
 
-ibrun -n 1  python3 network_clamp.py go  -c Network_Clamp_GC_Exc_Sat_SLN_IN_PR.yaml \
+ibrun -n 1 python3 network_clamp.py go  -c Network_Clamp_GC_Exc_Sat_SLN_IN_PR.yaml \
     -p HC -g 1032250 -t 9500 --n-trials 1 --use-coreneuron --dt 0.01 \
     --template-paths $MODEL_HOME/XPPcode:$DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --config-prefix config \
@@ -36,8 +36,7 @@ ibrun -n 1  python3 network_clamp.py go  -c Network_Clamp_GC_Exc_Sat_SLN_IN_PR.y
     --input-features-namespaces 'Constant Selectivity' \
     --arena-id A --trajectory-id Diag \
     --phase-mod --coords-path "$DATA_PREFIX/Full_Scale_Control/DG_coords_20190717_compressed.h5" \
-    --params-path $SCRATCH/dentate/results/netclamp/network_clamp.optimize.HC_20210905_144444_NOS28016460.yaml
-
+    --params-path $SCRATCH/dentate/results/netclamp/network_clamp.optimize.HC_20210907_171935_NOS30049553.yaml
 
 
  
