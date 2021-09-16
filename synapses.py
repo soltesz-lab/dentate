@@ -8,7 +8,7 @@ from neuroh5.io import write_cell_attributes
 from dentate.cells import get_distance_to_node, get_donor, get_mech_rules_dict, get_param_val_by_distance, \
     import_mech_dict_from_file, make_section_graph, custom_filter_if_terminal, \
     custom_filter_modify_slope_if_terminal, custom_filter_by_branch_order
-from dentate.neuron_utils import h, default_ordered_sec_types, mknetcon, mknetcon_vecstim
+from dentate.neuron_utils import h, default_ordered_sec_types, mknetcon, mknetcon_vecstim, interplocs
 from dentate.utils import ExprClosure, Promise, NamedTupleWithDocstring, get_module_logger, generator_ifempty, map, range, str, \
      viewitems, viewkeys, zip, zip_longest, partitionn, rejection_sampling
 
@@ -2286,6 +2286,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
 
     syn_ids = []
     syn_locs = []
+    syn_cdists = []
     syn_secs = []
     syn_layers = []
     syn_types = []
@@ -2304,6 +2305,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
         logger.debug(f'sec_graph: {list(sec_graph.edges)}')
         logger.debug(f'neurotree_dict: {neurotree_dict}')
 
+    sec_interp_locs_dict = {}
     seg_density_per_sec = {}
     r = np.random.RandomState()
     r.seed(int(density_seed))
@@ -2315,6 +2317,9 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
 
         (seclst, maxdist) = cell_sec_dict[sec_name]
         secidxlst = cell_secidx_dict[sec_name]
+        for sec, idx in zip(seclst, secidxlst):
+            npts_interp = max(int(round(L)), 3)
+            sec_interp_locs_dict[idx] = interplocs(sec, np.linspace(0, 1, npts_interp), return_interpolant=True)
         sec_dict = {int(idx): sec for sec, idx in zip(seclst, secidxlst)}
         if len(sec_dict) > 1:
             sec_subgraph = sec_graph.subgraph(list(sec_dict.keys()))
@@ -2353,6 +2358,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
             layers = layers_dict[syn_type]
             end_distance = {}
             for sec_parent, sec_index in sec_edges:
+                interp_loc = sec_interp_loc_dict[sec_index]
                 seg_list = seg_dict[sec_index]
                 sec_seg_layers = layers[sec_index]
                 sec_seg_density = seg_density[sec_index]
@@ -2380,6 +2386,8 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
                                 syn_loc = (interval / L)
                                 assert ((syn_loc <= 1) and (syn_loc >= seg_start))
                                 if syn_loc < 1.0:
+                                    syn_cdist = math.sqrt(reduce(lambda a, b: a+b, ( interp_loc[i](syn_loc)**2 for i in range(3) )))
+                                    syn_cdists.append(syn_cdist)
                                     syn_locs.append(syn_loc)
                                     syn_ids.append(syn_index)
                                     syn_secs.append(sec_index)
@@ -2395,6 +2403,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
     assert (len(syn_ids) > 0)
     syn_dict = {'syn_ids': np.asarray(syn_ids, dtype='uint32'),
                 'syn_locs': np.asarray(syn_locs, dtype='float32'),
+                'syn_cdists': np.asarray(syn_cdists, dtype='float32'),
                 'syn_secs': np.asarray(syn_secs, dtype='uint32'),
                 'syn_layers': np.asarray(syn_layers, dtype='int8'),
                 'syn_types': np.asarray(syn_types, dtype='uint8'),

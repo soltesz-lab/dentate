@@ -320,7 +320,6 @@ def generate_synaptic_connections(rank,
                                    f'source: {projection} layer: {layer} '
                                    f'source probs: {source_probs} distances_u: {distances_u} distances_v: {distances_v}')
 
-                uv_distance_sums = np.add(distances_u, distances_v, dtype=np.float32)
                 source_vertices = np.asarray(random_clustered_shuffle(len(source_gids), \
                                                                       source_gid_counts, \
                                                                       center_ids=source_gids, \
