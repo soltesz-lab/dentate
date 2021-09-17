@@ -2822,6 +2822,8 @@ def load_biophys_cell_dicts(env, pop_name, gid_set, load_connections=True, valid
     if load_connections:
         synapses_iter = read_cell_attribute_selection(env.data_file_path, pop_name,
                                                       gid_list, 'Synapse Attributes',
+                                                      mask=set(['syn_ids', 'syn_locs', 'syn_secs', 'syn_layers',
+                                                                'syn_types', 'swc_types']),
                                                       comm=env.comm)
         for gid, attr_dict in synapses_iter:
             synapses_dicts[gid] = attr_dict
@@ -2900,7 +2902,8 @@ def init_circuit_context(env, pop_name, gid,
         elif load_synapses or load_edges:
             if (pop_name in env.cell_attribute_info) and ('Synapse Attributes' in env.cell_attribute_info[pop_name]):
                 synapses_iter = read_cell_attribute_selection(env.data_file_path, pop_name, [gid], 'Synapse Attributes',
-                                                              comm=env.comm)
+                                                              mask=set(['syn_ids', 'syn_locs', 'syn_secs', 'syn_layers',
+                                                                        'syn_types', 'swc_types']), comm=env.comm)
                 syn_attrs.init_syn_id_attrs_from_iter(synapses_iter)
             else:
                 raise RuntimeError('init_circuit_context: synapse attributes not found for %s: gid: %i' % (pop_name, gid))

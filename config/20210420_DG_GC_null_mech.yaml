@@ -7,11 +7,11 @@ apical:
           syn_types:
           - excitatory
         value: 5.11520052441336
-      g_unit:
-        filters:
-          syn_types:
-          - excitatory
-        value: 0.001482637648790408
+#      g_unit:
+#        filters:
+#          syn_types:
+#          - excitatory
+#        value: 0.001482637648790408
       gamma:
         filters:
           syn_types:
