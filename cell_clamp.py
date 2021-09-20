@@ -490,7 +490,7 @@ def measure_psc (gid, pop_name, presyn_name, env, v_init, v_holding, load_weight
     return  amp_i
 
 
-def measure_psp (gid, pop_name, presyn_name, syn_mech_name, swc_type, env, v_init, erev, weight=1, syn_count=1, load_weights=False, cell_dict={}):
+def measure_psp (gid, pop_name, presyn_name, syn_mech_name, swc_type, env, v_init, erev, syn_layer=None, weight=1, syn_count=1, load_weights=False, cell_dict={}):
 
     biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False, load_weights=load_weights, cell_dict=cell_dict)
     synapses.config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True, insert_vecstims=True)
@@ -505,6 +505,8 @@ def measure_psp (gid, pop_name, presyn_name, syn_mech_name, swc_type, env, v_ini
     rules = {'sources': [presyn_name]}
     if swc_type is not None:
         rules['swc_types'] = [swc_type]
+    if syn_layer is not None:
+        rules['layers'] = [syn_layer]
     syn_attrs = env.synapse_attributes
     syn_filters = get_syn_filter_dict(env, rules=rules, convert=True)
     syns = syn_attrs.filter_synapses(biophys_cell.gid, **syn_filters)
@@ -604,10 +606,11 @@ def measure_psp (gid, pop_name, presyn_name, syn_mech_name, swc_type, env, v_ini
 @click.option("--syn-weight", type=float, help='synaptic weight')
 @click.option("--syn-count", type=int, default=1, help='synaptic count')
 @click.option("--swc-type", type=str, help='synaptic swc type')
+@click.option("--syn-layer", type=str, help='synaptic layer name')
 @click.option("--v-init", type=float, default=-75.0, help='initialization membrane potential (mV)')
 @click.option("--verbose", '-v', is_flag=True)
 
-def main(config_file, config_prefix, erev, population, presyn_name, gid, load_weights, measurements, template_paths, dataset_prefix, results_path, results_file_id, results_namespace_id, syn_mech_name, syn_weight, syn_count, swc_type, v_init, verbose):
+def main(config_file, config_prefix, erev, population, presyn_name, gid, load_weights, measurements, template_paths, dataset_prefix, results_path, results_file_id, results_namespace_id, syn_mech_name, syn_weight, syn_count, syn_layer, swc_type, v_init, verbose):
 
     if results_file_id is None:
         results_file_id = uuid.uuid4()
@@ -641,9 +644,9 @@ def main(config_file, config_prefix, erev, population, presyn_name, gid, load_we
         assert(syn_mech_name is not None)
         assert(erev is not None)
         assert(syn_weight is not None)
-        attr_dict[gid].update(measure_psp (gid, population, presyn_name, syn_mech_name, swc_type,
-                                           env, v_init, erev, syn_count=syn_count, weight=syn_weight,
-                                           load_weights=load_weights))
+        attr_dict[gid].update(measure_psp (gid, population, presyn_name, syn_mech_name, swc_type, 
+                                           env, v_init, erev, syn_layer=syn_layer, syn_count=syn_count, 
+                                           weight=syn_weight, load_weights=load_weights))
 
     if results_path is not None:
         append_cell_attributes(env.results_file_path, population, attr_dict,

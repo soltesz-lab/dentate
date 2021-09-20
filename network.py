@@ -121,11 +121,15 @@ def connect_cells(env):
         if env.node_allocation is None:
             cell_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
                                                                 namespaces=sorted(cell_attr_namespaces),
+                                                                mask=set(['syn_ids', 'syn_locs', 'syn_secs', 'syn_layers',
+                                                                          'syn_types', 'swc_types']), 
                                                                 comm=env.comm, io_size=env.io_size,
                                                                 return_type='tuple')
         else:
             cell_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
-                                                                namespaces=sorted(cell_attr_namespaces), 
+                                                                namespaces=sorted(cell_attr_namespaces),
+                                                                mask=set(['syn_ids', 'syn_locs', 'syn_secs', 'syn_layers',
+                                                                          'syn_types', 'swc_types']), 
                                                                 comm=env.comm, node_allocation=env.node_allocation,
                                                                 io_size=env.io_size,
                                                                 return_type='tuple')
@@ -379,7 +383,9 @@ def connect_cell_selection(env):
             logger.info(f'*** Reading synaptic attributes of population {postsyn_name}')
 
         syn_attrs_iter, syn_attrs_info = read_cell_attribute_selection(forest_file_path, postsyn_name, selection=gid_range,
-                                                                       namespace='Synapse Attributes', comm=env.comm, 
+                                                                       namespace='Synapse Attributes', comm=env.comm,
+                                                                       mask=set(['syn_ids', 'syn_locs', 'syn_secs', 'syn_layers',
+                                                                                 'syn_types', 'swc_types']), 
                                                                        return_type='tuple')
 
         syn_attrs.init_syn_id_attrs_from_iter(syn_attrs_iter, attr_type='tuple', attr_tuple_index=syn_attrs_info)

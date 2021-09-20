@@ -254,6 +254,7 @@ def generate_synaptic_connections(rank,
     synapse_prj_partition = defaultdict(lambda: defaultdict(list))
     maxit = 10
     it = 0
+    syn_cdist_dict = {}
     ## assign each synapse to a projection
     while (np.count_nonzero(synapse_prj_counts) < num_projections) and (it < maxit):
         log_flag = it > 1
@@ -263,10 +264,12 @@ def generate_synaptic_connections(rank,
                         f"synapse_prj_counts = {synapse_prj_counts}")
         synapse_prj_counts.fill(0)
         synapse_prj_partition.clear()
-        for (syn_id, syn_type, swc_type, syn_layer) in zip(synapse_dict['syn_ids'],
-                                                           synapse_dict['syn_types'],
-                                                           synapse_dict['swc_types'],
-                                                           synapse_dict['syn_layers']):
+        for (syn_id, syn_cdist, syn_type, swc_type, syn_layer) in zip(synapse_dict['syn_ids'],
+                                                                      synapse_dict['syn_cdists'],
+                                                                      synapse_dict['syn_types'],
+                                                                      synapse_dict['swc_types'],
+                                                                      synapse_dict['syn_layers']):
+            syn_cdist_dict[syn_id] = syn_cdist
             projection = choose_synapse_projection(ranstream_syn, syn_layer, swc_type, syn_type, \
                                                    population_dict, projection_synapse_dict, log=log_flag)
             if log_flag:
@@ -307,6 +310,7 @@ def generate_synaptic_connections(rank,
                              for (source_gid, distance_u, distance_v) in \
                              zip(source_gids, distances_u, distances_v)}
             if len(source_gids) > 0:
+                ordered_syn_ids = sorted(syn_ids, key=lambda x: syn_cdist_dict[x])
                 n_syn_groups = int(math.ceil(float(len(syn_ids)) / float(syn_config_contacts)))
                 source_gid_counts = random_choice(ranstream_con, n_syn_groups, source_probs)
                 total_count = 0
@@ -320,7 +324,6 @@ def generate_synaptic_connections(rank,
                                    f'source: {projection} layer: {layer} '
                                    f'source probs: {source_probs} distances_u: {distances_u} distances_v: {distances_v}')
 
-                uv_distance_sums = np.add(distances_u, distances_v, dtype=np.float32)
                 source_vertices = np.asarray(random_clustered_shuffle(len(source_gids), \
                                                                       source_gid_counts, \
                                                                       center_ids=source_gids, \
@@ -331,7 +334,7 @@ def generate_synaptic_connections(rank,
                 distances = np.asarray([distance_dict[gid] for gid in source_vertices], \
                                        dtype=np.float32).reshape(-1, )
                 prj_source_vertices.append(source_vertices)
-                prj_syn_ids.append(syn_ids)
+                prj_syn_ids.append(ordered_syn_ids)
                 prj_distances.append(distances)
                 gid_dict[destination_gid] = (np.asarray([], dtype=np.uint32),
                                              {'Synapses': {'syn_id': np.asarray([], dtype=np.uint32)},
@@ -456,7 +459,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                         if rank == 0:
                             logger.info(f'Rank {rank} has {len(source_gids)} possible sources from population {source_population} '
                                         f'for destination: {destination_population}, layer {layer}, gid: {destination_gid}; '
-                                        f'max U distance: {max_u_distance} min U distance: {min_u_distance}')
+                                        f'max U distance: {max_u_distance:.2f} min U distance: {min_u_distance:.2f}')
                     else:
                         logger.warning(f'Rank {rank} has {len(source_gids)} possible sources from population {source_population} '
                                        f'for destination: {destination_population}, layer {layer}, gid: {destination_gid}')
@@ -484,9 +487,9 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                 projection_dict = {}
             if not dry_run:
                 append_graph(connectivity_path, projection_dict, io_size=io_size, comm=comm)
-            if rank == 0:
-                if connection_dict:
-                    logger.info(f'Appending connectivity for {len(connection_dict)} projections took {time.time() - last_time:.2f} s')
+                if rank == 0:
+                    if connection_dict:
+                        logger.info(f'Appending connectivity for {len(connection_dict)} projections took {time.time() - last_time:.2f} s')
             projection_dict.clear()
             connection_dict.clear()
             gc.collect()
@@ -505,9 +508,9 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
         projection_dict = {}
     if not dry_run:
         append_graph(connectivity_path, projection_dict, io_size=io_size, comm=comm)
-    if rank == 0:
-        if connection_dict:
-            logger.info(f'Appending connectivity for {len(connection_dict)} projections took {time.time() - last_time:.2f} s')
+        if rank == 0:
+            if connection_dict:
+                logger.info(f'Appending connectivity for {len(connection_dict)} projections took {time.time() - last_time:.2f} s')
 
     global_count = comm.gather(total_count, root=0)
     if rank == 0:

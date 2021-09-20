@@ -318,7 +318,7 @@ def cx(env):
     return cxvec
 
 
-def interplocs(sec, locs):
+def interplocs(sec, locs, return_interpolant=False):
     """Computes xyz coords of locations in a section whose topology & geometry are defined by pt3d data.
     Based on code by Ted Carnevale.
     """
@@ -351,7 +351,10 @@ def interplocs(sec, locs):
     pch_z = interpolate.pchip(ll, zz)
     pch_diam = interpolate.pchip(ll, dd)
 
-    res = np.asarray([(pch_x(loc), pch_y(loc), pch_z(loc), pch_diam(loc)) for loc in locs], dtype=np.float32)
+    if return_interpolant:
+        return pch_x, pch_y, pch_z, pch_diam
+    else:
+        res = np.asarray([(pch_x(loc), pch_y(loc), pch_z(loc), pch_diam(loc)) for loc in locs], dtype=np.float32)
     return res
 
         

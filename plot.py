@@ -2866,7 +2866,7 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
         a.get_yaxis().set_ticks([end])
 
     # set raster plot ticks to start and end of index range for first population
-    a = fig.axes[len(include) - 1]
+    a = fig.axes[len(spkpoplst) - 1]
     start, end = a.get_ylim()
     a.get_yaxis().set_ticks([start, end])
 
@@ -2877,7 +2877,7 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
         lgd_labels = [pop_name + ' (%i active)' % (len(pop_active_cells[pop_name])) for pop_name in spkpoplst if
                       pop_name in avg_rates]
 
-    i_ax = len(include)
+    i_ax = len(spkpoplst)
     
     if spktlst:
         if all_spike_hist:
@@ -2919,7 +2919,7 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
                 trial_sdf_ip = interpolate.Akima1DInterpolator(trial_sdf_time, trial_sdf_rate)
                 trial_sdf_ips.append(trial_sdf_ip)
             if len(spk_inds) > 0:
-                ax_spk.stem(this_trial_spkts[spk_inds], [0.5]*len(spk_inds), markerfmt=' ')
+                ax_spk.stem(this_trial_spkts[spk_inds], [0.5]*len(spk_inds), markerfmt=' ', use_line_collection=True)
             ax_spk.set_yticks([])
         sprate = spk_count / n_trials  / tsecs
 

@@ -5,10 +5,10 @@ Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-Cell Data: dentatenet_Full_Scale_GC_Exc_Sat_SLN_proximal_pf_20210114.h5
-Connection Data: dentatenet_Full_Scale_GC_Exc_Sat_SLN_proximal_pf_20210114.h5
+Cell Data: dentatenet_Full_Scale_GC_Aradi_Sat_SLN_proximal_pf_20210916.h5
+Connection Data: dentatenet_Full_Scale_GC_Aradi_Sat_SLN_proximal_pf_20210916.h5
 #Gap Junction Data: DG_gapjunctions_20191112.h5
-Connection Generator: !include Full_Scale_Connections_GC_Exc_Sat_IN_PR.yaml
+Connection Generator: !include Full_Scale_Connections_GC_Aradi_Sat_IN_PR.yaml
 Recording: !include Recording.yaml
 Stimulus: !include Input_Configuration.yaml
 Analysis: !include Analysis_Configuration.yaml

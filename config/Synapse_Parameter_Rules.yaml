@@ -70,7 +70,7 @@ LinExp2Syn:
     mech_file: lin_exp2syn.mod
     mech_params:
       - tau_rise
-      - tau_offset
+      - tau_decay
       - e
     netcon_params:
       weight: 0
