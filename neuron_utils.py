@@ -143,18 +143,18 @@ def find_template(env, template_name, path=['templates'], template_file=None, bc
     found = False
     template_path = ''
     if template_file is None:
-        template_file = '%s.hoc' % template_name
+        template_file = f'{template_name}.hoc'
     if bcast_template:
         env.comm.barrier()
     if (env.comm is None) or (not bcast_template) or (bcast_template and (rank == root)):
         for template_dir in path:
             if template_file is None:
-                template_path = '%s/%s.hoc' % (template_dir, template_name)
+                template_path = f'{template_dir}/{template_name}.hoc'
             else:
-                template_path = '%s/%s' % (template_dir, template_file)
+                template_path = f'{template_dir}/{template_file}'
             found = os.path.isfile(template_path)
             if found and (rank == 0):
-                logger.info('Loaded %s from %s' % (template_name, template_path))
+                logger.info(f'Loaded {template_name} from {template_path}')
                 break
     if bcast_template:
         found = env.comm.bcast(found, root=root)
@@ -165,8 +165,8 @@ def find_template(env, template_name, path=['templates'], template_file=None, bc
             env.comm.barrier()
         h.load_file(template_path)
     else:
-        raise Exception('find_template: template %s not found: file %s; path is %s' %
-                        (template_name, template_file, str(path)))
+        raise Exception(f'find_template: template {template_name} not found: '
+                        f'file {template_file}; path is {path}')
 
 
 def configure_hoc_env(env, bcast_template=False):
@@ -177,7 +177,7 @@ def configure_hoc_env(env, bcast_template=False):
     h.load_file("stdrun.hoc")
     h.load_file("loadbal.hoc")
     for template_dir in env.template_paths:
-        path = "%s/rn.hoc" % template_dir
+        path = f"{template_dir}/rn.hoc"
         if os.path.exists(path):
             h.load_file(path)
     h.cvode.use_fast_imem(1)
@@ -217,7 +217,7 @@ def load_cell_template(env, pop_name, bcast_template=False):
         return env.template_dict[pop_name]
     rank = env.comm.Get_rank()
     if not (pop_name in env.celltypes):
-        raise KeyError('load_cell_templates: unrecognized cell population: %s' % pop_name)
+        raise KeyError(f'load_cell_templates: unrecognized cell population: {pop_name}')
     template_name = env.celltypes[pop_name]['template']
     if 'template file' in env.celltypes[pop_name]:
         template_file = env.celltypes[pop_name]['template file']
@@ -280,9 +280,9 @@ def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v
     if label is None:
         label = param
     if dt is None:
-        vec.record(getattr(hocobj, '_ref_%s' % param))
+        vec.record(getattr(hocobj, f'_ref_{param}'))
     else:
-        vec.record(getattr(hocobj, '_ref_%s' % param), dt)
+        vec.record(getattr(hocobj, f'_ref_{param}'), dt)
     rec_dict = {'name': recid,
                 'gid': gid,
                 'cell': cell,
@@ -323,6 +323,7 @@ def interplocs(sec, locs, return_interpolant=False):
     Based on code by Ted Carnevale.
     """
     nn = sec.n3d()
+    assert(nn > 1)
 
     xx = h.Vector(nn)
     yy = h.Vector(nn)
@@ -340,11 +341,20 @@ def interplocs(sec, locs, return_interpolant=False):
     ## normalize length
     ll.div(ll.x[nn - 1])
 
-    xx = xx.to_python()
-    yy = yy.to_python()
-    zz = zz.to_python()
-    dd = dd.to_python()
-    ll = ll.to_python()
+    xx = np.array(xx)
+    yy = np.array(yy)
+    zz = np.array(zz)
+    dd = np.array(dd)
+    ll = np.array(ll)
+
+    u, indices = np.unique(ll, return_index=True)
+    indices = np.asarray(indices)
+    if len(u) < len(ll):
+        ll = ll[indices]
+        xx = xx[indices]
+        yy = yy[indices]
+        zz = zz[indices]
+        dd = dd[indices]
 
     pch_x = interpolate.pchip(ll, xx)
     pch_y = interpolate.pchip(ll, yy)
@@ -357,5 +367,3 @@ def interplocs(sec, locs, return_interpolant=False):
         res = np.asarray([(pch_x(loc), pch_y(loc), pch_z(loc), pch_diam(loc)) for loc in locs], dtype=np.float32)
     return res
 
-        
-    

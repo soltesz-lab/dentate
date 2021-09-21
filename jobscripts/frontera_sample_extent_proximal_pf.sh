@@ -3,10 +3,10 @@
 #SBATCH -J dentate_sample_extent_proximal_pf # Job name
 #SBATCH -o ./results/dentate_sample_extent_proximal_pf.o%j       # Name of stdout output file
 #SBATCH -e ./results/dentate_sample_extent_proximal_pf.e%j       # Name of stderr error file
-#SBATCH -p small      # Queue (partition) name
+#SBATCH -p development      # Queue (partition) name
 #SBATCH -N 1             # Total # of nodes 
 #SBATCH --ntasks-per-node=56            # # of mpi tasks per node
-#SBATCH -t 1:00:00        # Run time (hh:mm:ss)
+#SBATCH -t 0:30:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
@@ -31,8 +31,7 @@ ibrun -np 16  python3 ./scripts/sample_extent.py \
     --config-prefix=./config \
     --dataset-prefix="$DATA_PREFIX" \
     --output-path=$results_path \
-    --spike-input-path="$DATA_PREFIX/Full_Scale_Control/DG_input_spike_trains_20200910_compressed.h\
-5" \
+    --spike-input-path="$DATA_PREFIX/Full_Scale_Control/DG_input_spike_trains_phasemod_20210606_compressed.h5"  \
     --spike-input-namespace='Input Spikes A Diag' \
     --input-features-path="$DATA_PREFIX/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
     --output-path=${results_path} \

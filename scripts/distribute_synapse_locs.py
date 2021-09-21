@@ -123,13 +123,14 @@ def check_syns(gid, morph_dict, syn_stats_dict, seg_density_per_sec, layer_set_d
 @click.option("--populations", '-i', required=True, multiple=True, type=str)
 @click.option("--distribution", type=str, default='uniform')
 @click.option("--io-size", type=int, default=-1)
+@click.option("--cache-size", type=int, default=1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--write-size", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
 @click.option("--debug", is_flag=True)
-def main(config, config_prefix, template_path, output_path, forest_path, populations, distribution, io_size, chunk_size, value_chunk_size,
+def main(config, config_prefix, template_path, output_path, forest_path, populations, distribution, io_size, cache_size, chunk_size, value_chunk_size,
          write_size, verbose, dry_run, debug):
     """
 
@@ -207,7 +208,7 @@ def main(config, config_prefix, template_path, output_path, forest_path, populat
         count = 0
         gid_count = 0
         synapse_dict = {}
-        for gid, morph_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, comm=comm, topology=True):
+        for gid, morph_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, comm=comm, cache_size=cache_size, topology=True):
             local_time = time.time()
             if gid is not None:
                 logger.info('Rank %i gid: %i' % (rank, gid))

@@ -30,11 +30,9 @@ export I_MPI_ADJUST_ALLREDUCE=6
 ibrun python3 ./scripts/generate_distance_connections.py \
     --config-prefix=./config \
     --config=Full_Scale_Basis.yaml \
-    --forest-path=$DATA_PREFIX/Full_Scale_Control/DGC_forest_syns_20210106_compressed.h5 \
-    --connectivity-path=$DATA_PREFIX/Full_Scale_Control/DG_GC_connections_20210827.h5 \
+    --forest-path=$DATA_PREFIX/Full_Scale_Control/DGC_forest_syns_20210920_compressed.h5 \
+    --connectivity-path=$DATA_PREFIX/Full_Scale_Control/DG_GC_connections_20210920.h5 \
     --connectivity-namespace=Connections \
     --coords-path=$DATA_PREFIX/Full_Scale_Control/DG_coords_20190717_compressed.h5 \
     --coords-namespace=Coordinates \
     --io-size=40 --cache-size=5 --write-size=250 --value-chunk-size=10000 --chunk-size=10000 -v
-
-
