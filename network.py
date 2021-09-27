@@ -1379,20 +1379,20 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
 
     if rank == 0:
         logger.info(f"Execution time summary for host {rank}: \n"
-                    f"  created cells in {env.mkcellstime} s\n"
-                    f"  connected cells in {env.connectcellstime} s\n"
-                    f"  created gap junctions in {env.connectgjstime} s\n"
+                    f"  created cells in {env.mkcellstime:.02f} s\n"
+                    f"  connected cells in {env.connectcellstime:.02f} s\n"
+                    f"  created gap junctions in {env.connectgjstime:.02f} s\n"
                     f"  ran simulation in {comptime} s\n"
-                    f"  spike communication time: {env.pc.send_time()} s\n"
-                    f"  event handling time: {env.pc.event_time()} s\n"
-                    f"  numerical integration time: {env.pc.integ_time()} s\n"
-                    f"  voltage transfer time: {gjtime} s\n")
+                    f"  spike communication time: {env.pc.send_time():.02f} s\n"
+                    f"  event handling time: {env.pc.event_time():.02f} s\n"
+                    f"  numerical integration time: {env.pc.integ_time():.02f} s\n"
+                    f"  voltage transfer time: {gjtime:.02f} s\n")
         if maxcw > 0:
             logger.info(f"Load balance = {(meancomp / maxcw)}\n")
         if meangj > 0:
-            logger.info("Mean/max voltage transfer time: {meangj} / {maxgj} s\n")
+            logger.info("Mean/max voltage transfer time: {meangj:.02f} / {maxgj:.02f} s\n")
             for i in range(nhosts):
-                logger.debug("Voltage transfer time on host {i}: {gjvect.x[i]} s\n")
+                logger.debug("Voltage transfer time on host {i}: {gjvect.x[i]:.02f} s\n")
 
     if shutdown:
         env.pc.runworker()
