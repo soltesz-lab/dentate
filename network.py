@@ -3,7 +3,7 @@ Dentate Gyrus network initialization routines.
 """
 __author__ = 'See AUTHORS.md'
 
-import os, sys, gc, time, pprint
+import os, sys, gc, time, random, pprint
 import numpy as np
 from mpi4py import MPI
 
@@ -204,7 +204,7 @@ def connect_cells(env):
         for presyn_name in presyn_names:
             env.comm.barrier()
             if rank == 0:
-                logger.info(f'Rank {rank}: Reading projection {presyn_name} -> {postyn_name}')
+                logger.info(f'Rank {rank}: Reading projection {presyn_name} -> {postsyn_name}')
             if env.node_allocation is None:
                 (graph, a) = scatter_read_graph(connectivity_file_path, comm=env.comm, io_size=env.io_size,
                                                 projections=[(presyn_name, postsyn_name)],
@@ -230,7 +230,7 @@ def connect_cells(env):
 
             syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, syn_edge_iter)
             if rank == 0:
-                logger.info(f'Rank {rank}: took {time.time() - last_time:.02f} s to initialize edge attributes for projection {presyn_name} -> {postsyn_name}')
+                logger.info(f'Rank {rank}: took {(time.time() - last_time):.02f} s to initialize edge attributes for projection {presyn_name} -> {postsyn_name}')
                 del graph[postsyn_name][presyn_name]
 
             
@@ -289,16 +289,13 @@ def connect_cells(env):
 
         last_time = time.time()
         
-        is_reduced = False
-        if hasattr(postsyn_cell, 'is_reduced'):
-            is_reduced = postsyn_cell.is_reduced
         syn_count, mech_count, nc_count = synapses.config_hoc_cell_syns(
-            env, gid, postsyn_name, cell=postsyn_cell.hoc_cell if is_reduced else postsyn_cell, 
+            env, gid, postsyn_name, cell=postsyn_cell.hoc_cell if hasattr(postsyn_cell, 'hoc_cell') else postsyn_cell, 
             unique=unique, insert=True, insert_netcons=True)
 
         if rank == 0 and gid == first_gid:
-            logger.info(f'Rank {rank}: took {time.time() - last_time:.02f} s to configure {syn_count} synapses, {mech_count} synaptic mechanisms, {nc_count} network '
-                        'connections for gid {gid}')
+            logger.info(f'Rank {rank}: took {(time.time() - last_time):.02f} s to configure {syn_count} synapses, {mech_count} synaptic mechanisms, {nc_count} network '
+                        f'connections for gid {gid}')
 
         env.edge_count[postsyn_name] += syn_count
 
@@ -314,7 +311,7 @@ def connect_cells(env):
     gc.collect()
 
     if rank == 0:
-        logger.info(f'Rank {rank}: took {time.time() - start_time:.02f} s to configure all synapses')
+        logger.info(f'Rank {rank}: took {(time.time() - start_time):.02f} s to configure all synapses')
 
 
 def find_gid_pop(celltypes, gid):
@@ -510,15 +507,12 @@ def connect_cell_selection(env):
         cell = env.pc.gid2cell(gid)
         pop_name = find_gid_pop(env.celltypes, gid)
 
-        if hasattr(cell, 'is_reduced'):
-            is_reduced = cell.is_reduced
-
         syn_count, mech_count, nc_count = synapses.config_hoc_cell_syns(
-            env, gid, pop_name, cell=cell.hoc_cell if is_reduced else cell,
+            env, gid, pop_name, cell=cell.hoc_cell if hasattr(cell, 'hoc_cell') else cell,
             unique=unique, insert=True, insert_netcons=True)
 
         if rank == 0 and gid == first_gid:
-            logger.info(f'Rank {rank}: took {time.time() - last_time.02f} s to configure {syn_count} synapses, {mech_count} synaptic mechanisms, '
+            logger.info(f'Rank {rank}: took {time.time() - last_time:.02f} s to configure {syn_count} synapses, {mech_count} synaptic mechanisms, '
                         f'{nc_count} network connections for gid {gid}; cleanup flag is {env.cleanup}')
             hoc_cell = env.pc.gid2cell(gid)
             if hasattr(hoc_cell, 'all'):
@@ -1204,7 +1198,7 @@ def init(env):
 
     env.mkcellstime = time.time() - st
     if rank == 0:
-        logger.info(f"*** Cells created in {env.mkcellstime} s")
+        logger.info(f"*** Cells created in {env.mkcellstime:.02f} s")
     local_num_cells = imapreduce(viewitems(env.cells), lambda kv: len(kv[1]), lambda ax, x: ax+x)
     logger.info(f"*** Rank {rank} created {local_num_cells} cells")
     if env.cell_selection is None:
@@ -1213,7 +1207,7 @@ def init(env):
         env.pc.setup_transfer()
         env.connectgjstime = time.time() - st
         if rank == 0:
-            logger.info(f"*** Gap junctions created in {env.connectgjstime} s")
+            logger.info(f"*** Gap junctions created in {env.connectgjstime:.02f} s")
 
     if env.profile_memory and rank == 0:
         profile_memory(logger)
@@ -1234,7 +1228,7 @@ def init(env):
 
     st = time.time()
     if rank == 0:
-        logger.info(f"*** Creating connections: time = {st} s")
+        logger.info(f"*** Creating connections: time = {st:.02f} s")
     if env.cell_selection is None:
         connect_cells(env)
     else:
@@ -1244,9 +1238,9 @@ def init(env):
     env.connectcellstime = time.time() - st
 
     if rank == 0:
-        logger.info(f"*** Done creating connections: time = {time.time()} s")
+        logger.info(f"*** Done creating connections: time = {time.time():.02f} s")
     if rank == 0:
-        logger.info(f"*** Connections created in {env.connectcellstime} s")
+        logger.info(f"*** Connections created in {env.connectcellstime:.02f} s")
     edge_count = int(sum([env.edge_count[dest] for dest in env.edge_count]))
     logger.info(f"*** Rank {rank} created {edge_count} connections")
     
@@ -1257,12 +1251,13 @@ def init(env):
     init_input_cells(env)
     env.mkstimtime = time.time() - st
     if rank == 0:
-        logger.info(f"*** Stimuli created in {env.mkstimtime} s")
+        logger.info(f"*** Stimuli created in {env.mkstimtime:.02f} s")
     setup_time = env.mkcellstime + env.mkstimtime + env.connectcellstime + env.connectgjstime + lfp_time
     max_setup_time = env.pc.allreduce(setup_time, 2)  ## maximum value
     equilibration_duration = float(env.stimulus_config.get('Equilibration Duration', 0.))
     tstop = (env.tstop + equilibration_duration)*float(env.n_trials)
-    env.simtime = simtime.SimTimeEvent(env.pc, tstop, env.max_walltime_hours, env.results_write_time, max_setup_time)
+    if not env.use_coreneuron:
+        env.simtime = simtime.SimTimeEvent(env.pc, tstop, env.max_walltime_hours, env.results_write_time, max_setup_time)
     h.v_init = env.v_init
     h.stdinit()
     if env.optldbal or env.optlptbal:
@@ -1287,6 +1282,7 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
 
     if output_syn_spike_count and env.cleanup:
         raise RuntimeError("Unable to compute synapse spike counts when cleanup is True")
+    gc.collect()
 
     if rank == 0:
         if output:
@@ -1309,7 +1305,8 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
     env.id_vec.resize(0)
 
     h.t = env.tstart
-    env.simtime.reset()
+    if env.simtime is not None:
+        env.simtime.reset()
     h.finitialize(env.v_init)
     h.finitialize(env.v_init)
 
@@ -1328,12 +1325,12 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
         tsegments = np.asarray([tstop])
 
     for tstop_i in tsegments:
-        if (h.t+env.dt) > env.simtime.tstop:
+        if (h.t+env.dt) > env.tstop:
             break
-        elif tstop_i < env.simtime.tstop:
+        elif tstop_i < env.tstop:
             h.tstop = tstop_i
         else:
-            h.tstop = env.simtime.tstop
+            h.tstop = env.tstop
         if rank == 0:
             logger.info(f"*** Running simulation up to {h.tstop:.2f} ms")
         env.pc.timeout(env.nrn_timeout)
@@ -1349,6 +1346,8 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
                     logger.info(f"*** Writing intracellular data up to {h.t:.2f} ms")
                 io_utils.recsout(env, env.results_file_path, t_start=env.last_checkpoint, clear_data=env.checkpoint_clear_data)
             env.last_checkpoint = h.t
+        if env.simtime is not None:
+            env.tstop = env.simtime.tstop
     if output_syn_spike_count:
        for pop_name in sorted(viewkeys(env.biophys_cells)):
            presyn_names = sorted(env.projection_dict[pop_name])
