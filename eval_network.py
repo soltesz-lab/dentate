@@ -268,6 +268,7 @@ def init_network(comm, kwargs):
 
 def eval_network(env, network_config, from_param_list, from_param_dict, network_params, network_param_values, params_id, target_trj_rate_map_dict, t_start, t_stop, target_populations, output_path):
 
+    param_tuple_values = None
     if params_id is not None:
         x = network_param_values[params_id]
         if isinstance(x, list):
@@ -352,10 +353,11 @@ def collect_network_features(env, local_features, target_populations, output_pat
         output_file = h5py.File(output_path, "a")
         network_grp = h5_get_group(output_file, 'DG_eval_network')
         param_grp = h5_get_group(network_grp, f'{params_id}')
-        dset = h5_get_dataset(param_grp, 'param_values', maxshape=(len(param_tuple_values),), dtype=np.float32)
-        param_vals = np.asarray([v[1] for v in param_tuple_values], dtype=np.float32)
-        dset.resize((len(param_vals),))
-        dset[:] = param_vals
+        if param_tuple_values is not None:
+            dset = h5_get_dataset(param_grp, 'param_values', maxshape=(len(param_tuple_values),), dtype=np.float32)
+            param_vals = np.asarray([v[1] for v in param_tuple_values], dtype=np.float32)
+            dset.resize((len(param_vals),))
+            dset[:] = param_vals
         feature_grp = h5_get_group(param_grp, 'feature_values')
         for feature_name in sorted(collected_features):
             feature_val = collected_features[feature_name]
