@@ -3,7 +3,7 @@ Dentate Gyrus network initialization routines.
 """
 __author__ = 'See AUTHORS.md'
 
-import os, sys, gc, time, random, pprint
+import os, sys, gc, time, resource, random, pprint
 import numpy as np
 from mpi4py import MPI
 
@@ -1334,6 +1334,7 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
         if rank == 0:
             logger.info(f"*** Running simulation up to {h.tstop:.2f} ms")
         env.pc.timeout(env.nrn_timeout)
+
         env.pc.psolve(h.tstop)
         if env.use_coreneuron:
             h.t = h.tstop
@@ -1388,7 +1389,7 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
                     f"  numerical integration time: {env.pc.integ_time():.02f} s\n"
                     f"  voltage transfer time: {gjtime:.02f} s\n")
         if maxcw > 0:
-            logger.info(f"Load balance = {(meancomp / maxcw)}\n")
+            logger.info(f"Load balance = {(meancomp / maxcw):.02f}\n")
         if meangj > 0:
             logger.info("Mean/max voltage transfer time: {meangj:.02f} / {maxgj:.02f} s\n")
             for i in range(nhosts):
