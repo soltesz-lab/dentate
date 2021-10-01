@@ -82,7 +82,7 @@ Synapses:
           tau_rise: 0.5
           tau_decay: 8.0
           e: -75
-          g_unit: 0.0005
+          g_unit: 0.001
           weight: 1.0
     BC:   
       type: inhibitory
@@ -96,15 +96,15 @@ Synapses:
             tau_rise: 0.5
             tau_decay: 9.0
             e: -75
-            g_unit: 0.0005
-            weight: 0.25
+            g_unit: 0.001
+            weight: 1.0
         soma:
           GABA_A:
             tau_rise: 0.5
             tau_decay: 9.0
             e: -75
             g_unit: 0.0005
-            weight: 0.25
+            weight: 1.0
     HCC:  
       type: inhibitory
       sections: [apical]
@@ -116,7 +116,7 @@ Synapses:
           tau_rise: 1.5
           tau_decay: 9.0
           e: -75
-          g_unit: 0.0005
+          g_unit: 0.001
           weight: 1.0
     HC:   
       type: inhibitory
@@ -129,8 +129,8 @@ Synapses:
           tau_rise: 2.5
           tau_decay: 10.0
           e: -75
-          g_unit: 0.0005
-          weight: 0.1
+          g_unit: 0.001
+          weight: 0.75
     NGFC: 
       type: inhibitory
       sections: [apical, apical]
@@ -144,7 +144,7 @@ Synapses:
             tau_decay: 15.0
             e:   -75
             g_unit: 0.0005
-            weight: 0.2
+            weight: 0.5
           GABA_B:
             tau_rise:  50.0
             tau_decay: 200.0
@@ -163,7 +163,7 @@ Synapses:
           tau_decay: 15.0
           e:   -75
           g_unit: 0.0005
-          weight: 0.2
+          weight: 0.5
   MC:
     GC:   
       type: excitatory
@@ -208,7 +208,7 @@ Synapses:
           tau_rise: 0.5
           tau_decay: 6.2
           e: 0
-          g_unit: 0.0001
+          g_unit: 0.0005
           weight: 1.0
     HC:   
       type: inhibitory
@@ -221,7 +221,7 @@ Synapses:
           tau_rise: 1.5
           tau_decay: 11.0
           e: -75
-          g_unit: 0.002
+          g_unit: 0.001
           weight: 0.1
     BC:   
       type: inhibitory
@@ -283,7 +283,7 @@ Synapses:
           tau_decay: 6.2
           e: 0
           g_unit: 0.0025
-          weight: 1.0
+          weight: 0.753
     CA3c:   
       type: excitatory
       sections: [soma, apical]
@@ -295,7 +295,7 @@ Synapses:
           tau_decay: 3.6
           e: 0
           g_unit: 0.001
-          weight: 1.0
+          weight: 0.753
     MC:   
       type: excitatory
       sections: [soma, apical]
@@ -308,7 +308,7 @@ Synapses:
           tau_decay: 3.6
           e: 0
           g_unit: 0.0025
-          weight: 1.0
+          weight: 0.753
     HC:  
       type: inhibitory
       sections: [apical]
@@ -321,7 +321,7 @@ Synapses:
           tau_decay: 10.48
           e: -75
           g_unit: 0.001
-          weight: 1.0
+          weight: 0.535
     IS:  
       type: inhibitory
       sections: [apical, soma]
@@ -334,7 +334,7 @@ Synapses:
           tau_decay: 10.48
           e: -75
           g_unit: 0.001
-          weight: 1.0
+          weight: 1.66
   BC:
     GC:   
       type: excitatory
@@ -348,7 +348,7 @@ Synapses:
             tau_decay: 6.2
             e: 0
             g_unit: 0.0005
-            weight: 1.0
+            weight: 1.3
     MPP:
       type: excitatory
       sections: [apical]
@@ -361,7 +361,7 @@ Synapses:
           tau_decay: 3.0
           e:     0
           g_unit: 0.0005
-          weight: 1.0
+          weight: 1.3
     LPP:
       type: excitatory
       sections: [apical]
@@ -374,7 +374,7 @@ Synapses:
           tau_decay: 3.0
           e:     0
           g_unit: 0.0005
-          weight: 1.0
+          weight: 1.3
     CA3c:   
       type: excitatory
       sections: [basal]
@@ -387,7 +387,7 @@ Synapses:
           tau_decay: 3.6
           e: 0
           g_unit: 0.0002
-          weight: 1.0
+          weight: 1.3
     MC:   
       type: excitatory
       sections: [apical, apical]
@@ -400,7 +400,7 @@ Synapses:
           tau_decay: 3.6
           e: 0
           g_unit: 0.0005
-          weight: 1.0
+          weight: 1.3
     ConMC:   
       type: excitatory
       sections: [apical]
@@ -413,7 +413,7 @@ Synapses:
           tau_decay: 3.6
           e: 0
           g_unit: 0.0002
-          weight: 1.0
+          weight: 1.3
     BC:   
       type: inhibitory
       sections: [basal, soma]
@@ -427,14 +427,14 @@ Synapses:
             tau_decay: 3.35
             e: -75
             g_unit: 0.001
-            weight: 1.0
+            weight: 0.614
         soma:
           GABA_A:
             tau_rise: 0.22
             tau_decay: 3.35
             e: -75
             g_unit: 0.001
-            weight: 1.0
+            weight: 0.614
     HCC:  
       type: inhibitory
       sections: [apical]
@@ -479,7 +479,7 @@ Synapses:
           tau_decay: 200.0
           e:   -90
           g_unit: 0.001
-          weight: 1.0
+          weight: 0.25
     MOPP: 
       type: inhibitory
       sections: [apical, apical]
@@ -506,14 +506,14 @@ Synapses:
             tau_decay: 4.43
             e: -75
             g_unit: 0.001
-            weight: 1.0
+            weight: 0.5
         apical:
           GABA_A:
             tau_rise: 0.46
             tau_decay: 4.43
             e: -75
             g_unit: 0.001
-            weight: 1.0
+            weight: 0.5
   AAC:
     GC:   
       type: excitatory
@@ -526,7 +526,7 @@ Synapses:
           tau_decay: 6.2
           e: 0
           g_unit: 0.001
-          weight: 1.0
+          weight: 1.38
     MPP:
       type: excitatory
       sections: [apical]
@@ -538,7 +538,7 @@ Synapses:
           tau_decay: 3.0
           e:     0
           g_unit: 0.001
-          weight: 1.0
+          weight: 1.38
     LPP:
       type: excitatory
       sections: [apical]
@@ -550,7 +550,7 @@ Synapses:
           tau_decay: 3.0
           e:     0
           g_unit: 0.001
-          weight: 1.0
+          weight: 1.38
     CA3c:   
       type: excitatory
       sections: [basal]
@@ -563,7 +563,7 @@ Synapses:
           tau_decay: 3.6
           e: 0
           g_unit: 0.0005
-          weight: 1.0
+          weight: 1.38
     MC:   
       type: excitatory
       sections: [apical]
@@ -575,7 +575,7 @@ Synapses:
           tau_decay: 3.6
           e: 0
           g_unit: 0.001
-          weight: 1.0
+          weight: 1.38
     ConMC:   
       type: excitatory
       sections: [apical]
@@ -587,7 +587,7 @@ Synapses:
           tau_decay: 3.6
           e: 0
           g_unit: 0.0005
-          weight: 1.0
+          weight: 1.38
     HCC:  
       type: inhibitory
       sections: [apical]
@@ -599,7 +599,7 @@ Synapses:
           tau_decay: 4.78
           e: -75
           g_unit: 0.001
-          weight: 1.0
+          weight: 1.91
     HC:   
       type: inhibitory
       sections: [apical, apical]
@@ -611,7 +611,7 @@ Synapses:
           tau_decay: 4.43
           e: -75
           g_unit: 0.001
-          weight: 1.0
+          weight: 1.91
     NGFC: 
       type: inhibitory
       sections: [apical, apical]
@@ -623,13 +623,13 @@ Synapses:
           tau_decay: 14.0
           e:    -75
           g_unit: 0.001
-          weight: 1.0
+          weight: 1.91
         GABA_B:
           tau_rise:  50.0
           tau_decay: 200.0
           e:   -90
           g_unit: 0.001
-          weight: 1.0
+          weight: 0.95
     MOPP: 
       type: inhibitory
       sections: [apical, apical]
@@ -641,7 +641,7 @@ Synapses:
           tau_decay: 14.0
           e:    -75
           g_unit: 0.001
-          weight: 1.0
+          weight: 1.91
     IS:
       type: inhibitory
       sections: [basal, soma]
@@ -653,7 +653,7 @@ Synapses:
           tau_decay: 4.43
           e: -75
           g_unit: 0.001
-          weight: 1.0
+          weight: 1.89
   HCC:
     MPP:
       type: excitatory
@@ -726,7 +726,7 @@ Synapses:
             tau_decay: 4.43
             e: -75
             g_unit: 0.0018
-            weight: 1.0
+            weight: 1.346
     HCC:  
       type: inhibitory
       sections: [basal, apical, apical, apical]
@@ -739,14 +739,14 @@ Synapses:
             tau_decay: 4.7
             e: -75
             g_unit: 0.001
-            weight: 1.0
+            weight: 1.346
         basal:
           GABA_A:
             tau_rise: 0.72
             tau_decay: 4.7
             e: -75
             g_unit: 0.001
-            weight: 1.0
+            weight: 1.346
     NGFC: 
       type: inhibitory
       sections: [apical, apical]
@@ -758,13 +758,13 @@ Synapses:
           tau_decay: 16.2
           e: -75
           g_unit: 0.001
-          weight: 1.0
+          weight: 1.346
         GABA_B:
           tau_rise:  50.0  # https://physoc.onlinelibrary.wiley.com/doi/abs/10.1113/jphysiol.1993.sp019600
           tau_decay: 200.0  # http://www.jneurosci.org/content/33/18/7961
           e: -90
           g_unit: 0.001
-          weight: 1.0
+          weight: 0.63
     MOPP: 
       type: inhibitory
       sections: [apical, apical]
@@ -776,7 +776,7 @@ Synapses:
           tau_decay: 16.2
           e: -75
           g_unit: 0.001
-          weight: 1.0
+          weight: 1.346
     IS: 
       type: inhibitory
       sections: [basal, apical, soma]
@@ -789,21 +789,21 @@ Synapses:
             tau_decay: 4.43
             e: -75
             g_unit: 0.001
-            weight: 1.0
+            weight: 0.168
         basal:
           GABA_A:
             tau_rise: 0.72
             tau_decay: 4.43
             e: -75
             g_unit: 0.001
-            weight: 1.0
+            weight: 0.168
         soma:
           GABA_A:
             tau_rise: 0.72
             tau_decay: 4.43
             e: -75
             g_unit: 0.001
-            weight: 1.0
+            weight: 0.168
   NGFC:
     MPP:
       type: excitatory
@@ -815,8 +815,8 @@ Synapses:
           tau_rise: 0.5
           tau_decay: 5.0
           e: 0
-          g_unit: 0.0015
-          weight: 1.0
+          g_unit: 0.0025
+          weight: 2.0
     LPP:
       type: excitatory
       sections: [apical]
@@ -827,8 +827,8 @@ Synapses:
           tau_rise: 0.5
           tau_decay: 5.0
           e: 0
-          g_unit: 0.0015
-          weight: 1.0
+          g_unit: 0.0025
+          weight: 2.0
     HC:  
       type: inhibitory
       sections: [soma, basal, apical]
@@ -840,7 +840,7 @@ Synapses:
           tau_decay: 4.7
           e: -75
           g_unit: 0.001
-          weight: 1.0
+          weight: 0.125
     NGFC: 
       type: inhibitory
       sections: [soma, basal, apical]
@@ -858,7 +858,7 @@ Synapses:
           tau_decay: 200.0
           e: -90
           g_unit: 0.001
-          weight: 1.0
+          weight: 1.213
     MOPP: 
       type: inhibitory
       sections: [soma, basal, apical]
@@ -883,7 +883,7 @@ Synapses:
           tau_decay: 5.0
           e: 0
           g_unit: 0.0025
-          weight: 1.0
+          weight: 2.0
     LPP:
       type: excitatory
       sections: [apical]
@@ -895,7 +895,7 @@ Synapses:
           tau_decay: 5.0
           e: 0
           g_unit: 0.0025
-          weight: 1.0
+          weight: 2.0
     MC:   
       type: excitatory
       sections: [soma, basal]
@@ -919,7 +919,7 @@ Synapses:
           tau_decay: 4.7
           e: -75
           g_unit: 0.001
-          weight: 1.0
+          weight: 0.3
     HCC:  
       type: inhibitory
       sections: [soma, basal]
@@ -931,7 +931,7 @@ Synapses:
           tau_decay: 4.7
           e: -75
           g_unit: 0.001
-          weight: 1.0
+          weight: 0.3
     NGFC: 
       type: inhibitory
       sections: [apical, apical]
@@ -943,13 +943,13 @@ Synapses:
           tau_decay: 14.0
           e: -75
           g_unit: 0.001
-          weight: 1.0
+          weight: 0.93
         GABA_B:
           tau_rise:  50.0
           tau_decay: 200.0
           e: -90
           g_unit: 0.001
-          weight: 1.0
+          weight: 0.58
     MOPP: 
       type: inhibitory
       sections: [apical, apical]
@@ -961,7 +961,7 @@ Synapses:
           tau_decay: 13.8
           e: -75
           g_unit: 0.001
-          weight: 1.0
+          weight: 0.93
   IS:
     GC:   
       type: excitatory
@@ -974,7 +974,7 @@ Synapses:
           tau_decay: 6.2
           e: 0
           g_unit: 0.0005
-          weight: 1.0
+          weight: 1.264
     IS:   
       type: inhibitory
       sections: [soma, basal, apical]
@@ -986,6 +986,6 @@ Synapses:
           tau_decay: 10.48
           e: -75
           g_unit: 0.001
-          weight: 1.0
+          weight: 2.0
 Connection Velocity: !include Connection_Velocity.yaml
 Gap Junctions: !include Gap_Junctions_Control.yaml

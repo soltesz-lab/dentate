@@ -1331,11 +1331,15 @@ def rate_maps_from_features (env, population, cell_index_set, input_features_pat
         y = y[t_range_inds]
         d = d[t_range_inds]
 
+    input_rate_map_dict = {}
+
+    if len(d) == 0:
+        return input_rate_map_dict
+
     abs_d = d - d[0]
     abs_t = (t - t[0])/1000.
     velocity = np.insert(abs_d[1:]/abs_t[1:], 0, abs_d[1]/abs_t[1])
 
-    input_rate_map_dict = {}
     pop_index = int(env.Populations[population])
 
     if input_features_path is not None:
@@ -1357,7 +1361,6 @@ def rate_maps_from_features (env, population, cell_index_set, input_features_pat
                                                   selectivity_type_names=selectivity_type_names,
                                                   selectivity_attr_dict=selectivity_attr_dict,
                                                   phase_mod_config=phase_mod_config)
-        rate_maps = []
         rate_map = input_cell_config.get_rate_map(x=x, y=y, velocity=velocity if phase_mod_config is not None else None)
         rate_map[np.isclose(rate_map, 0., atol=1e-3, rtol=1e-3)] = 0.
 
