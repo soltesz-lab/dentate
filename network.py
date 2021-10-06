@@ -1068,10 +1068,9 @@ def init_input_cells(env):
                     if len(spiketrain) > 0:
                         spiketrain = merge_spiketrain_trials(spiketrain, trial_index, trial_duration, env.n_trials)
                         spiketrain += float(env.stimulus_config['Equilibration Duration']) + env.stimulus_onset
-                        if len(spiketrain) > 0:
-                            cell.play(h.Vector(spiketrain))
-                            if rank == 0:
-                                logger.info(f"*** Spike train for {pop_name} gid {gid} is of length {len(spiketrain)} ({spiketrain[0]} : {spiketrain[-1]} ms)")
+                        cell.play(h.Vector(spiketrain))
+                        if rank == 0:
+                            logger.info(f"*** Spike train for {pop_name} gid {gid} is of length {len(spiketrain)} ({spiketrain[0]} : {spiketrain[-1]} ms)")
 
 
     gc.collect()
@@ -1306,9 +1305,10 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
     h.t = env.tstart
     if env.simtime is not None:
         env.simtime.reset()
-    h.finitialize(env.v_init)
-    h.finitialize(env.v_init)
     h.secondorder = 2
+    h.finitialize(env.v_init)
+    h.finitialize(env.v_init)
+    gc.collect()
 
     if rank == 0:
         logger.info("*** Completed finitialize")
