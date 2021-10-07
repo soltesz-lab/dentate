@@ -23,6 +23,7 @@ PARAMETER {
 ASSIGNED {
 	v		(mV)
 	m_inf		(mV)
+        m_tau (ms)
 	ena		(mV)
 	ina		(mA/cm2)
         g  	        (S/cm2)
@@ -42,8 +43,6 @@ INITIAL {
     
 BREAKPOINT {
     SOLVE states METHOD cnexp
-    rates(v)
-    m_inf=am/(am + bm)
     g = gmax*(m_inf^2)*h
     ina = g*(v - ena)
 } 
@@ -55,9 +54,19 @@ DERIVATIVE states {
 
 
 PROCEDURE rates(v (mV)) { 
-    am=0.32*(-46.9-v)/(exp((-46.9-v)/4)-1)
-    bm=0.28*(v+19.9)/(exp((v+19.9)/5)-1)
+    am=0.32*vtrap(-46.9-v, 4)
+    bm=0.28*vtrap(v+19.9, 5)
+    m_inf=am/(am + bm)
     
     ah=0.128*exp((-43-v)/18)
     bh=4./(1+exp((-20-v)/5))
+}
+
+ 
+FUNCTION vtrap(x,y) {            :Traps for 0 in denominator of rate eqns., based on three terms of infinite series expansion of exp
+    if (fabs(x/y) < 1e-6) {
+        vtrap = y*(1 - x/y/2)
+    } else {
+        vtrap = x/(exp(x/y) - 1)
+    }
 }

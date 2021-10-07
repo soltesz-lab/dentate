@@ -53,6 +53,14 @@ INITIAL {
 PROCEDURE rates(v (mV)) { 
     
     as=1.6 / (exp(-0.072*(v-5))+1)
-    bs=0.02*(v+8.9)/(exp((v+8.9)/5)-1)
+    bs=0.02*vtrap(v+8.9,5)
     
+}
+
+FUNCTION vtrap(x,y) {            :Traps for 0 in denominator of rate eqns., based on three terms of infinite series expansion of exp
+    if (fabs(x/y) < 1e-6) {
+        vtrap = y*(1 - x/y/2)
+    } else {
+        vtrap = x/(exp(x/y) - 1)
+    }
 }
