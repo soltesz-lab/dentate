@@ -38,14 +38,18 @@ cd $SLURM_SUBMIT_DIR
 
 mkdir -p $results_path
 
-git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
+#git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
 
-ibrun env PYTHONPATH=$PYTHONPATH $PYTHON ./scripts/main.py  \
+ibrun env PYTHONPATH=$PYTHONPATH python3 ./scripts/main.py  \
     --config-file=Network_Clamp_Slice_neg2000_neg1500um_IN_PR.yaml  \
     --arena-id=A --trajectory-id=Diag \
     --template-paths=templates \
     --dataset-prefix="$SCRATCH/striped2/dentate" \
     --results-path=$results_path \
+    --spike-input-path="$DATA_PREFIX/Slice/dentatenet_Slice_SLN_neg2000_neg1500um_20210920_compressed.h5" \
+    --spike-input-namespace='Input Spikes A Diag' \
+    --spike-input-attr='Spike Train' \
+    --microcircuit-inputs \
     --io-size=12 \
     --tstop=9500 \
     --v-init=-75 \

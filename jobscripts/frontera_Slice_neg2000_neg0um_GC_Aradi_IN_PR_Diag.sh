@@ -4,7 +4,7 @@
 #SBATCH -o ./results/dentate.o%j       # Name of stdout output file
 #SBATCH -e ./results/dentate.e%j       # Name of stderr error file
 #SBATCH -p normal      # Queue (partition) name
-#SBATCH -N 10             # Total # of nodes 
+#SBATCH -N 40             # Total # of nodes 
 #SBATCH --ntasks-per-node=56            # # of mpi tasks per node
 #SBATCH -t 5:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
@@ -38,7 +38,7 @@ cd $SLURM_SUBMIT_DIR
 
 mkdir -p $results_path
 
-git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
+#git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
 
 ibrun env PYTHONPATH=$PYTHONPATH $PYTHON ./scripts/main.py  \
     --config-file=Network_Clamp_Slice_neg2000_neg0um_IN_PR.yaml  \
@@ -46,7 +46,11 @@ ibrun env PYTHONPATH=$PYTHONPATH $PYTHON ./scripts/main.py  \
     --template-paths=templates \
     --dataset-prefix="$SCRATCH/striped2/dentate" \
     --results-path=$results_path \
-    --io-size=12 \
+    --spike-input-path="$DATA_PREFIX/Slice/dentatenet_Slice_SLN_neg2000_neg0um_20210920_compressed.h5" \
+    --spike-input-namespace='Input Spikes A Diag' \
+    --spike-input-attr='Spike Train' \
+    --microcircuit-inputs \
+    --io-size=24 \
     --tstop=9500 \
     --v-init=-75 \
     --results-write-time=600 \
