@@ -980,8 +980,9 @@ def merge_spiketrain_trials(spiketrain, trial_index, trial_duration, n_trials):
             trial_spiketrain_i = spiketrain[np.where(trial_index == trial_i)[0]]
             trial_spiketrain_i += np.sum(trial_duration[:trial_i])
             trial_spiketrains.append(trial_spiketrain_i)
-            spiketrain = np.concatenate(trial_spiketrains)
-    return np.sort(spiketrain)
+        spiketrain = np.concatenate(trial_spiketrains)
+    spiketrain.sort()
+    return spiketrain
 
 def init_input_cells(env):
     """
@@ -1067,10 +1068,9 @@ def init_input_cells(env):
                     if len(spiketrain) > 0:
                         spiketrain = merge_spiketrain_trials(spiketrain, trial_index, trial_duration, env.n_trials)
                         spiketrain += float(env.stimulus_config['Equilibration Duration']) + env.stimulus_onset
-                        if len(spiketrain) > 0:
-                            cell.play(h.Vector(spiketrain))
-                            if rank == 0:
-                                logger.info(f"*** Spike train for {pop_name} gid {gid} is of length {len(spiketrain)} ({spiketrain[0]} : {spiketrain[-1]} ms)")
+                        cell.play(h.Vector(spiketrain))
+                        if rank == 0:
+                            logger.info(f"*** Spike train for {pop_name} gid {gid} is of length {len(spiketrain)} ({spiketrain[0]} : {spiketrain[-1]} ms)")
 
 
     gc.collect()
@@ -1142,20 +1142,18 @@ def init_input_cells(env):
                         input_cell = env.artificial_cells[pop_name][gid]
 
                         spiketrain = cell_spikes_tuple[spike_train_attr_index]
-                        if trial_index_attr_index is None:
-                            trial_index = None
-                        else:
-                            trial_index = cell_spikes_tuple[trial_index_attr_index]
-                            trial_duration = cell_spikes_tuple[trial_dur_attr_index]
-
+                        trial_index = None
+                        trial_duration = None
+                        if trial_index_attr_index is not None:
+                            trial_index = vecstim_tuple[trial_index_attr_index]
+                            trial_duration = vecstim_tuple[trial_dur_attr_index]
                         if len(spiketrain) > 0:
                             spiketrain = merge_spiketrain_trials(spiketrain, trial_index, trial_duration, env.n_trials)
                             spiketrain += float(env.stimulus_config['Equilibration Duration']) + env.stimulus_onset
 
                             input_cell.play(h.Vector(spiketrain))
-                            if len(spiketrain) > 0:
-                                if rank == 0:
-                                    logger.info(f"*** Spike train for {pop_name} gid {gid} is of length {len(spiketrain)} ({spiketrain[0]} : {spiketrain[-1]} ms)")
+                            if rank == 0:
+                                logger.info(f"*** Spike train for {pop_name} gid {gid} is of length {len(spiketrain)} ({spiketrain[0]} : {spiketrain[-1]} ms)")
                                 
 
             else:
@@ -1307,8 +1305,10 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
     h.t = env.tstart
     if env.simtime is not None:
         env.simtime.reset()
+    h.secondorder = 2
     h.finitialize(env.v_init)
     h.finitialize(env.v_init)
+    gc.collect()
 
     if rank == 0:
         logger.info("*** Completed finitialize")

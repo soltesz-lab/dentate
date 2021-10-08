@@ -1,0 +1,429 @@
+begintemplate DGC
+
+// GCL - granular layer dendrite
+// PD - proximal dendrite
+// MD - middle dendrite
+// DD - distal dendrite
+
+public all, soma, axon, allaxon, ais, hillock, apical, basal
+public nDends, nGCLD, nPD, nMD, nDD
+public GCLDidxs, PDidxs, MDidxs, DDidxs
+public verbose
+public is_art, position, connect2target
+public xx, yy, zz
+
+verbose = 0
+id  = -1
+gid = -1
+
+create sections[1]
+
+objref GCLDs, PDs, MDs, DDs, all, soma, axon, allaxon, ais, hillock, apical, basal
+objref GCLDidxs, PDidxs, MDidxs, DDidxs
+objref apicalidx, basalidx, somaidx, axonidx, aisidx, hilidx
+objref pyenv
+
+iterator pyitr() {local i, k, x, n, sz localobj itr1, itrn
+    sz = $1
+    n = (numarg()-1) / 2
+    i = 1+n+1
+    itr1 = $oi
+    
+    for k = 0, sz-1 {
+        for x = 1, n {
+            i = 1+n+x
+            itrn = $oi
+            i = 1+x
+            $&i = itrn.__next__()
+        }
+        iterator_statement
+    }
+}
+                                
+proc assert() { local test strdef errmsg
+    
+    test = $1
+    errmsg = $s2
+    
+    if (!test) {
+        execerror ("Assertion failed: ", errmsg)
+    }
+}
+
+
+proc init() {
+    
+    gid = $1
+    
+    xx = 0
+    yy = 0
+    zz = 0
+    
+    pyenv = new PythonObject()
+    nrnpython("import numpy as np")
+    celldef($o3,$o4,$o5,$o6,$o7,$o8,$o9,$o10,$o11,$o12)
+}
+
+
+proc celldef() {
+    
+    GCLDidxs = new Vector()
+    PDidxs  = new Vector()
+    MDidxs  = new Vector()
+    DDidxs  = new Vector()
+    
+    apicalidx = new Vector()
+    basalidx  = new Vector()
+    somaidx   = new Vector()
+    axonidx   = new Vector()
+    aisidx    = new Vector()
+    hilidx    = new Vector()
+    
+    shape($o1,$o6,$o7,$o8,$o9)
+    topol($o1,$o2,$o3,$o4,$o5,$o10)
+//    geom()
+    subsets()
+    biophys()
+}
+
+
+
+proc biophys() {
+    
+    forsec all {
+        Ra = 210
+        cm = 1
+        insert pas
+        g_pas = 2.5e-05
+        e_pas = -70
+    }
+    
+    forsec apical {
+        cm = 1.6
+        insert pas
+        g_pas = 4e-05
+        e_pas = -70
+    }
+    
+    forsec GCLDs {
+        cm = 1
+        insert pas
+        g_pas = 2.5e-05
+        e_pas = -70
+        insert Na_Aradi
+        gmax_Na_Aradi = 0.018
+        insert fKDR_Aradi
+        gmax_fKDR_Aradi = 0.004
+        insert sKDR_Aradi
+        gmax_sKDR_Aradi = 0.003
+        insert Caconc_Aradi
+        insert Ca_Aradi
+        gtcabar_Ca_Aradi = 0.0003
+        gncabar_Ca_Aradi = 0.003
+        glcabar_Ca_Aradi = 0.015
+        insert CadepK_Aradi
+        gbkbar_CadepK_Aradi = 0.0003
+        gskbar_CadepK_Aradi = 0.0002
+        
+    }
+
+  forsec PDs {
+      insert Na_Aradi
+      gmax_Na_Aradi = 0.013
+      insert fKDR_Aradi
+      gmax_fKDR_Aradi = 0.004
+      insert sKDR_Aradi
+      gmax_sKDR_Aradi = 0.003
+      insert Caconc_Aradi
+      insert Ca_Aradi
+      gtcabar_Ca_Aradi = 0.001
+      gncabar_Ca_Aradi = 0.001
+      glcabar_Ca_Aradi = 0.015
+      insert CadepK_Aradi
+      gbkbar_CadepK_Aradi = 0.0005
+      gskbar_CadepK_Aradi = 0.0001
+  }
+  
+  forsec MDs {
+      insert Na_Aradi
+      gmax_Na_Aradi = 0.008
+      insert fKDR_Aradi
+      gmax_fKDR_Aradi = 0.001
+      insert sKDR_Aradi
+      gmax_sKDR_Aradi = 0.003
+      insert Caconc_Aradi
+      insert Ca_Aradi
+      gtcabar_Ca_Aradi = 0.002
+      gncabar_Ca_Aradi = 0.001
+      glcabar_Ca_Aradi = 0.001
+      insert CadepK_Aradi
+      gbkbar_CadepK_Aradi = 0.0012
+      gskbar_CadepK_Aradi = 0.0
+  }
+  
+  forsec DDs {
+      insert fKDR_Aradi
+      gmax_fKDR_Aradi = 0.001
+      insert sKDR_Aradi
+      gmax_sKDR_Aradi = 0.004
+      insert Caconc_Aradi
+      insert Ca_Aradi
+      gtcabar_Ca_Aradi = 0.002
+      gncabar_Ca_Aradi = 0.001
+      glcabar_Ca_Aradi = 0.0
+      insert CadepK_Aradi
+      gbkbar_CadepK_Aradi = 0.0012
+      gskbar_CadepK_Aradi = 0.0
+      
+  }
+  
+  forsec allaxon {
+      insert Na_Aradi
+      gmax_Na_Aradi = 0.21
+      insert fKDR_Aradi
+      gmax_fKDR_Aradi = 0.028
+      insert KA_Aradi
+      gmax_KA_Aradi = 0.004
+  }
+  
+  forsec soma {
+    insert Na_Aradi
+    gmax_Na_Aradi = 0.12
+    insert fKDR_Aradi
+    gmax_fKDR_Aradi = 0.016
+    insert sKDR_Aradi
+    gmax_sKDR_Aradi = 0.003
+    insert KA_Aradi
+    gmax_KA_Aradi = 0.012
+    insert Caconc_Aradi
+    insert Ca_Aradi
+    gtcabar_Ca_Aradi = 0.00015
+    gncabar_Ca_Aradi = 0.002
+    glcabar_Ca_Aradi = 0.010
+    insert CadepK_Aradi
+    gbkbar_CadepK_Aradi = 0.0003
+    gskbar_CadepK_Aradi = 0.0005
+}
+
+
+forsec all {
+	if (ismembrane("Na_Aradi")) {ena = 45}
+	if (ismembrane("fKDR_Aradi")) {ek = -85}
+}
+
+}
+
+func is_art()  { return 0 }
+
+proc position() { local i
+    
+    forsec soma {
+        for i = 0, n3d()-1 {
+            pt3dchange(i, $1-xx+x3d(i), $2-yy+y3d(i), $3-zz+z3d(i), diam3d(i))
+        }
+    }
+    xx = $1  yy = $2  zz = $3
+}
+
+
+
+proc topol_from_python() { local i,j,l,p,s,p_layer,loc,vlen localobj vsrc, vdst, vloc, secnodes, layers, swc_types
+    
+    secnodes = $o1
+    layers   = $o2
+    
+    vlen     = $o3.size
+    vsrc     = pyenv.iter($o3)
+    vdst     = pyenv.iter($o4)
+    vloc     = pyenv.iter($o5)
+    swc_types = $o6
+    
+    nDends = 0
+    nSoma  = 0
+    nAxon  = 0
+    nAIS   = 0
+    nHill  = 0
+    
+    for s=0, secnodes.__len__()-1 {
+        
+        p = secnodes.__getitem__(s)._[-1]
+        p_layer = layers._[p]
+        
+        if (p_layer == 1) {
+            GCLDidxs.append(s)
+        } else if (p_layer == 2) {
+            PDidxs.append(s)
+        } else if (p_layer == 3) {
+            MDidxs.append(s)
+        } else if (p_layer >= 4) {
+            DDidxs.append(s)
+        }
+        
+        swc_type = swc_types._[p]
+        if (swc_type == 4) {
+            nDends = nDends + 1
+            apicalidx.append(s)
+        }
+        if (swc_type == 8) {
+            hilidx.append(s)
+            nHill = nHill + 1
+            nAxon = nAxon + 1
+        }
+        if (swc_type == 7) {
+            aisidx.append(s)
+            nAIS = nAIS + 1
+            nAxon = nAxon + 1
+        }
+        if (swc_type == 2) {
+            axonidx.append(s)
+            nAxon = nAxon + 1
+        }
+        if (swc_type == 1) {
+            somaidx.append(s)
+            nSoma = nSoma + 1
+        }
+        
+    }
+    
+    nGCLD  = GCLDidxs.size()
+    nPD    = PDidxs.size()
+    nMD    = MDidxs.size()
+    nDD    = DDidxs.size()
+    
+    if (verbose) {
+
+        print "soma compartment indices = "
+        somaidx.printf()
+        print "GCLD compartment indices = "
+        GCLDidxs.printf()
+        print "PD compartment indices = "
+        PDidxs.printf()
+        print "MD compartment indices = "
+        MDidxs.printf()
+        print "DD compartment indices = "
+        DDidxs.printf()
+        printf ("Total number of dendritic compartments = %d\n", nDends)
+    }
+    
+    for pyitr (vlen, &i, &j, &l, vsrc, vdst, vloc) {
+        assert (i >= 0,  "compartment index in topology matrix is less than zero")
+        assert (j >= 0,  "compartment index in topology matrix is less than zero")
+        assert (i < nDends+nSoma+nAxon+1,  "compartment index in topology matrix is greater than the number of compartments")
+        assert (j < nDends+nSoma+nAxon+1,  "compartment index in topology matrix is greater than the number of compartments")
+        sections[i] loc = arc3d(l) / L 
+        connect sections[j](0),sections[i](loc)
+        
+    }
+    
+}
+
+
+proc topol() { local i
+    
+    topol_from_python($o1,$o2,$o3,$o4,$o5,$o6)
+    
+}
+
+proc shape() {
+    
+    shape_from_python($o1,$o2,$o3,$o4,$o5)
+    
+}
+
+
+proc shape_from_python() { local x,y,z,r,s,p localobj secnodes, pidxs, vx, vy, vz, vradius
+    
+    secnodes = $o1
+    vx = $o2
+    vy = $o3
+    vz = $o4
+    vradius = $o5
+    
+    create sections[secnodes.__len__()]
+    for s=0, secnodes.__len__()-1 {
+        pidxs = secnodes.__getitem__(s)
+        sections[s] {
+            pt3dconst(0)
+            for pyitr (pidxs.size, &p, pyenv.iter(pidxs)) {
+                
+                x = vx._[p]
+                y = vy._[p]
+                z = vz._[p]
+                r = vradius._[p]
+
+                pt3dadd(x, y, z, 2*r)
+            }
+        }
+    }
+    
+}
+
+
+
+proc subsets() { local i localobj sref
+    
+  GCLDs  = new SectionList()
+  PDs    = new SectionList()
+  MDs    = new SectionList()
+  DDs    = new SectionList()
+  apical = new SectionList()
+  basal  = new SectionList()
+  soma   = new SectionList()
+  axon   = new SectionList()
+  allaxon = new SectionList()
+  ais    = new SectionList()
+  hillock = new SectionList()
+  all    = new SectionList()
+  
+  for i=0, apicalidx.size()-1 {
+      sections[apicalidx.x[i]] {
+          apical.append()
+          all.append()
+      }
+  }
+  
+  for i=0, nGCLD-1 sections[GCLDidxs.x[i]] GCLDs.append()
+  for i=0, nPD-1 sections[PDidxs.x[i]] PDs.append()
+  for i=0, nMD-1 sections[MDidxs.x[i]] MDs.append()
+  for i=0, nDD-1 sections[DDidxs.x[i]] DDs.append()
+  
+  if (hilidx.size() > 0) {
+      for i=0, hilidx.size()-1 {
+          sections[hilidx.x[i]] {
+              hillock.append()
+              allaxon.append()
+              all.append()
+          }
+      }
+  }
+  if (aisidx.size() > 0) {
+      for i=0, aisidx.size()-1 {
+          sections[aisidx.x[i]] {
+              ais.append()
+              allaxon.append()
+              all.append()
+          }
+      }
+  }
+  
+  for i=0, axonidx.size()-1 {
+      sections[axonidx.x[i]] {
+          axon.append()
+          allaxon.append()
+          all.append()
+      }
+  }
+  
+  soma = new SectionList() 
+  for i=0, somaidx.size()-1 {
+      sections[somaidx.x[i]] {
+          soma.append()
+          all.append()
+      }
+  }
+  
+}
+
+
+
+endtemplate DGC
