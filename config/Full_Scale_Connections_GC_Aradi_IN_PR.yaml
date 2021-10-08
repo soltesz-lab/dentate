@@ -18,10 +18,10 @@ Synapses:
           tau_rise: 0.5
           tau_decay: 5.5
           e: 0
-          g_unit: 0.005
+          g_unit: 0.002
           weight: 1.0
         NMDA:
-          g_unit: 0.005
+          g_unit: 0.004
           weight: 1.0
     LPP:
       type: excitatory
@@ -34,10 +34,10 @@ Synapses:
           tau_rise: 0.5
           tau_decay: 5.5
           e: 0
-          g_unit: 0.007
+          g_unit: 0.003
           weight: 1.0
         NMDA:
-          g_unit: 0.005
+          g_unit: 0.0026
           weight: 1.0
     MC:   
       type: excitatory
@@ -50,10 +50,10 @@ Synapses:
           tau_rise: 0.5
           tau_decay: 5.5
           e: 0
-          g_unit: 0.00275
+          g_unit: 0.001475
           weight: 1.0
         NMDA:
-          g_unit: 0.00275
+          g_unit: 0.00475
           weight: 1.0
     ConMC:   
       type: excitatory
@@ -66,10 +66,10 @@ Synapses:
           tau_rise: 0.5
           tau_decay: 5.5
           e: 0
-          g_unit: 0.00275
+          g_unit: 0.0013
           weight: 1.0
         NMDA:
-          g_unit: 0.00275
+          g_unit: 0.00475
           weight: 1.0
     AAC:
       type: inhibitory
