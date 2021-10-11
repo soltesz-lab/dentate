@@ -14,5 +14,5 @@ PinskyRinzel:
   global_diam:  10.0
   global_cm:  3.0
   V_rest: -66.0
-  V_threshold: -44.0
+  V_threshold: -43.0
   

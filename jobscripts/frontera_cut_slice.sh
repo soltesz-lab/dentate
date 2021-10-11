@@ -28,15 +28,15 @@ mkdir -p $results_path
 
 ibrun python3 ./scripts/cut_slice.py \
     --arena-id=A --trajectory-id=Diag \
-    --config=Full_Scale_GC_Exc_Sat_DD_SLN.yaml \
+    --config=Full_Scale_GC_Aradi_SLN_IN_PR.yaml \
     --config-prefix=./config \
-    --dataset-prefix="$SCRATCH/striped/dentate" \
+    --dataset-prefix="$SCRATCH/striped2/dentate" \
     --output-path=$results_path \
     --io-size=64 \
-    --spike-input-path="$SCRATCH/striped/dentate/Full_Scale_Control/DG_input_spike_trains_phasemod_20210606_compressed.h\
+    --spike-input-path="$SCRATCH/striped2/dentate/Full_Scale_Control/DG_input_spike_trains_phasemod_20210606_compressed.h\
 5" \
     --spike-input-namespace='Input Spikes A Diag' \
     --spike-input-attr="Spike Train" \
-    --distance-limits -2000 0 \
+    --distance-limits -2000 -1925 \
     --write-selection \
     --verbose
