@@ -3,7 +3,8 @@ from mpi4py import MPI
 from neuroh5.io import read_population_ranges, read_population_names, read_cell_attribute_selection
 import numpy as np
 import pandas as pd
-import click
+import click, logging
+
 
 def list_find (f, lst):
     i=0
@@ -14,7 +15,11 @@ def list_find (f, lst):
             i=i+1
     return None
 
+logging.basicConfig(level=logging.INFO)
+
 script_name = 'read_features_selection.py'
+logger = logging.getLogger(script_name)
+
 
 @click.command()
 @click.option("--population", '-p', type=str, default='GC')

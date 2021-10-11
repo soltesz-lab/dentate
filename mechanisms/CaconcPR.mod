@@ -2,8 +2,8 @@
 
 NEURON {
 	SUFFIX Ca_conc_PR
-	USEION ca READ ica WRITE eca, cai
-	RANGE cai0, cao0, cai, eca, d
+	USEION ca READ ica, cao WRITE eca, cai
+	RANGE cai0, cai, eca, d
 }
 
 UNITS {
@@ -17,7 +17,6 @@ UNITS {
 
 PARAMETER {
 	cai0 = 7e-5 	(mM)
- 	cao = 0.055 		(mM)
         d = 13 (mM)
 }
 
@@ -25,6 +24,7 @@ ASSIGNED {
 	v			(mV)
 	ica			(mA/cm2)
 	eca			(mV)
+	cao			(mM)
         celsius (degC)
 }
 

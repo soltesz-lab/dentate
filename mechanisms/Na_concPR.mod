@@ -20,7 +20,7 @@ UNITS {
 PARAMETER {
         d = .2           (um)
         nao0 = 145        (mM)         
-        nai0 = 5         (mM)         
+        nai0 = 15         (mM)         
         beta = 0.075       (/ms)
 }
 
