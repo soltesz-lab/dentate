@@ -112,8 +112,14 @@ def init_inputs_from_spikes(env, presyn_sources, time_range,
     equilibration_duration = float(env.stimulus_config.get('Equilibration Duration', 0.))
     if time_range is not None:
         spkdata_time_range = (time_range[0] - equilibration_duration, time_range[1])
-    
-    this_spike_events_namespace = f'{spike_events_namespace} {arena_id} {trajectory_id}'
+
+    if arena_id and trajectory_id:
+        this_spike_events_namespace = f'{spike_events_namespace} {arena_id} {trajectory_id}'
+    elif arena_id:
+        this_spike_events_namespace = f'{spike_events_namespace} {arena_id}'
+    else:
+        this_spike_events_namespace = spike_events_namespace
+        
     ## Load spike times of presynaptic cells
     spkdata = spikedata.read_spike_events(spike_events_path,
                                           populations,
@@ -1268,8 +1274,8 @@ def cli():
 @click.option("--config-file", '-c', required=True, type=str, help='model configuration file name')
 @click.option("--population", '-p', required=True, type=str, default='GC', help='target population')
 @click.option("--gid", '-g', required=True, type=int, default=0, help='target cell gid')
-@click.option("--arena-id", '-a', required=True, type=str, help='arena id for input stimulus')
-@click.option("--trajectory-id", '-t', required=True, type=str, help='trajectory id for input stimulus')
+@click.option("--arena-id", '-a', required=False, type=str, help='arena id for input stimulus')
+@click.option("--trajectory-id", '-t', required=False, type=str, help='trajectory id for input stimulus')
 @click.option("--template-paths", type=str, required=True,
               help='colon-separated list of paths to directories containing hoc cell templates')
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
@@ -1337,8 +1343,8 @@ def show(config_file, population, gid, arena_id, trajectory_id, template_paths, 
 @click.option("--dt", required=False, type=float, help='simulation time step')
 @click.option("--gids", '-g', type=int, multiple=True, help='target cell gid')
 @click.option("--gid-selection-file", type=click.Path(exists=True, file_okay=True, dir_okay=False), help='file containing target cell gids')
-@click.option("--arena-id", '-a', required=True, type=str, help='arena id for input stimulus')
-@click.option("--trajectory-id", '-t', required=True, type=str, help='trajectory id for input stimulus')
+@click.option("--arena-id", '-a', required=False, type=str, help='arena id for input stimulus')
+@click.option("--trajectory-id", '-t', required=False, type=str, help='trajectory id for input stimulus')
 @click.option("--generate-weights", '-w', required=False, type=str, multiple=True,
               help='generate weights for the given presynaptic population')
 @click.option("--t-max", '-t', type=float, default=150.0, help='simulation end time')
@@ -1501,8 +1507,8 @@ def go(config_file, population, dt, gids, gid_selection_file, arena_id, trajecto
 @click.option("--dt",  type=float, help='simulation time step')
 @click.option("--gids", '-g', type=int, multiple=True, help='target cell gid')
 @click.option("--gid-selection-file", type=click.Path(exists=True, file_okay=True, dir_okay=False), help='file containing target cell gids')
-@click.option("--arena-id", '-a', type=str, required=True, help='arena id')
-@click.option("--trajectory-id", '-t', type=str, required=True, help='trajectory id')
+@click.option("--arena-id", '-a', type=str, required=False, help='arena id')
+@click.option("--trajectory-id", '-t', type=str, required=False, help='trajectory id')
 @click.option("--generate-weights", '-w', required=False, type=str, multiple=True,
               help='generate weights for the given presynaptic population')
 @click.option("--t-max", '-t', type=float, default=150.0, help='simulation end time')

@@ -819,7 +819,7 @@ class BiophysCell(object):
     2) Specification of complex distributions of compartment attributes like gradients of ion channel density or
     synaptic properties.
     """
-    def __init__(self, gid, pop_name, hoc_cell=None, mech_file_path=None, mech_dict=None, env=None):
+    def __init__(self, gid, pop_name, hoc_cell=None, neurotree_dict=None, mech_file_path=None, mech_dict=None, env=None):
         """
 
         :param gid: int
@@ -835,7 +835,7 @@ class BiophysCell(object):
         if env is not None:
             for sec_type in env.SWC_Types:
                 if sec_type not in default_ordered_sec_types:
-                    raise AttributeError('Warning! unexpected SWC Type definitions found in Env')
+                    raise AttributeError('Unexpected SWC Type definitions found in Env')
         self.nodes = {key: [] for key in default_ordered_sec_types}
         self.mech_file_path = mech_file_path
         self.init_mech_dict = dict(mech_dict) if mech_dict is not None else None
@@ -847,6 +847,10 @@ class BiophysCell(object):
         self.hoc_cell = hoc_cell
         if hoc_cell is not None:
             import_morphology_from_hoc(self, hoc_cell)
+        elif neurotree_dict is not None:
+            import_morphology_from_neurotree_dict(self, neurotree_dict)
+            import_morphology_from_hoc(self, hoc_cell)
+            
         if (mech_dict is None) and (mech_file_path is not None):
             import_mech_dict_from_file(self, self.mech_file_path)
         elif mech_dict is None:
@@ -1267,7 +1271,7 @@ def import_morphology_from_hoc(cell, hoc_cell):
         logger.error('import_morphology_from_hoc: problem locating soma section to act as root')
         raise e
     append_child_sections(cell, root_node, root_sec.children(), sec_type_map)
-
+        
 
 def connect2target(cell, sec, loc=1., param='_ref_v', delay=None, weight=None, threshold=None, target=None):
     """
@@ -2699,7 +2703,7 @@ def normalize_tree_topology(neurotree_dict, swc_type_defs):
 
 
 
-def make_neurotree_cell(template_class, gid=0, dataset_path="", neurotree_dict={}):
+def make_neurotree_hoc_cell(template_class, gid=0, dataset_path="", neurotree_dict={}):
     """
 
     :param template_class:
@@ -2741,8 +2745,8 @@ def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
     template_class = getattr(h, template_name)
 
     if neurotree_dict:
-        hoc_cell = make_neurotree_cell(template_class, neurotree_dict=neurotree_dict, gid=gid,
-                                       dataset_path=dataset_path)
+        hoc_cell = make_neurotree_hoc_cell(template_class, neurotree_dict=neurotree_dict, gid=gid,
+                                           dataset_path=dataset_path)
     else:
         if pop_name in env.cell_attribute_info and 'Trees' in env.cell_attribute_info[pop_name]:
             raise Exception('make_hoc_cell: morphology for population %s gid: %i is not provided' %
