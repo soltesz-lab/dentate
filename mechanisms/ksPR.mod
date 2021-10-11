@@ -17,6 +17,7 @@ UNITS {
 
 PARAMETER {
   gmax = 0 (S/cm2)
+  Q10 = 3 (1)
 
 }
 
@@ -29,6 +30,7 @@ ASSIGNED {
 	bn		(/ms)	
         ninf
         ntau (ms)
+        celsius (degC)
 }
 
 STATE { n }
@@ -51,10 +53,12 @@ DERIVATIVE states {
 }
 
 
-PROCEDURE rates(v (mV)) { LOCAL sum
+PROCEDURE rates(v (mV)) { LOCAL tcorr, sum
     
-    an=0.016*vtrap(-24.9-v, 5)
-    bn=0.25*exp(-1-0.025*v)
+    tcorr = Q10^((celsius - 36(degC))/10 (degC))
+    
+    an=tcorr*0.016*linoid(-24.9-v, 5)
+    bn=tcorr*0.25*exp(-1-0.025*v)
     
     sum = an + bn
     ninf = an/sum
@@ -62,10 +66,10 @@ PROCEDURE rates(v (mV)) { LOCAL sum
 }
 
  
-FUNCTION vtrap(x,y) {            :Traps for 0 in denominator of rate eqns., based on three terms of infinite series expansion of exp
+FUNCTION linoid(x,y) {
     if (fabs(x/y) < 1e-6) {
-        vtrap = y*(1 - x/y/2)
+        linoid = y*(1 - x/y/2)
     } else {
-        vtrap = x/(exp(x/y) - 1)
+        linoid = x/(exp(x/y) - 1)
     }
 }

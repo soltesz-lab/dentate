@@ -1,7 +1,7 @@
 
 
 NEURON {
-	SUFFIX Caconc_PR
+	SUFFIX Ca_conc_PR
 	USEION ca READ ica WRITE eca, cai
 	RANGE cai0, cao0, cai, eca, d
 }

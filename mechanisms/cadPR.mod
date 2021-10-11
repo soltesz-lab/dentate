@@ -19,8 +19,9 @@ UNITS {
 }
 
 PARAMETER {
-	gmax = 0	(S/cm2)	: maximum permeability
-    }
+    gmax = 0	(S/cm2)	: maximum permeability
+    Q10 = 3 (1)
+}
     
 ASSIGNED {
         eca     (mV)
@@ -29,6 +30,7 @@ ASSIGNED {
 	g		(S/cm2)
         as
         bs
+        celsius (degC)
 }
 
 STATE { s }
@@ -50,17 +52,19 @@ INITIAL {
 }
 
 
-PROCEDURE rates(v (mV)) { 
+PROCEDURE rates(v (mV)) { LOCAL tcorr
     
-    as=1.6 / (exp(-0.072*(v-5))+1)
-    bs=0.02*vtrap(v+8.9,5)
+    tcorr = Q10^((celsius - 36(degC))/10 (degC))
+    
+    as=tcorr*1.6 / (exp(-0.072*(v-5))+1)
+    bs=tcorr*0.02*linoid(v+8.9,5)
     
 }
 
-FUNCTION vtrap(x,y) {            :Traps for 0 in denominator of rate eqns., based on three terms of infinite series expansion of exp
+FUNCTION linoid(x,y) {
     if (fabs(x/y) < 1e-6) {
-        vtrap = y*(1 - x/y/2)
+        linoid = y*(1 - x/y/2)
     } else {
-        vtrap = x/(exp(x/y) - 1)
+        linoid = x/(exp(x/y) - 1)
     }
 }
