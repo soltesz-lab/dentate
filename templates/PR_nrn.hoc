@@ -7,7 +7,7 @@ begintemplate PR_nrn
    public init_ic
    objref sections, all
    
-   func is_art() {return 1}
+   func is_art() {return 0}
    func is_reduced() {return 1}
 
    func lambda_f() { local i, x1, x2, d1, d2, lam
@@ -197,13 +197,13 @@ proc biophys () {
         insert constant
         insert Na_PR
         insert K_PR
+        insert Na_conc_PR
+        insert K_conc_PR
         
         gmax_Na_PR = soma_gmax_Na
         gmax_K_PR = soma_gmax_K
         g_pas = soma_g_pas
         e_pas = -60.
-	ek = -75
-	ena = 60
       }
 
     //* dend
@@ -212,7 +212,8 @@ proc biophys () {
         insert Ca_PR
         insert KAHP_PR
         insert KCa_PR
-        insert Caconc_PR
+        insert Ca_conc_PR
+        insert K_conc_PR
         
         d_Caconc_PR = dend_d_Caconc
         g_pas=dend_g_pas
@@ -221,7 +222,6 @@ proc biophys () {
         gmax_KCa_PR = dend_gmax_KCa
         gmax_KAHP_PR = dend_gmax_KAHP
 
-	ek = -75
     }
     
 

@@ -28,6 +28,8 @@ ASSIGNED {
         qinf	        (/ms)	
 	tauq		(ms)	
         cai (mM)
+        celsius (degC)
+
 }
 
 STATE { q }
@@ -50,8 +52,9 @@ DERIVATIVE states {
 
 
 PROCEDURE rates(v (mV)) { 
-    qinf=(0.7894*exp(0.0002726*cai))-(0.7292*exp(-0.01672*cai))    
-    tauq=(657.9*exp(-0.02023*cai))+(301.8*exp(-0.002381*cai))
+        
+    qinf = (0.7894*exp(0.0002726*cai))-(0.7292*exp(-0.01672*cai))    
+    tauq = (657.9*exp(-0.02023*cai))+(301.8*exp(-0.002381*cai))
 }
 
 

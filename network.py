@@ -1068,9 +1068,10 @@ def init_input_cells(env):
                     if len(spiketrain) > 0:
                         spiketrain = merge_spiketrain_trials(spiketrain, trial_index, trial_duration, env.n_trials)
                         spiketrain += float(env.stimulus_config['Equilibration Duration']) + env.stimulus_onset
-                        cell.play(h.Vector(spiketrain))
-                        if rank == 0:
-                            logger.info(f"*** Spike train for {pop_name} gid {gid} is of length {len(spiketrain)} ({spiketrain[0]} : {spiketrain[-1]} ms)")
+                        if len(spiketrain) > 0:
+                            cell.play(h.Vector(spiketrain))
+                            if rank == 0:
+                                logger.info(f"*** Spike train for {pop_name} gid {gid} is of length {len(spiketrain)} ({spiketrain[0]} : {spiketrain[-1]} ms)")
 
 
     gc.collect()
@@ -1150,10 +1151,10 @@ def init_input_cells(env):
                         if len(spiketrain) > 0:
                             spiketrain = merge_spiketrain_trials(spiketrain, trial_index, trial_duration, env.n_trials)
                             spiketrain += float(env.stimulus_config['Equilibration Duration']) + env.stimulus_onset
-
-                            input_cell.play(h.Vector(spiketrain))
-                            if rank == 0:
-                                logger.info(f"*** Spike train for {pop_name} gid {gid} is of length {len(spiketrain)} ({spiketrain[0]} : {spiketrain[-1]} ms)")
+                            if len(spiketrain) > 0:
+                                input_cell.play(h.Vector(spiketrain))
+                                if rank == 0:
+                                    logger.info(f"*** Spike train for {pop_name} gid {gid} is of length {len(spiketrain)} ({spiketrain[0]} : {spiketrain[-1]} ms)")
                                 
 
             else:
