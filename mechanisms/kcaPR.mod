@@ -55,10 +55,18 @@ PROCEDURE rates(v (mV)) { LOCAL tcorr
     
     tcorr = Q10^((celsius - 36(degC))/10 (degC))
 
-    cinf=(1.0/(1.0+exp((-10.1-v)/0.1016)))^0.00925
+    cinf=expit((10.1+v)/0.1016)^0.00925
     tauc=3.627*exp(0.03704*v)/tcorr
-
+    
 }
 
+FUNCTION expit(x) { LOCAL a
+    if (x < 0) {
+        a = exp(x)
+        expit = a / (1 + a)
+    } else {
+      expit = 1/(1 + exp(-x))
+    }
+}
 
 

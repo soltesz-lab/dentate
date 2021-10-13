@@ -16,8 +16,9 @@ UNITS {
 }
 
 PARAMETER {
-	cai0 = 7e-5 	(mM)
+	cai0 = 1e-5 	(mM)
         d = 13 (mM)
+        beta = 0.075       (/ms)
 }
 
 ASSIGNED {
@@ -26,7 +27,7 @@ ASSIGNED {
 	eca			(mV)
 	cao			(mM)
         celsius (degC)
-}
+    }
 
 STATE {
 	cai (mM) <1e-5>
@@ -37,12 +38,12 @@ BREAKPOINT {
 }
 
 DERIVATIVE state {
-	cai' = -d*10*ica - 0.075*cai
+	cai' = -d*10*ica - beta*(cai - cai0)
 }
 
 INITIAL {
     cai = cai0
-    eca = ktf() * log(cao/cai)
+    eca = ktf() * log(cao/(cai + 1e-8))
     }
     
 FUNCTION ktf() (mV) {
