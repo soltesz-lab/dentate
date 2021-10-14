@@ -207,12 +207,12 @@ def measure_ap (gid, pop_name, v_init, env, cell_dict={}):
 
     return results
     
-def measure_ap_rate (gid, pop_name, v_init, env, prelength=1000.0, mainlength=2000.0, stimdur=1000.0, minspikes=50, maxit=5, cell_dict={}):
+def measure_ap_rate (gid, pop_name, v_init, env, prelength=1000.0, mainlength=2000.0, stimdur=1000.0, stim_amp=0.2, minspikes=50, maxit=5, cell_dict={}):
 
     biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False, cell_dict=cell_dict)
+
     hoc_cell = biophys_cell.hoc_cell
 
-    h.dt = env.dt
 
     tstop = prelength+mainlength
     
@@ -220,7 +220,7 @@ def measure_ap_rate (gid, pop_name, v_init, env, prelength=1000.0, mainlength=20
     stim1 = h.IClamp(soma(0.5))
     stim1.delay = prelength
     stim1.dur   = stimdur
-    stim1.amp   = 0.2
+    stim1.amp   = stim_amp
 
     h('objref nil, tlog, Vlog, spikelog')
 
@@ -241,7 +241,9 @@ def measure_ap_rate (gid, pop_name, v_init, env, prelength=1000.0, mainlength=20
     ## or up to maxit steps
     while (h.spikelog.size() < minspikes):
 
-        neuron_utils.simulate(v_init, prelength,mainlength)
+        h.dt = env.dt
+
+        neuron_utils.simulate(v_init, prelength, mainlength)
         
         if ((h.spikelog.size() < minspikes) & (it < maxit)):
             logger.info("ap_rate_test: stim1.amp = %g spikelog.size = %d\n" % (stim1.amp, h.spikelog.size()))
@@ -552,13 +554,16 @@ def measure_psp (gid, pop_name, presyn_name, syn_mech_name, swc_type, env, v_ini
     vec_i = np.asarray(h.ilog.to_python())
     vec_t = np.asarray(h.tlog.to_python())
     idx = np.where(vec_t >= prelength)[0]
-    vec_v = vec_v[idx]
-    vec_t = vec_t[idx]
+    vec_v = vec_v[idx][1:]
+    vec_t = vec_t[idx][1:]
+    vec_i = vec_i[idx][1:]
 
-    v_peak_index = np.argmax(np.abs(vec_v[1:]))
+    v_peak_index = np.argmax(np.abs(vec_v))
     v_peak = vec_v[v_peak_index]
-    i_peak_index = np.argmax(np.abs(vec_i[1:]))    
+    i_peak_index = np.argmax(np.abs(vec_i))
     i_peak = vec_i[i_peak_index]
+
+    
     
     amp_v = abs(v_peak - vec_v[0])
     amp_i = abs(i_peak - vec_i[0])
@@ -607,11 +612,16 @@ def measure_psp (gid, pop_name, presyn_name, syn_mech_name, swc_type, env, v_ini
 @click.option("--syn-count", type=int, default=1, help='synaptic count')
 @click.option("--swc-type", type=str, help='synaptic swc type')
 @click.option("--syn-layer", type=str, help='synaptic layer name')
+@click.option("--stim-amp", type=float, default=0.1, help='current stimulus amplitude (nA)')
 @click.option("--v-init", type=float, default=-75.0, help='initialization membrane potential (mV)')
+@click.option("--dt", type=float, default=0.025, help='simulation timestep (ms)')
+@click.option("--use-cvode", is_flag=True)
 @click.option("--verbose", '-v', is_flag=True)
 
-def main(config_file, config_prefix, erev, population, presyn_name, gid, load_weights, measurements, template_paths, dataset_prefix, results_path, results_file_id, results_namespace_id, syn_mech_name, syn_weight, syn_count, syn_layer, swc_type, v_init, verbose):
+def main(config_file, config_prefix, erev, population, presyn_name, gid, load_weights, measurements, template_paths, dataset_prefix, results_path, results_file_id, results_namespace_id, syn_mech_name, syn_weight, syn_count, syn_layer, swc_type, stim_amp, v_init, dt, use_cvode, verbose):
 
+    config_logging(verbose)
+        
     if results_file_id is None:
         results_file_id = uuid.uuid4()
     if results_namespace_id is None:
@@ -634,12 +644,13 @@ def main(config_file, config_prefix, erev, population, presyn_name, gid, load_we
     if 'ap' in measurements:
         attr_dict[gid].update(measure_ap(gid, population, v_init, env))
     if 'ap_rate' in measurements:
-        attr_dict[gid].update(measure_ap_rate(gid, population, v_init, env))
+        logger.info('ap_rate')
+        attr_dict[gid].update(measure_ap_rate(gid, population, v_init, env, stim_amp=stim_amp))
     if 'fi' in measurements:
         attr_dict[gid].update(measure_fi(gid, population, v_init, env))
     if 'gap' in measurements:
         gap_junction_test(gid, population, v_init, env)
-    if 'psp':
+    if 'psp' in measurements:
         assert(presyn_name is not None)
         assert(syn_mech_name is not None)
         assert(erev is not None)
