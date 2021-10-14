@@ -1845,22 +1845,23 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
 
     _, state_info = query_state(input_path, population_names, namespace_ids=namespace_ids)
 
-    if gid_set is None:
-        for population in state_info.keys():
-            for namespace in namespace_ids:
-                if namespace in state_info[population]:
-                    ns_state_info_dict = dict(state_info[population][namespace])
-                    if state_variable in ns_state_info_dict:
-                        gid_set = list(ns_state_info_dict[state_variable])
-                        break
-                    else:
-                        raise RuntimeError('unable to find recording for state variable %s population %s namespace %s' % (state_variable, population, namespace))
-
     # Replace 'eachPop' with list of populations
     if 'eachPop' in include: 
         include.remove('eachPop')
         for pop in population_names:
             include.append(pop)
+
+    if gid_set is None:
+        for population in include:
+            for namespace in namespace_ids:
+                if (population in state_info) and (namespace in state_info[population]):
+                    ns_state_info_dict = dict(state_info[population][namespace])
+                    if state_variable in ns_state_info_dict:
+                        gid_set = list(ns_state_info_dict[state_variable])[:max_units]
+                        break
+                    else:
+                        raise RuntimeError('unable to find recording for state variable %s population %s namespace %s' % (state_variable, population, namespace))
+
 
     pop_states_dict = defaultdict(lambda: defaultdict(lambda: dict()))
     for namespace_id in namespace_ids:

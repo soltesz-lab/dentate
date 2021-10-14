@@ -55,7 +55,7 @@ def hoc_results_to_python(hoc_results):
     return results_dict
 
 
-def simulate(v_init, mainlength, prelength=0, cvode=True):
+def simulate(v_init, mainlength, prelength=0, use_cvode=True):
     """
 
     :param h:
@@ -64,7 +64,10 @@ def simulate(v_init, mainlength, prelength=0, cvode=True):
     :param mainlength:
     :param cvode:
     """
-    h.cvode_active(1 if cvode else 0)
+    h.cvode_active(1 if use_cvode else 0)
+    h.cvode.use_fast_imem(1)
+    h.cvode.cache_efficient(1)
+    h.secondorder = 2
     h.finitialize(v_init)
     h.tstop = prelength + mainlength
     h.fadvance()
