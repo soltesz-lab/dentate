@@ -27,7 +27,7 @@ cd $SLURM_SUBMIT_DIR
 
 ibrun -np 16  python3 ./scripts/sample_extent.py \
     --arena-id='A' --trajectory-id=Diag \
-    --config=Full_Scale_GC_Aradi_Sat_SLN_IN_PR.yaml \
+    --config=Full_Scale_GC_Aradi_SLN_IN_PR.yaml \
     --config-prefix=./config \
     --dataset-prefix="$DATA_PREFIX" \
     --output-path=$results_path \

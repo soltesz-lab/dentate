@@ -274,7 +274,7 @@ def generate_gj_connections(env, forest_path, soma_coords_dict,
             logger.info('Reading tree selection of population %s (%d cells)...' % (pp[0], len(selection_a)))
         (tree_iter_a, _) = read_tree_selection(forest_path, population_a, list(selection_a))
         for (gid, tree_dict) in tree_iter_a:
-            cell_dict_a[gid] = cells.make_neurotree_cell(template_class_a, neurotree_dict=tree_dict, gid=gid)
+            cell_dict_a[gid] = cells.make_neurotree_hoc_cell(template_class_a, neurotree_dict=tree_dict, gid=gid)
 
         cell_dict_b = {}
         selection_b = set(gids_b)
@@ -282,7 +282,7 @@ def generate_gj_connections(env, forest_path, soma_coords_dict,
             logger.info('Reading tree selection of population %s (%d cells)...' % (pp[1], len(selection_b)))
         (tree_iter_b, _) = read_tree_selection(forest_path, population_b, list(selection_b))
         for (gid, tree_dict) in tree_iter_b:
-            cell_dict_b[gid] = cells.make_neurotree_cell(template_class_b, neurotree_dict=tree_dict, gid=gid)
+            cell_dict_b[gid] = cells.make_neurotree_hoc_cell(template_class_b, neurotree_dict=tree_dict, gid=gid)
 
         if rank == 0:
             logger.info('Generating gap junction pairs between populations %s and %s...' % pp)

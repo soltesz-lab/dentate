@@ -11,13 +11,14 @@
 #SBATCH --mail-type=all    # Send email at begin and end of job
 #SBATCH -A BIR20001
 
+module load gcc/9.1.0
 module load python3
 module load phdf5
 
 set -x
 
-export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
-export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
+export NEURONROOT=$SCRATCH/bin/nrnpython3_gcc9
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/gcc9:$PYTHONPATH
 export MODEL_HOME=$HOME/model
 export DG_HOME=$MODEL_HOME/dentate
 export DATA_PREFIX=$SCRATCH/striped2/dentate

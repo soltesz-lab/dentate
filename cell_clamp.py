@@ -371,8 +371,8 @@ def measure_gap_junction_coupling (env, template_class, tree, v_init, cell_dict=
     h.cells  = h.List()
     h.gjlist = h.List()
     
-    cell1 = cells.make_neurotree_cell (template_class, neurotree_dict=tree)
-    cell2 = cells.make_neurotree_cell (template_class, neurotree_dict=tree)
+    cell1 = cells.make_neurotree_hoc_cell (template_class, neurotree_dict=tree)
+    cell2 = cells.make_neurotree_hoc_cell (template_class, neurotree_dict=tree)
 
     h.cells.append(cell1)
     h.cells.append(cell2)

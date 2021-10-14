@@ -17,7 +17,8 @@ UNITS {
 }
 
 PARAMETER {
-  gmax = 0 (S/cm2)
+    gmax = 0 (S/cm2)
+    Q10 = 3 (1)
 }
 
 ASSIGNED {
@@ -28,6 +29,7 @@ ASSIGNED {
         cinf	        (/ms)	
 	tauc		(ms)	
         cai (mM)
+        celsius (degC)
 }
 
 STATE { c }
@@ -49,9 +51,12 @@ DERIVATIVE states {
 }
 
 
-PROCEDURE rates(v (mV)) { 
+PROCEDURE rates(v (mV)) { LOCAL tcorr
+    
+    tcorr = Q10^((celsius - 36(degC))/10 (degC))
+
     cinf=(1.0/(1.0+exp((-10.1-v)/0.1016)))^0.00925
-    tauc=3.627*exp(0.03704*v)
+    tauc=3.627*exp(0.03704*v)/tcorr
 
 }
 

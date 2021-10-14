@@ -16,7 +16,8 @@ UNITS {
 }
 
 PARAMETER {
-  gmax = 0 (S/cm2)
+    gmax = 0 (S/cm2)
+    Q10 = 3 (1)
 
 }
 
@@ -31,6 +32,7 @@ ASSIGNED {
 	bh		(/ms)	
         am	        (/ms)	
 	bm		(/ms)	
+        celsius (degC)
 }
 
 STATE { h }
@@ -53,20 +55,23 @@ DERIVATIVE states {
 }
 
 
-PROCEDURE rates(v (mV)) { 
-    am=0.32*vtrap(-46.9-v, 4)
-    bm=0.28*vtrap(v+19.9, 5)
+PROCEDURE rates(v (mV)) { LOCAL tcorr
+    
+    tcorr = Q10^((celsius - 36(degC))/10 (degC))
+    
+    am=tcorr*0.32*linoid(-46.9-v, 4)
+    bm=tcorr*0.28*linoid(v+19.9, 5)
     m_inf=am/(am + bm)
     
-    ah=0.128*exp((-43-v)/18)
-    bh=4./(1+exp((-20-v)/5))
+    ah=tcorr*0.128*exp((-43-v)/18)
+    bh=tcorr*4./(1+exp((-20-v)/5))
 }
 
  
-FUNCTION vtrap(x,y) {            :Traps for 0 in denominator of rate eqns., based on three terms of infinite series expansion of exp
+FUNCTION linoid(x,y) {
     if (fabs(x/y) < 1e-6) {
-        vtrap = y*(1 - x/y/2)
+        linoid = y*(1 - x/y/2)
     } else {
-        vtrap = x/(exp(x/y) - 1)
+        linoid = x/(exp(x/y) - 1)
     }
 }

@@ -28,7 +28,7 @@ export DATA_PREFIX=$SCRATCH/striped2/dentate
 gid=1039000    
 
 mpirun -n 1 python3 network_clamp.py go \
-    --config-file Network_Clamp_GC_Exc_Sat_SLN_IN_PR.yaml \
+    --config-file Network_Clamp_GC_Aradi_SLN_IN_PR.yaml \
     --template-paths=$MODEL_HOME/XPPcode:$MODEL_HOME/DGC/Mateos-Aparicio2014:templates \
     -p BC -g $gid -t 9500 --dt 0.01 --use-coreneuron \
     --dataset-prefix $DATA_PREFIX \
