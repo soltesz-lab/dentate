@@ -184,6 +184,7 @@ proc biophys() {
       gmax_fKDR_Aradi = 0.028
       insert KA_Aradi
       gmax_KA_Aradi = 0.004
+      Ra = 50
   }
   
   forsec soma {
@@ -248,18 +249,20 @@ proc topol_from_python() { local i,j,l,p,s,p_layer,loc,vlen localobj vsrc, vdst,
         
         p = secnodes.__getitem__(s)._[-1]
         p_layer = layers._[p]
+        swc_type = swc_types._[p]
         
-        if (p_layer == 1) {
-            GCLDidxs.append(s)
-        } else if (p_layer == 2) {
-            PDidxs.append(s)
-        } else if (p_layer == 3) {
-            MDidxs.append(s)
-        } else if (p_layer >= 4) {
-            DDidxs.append(s)
+        if (swc_type == 4) {
+            if (p_layer == 1) {
+                GCLDidxs.append(s)
+            } else if (p_layer == 2) {
+                PDidxs.append(s)
+            } else if (p_layer == 3) {
+                MDidxs.append(s)
+            } else if (p_layer >= 4) {
+                DDidxs.append(s)
+            }
         }
         
-        swc_type = swc_types._[p]
         if (swc_type == 4) {
             nDends = nDends + 1
             apicalidx.append(s)
@@ -290,10 +293,17 @@ proc topol_from_python() { local i,j,l,p,s,p_layer,loc,vlen localobj vsrc, vdst,
     nMD    = MDidxs.size()
     nDD    = DDidxs.size()
     
+    verbose = 1
     if (verbose) {
 
         print "soma compartment indices = "
         somaidx.printf()
+        print "axon compartment indices = "
+        axonidx.printf()
+        print "ais compartment indices = "
+        aisidx.printf()
+        print "hillock compartment indices = "
+        hilidx.printf()
         print "GCLD compartment indices = "
         GCLDidxs.printf()
         print "PD compartment indices = "
