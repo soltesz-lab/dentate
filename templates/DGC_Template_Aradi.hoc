@@ -91,8 +91,7 @@ proc celldef() {
 proc biophys() {
     
     forsec all {
-        Ra = 210
-        cm = 1
+        Ra = 110
         insert pas
         g_pas = 2.5e-05
         e_pas = -70
@@ -179,12 +178,11 @@ proc biophys() {
   
   forsec allaxon {
       insert Na_Aradi
-      gmax_Na_Aradi = 0.21
+      gmax_Na_Aradi = 0.24
       insert fKDR_Aradi
       gmax_fKDR_Aradi = 0.028
       insert KA_Aradi
       gmax_KA_Aradi = 0.004
-      Ra = 50
   }
   
   forsec soma {
@@ -204,6 +202,8 @@ proc biophys() {
     insert CadepK_Aradi
     gbkbar_CadepK_Aradi = 0.0003
     gskbar_CadepK_Aradi = 0.0005
+    cm = 8
+    g_pas = 2.5e-4
 }
 
 

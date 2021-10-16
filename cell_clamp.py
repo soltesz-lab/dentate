@@ -8,7 +8,7 @@ from dentate import cells, synapses, utils, neuron_utils, io_utils
 from dentate.env import Env
 from dentate.synapses import get_syn_filter_dict
 from dentate.utils import Context, get_module_logger, is_interactive, config_logging
-from dentate.neuron_utils import h, configure_hoc_env, make_rec
+from dentate.neuron_utils import h, configure_hoc_env, make_rec, calcRinp
 
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -118,56 +118,27 @@ def init_biophys_cell(env, pop_name, gid, load_weights=True, load_connections=Tr
     
     return cell
 
-
-
 def measure_passive (gid, pop_name, v_init, env, prelength=1000.0, mainlength=2000.0, stimdur=500.0, cell_dict={}):
 
 
     biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False, cell_dict=cell_dict)
     hoc_cell = biophys_cell.hoc_cell
 
-    h.dt = env.dt
+    Rin = calcRinp(hoc_cell, dt=env.dt)
 
-    tstop = prelength+mainlength
+    # Measure membrane time constant
+    Cm = 0.
+    for sec in hoc_cell.soma:
+        for seg in sec:
+            Cm += sec(seg.x).area() * 1e-8 * sec(seg.x).cm
+        
+    tau0 = Rin * Cm * 1e3
     
-    soma = list(hoc_cell.soma)[0]
-    stim1 = h.IClamp(soma(0.5))
-    stim1.delay = prelength
-    stim1.dur   = stimdur
-    stim1.amp   = -0.1
-
-    h('objref tlog, Vlog')
-    
-    h.tlog = h.Vector()
-    h.tlog.record (h._ref_t)
-
-    h.Vlog = h.Vector()
-    h.Vlog.record (soma(0.5)._ref_v)
-    
-    h.tstop = tstop
-
-    Rin = h.rn(hoc_cell)
-    
-    neuron_utils.simulate(v_init, prelength, mainlength)
-
-    ## compute membrane time constant
-    vrest  = h.Vlog.x[int(h.tlog.indwhere(">=",prelength-1))]
-    vmin   = h.Vlog.min()
-    vmax   = vrest
-    
-    ## the time it takes the system's step response to reach 1-1/e (or
-    ## 63.2%) of the peak value
-    amp23  = 0.632 * abs (vmax - vmin)
-    vtau0  = vrest - amp23
-    tau0   = h.tlog.x[int(h.Vlog.indwhere ("<=", vtau0))] - prelength
-
-    results = {'Rin': np.asarray([Rin], dtype=np.float32),
-               'vmin': np.asarray([vmin], dtype=np.float32),
-               'vmax': np.asarray([vmax], dtype=np.float32),
-               'vtau0': np.asarray([vtau0], dtype=np.float32),
-               'tau0': np.asarray([tau0], dtype=np.float32)
+    results = {'Rin': np.asarray(Rin, dtype=np.float32),
+               'tau0': np.asarray(tau0, dtype=np.float32)
                }
 
+    logger.info(f'results = {results}')
     env.synapse_attributes.del_syn_id_attr_dict(gid)
     if gid in env.biophys_cells[pop_name]:
         del env.biophys_cells[pop_name][gid]
