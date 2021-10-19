@@ -23,6 +23,8 @@ Synapses:
         NMDA:
           g_unit: 0.004
           weight: 1.0
+          dur_onset: 10.
+          tau_offset: 50.
     LPP:
       type: excitatory
       sections: [apical]
@@ -39,6 +41,8 @@ Synapses:
         NMDA:
           g_unit: 0.0026
           weight: 1.0
+          dur_onset: 10.
+          tau_offset: 50.
     MC:   
       type: excitatory
       sections: [apical]
@@ -55,6 +59,8 @@ Synapses:
         NMDA:
           g_unit: 0.00475
           weight: 1.0
+          dur_onset: 10.
+          tau_offset: 50.
     ConMC:   
       type: excitatory
       sections: [apical]
@@ -71,6 +77,8 @@ Synapses:
         NMDA:
           g_unit: 0.00475
           weight: 1.0
+          dur_onset: 10.
+          tau_offset: 50.
     AAC:
       type: inhibitory
       sections: [ais]
@@ -97,14 +105,14 @@ Synapses:
             tau_decay: 9.0
             e: -75
             g_unit: 0.001
-            weight: 2.0
+            weight: 1.5
         soma:
           GABA_A:
             tau_rise: 0.5
             tau_decay: 9.0
             e: -75
             g_unit: 0.001
-            weight: 2.0
+            weight: 1.5
     HCC:  
       type: inhibitory
       sections: [apical]
@@ -130,7 +138,7 @@ Synapses:
           tau_decay: 10.0
           e: -75
           g_unit: 0.001
-          weight: 2.0
+          weight: 1.5
     NGFC: 
       type: inhibitory
       sections: [apical, apical]
@@ -181,6 +189,8 @@ Synapses:
         NMDA:
           g_unit: 0.0005
           weight: 1.0
+          dur_onset: 10.
+          tau_offset: 50.
     CA3c:   
       type: excitatory
       sections: [apical]
@@ -197,6 +207,8 @@ Synapses:
         NMDA:
           g_unit: 0.0005
           weight: 1.0
+          dur_onset: 10.
+          tau_offset: 50.
     MC:   
       type: excitatory
       sections: [apical]
@@ -538,7 +550,7 @@ Synapses:
           tau_decay: 3.0
           e:     0
           g_unit: 0.001
-          weight: 1.38
+          weight: 1.4
     LPP:
       type: excitatory
       sections: [apical]
@@ -550,7 +562,7 @@ Synapses:
           tau_decay: 3.0
           e:     0
           g_unit: 0.001
-          weight: 1.38
+          weight: 1.4
     CA3c:   
       type: excitatory
       sections: [basal]
@@ -563,7 +575,7 @@ Synapses:
           tau_decay: 3.6
           e: 0
           g_unit: 0.0005
-          weight: 1.38
+          weight: 1.4
     MC:   
       type: excitatory
       sections: [apical]
@@ -575,7 +587,7 @@ Synapses:
           tau_decay: 3.6
           e: 0
           g_unit: 0.001
-          weight: 1.38
+          weight: 1.4
     ConMC:   
       type: excitatory
       sections: [apical]
@@ -587,7 +599,7 @@ Synapses:
           tau_decay: 3.6
           e: 0
           g_unit: 0.0005
-          weight: 1.38
+          weight: 1.4
     HCC:  
       type: inhibitory
       sections: [apical]
@@ -599,7 +611,7 @@ Synapses:
           tau_decay: 4.78
           e: -75
           g_unit: 0.001
-          weight: 1.91
+          weight: 1.61
     HC:   
       type: inhibitory
       sections: [apical, apical]
@@ -906,7 +918,7 @@ Synapses:
           tau_rise: 0.9
           tau_decay: 3.6
           e: 0
-          g_unit: 0.005
+          g_unit: 0.0025
           weight: 1.2
     HC:  
       type: inhibitory

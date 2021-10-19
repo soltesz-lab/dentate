@@ -293,7 +293,6 @@ proc topol_from_python() { local i,j,l,p,s,p_layer,loc,vlen localobj vsrc, vdst,
     nMD    = MDidxs.size()
     nDD    = DDidxs.size()
     
-    verbose = 1
     if (verbose) {
 
         print "soma compartment indices = "

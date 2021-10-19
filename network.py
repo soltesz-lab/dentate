@@ -1384,7 +1384,7 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
                     f"  created cells in {env.mkcellstime:.02f} s\n"
                     f"  connected cells in {env.connectcellstime:.02f} s\n"
                     f"  created gap junctions in {env.connectgjstime:.02f} s\n"
-                    f"  ran simulation in {comptime} s\n"
+                    f"  ran simulation in {comptime:.02f} s\n"
                     f"  spike communication time: {env.pc.send_time():.02f} s\n"
                     f"  event handling time: {env.pc.event_time():.02f} s\n"
                     f"  numerical integration time: {env.pc.integ_time():.02f} s\n"
