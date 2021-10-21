@@ -25,6 +25,21 @@ export DG_HOME=$MODEL_HOME/dentate
 export UCX_TLS="knem,dc_x"
 export DATA_PREFIX=$SCRATCH/striped2/dentate
 
+# Population offsets:
+#
+# GC:    0
+# MC:    1000000
+# HC:    1030000
+# BC:    1039000
+# AAC:   1042800
+# HCC:   1043250
+# NGFC:  1044650
+# IS:    1049650
+# MOPP:  1052650
+# MPP:   1056650
+# LPP:   1094650
+# CA3c:  1128650,
+# ConMC: 1195650
 
 gid=197226    
 
