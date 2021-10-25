@@ -36,7 +36,7 @@ STATE { c }
 
 INITIAL { 
 	rates(v)
-        c=0.00809387
+        c=cinf
 }
     
 BREAKPOINT {

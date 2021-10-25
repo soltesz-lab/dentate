@@ -48,7 +48,7 @@ DERIVATIVE state {
 
 INITIAL {
     rates(v)
-    s=0.01086703
+    s = as/(as + bs)
 }
 
 
