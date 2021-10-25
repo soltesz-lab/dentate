@@ -314,9 +314,9 @@ def cx(env):
     lb = h.LoadBalance()
     if os.path.isfile("mcomplex.dat"):
         lb.read_mcomplex()
-    cxvec = h.Vector(len(env.gidset))
+    cxvec = np.zeros((len(env.gidset),))
     for i, gid in enumerate(env.gidset):
-        cxvec.x[i] = lb.cell_complexity(env.pc.gid2cell(gid))
+        cxvec[i] = lb.cell_complexity(env.pc.gid2cell(gid))
     env.cxvec = cxvec
     return cxvec
 
