@@ -749,19 +749,21 @@ class Env(object):
 
         self.node_allocation = set([])
         for pop_name in pop_names:
-            present = False
             num = self.celltypes[pop_name]['num']
             start = self.celltypes[pop_name]['start']
             for gid in range(start, start+num):
                 if gid in node_rank_map:
-                    present = True
-                if node_rank_map[gid] == rank:
-                    self.node_allocation.add(gid)
-            if not present:
-                if rank == 0:
-                    self.logger.warning('load_node_rank_map: gids assigned to population %s are not present in node ranks file %s; '
-                                        'gid to rank assignment will not be used'  % (pop_name, node_rank_file))
-                self.node_allocation = None
+                    if node_rank_map[gid] == rank:
+                        self.node_allocation.add(gid)
+                else:
+                    if rank == 0:
+                        self.logger.warning(f'load_node_rank_map: gid {gid} assigned to '
+                                            f'population {pop_name} is not present in '
+                                            f'node rank file {node_rank_file}; '
+                                            'gid to rank assignment will not be used')
+                    self.node_allocation = None
+                    break
+            if self.node_allocation is None:
                 break
 
             
