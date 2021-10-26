@@ -418,7 +418,7 @@ Synapses:
       type: inhibitory
       sections: [basal, soma]
       layers: [Hilus, Hilus]
-      proportions: [0.67, 1.0]
+      proportions: [1.0, 1.0]
       contacts: 5.0
       swctype mechanisms:
         basal:
@@ -493,27 +493,6 @@ Synapses:
           e:    -75
           g_unit: 0.001
           weight: 2.0
-    IS:
-      type: inhibitory
-      sections: [basal, apical]
-      layers: [Hilus, Hilus]
-      proportions: [0.33, 1.0]
-      contacts: 1.0
-      swctype mechanisms:
-        basal:
-          GABA_A:
-            tau_rise: 0.46
-            tau_decay: 4.43
-            e: -75
-            g_unit: 0.001
-            weight: 0.127
-        apical:
-          GABA_A:
-            tau_rise: 0.46
-            tau_decay: 4.43
-            e: -75
-            g_unit: 0.001
-            weight: 0.127
   AAC:
     GC:   
       type: excitatory
@@ -642,18 +621,6 @@ Synapses:
           e:    -75
           g_unit: 0.001
           weight: 1.91
-    IS:
-      type: inhibitory
-      sections: [basal, soma]
-      layers: [Hilus, Hilus]
-      proportions: [1.0, 1.0]
-      mechanisms:
-        GABA_A:
-          tau_rise: 0.46
-          tau_decay: 4.43
-          e: -75
-          g_unit: 0.001
-          weight: 1.89
   HCC:
     MPP:
       type: excitatory
