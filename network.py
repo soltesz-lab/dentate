@@ -59,7 +59,6 @@ def lpt_bal(env):
     del src
 
     if rank == 0:
-        lb = h.LoadBalance()
         allpairs = sum(dest, [])
         del dest
         parts = lpt.lpt(allpairs, nhosts)
