@@ -12,7 +12,7 @@ Intracellular:
       v:
         swc types:
           - soma
-          - hillock
+          - ais
           - apical
           - basal
   Network clamp axial current:

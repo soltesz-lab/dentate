@@ -145,7 +145,7 @@ static void bbcore_write(double* xarray, int* iarray, int* xoffset, int* ioffset
   if (_p_ptr) {
     dsize = vector_capacity(_p_ptr);
   }
-  if (xarray) {
+  if (iarray) {
     void* vec = _p_ptr;
     ia = iarray + *ioffset;
     xa = xarray + *xoffset;
@@ -168,7 +168,10 @@ static void bbcore_read(double* xarray, int* iarray, int* xoffset, int* ioffset,
   xa = xarray + *xoffset;
   ia = iarray + *ioffset;
   dsize = ia[0];
-  _p_ptr = vector_new1(dsize);
+  if (!_p_ptr) {
+    _p_ptr = vector_new1(dsize);
+  }
+  assert(dsize == vector_capacity(_p_ptr));
   dv = vector_vec(_p_ptr);
   for (i = 0; i < dsize; ++i) {
     dv[i] = xa[i];

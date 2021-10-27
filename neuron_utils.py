@@ -39,6 +39,7 @@ PRconfig = namedtuple('PRconfig', ['pp', 'Ltotal', 'gc',
                                    'global_cm',
                                    'global_diam',
                                    'ic_constant',
+                                   'cm_ratio',
                                    'V_rest',
                                    'V_threshold'])
 
@@ -314,9 +315,9 @@ def cx(env):
     lb = h.LoadBalance()
     if os.path.isfile("mcomplex.dat"):
         lb.read_mcomplex()
-    cxvec = h.Vector(len(env.gidset))
+    cxvec = np.zeros((len(env.gidset),))
     for i, gid in enumerate(env.gidset):
-        cxvec.x[i] = lb.cell_complexity(env.pc.gid2cell(gid))
+        cxvec[i] = lb.cell_complexity(env.pc.gid2cell(gid))
     env.cxvec = cxvec
     return cxvec
 
@@ -370,3 +371,39 @@ def interplocs(sec, locs, return_interpolant=False):
         res = np.asarray([(pch_x(loc), pch_y(loc), pch_z(loc), pch_diam(loc)) for loc in locs], dtype=np.float32)
     return res
 
+
+def calcRinp(cell, record_dt = 0.1, dt = 0.0125, celsius = 36., use_cvode=True):
+
+    h.cvode.use_fast_imem(1)
+    h.cvode.cache_efficient(1)
+    h.secondorder = 2
+    h.dt = dt
+
+    if record_dt < dt:
+        record_dt = dt
+
+    # Enable variable time step solver
+    if use_cvode:
+        h.cvode.active(1)
+
+    h.celsius = celsius
+    h.tstop = 10000
+
+    vec_t = h.Vector()
+    vec_v = h.Vector()
+    vec_t.record(h._ref_t, record_dt) # Time
+    vec_v.record(list(cell.soma)[0](0.5)._ref_v, record_dt) # Voltage
+
+    # Put an IClamp at the soma
+    stim = h.IClamp(0.5, sec=list(cell.soma)[0])
+    stim.delay = h.tstop / 2 # Stimulus start
+    stim.dur = 1000. # Stimulus length
+    stim.amp = 0.00005 # strength of current injection
+
+    h.init()
+    h.run()
+
+    t = np.asarray(vec_t)
+    v = np.asarray(vec_v)
+    
+    return (v[np.argwhere(t >= stim.delay+0.999*stim.dur)][0] - v[np.argwhere(t >= stim.delay-0.5*stim.dur)][0])/stim.amp

@@ -1817,7 +1817,7 @@ def plot_lfp_spectrogram(config, input_path, time_range = None, window_size=4096
 ## Plot intracellular state trace 
 def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], time_range=None,
                               time_variable='t', state_variable='v', max_units = 1, gid_set=None,
-                              n_trials = 1, labels=None,  reduce=False, distance=False, **kwargs): 
+                              n_trials = 1, labels='legend',  reduce=False, distance=False, **kwargs): 
     ''' 
     Line plot of intracellular state variable (default: v). Returns the figure handle.
 
@@ -1879,19 +1879,20 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
     pop_state_mat_dict = defaultdict(lambda: dict())
     for (pop_name, pop_states) in viewitems(pop_states_dict):
             for (gid, cell_state_dict) in viewitems(pop_states):
-                nss = list(cell_state_dict.keys())
+                nss = sorted(cell_state_dict.keys())
                 cell_state_x = cell_state_dict[nss[0]][time_variable]
                 cell_state_mat = np.matrix([np.mean(np.row_stack(cell_state_dict[ns][state_variable]), axis=0)
                                            for ns in nss], dtype=np.float32)
                 cell_state_distances = [cell_state_dict[ns]['distance'] for ns in nss]
                 cell_state_ri = [cell_state_dict[ns]['ri'] for ns in nss]
-                cell_state_labels = [state_variable]
+                cell_state_labels = [f'{ns} {state_variable}' for ns in nss]
                 pop_state_mat_dict[pop_name][gid] = (cell_state_x, cell_state_mat, cell_state_labels, cell_state_distances, cell_state_ri)
     
     stplots = []
     
     fig, ax = plt.subplots(figsize=fig_options.figSize,sharex='all',sharey='all')
-        
+
+    legend_labels = []
     for (pop_name, pop_states) in viewitems(pop_state_mat_dict):
         
         for (gid, cell_state_mat) in viewitems(pop_states):
@@ -1921,15 +1922,18 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
                 pcm = ax.pcolormesh(t, d, state_mat, cmap=fig_options.colormap)
                 cb = fig.colorbar(pcm, ax=ax, shrink=0.9, aspect=20)
                 stplots.append(pcm)
-                logger.info(f'plot_state: distances: {np.array2string(d)}')
-                logger.info(f'plot_state: ri: {np.array2string(ri)}')
+                legend_labels.append(f'{pop_name} {gid}')
             else:
                 for i in range(m):
                     cell_state = np.asarray(cell_state_mat[1][i,:]).reshape((n,))
-                    line, = ax.plot(cell_state_mat[0][0].reshape((n,)), cell_state,
-                                    label='%s (%s um)' % (cell_state_mat[2][i], cell_state_mat[3][i]))
+                    line, = ax.plot(cell_state_mat[0][0].reshape((n,)), cell_state)
                     stplots.append(line)
-                    logger.info('plot_state: min/max/mean value of state %d is %.02f / %.02f / %.02f' % (i, np.min(cell_state), np.max(cell_state), np.mean(cell_state)))
+                    logger.info('plot_state: min/max/mean value of state {i} is '
+                                f'{np.min(cell_state):.02f} / {np.max(cell_state):.02f} '
+                                f'/ {np.mean(cell_state):.02f}')
+                    legend_labels.append(f'{pop_name} {gid} '
+                                         f'{cell_state_mat[2][i]} ({cell_state_mat[3][i]:.02f} um)')
+                    
             ax.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
             if distance:
                 ax.set_ylabel("distance from soma [um]", fontsize=fig_options.fontSize)
@@ -1941,9 +1945,8 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
     # Add legend
     
     if labels == 'legend':
-        legend_labels = pop_labels
         lgd = plt.legend(stplots, legend_labels, fontsize=fig_options.fontSize, scatterpoints=1, markerscale=5.,
-                         loc='upper right', bbox_to_anchor=(1.2, 1.0))
+                         loc='upper right', bbox_to_anchor=(0.5, 1.0))
         ## From https://stackoverflow.com/questions/30413789/matplotlib-automatic-legend-outside-plot
         ## draw the legend on the canvas to assign it real pixel coordinates:
         plt.gcf().canvas.draw()

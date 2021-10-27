@@ -52,9 +52,8 @@ def lpt_bal(env):
 
     cxvec = env.cxvec
     gidvec = list(env.gidset)
-    # gather gidvec, cxvec to rank 0
     src = [None] * nhosts
-    src[0] = list(zip(cxvec.to_python(), gidvec))
+    src[0] = list(zip(cxvec, gidvec))
     dest = env.pc.py_alltoall(src)
     del src
 
@@ -69,7 +68,7 @@ def lpt_bal(env):
                 for x in part[1]:
                     fp.write('%d %d\n' % (x[1], part_rank))
                 part_rank = part_rank + 1
-
+    env.pc.barrier()
 
 
 def connect_cells(env):
@@ -1068,7 +1067,7 @@ def init_input_cells(env):
                         spiketrain = merge_spiketrain_trials(spiketrain, trial_index, trial_duration, env.n_trials)
                         spiketrain += float(env.stimulus_config['Equilibration Duration']) + env.stimulus_onset
                         if len(spiketrain) > 0:
-                            cell.play(h.Vector(spiketrain))
+                            cell.play(h.Vector(spiketrain.astype(np.float64)))
                             if rank == 0:
                                 logger.info(f"*** Spike train for {pop_name} gid {gid} is of length {len(spiketrain)} ({spiketrain[0]} : {spiketrain[-1]} ms)")
 
@@ -1151,7 +1150,7 @@ def init_input_cells(env):
                             spiketrain = merge_spiketrain_trials(spiketrain, trial_index, trial_duration, env.n_trials)
                             spiketrain += float(env.stimulus_config['Equilibration Duration']) + env.stimulus_onset
                             if len(spiketrain) > 0:
-                                input_cell.play(h.Vector(spiketrain))
+                                input_cell.play(h.Vector(spiketrain.astype(np.float64)))
                                 if rank == 0:
                                     logger.info(f"*** Spike train for {pop_name} gid {gid} is of length {len(spiketrain)} ({spiketrain[0]} : {spiketrain[-1]} ms)")
                                 
@@ -1263,6 +1262,8 @@ def init(env):
         ld_bal(env)
         if env.optlptbal:
             lpt_bal(env)
+        h.cvode.cache_efficient(1)
+        h.cvode.use_fast_imem(1)
 
 
 def run(env, output=True, shutdown=True, output_syn_spike_count=False):
@@ -1334,10 +1335,9 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
         if rank == 0:
             logger.info(f"*** Running simulation up to {h.tstop:.2f} ms")
         env.pc.timeout(env.nrn_timeout)
-
         env.pc.psolve(h.tstop)
-        if env.use_coreneuron:
-            h.t = h.tstop
+        while h.t < h.tstop - h.dt/2:
+            env.pc.psolve(h.t + 1.0)
         if output:
             if rank == 0:
                 logger.info(f"*** Writing spike data up to {h.t:.2f} ms")
@@ -1383,7 +1383,7 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
                     f"  created cells in {env.mkcellstime:.02f} s\n"
                     f"  connected cells in {env.connectcellstime:.02f} s\n"
                     f"  created gap junctions in {env.connectgjstime:.02f} s\n"
-                    f"  ran simulation in {comptime} s\n"
+                    f"  ran simulation in {comptime:.02f} s\n"
                     f"  spike communication time: {env.pc.send_time():.02f} s\n"
                     f"  event handling time: {env.pc.event_time():.02f} s\n"
                     f"  numerical integration time: {env.pc.integ_time():.02f} s\n"

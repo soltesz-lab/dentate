@@ -618,6 +618,7 @@ class PRneuron(object):
                        'dend_gmax_KAHP': cell_config.dend_gmax_KAHP,
                        'dend_g_pas':  cell_config.dend_g_pas,
                        'dend_d_Caconc':  cell_config.dend_d_Caconc,
+                       'cm_ratio':  cell_config.cm_ratio,
                        'global_cm':  cell_config.global_cm,
                        'global_diam':  cell_config.global_diam,
         }
@@ -2925,7 +2926,8 @@ def init_circuit_context(env, pop_name, gid,
             cell_weights_dicts = {}
             if weight_dict is not None:
                 for weights_namespace in weights_namespaces:
-                    cell_weights_dicts[weights_namespace] = weight_dict[weights_namespace]
+                    if weights_namespace in weight_dict:
+                        cell_weights_dicts[weights_namespace] = weight_dict[weights_namespace]
 
             elif load_weights:
                 if (env.data_file_path is None):

@@ -36,7 +36,7 @@ STATE { q }
 
 INITIAL { 
 	rates(v)
-        q=0.0811213
+        q=qinf
 }
     
 BREAKPOINT {
