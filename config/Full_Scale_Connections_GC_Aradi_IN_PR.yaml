@@ -428,11 +428,18 @@ Synapses:
           weight: 1.0
     BC:   
       type: inhibitory
-      sections: [basal, soma]
-      layers: [Hilus, Hilus]
+      sections: [apical, basal, soma]
+      layers: [Hilus, Hilus, Hilus]
       proportions: [1.0, 1.0]
       contacts: 5.0
       swctype mechanisms:
+        apical:
+          GABA_A:
+            tau_rise: 0.22
+            tau_decay: 3.35
+            e: -75
+            g_unit: 0.001
+            weight: 0.745
         basal:
           GABA_A:
             tau_rise: 0.22
