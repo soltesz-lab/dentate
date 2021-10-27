@@ -39,6 +39,7 @@ PRconfig = namedtuple('PRconfig', ['pp', 'Ltotal', 'gc',
                                    'global_cm',
                                    'global_diam',
                                    'ic_constant',
+                                   'cm_ratio',
                                    'V_rest',
                                    'V_threshold'])
 
