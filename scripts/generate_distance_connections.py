@@ -13,7 +13,7 @@ from dentate.connection_generator import ConnectionProb, generate_uv_distance_co
 from dentate.env import Env
 from dentate.geometry import make_distance_interpolant, measure_distances
 from dentate.neuron_utils import configure_hoc_env
-from neuroh5.io import bcast_cell_attributes, read_cell_attributes, read_population_names, read_population_ranges
+from neuroh5.io import read_cell_attributes, read_population_names, read_population_ranges
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):
@@ -61,7 +61,6 @@ def main(config, config_prefix, include, forest_path, connectivity_path, connect
 
     connection_config = env.connection_config
     extent      = {}
-    soma_coords = {}
 
     if (not dry_run) and (rank==0):
         if not os.path.isfile(connectivity_path):
@@ -75,21 +74,40 @@ def main(config, config_prefix, include, forest_path, connectivity_path, connect
     population_ranges = read_population_ranges(coords_path)[0]
     populations = sorted(list(population_ranges.keys()))
 
+    color = 0
+    if rank == 0:
+         color = 1
+    comm0 = comm.Split(color, 0)
+
     soma_distances = {}
+    soma_coords = {}
     for population in populations:
         if rank == 0:
-            logger.info('Reading %s population coordinates...' % population)
-        coords_iter = bcast_cell_attributes(coords_path, population, 0, namespace=coords_namespace)
-        distances_iter = bcast_cell_attributes(coords_path, population, 0, namespace=distances_namespace)
+            logger.info(f'Reading {population} coordinates...')
+            coords_iter = read_cell_attributes(coords_path, population, comm=comm0,
+                                               mask=set(['U Coordinate', 'V Coordinate', 'L Coordinate']),
+                                               namespace=coords_namespace)
+            distances_iter = read_cell_attributes(coords_path, population, comm=comm0,
+                                                  mask=set(['U Distance', 'V Distance']),
+                                                  namespace=distances_namespace)
 
-        soma_coords[population] = { k: (v['U Coordinate'][0], v['V Coordinate'][0], v['L Coordinate'][0]) for (k,v) in coords_iter }
+            soma_coords[population] = { k: (float(v['U Coordinate'][0]), 
+                                            float(v['V Coordinate'][0]), 
+                                            float(v['L Coordinate'][0])) for (k,v) in coords_iter }
 
-        distances = { k: (v['U Distance'][0], v['V Distance'][0]) for (k,v) in distances_iter }
-
-        if len(distances) > 0:
-            soma_distances[population] = distances
+            distances = { k: (float(v['U Distance'][0]), 
+                              float(v['V Distance'][0])) for (k,v) in distances_iter }
+            
+            if len(distances) > 0:
+                 soma_distances[population] = distances
         
-        gc.collect()
+            gc.collect()
+
+    comm.barrier()
+    comm0.Free()
+
+    soma_distances = comm.bcast(soma_distances, root=0)
+    soma_coords = comm.bcast(soma_coords, root=0)
 
     forest_populations = sorted(read_population_names(forest_path))
     if (include is None) or (len(include) == 0):
@@ -100,7 +118,7 @@ def main(config, config_prefix, include, forest_path, connectivity_path, connect
               if p in forest_populations:
                    destination_populations.append(p)
     if rank == 0:
-         logger.info('Generating connectivity for populations %s...' % str(destination_populations))
+         logger.info(f'Generating connectivity for populations {destination_populations}...')
 
     if len(soma_distances) == 0:
         (origin_ranges, ip_dist_u, ip_dist_v) = make_distance_interpolant(env, resolution=resolution, nsample=nsample)
@@ -111,7 +129,7 @@ def main(config, config_prefix, include, forest_path, connectivity_path, connect
     for destination_population in destination_populations:
 
         if rank == 0:
-            logger.info('Generating connection probabilities for population %s...' % destination_population)
+            logger.info(f'Generating connection probabilities for population {destination_population}...')
 
         connection_prob = ConnectionProb(destination_population, soma_coords, soma_distances, \
                                          env.connection_extents)
@@ -122,7 +140,7 @@ def main(config, config_prefix, include, forest_path, connectivity_path, connect
         cluster_seed = int(env.model_config['Random Seeds']['Connectivity Clustering'])
 
         if rank == 0:
-            logger.info('Generating connections for population %s...' % destination_population)
+            logger.info(f'Generating connections for population {destination_population}...')
 
         populations_dict = env.model_config['Definitions']['Populations']
         generate_uv_distance_connections(comm, populations_dict,

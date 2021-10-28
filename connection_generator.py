@@ -435,7 +435,6 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                                             namespace=synapse_namespace, \
                                                             comm=comm, io_size=io_size, \
                                                             cache_size=cache_size):
-        last_time = time.time()
         if destination_gid is None:
             logger.info(f'Rank {rank} destination gid is None')
         else:
@@ -443,6 +442,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
 
             ranstream_con.seed(destination_gid + connectivity_seed)
             ranstream_syn.seed(destination_gid + synapse_seed)
+            last_gid_time = time.time()
 
             projection_prob_dict = {}
             for source_population in source_populations:
@@ -477,15 +477,15 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                                                   connection_dict)
             total_count += count
 
-            logger.info(f'Rank {rank} took {time.time() - last_time:.2f} s to compute {count} edges for destination: {destination_population}, gid: {destination_gid}')
+            logger.info(f'Rank {rank} took {time.time() - last_gid_time:.2f} s to compute {count} edges for destination: {destination_population}, gid: {destination_gid}')
 
         if (write_size > 0) and (gid_count % write_size == 0):
-            last_time = time.time()
             if len(connection_dict) > 0:
                 projection_dict = {destination_population: connection_dict}
             else:
                 projection_dict = {}
             if not dry_run:
+                last_time = time.time()
                 append_graph(connectivity_path, projection_dict, io_size=io_size, comm=comm)
                 if rank == 0:
                     if connection_dict:

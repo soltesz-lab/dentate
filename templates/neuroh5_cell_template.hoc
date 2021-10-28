@@ -57,8 +57,6 @@ proc init() { // arguments are id, gid
     axonidx = new Vector()
     aisidx = new Vector()
     hilidx = new Vector()
-    layers = new List()
-    syns = new List()
     
     gid = $1
     

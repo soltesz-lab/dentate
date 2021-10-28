@@ -2087,18 +2087,19 @@ def synapse_seg_density(syn_type_dict, layer_dict, layer_density_dicts, seg_dict
                     this_ran = rans['default']
                 else:
                     this_ran = None
+                dens = 0.
                 if this_ran is not None:
-                    while True:
-                        dens = this_ran.normal(density_dict['mean'], density_dict['variance'])
-                        if dens > 0.0:
-                            break
-                else:
-                    dens = 0.
+                    if density_dict['mean'] > 1.0e-4:
+                        while True:
+                            dens = this_ran.normal(density_dict['mean'], density_dict['variance'])
+                            if dens > 0.0:
+                                break
                 total_seg_density += dens
                 segdensity[sec_index].append(dens)
 
         if total_seg_density < 1e-6:
             logger.warning(f"sections with zero {syn_type_label} synapse density: {segdensity}; "
+                           f"seg_dict: {seg_dict}; "
                            f'rans: {rans}; density_dict: {density_dict}; morphology: {neurotree_dict}')
 
         segdensity_dict[syn_type] = segdensity
