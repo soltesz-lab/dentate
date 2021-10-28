@@ -105,6 +105,10 @@ proc subsets() { local i, ndends, ndendsec
     }
     
     basal = new SectionList()
+    for i=0, basalidx.size()-1 { 
+        sections[basalidx.x[i]] basal.append() 
+    }
+    
     axon  = new SectionList()
     allaxon  = new SectionList()
     ais      = new SectionList()

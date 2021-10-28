@@ -2052,14 +2052,16 @@ def synapse_seg_density(syn_type_dict, layer_dict, layer_density_dicts, seg_dict
     else:
         secnodes_dict = None
     for (syn_type_label, layer_density_dict) in viewitems(layer_density_dicts):
+        density_dict = {}
         syn_type = syn_type_dict[syn_type_label]
         rans = {}
-        for (layer_label, density_dict) in viewitems(layer_density_dict):
+        for (layer_label, density_params) in viewitems(layer_density_dict):
             if layer_label == 'default':
                 layer = layer_label
             else:
                 layer = int(layer_dict[layer_label])
             rans[layer] = ran
+            density_dict[layer] = density_params
         segdensity = defaultdict(list)
         layers = defaultdict(list)
         total_seg_density = 0.
@@ -2075,25 +2077,26 @@ def synapse_seg_density(syn_type_dict, layer_dict, layer_density_dicts, seg_dict
                 layers[sec_index].append(layer)
 
                 this_ran = None
-
+                density_params = None
                 if layer > -1:
                     if layer in rans:
                         this_ran = rans[layer]
+                        density_params = density_dict[layer]
                     elif 'default' in rans:
                         this_ran = rans['default']
-                    else:
-                        this_ran = None
+                        density_params = density_dict['default']
                 elif 'default' in rans:
                     this_ran = rans['default']
-                else:
-                    this_ran = None
+                    density_params = density_dict['default']
+                    
                 dens = 0.
                 if this_ran is not None:
-                    if density_dict['mean'] > 1.0e-4:
+                    if density_params['mean'] > 1.0e-4:
                         while True:
-                            dens = this_ran.normal(density_dict['mean'], density_dict['variance'])
+                            dens = this_ran.normal(density_params['mean'], density_params['variance'])
                             if dens > 0.0:
                                 break
+
                 total_seg_density += dens
                 segdensity[sec_index].append(dens)
 
@@ -2356,6 +2359,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
                         seg_list.append(seg)
             seg_dict[sec_index] = seg_list
             L_total += sec.L
+            
         seg_density_dict, layers_dict = \
             synapse_seg_density(syn_type_dict, layer_dict, \
                                 layer_density_dict, \
