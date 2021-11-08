@@ -344,6 +344,8 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
         this_syn_attrs = syn_attrs[gid]
         for syn_id, syn in viewitems(this_syn_attrs):
             presyn_id = syn.source.population
+            if presyn_id is None:
+                raise RuntimeError(f'gid {gid} synapse {syn_id} presyn_id is None: syn = {syn}')
             presyn_name = pop_index_dict[presyn_id]
             presyn_gid = syn.source.gid
             presyn_sources[presyn_name].add(presyn_gid)

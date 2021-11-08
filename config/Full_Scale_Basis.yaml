@@ -5,7 +5,7 @@ Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-Connection Generator: !include Full_Scale_Connections_GC_Exc_Sat_DD.yaml
+Connection Generator: !include Full_Scale_Connections_GC_Aradi_IN_PR.yaml
 Recording: !include Recording.yaml
 Stimulus: !include Input_Configuration.yaml
 Analysis: !include Analysis_Configuration.yaml

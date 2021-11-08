@@ -13,6 +13,7 @@
 module load gcc/9.1.0
 module load python3
 module load phdf5/1.10.4
+module load remora
 
 set -x
 
@@ -40,7 +41,7 @@ mkdir -p $results_path
 
 #git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
 
-ibrun env PYTHONPATH=$PYTHONPATH python3 ./scripts/main.py  \
+remora ibrun env PYTHONPATH=$PYTHONPATH python3 ./scripts/main.py  \
     --config-file=Network_Clamp_Slice_neg2000_neg1500um_IN_PR.yaml  \
     --arena-id=A --trajectory-id=Diag \
     --template-paths=templates \
@@ -56,6 +57,6 @@ ibrun env PYTHONPATH=$PYTHONPATH python3 ./scripts/main.py  \
     --results-write-time=600 \
     --stimulus-onset=0.0 \
     --max-walltime-hours=5.9 \
-    --dt 0.0125 --use-coreneuron --ldbal --lptbal \
+    --dt 0.0125 --use-coreneuron \
     --verbose
 

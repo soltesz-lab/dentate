@@ -41,7 +41,7 @@ export DATA_PREFIX=$SCRATCH/striped2/dentate
 # CA3c:  1128650,
 # ConMC: 1195650
 
-gid=197226    
+gid=184775    
 
 mpirun -n 1 python3 network_clamp.py go \
     --config-file Full_Scale_GC_Aradi_SLN_IN_PR.yaml \

@@ -20,6 +20,15 @@ export NEURONROOT=$SCRATCH/bin/nrnpython3_gcc9
 export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/gcc9:$PYTHONPATH
 export PATH=$NEURONROOT/bin:$PATH
 
+export I_MPI_ADJUST_SCATTER=2
+export I_MPI_ADJUST_SCATTERV=2
+export I_MPI_ADJUST_GATHERV=2
+export I_MPI_ADJUST_ALLGATHER=4
+export I_MPI_ADJUST_ALLGATHERV=2
+export I_MPI_ADJUST_ALLTOALL=4
+export I_MPI_ADJUST_ALLTOALLV=2
+export I_MPI_ADJUST_ALLREDUCE=6
+
 results_path=$SCRATCH/dentate/results/cut_slice_$SLURM_JOB_ID
 export results_path
 
@@ -33,11 +42,11 @@ ibrun python3 ./scripts/cut_slice.py \
     --config-prefix=./config \
     --dataset-prefix="$SCRATCH/striped2/dentate" \
     --output-path=$results_path \
-    --io-size=64 \
+    --io-size=24 \
     --spike-input-path="$SCRATCH/striped2/dentate/Full_Scale_Control/DG_input_spike_trains_phasemod_20210606_compressed.h\
 5" \
     --spike-input-namespace='Input Spikes A Diag' \
     --spike-input-attr="Spike Train" \
-    --distance-limits -2000 -1950 \
+    --distance-limits -2000 -1500 \
     --write-selection \
     --verbose

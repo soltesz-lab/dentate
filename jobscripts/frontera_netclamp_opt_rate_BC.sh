@@ -10,23 +10,26 @@
 #SBATCH -J netclamp_opt_rate_BC
 #SBATCH -o ./results/netclamp_opt_rate_BC.%j.o
 
+module load gcc/9.1.0
 module load python3
-module load phdf5
+module load phdf5/1.10.4
 
 set -x
 
 export FI_MLX_ENABLE_SPAWN=yes
-export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
-export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
+
+export NEURONROOT=$SCRATCH/bin/nrnpython3_gcc9
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/gcc9:$PYTHONPATH
+export MKLROOT=/opt/intel/compilers_and_libraries_2019.5.281/linux/mkl
+export LD_PRELOAD=$MKLROOT/lib/intel64_lin/libmkl_core.so:$MKLROOT/lib/intel64_lin/libmkl_sequential.so
 export PATH=$NEURONROOT/x86_64/bin:$PATH
 export MODEL_HOME=$HOME/model
 export DG_HOME=$MODEL_HOME/dentate
-export LD_PRELOAD=$MKLROOT/lib/intel64_lin/libmkl_core.so:$MKLROOT/lib/intel64_lin/libmkl_sequential.so
 export UCX_TLS="knem,dc_x"
 
 cd $SLURM_SUBMIT_DIR
 
-mpirun -rr -n 24  python3 network_clamp.py optimize  -c Network_Clamp_GC_Aradi_SLN_IN_PR.yaml \
+mpirun -rr -n 12  python3 network_clamp.py optimize  -c Network_Clamp_GC_Aradi_SLN_IN_PR.yaml \
     -p BC -g $1 -t 9500 --n-trials 1 --trial-regime mean --use-coreneuron --dt 0.01 \
     --template-paths $MODEL_HOME/XPPcode:$DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
     --dataset-prefix $SCRATCH/striped2/dentate \

@@ -31,7 +31,7 @@ ibrun python3  ./scripts/distribute_synapse_locs.py \
     --template-path=templates \
     -i AAC \
     --forest-path=$DATA_PREFIX/Full_Scale_Control/DG_IN_forest_syns_20210107_compressed.h5 \
-    --output-path=$DATA_PREFIX/Full_Scale_Control/DG_IN_forest_syns_20211026.h5 \
+    --output-path=$DATA_PREFIX/Full_Scale_Control/DG_AAC_forest_syns_20211026.h5 \
     --io-size=1 --write-size=0 \
     --chunk-size=10000 --value-chunk-size=10000 -v
 

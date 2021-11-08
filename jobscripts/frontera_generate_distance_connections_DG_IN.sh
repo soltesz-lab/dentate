@@ -12,7 +12,7 @@
 #
 
 module load gcc/9.1.0
-module load phdf5
+module load phdf5/1.10.4
 
 
 export NEURONROOT=$SCRATCH/bin/nrnpython3_gcc9
@@ -26,11 +26,12 @@ export DATA_PREFIX=$SCRATCH/striped2/dentate
 export I_MPI_ADJUST_ALLTOALL=4
 export I_MPI_ADJUST_ALLTOALLV=2
 export I_MPI_ADJUST_ALLREDUCE=6
+export I_MPI_ADJUST_ALLGATHER=4
 
 ibrun python3 ./scripts/generate_distance_connections.py \
     --config-prefix=./config \
     --config=Full_Scale_Basis.yaml \
-    --forest-path=$DATA_PREFIX/Full_Scale_Control/DG_IN_forest_syns_20210920_compressed.h5 \
+    --forest-path=$DATA_PREFIX/Full_Scale_Control/DG_IN_forest_syns_20211026.h5 \
     --connectivity-path=$DATA_PREFIX/Full_Scale_Control/DG_IN_connections_20211026.h5 \
     --connectivity-namespace=Connections \
     --coords-path=$DATA_PREFIX/Full_Scale_Control/DG_coords_20190717_compressed.h5 \

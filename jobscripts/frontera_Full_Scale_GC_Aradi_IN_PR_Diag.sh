@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH -J dentate_Full_Scale_GC_Aradi_Sat_SLN_IN_PR_Diag # Job name
+#SBATCH -J dentate_Full_Scale_GC_Aradi_SLN_IN_PR_Diag # Job name
 #SBATCH -o ./results/dentate.o%j       # Name of stdout output file
 #SBATCH -e ./results/dentate.e%j       # Name of stderr error file
 #SBATCH -p normal      # Queue (partition) name
