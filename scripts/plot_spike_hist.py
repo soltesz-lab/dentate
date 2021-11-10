@@ -23,12 +23,13 @@ script_name = os.path.basename(__file__)
 @click.option("--t-min", type=float)
 @click.option("--quantity", type=str, default='rate')
 @click.option("--font-size", type=float, default=14)
+@click.option("--fig-size", type=(float,float), default=(15,8))
 @click.option("--graph-type", type=str, default='bar')
 @click.option("--overlay", type=bool, default=False, is_flag=True)
-@click.option("--save-format", type=str, default='png')
+@click.option("--fig-format", type=str, default='png')
 @click.option("--progress",  type=bool, default=False, is_flag=True)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(spike_events_path, spike_events_namespace, populations, include_artificial, bin_size, smooth, t_variable, t_max, t_min, quantity, font_size, graph_type, overlay, save_format, progress, verbose):
+def main(spike_events_path, spike_events_namespace, populations, include_artificial, bin_size, smooth, t_variable, t_max, t_min, quantity, font_size, fig_size, graph_type, overlay, fig_format, progress, verbose):
 
     utils.config_logging(verbose)
 
@@ -46,7 +47,8 @@ def main(spike_events_path, spike_events_namespace, populations, include_artific
     plot.plot_spike_histogram (spike_events_path, spike_events_namespace, include=populations, time_variable=t_variable,
                                time_range=time_range, pop_rates=True, bin_size=bin_size,
                                smooth=smooth, quantity=quantity, fontSize=font_size, overlay=overlay, graph_type=graph_type,
-                               progress=progress, include_artificial=include_artificial, saveFig=True, figFormat=save_format)
+                               progress=progress, include_artificial=include_artificial,
+                               saveFig=True, figFormat=fig_format, figSize=fig_size)
     
 
 if __name__ == '__main__':

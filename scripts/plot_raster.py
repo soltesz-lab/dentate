@@ -12,6 +12,7 @@ script_name = os.path.basename(__file__)
 @click.option("--spike-events-namespace", '-n', type=str, default='Spike Events')
 @click.option("--populations", '-i', type=str, multiple=True)
 @click.option("--max-spikes", type=int, default=int(1e6))
+@click.option("--spike-hist", type=click.Choice(['subplot', 'overlay'], case_sensitive=False), default=None)
 @click.option("--spike-hist-bin", type=float, default=5.0)
 @click.option("--t-variable", type=str, default='t')
 @click.option("--t-max", type=float)
@@ -19,10 +20,11 @@ script_name = os.path.basename(__file__)
 @click.option("--font-size", type=float, default=14)
 @click.option("--fig-size", type=(float,float), default=(15,8))
 @click.option("--labels", type=str, default='legend')
-@click.option("--save-format", type=str, default='png')
+@click.option("--marker", type=str, default='.')
+@click.option("--fig-format", type=str, default='png')
 @click.option("--include-artificial/--exclude-artificial", default=True, is_flag=True)
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(spike_events_path, spike_events_namespace, populations, max_spikes, spike_hist_bin, t_variable, t_max, t_min, font_size, fig_size, labels, save_format, include_artificial, verbose):
+def main(spike_events_path, spike_events_namespace, populations, max_spikes, spike_hist, spike_hist_bin, t_variable, t_max, t_min, font_size, fig_size, labels, marker, fig_format, include_artificial, verbose):
 
     utils.config_logging(verbose)
     
@@ -37,7 +39,7 @@ def main(spike_events_path, spike_events_namespace, populations, max_spikes, spi
     if not populations:
         populations = ['eachPop']
         
-    plot.plot_spike_raster (spike_events_path, spike_events_namespace, include=populations, time_range=time_range, time_variable=t_variable, pop_rates=True, spike_hist='subplot', max_spikes=max_spikes, spike_hist_bin=spike_hist_bin, include_artificial=include_artificial, fontSize=font_size, figSize=fig_size, labels=labels, saveFig=True, figFormat=save_format)
+    plot.plot_spike_raster (spike_events_path, spike_events_namespace, include=populations, time_range=time_range, time_variable=t_variable, pop_rates=True, spike_hist=spike_hist, max_spikes=max_spikes, spike_hist_bin=spike_hist_bin, include_artificial=include_artificial, fontSize=font_size, figSize=fig_size, labels=labels, marker=marker, saveFig=True, figFormat=fig_format)
     
 
 if __name__ == '__main__':
