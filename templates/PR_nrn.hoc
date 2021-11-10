@@ -55,7 +55,8 @@ proc parameters() {
         pp = $1 // proportion of area taken up by soma
         Ltotal = $2 // total length of compartments
         gc = $3 // mS/cm2; Ra in ohm-cm
-
+        
+        cm_ratio = 1
 	global_cm = $4 
 	global_diam = $5
         
@@ -102,7 +103,8 @@ proc parameters_from_python() { localobj param_dict
 
     global_diam = param_dict.__getitem__("global_diam")
     global_cm = param_dict.__getitem__("global_cm")
-
+    cm_ratio = param_dict.get("cm_ratio", 1.)
+    
     soma_g_pas= param_dict.__getitem__("soma_g_pas")
     soma_gmax_Na = param_dict.__getitem__("soma_gmax_Na")
     soma_gmax_K = param_dict.__getitem__("soma_gmax_K")
@@ -192,6 +194,8 @@ proc biophys () {
     
     
     forsec "soma" {
+        
+        cm = global_cm*cm_ratio
         
         insert pas
         insert constant

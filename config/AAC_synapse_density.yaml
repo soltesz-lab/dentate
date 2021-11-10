@@ -24,8 +24,8 @@ apical:
       mean: 0.3
       variance: 0.1
     Hilus:
-      mean: 0.23
-      variance: 0.1
+      mean: 0.0
+      variance: 0.0
 basal:
   excitatory:
     Hilus:
@@ -33,14 +33,14 @@ basal:
       variance: 0.1
   inhibitory:
     Hilus:
-      mean: 0.3
-      variance: 0.1
+      mean: 0.0
+      variance: 0.0
 soma:
-  inhibitory:
-    default:
-      mean: 0.2
-      variance: 0.1
   excitatory:
     default:
-      mean: 0.4
+      mean: 0.5
       variance: 0.1
+  inhibitory:
+    default:
+      mean: 0.0
+      variance: 0.0

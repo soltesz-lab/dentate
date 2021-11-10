@@ -6,7 +6,7 @@
 #SBATCH -p normal      # Queue (partition) name
 #SBATCH -N 512             # Total # of nodes 
 #SBATCH --ntasks-per-node=56            # # of mpi tasks per node
-#SBATCH -t 5:00:00        # Run time (hh:mm:ss)
+#SBATCH -t 9:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
@@ -53,7 +53,8 @@ ibrun env PYTHONPATH=$PYTHONPATH $PYTHON ./scripts/main.py  \
     --v-init=-75 \
     --results-write-time=600 \
     --stimulus-onset=0.0 \
-    --max-walltime-hours=4.9 \
-    --dt 0.0125 \
+    --max-walltime-hours=8.9 \
+    --dt 0.0125 --use-coreneuron --node-rank-file parts.28672 \
+    --checkpoint-interval 1000.0 \
     --verbose
 

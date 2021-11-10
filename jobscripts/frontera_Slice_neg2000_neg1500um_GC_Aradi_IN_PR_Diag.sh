@@ -4,9 +4,9 @@
 #SBATCH -o ./results/dentate.o%j       # Name of stdout output file
 #SBATCH -e ./results/dentate.e%j       # Name of stderr error file
 #SBATCH -p normal      # Queue (partition) name
-#SBATCH -N 10             # Total # of nodes 
+#SBATCH -N 40             # Total # of nodes 
 #SBATCH --ntasks-per-node=56            # # of mpi tasks per node
-#SBATCH -t 5:00:00        # Run time (hh:mm:ss)
+#SBATCH -t 6:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
@@ -51,11 +51,11 @@ ibrun env PYTHONPATH=$PYTHONPATH python3 ./scripts/main.py  \
     --spike-input-attr='Spike Train' \
     --microcircuit-inputs \
     --io-size=12 \
-    --tstop=9500 \
+    --tstop=5 \
     --v-init=-75 \
     --results-write-time=600 \
     --stimulus-onset=0.0 \
-    --max-walltime-hours=4.9 \
-    --dt 0.0125 --use-coreneuron \
+    --max-walltime-hours=5.9 \
+    --dt 0.0125 --use-coreneuron --ldbal --lptbal \
     --verbose
 

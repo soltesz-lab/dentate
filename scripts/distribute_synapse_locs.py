@@ -39,7 +39,7 @@ def update_syn_stats(env, syn_stats_dict, syn_dict):
         elif syn_type == syn_type_inhibitory:
             syn_type_str = 'inhibitory'
         else:
-            raise ValueError('Unknown synapse type %s' % str(syn_type))
+            raise ValueError(f'Unknown synapse type {syn_type}')
 
         syn_stats_dict['section'][syn_sec][syn_type_str] += 1
         syn_stats_dict['layer'][syn_layer][syn_type_str] += 1
@@ -61,7 +61,7 @@ def global_syn_summary(comm, syn_stats, gid_count, root):
                 for syn_type in syn_stats_dict[part_name]:
                     global_syn_count = comm.gather(syn_stats_dict[part_name][syn_type], root=root)
                     if comm.rank == root:
-                        res.append("%s %s %s: mean %s synapses per cell: %f" % (population, part, part_name, syn_type, np.sum(global_syn_count) / global_count))
+                        res.append(f"{population} {part} {part_name}: mean {syn_type} synapses per cell: {(np.sum(global_syn_count) / global_count):.2f}")
         total_syn_stats_dict = pop_syn_stats['total']
         for syn_type in total_syn_stats_dict:
             global_syn_count = comm.gather(total_syn_stats_dict[syn_type], root=root)
@@ -211,8 +211,8 @@ def main(config, config_prefix, template_path, output_path, forest_path, populat
         for gid, morph_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, comm=comm, cache_size=cache_size, topology=True):
             local_time = time.time()
             if gid is not None:
-                logger.info('Rank %i gid: %i' % (rank, gid))
-                cell = cells.make_neurotree_cell(template_class, neurotree_dict=morph_dict, gid=gid)
+                logger.info(f'Rank {rank} gid: {gid}')
+                cell = cells.make_neurotree_hoc_cell(template_class, neurotree_dict=morph_dict, gid=gid)
                 cell_sec_dict = {'apical': (cell.apical, None), 'basal': (cell.basal, None), 'soma': (cell.soma, None), 'ais': (cell.ais, None), 'hillock': (cell.hillock, None)}
                 cell_secidx_dict = {'apical': cell.apicalidx, 'basal': cell.basalidx, 'soma': cell.somaidx, 'ais': cell.aisidx, 'hillock': cell.hilidx}
 
@@ -236,11 +236,11 @@ def main(config, config_prefix, template_path, output_path, forest_path, populat
                 
                 del cell
                 num_syns = len(synapse_dict[gid]['syn_ids'])
-                logger.info('Rank %i took %i s to compute %d synapse locations for %s gid: %i' % (rank, time.time() - local_time, num_syns, population, gid))
-                logger.info('%s gid %i synapses: %s' % (population, gid, local_syn_summary(this_syn_stats)))
+                logger.info(f'Rank {rank} took {time.time() - local_time:.01f} s to compute {num_syns} synapse locations for {population} gid: {gid}'
+                            f'{population} gid {gid} synapses: {local_syn_summary(this_syn_stats)}')
                 gid_count += 1
             else:
-                logger.info('Rank %i gid is None' % rank)
+                logger.info(f'Rank {rank} gid is None')
             gc.collect()
             if (not dry_run) and (write_size > 0) and (gid_count % write_size == 0):
                 append_cell_attributes(output_path, population, synapse_dict,

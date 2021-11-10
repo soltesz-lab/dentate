@@ -286,12 +286,11 @@ Synapses:
       contacts: 1.0
       mechanisms:
         AMPA:
-          dur_onset: 0.3
-          tau_offset: 6.2
+          tau_rise: 0.3
+          tau_decay: 6.2
           e: 0
-          sat: 0.9
-          g_unit: 0.0005
-          weight: 1.0
+          g_unit: 0.0025
+          weight: 0.753
     CA3c:   
       type: excitatory
       sections: [soma, apical]
@@ -299,12 +298,11 @@ Synapses:
       proportions: [0.18, 0.18]
       mechanisms:
         AMPA:
-          dur_onset: 0.5
-          tau_offset: 3.6
+          tau_rise: 0.5
+          tau_decay: 3.6
           e: 0
           g_unit: 0.001
-          weight: 1.0
-          sat: 0.9
+          weight: 0.753
     MC:   
       type: excitatory
       sections: [soma, apical]
@@ -313,12 +311,11 @@ Synapses:
       contacts: 1.0
       mechanisms:
         AMPA:
-          dur_onset: 0.5
-          tau_offset: 3.6
+          tau_rise: 0.5
+          tau_decay: 3.6
           e: 0
-          sat: 0.9
-          g_unit: 0.002
-          weight: 1.0
+          g_unit: 0.0025
+          weight: 0.753
     HC:  
       type: inhibitory
       sections: [apical]
@@ -327,11 +324,11 @@ Synapses:
       contacts: 3.0
       mechanisms:
         GABA_A:
-          dur_onset: 0.37
-          tau_offset: 10.48
+          tau_rise: 0.37
+          tau_decay: 10.48
           e: -75
           g_unit: 0.001
-          weight: 0.019
+          weight: 0.535
     IS:  
       type: inhibitory
       sections: [apical, soma]
@@ -340,11 +337,11 @@ Synapses:
       contacts: 1.0
       mechanisms:
         GABA_A:
-          dur_onset: 0.37
-          tau_offset: 10.48
+          tau_rise: 0.37
+          tau_decay: 10.48
           e: -75
-          g_unit: 0.01
-          weight: 1.89
+          g_unit: 0.001
+          weight: 1.66
   BC:
     GC:   
       type: excitatory

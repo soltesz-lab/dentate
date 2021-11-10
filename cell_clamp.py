@@ -334,13 +334,16 @@ def measure_fi (gid, pop_name, v_init, env, cell_dict={}):
     return results
 
 
-def measure_gap_junction_coupling (env, template_class, tree, v_init, cell_dict={}):
+def measure_gap_junction_coupling (gid, population, v_init, env):
     
     h('objref gjlist, cells, Vlog1, Vlog2')
 
     pc = env.pc
     h.cells  = h.List()
     h.gjlist = h.List()
+
+    biophys_cell1 = init_biophys_cell(env, population, gid, register_cell=False, cell_dict=cell_dict)
+    hoc_cell1 = biophys_cell1.hoc_cell
     
     cell1 = cells.make_neurotree_hoc_cell (template_class, neurotree_dict=tree)
     cell2 = cells.make_neurotree_hoc_cell (template_class, neurotree_dict=tree)
@@ -620,7 +623,7 @@ def main(config_file, config_prefix, erev, population, presyn_name, gid, load_we
     if 'fi' in measurements:
         attr_dict[gid].update(measure_fi(gid, population, v_init, env))
     if 'gap' in measurements:
-        gap_junction_test(gid, population, v_init, env)
+        measure_gap_junction_coupling(gid, population, v_init, env)
     if 'psp' in measurements:
         assert(presyn_name is not None)
         assert(syn_mech_name is not None)

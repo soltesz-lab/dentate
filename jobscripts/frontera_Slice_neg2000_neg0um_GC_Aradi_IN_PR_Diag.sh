@@ -3,10 +3,10 @@
 #SBATCH -J dentate_Slice_neg2000_neg0um_GC_Aradi_Sat_SLN_IN_PR_Diag # Job name
 #SBATCH -o ./results/dentate.o%j       # Name of stdout output file
 #SBATCH -e ./results/dentate.e%j       # Name of stderr error file
-#SBATCH -p development      # Queue (partition) name
-#SBATCH -N 40             # Total # of nodes 
+#SBATCH -p normal      # Queue (partition) name
+#SBATCH -N 160             # Total # of nodes 
 #SBATCH --ntasks-per-node=56            # # of mpi tasks per node
-#SBATCH -t 2:00:00        # Run time (hh:mm:ss)
+#SBATCH -t 6:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
@@ -51,11 +51,11 @@ ibrun env PYTHONPATH=$PYTHONPATH python3 ./scripts/main.py  \
     --spike-input-attr='Spike Train' \
     --microcircuit-inputs \
     --io-size=24 \
-    --tstop=5 \
+    --tstop=9500 \
     --v-init=-75 \
     --results-write-time=600 \
     --stimulus-onset=0.0 \
-    --max-walltime-hours=1.9 \
-    --dt 0.0125 \
+    --max-walltime-hours=5.9 \
+    --dt 0.0125 --use-coreneuron \
     --verbose
 

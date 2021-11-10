@@ -39,7 +39,7 @@ STATE { h }
 
 INITIAL { 
 	rates(v)
-	h = 0.99806345
+        h=ah/(ah + bh)
         m_inf=am/(am + bm)
 }
     
