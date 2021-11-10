@@ -8,13 +8,13 @@ from collections import defaultdict
 from mpi4py import MPI
 import numpy as np
 import h5py
-from dentate.cells import make_biophys_cell, make_izhikevich_cell, make_PR_cell, get_branch_order, get_dendrite_origin, get_distance_to_node, \
-    init_biophysics, is_terminal, report_topology, modify_mech_param
+from dentate.cells import make_biophys_cell, make_izhikevich_cell, make_PR_cell, get_branch_order, \
+    get_dendrite_origin, get_distance_to_node, init_biophysics, is_terminal, report_topology, modify_mech_param
 from dentate.env import Env
 from dentate.neuron_utils import h, configure_hoc_env
 from dentate.synapses import config_biophys_cell_syns, init_syn_mech_attrs, modify_syn_param
 from dentate import utils
-from dentate.utils import viewitems, range, str, Context, list_find, basestring
+from dentate.utils import viewitems, range, str, Context, list_find
 from dentate.io_utils import set_h5py_attr, get_h5py_group
 
 context = Context()

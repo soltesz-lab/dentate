@@ -413,10 +413,10 @@ def get_h5py_attr(attrs, key):
     if key not in attrs:
         raise KeyError('get_h5py_attr: invalid key: %s' % key)
     val = attrs[key]
-    if isinstance(val, str):
+    if isinstance(val, (str, bytes)):
         val = np.string_(val).astype(str)
     elif isinstance(val, Iterable) and len(val) > 0:
-        if isinstance(val[0], str):
+        if isinstance(val[0], (str, bytes)):
             val = np.array(val, dtype='str')
     return val
 
