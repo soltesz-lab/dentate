@@ -2156,6 +2156,9 @@ def apply_custom_mech_rules(cell, node, mech_name, param_name, baseline, rules, 
     new_rules['value'] = baseline
     new_rules = func(cell, node, baseline, new_rules, donor, **custom)
     if new_rules:
+        if mech_name == 'nas':
+            print('debug: getting here with %s; %s' % (node.name, new_rules))
+            sys.stdout.flush()
         apply_mech_rules(cell, node, mech_name, param_name, new_rules, donor, verbose=verbose)
 
 
@@ -2179,7 +2182,7 @@ def custom_filter_by_branch_order(cell, node, baseline, rules, donor, branch_ord
     return rules
 
 
-def custom_filter_modify_slope_if_terminal(cell, node, baseline, rules, donor, **kwargs):
+def custom_filter_modify_slope_if_terminal(cell, node, baseline, rules, donor, distance_th=None, **kwargs):
     """
     Allows the provided rule to be applied if the provided node is a terminal branch. Adjusts the specified slope based
     on the length of the associated section.
@@ -2188,6 +2191,7 @@ def custom_filter_modify_slope_if_terminal(cell, node, baseline, rules, donor, *
     :param baseline: float
     :param rules: dict
     :param donor: :class:'SHocNode' or None
+    :param distance_th: float
     :return: dict or False
     """
     if not is_terminal(node):
@@ -2200,42 +2204,16 @@ def custom_filter_modify_slope_if_terminal(cell, node, baseline, rules, donor, *
         end_val = rules['max']
         direction = 1
     else:
-        raise RuntimeError('custom_filter_modify_slope_if_terminal: no min or max target value specified for sec_type: '
-                           '%s' % node.type)
-    slope = (end_val - start_val) / node.sec.L
-    if 'slope' in rules:
-        if direction < 0.:
-            slope = min(rules['slope'], slope)
+        raise RuntimeError('custom_filter_modify_slope_if_terminal: no min or max target value specified for '
+                           'sec_type: %s' % node.type)
+    if distance_th is not None:
+        if node.sec.L <= distance_th:
+            slope = (end_val - start_val) / node.sec.L
         else:
-            slope = max(rules['slope'], slope)
-    rules['slope'] = slope
-    return rules
-
-
-def custom_filter_modify_slope_if_terminal(cell, node, baseline, rules, donor, **kwargs):
-    """
-    Allows the provided rule to be applied if the provided node is a terminal branch. Adjusts the specified slope based
-    on the length of the associated section.
-    :param cell: :class:'BiophysCell'
-    :param node: :class:'SHocNode'
-    :param baseline: float
-    :param rules: dict
-    :param donor: :class:'SHocNode' or None
-    :return: dict or False
-    """
-    if not is_terminal(node):
-        return False
-    start_val = baseline
-    if 'min' in rules:
-        end_val = rules['min']
-        direction = -1
-    elif 'max' in rules:
-        end_val = rules['max']
-        direction = 1
+            slope = (end_val - start_val) / distance_th
+            rules['min_loc'] = node.sec.L - distance_th
     else:
-        raise RuntimeError('custom_filter_modify_slope_if_terminal: no min or max target value specified for sec_type: '
-                           '%s' % node.type)
-    slope = (end_val - start_val) / node.sec.L
+        slope = (end_val - start_val) / node.sec.L
     if 'slope' in rules:
         if direction < 0.:
             slope = min(rules['slope'], slope)
