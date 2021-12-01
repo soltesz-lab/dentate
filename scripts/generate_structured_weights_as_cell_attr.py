@@ -238,9 +238,8 @@ def exchange_input_features(comm, requested_gids, input_features_attr_dict):
 @click.option("--max-delta-weight", type=float, default=4.)
 @click.option("--max-opt-iter", type=int, default=1000)
 @click.option("--max-weight-decay-fraction", type=float, default=1.)
-@click.option("--optimize-method", type=str, default='L-BFGS-B')
-@click.option("--optimize-tol", type=float, default=1e-4)
-@click.option("--optimize-grad", is_flag=True)
+@click.option("--max-non-structured-weight-decay-fraction", type=float, default=0.95)
+@click.option("--optimize-tol", type=float, default=1e-8)
 @click.option("--peak-rate", type=float)
 @click.option("--reference-weights-are-delta", type=bool, default=False)
 @click.option("--target-amplitude", type=float, default=3.)
@@ -256,7 +255,7 @@ def exchange_input_features(comm, requested_gids, input_features_attr_dict):
 @click.option("--show-fig", is_flag=True)
 @click.option("--save-fig", type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--debug", is_flag=True)
-def main(config, coordinates, field_width, gid, input_features_path, input_features_namespaces, initial_weights_path, output_features_namespace, output_features_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, non_structured_sources, non_structured_weights_namespace, non_structured_weights_path, arena_id, field_width_scale, max_delta_weight, max_opt_iter, max_weight_decay_fraction, optimize_method, optimize_tol, optimize_grad, peak_rate, reference_weights_are_delta, arena_margin, target_amplitude, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot, show_fig, save_fig, debug):
+def main(config, coordinates, field_width, gid, input_features_path, input_features_namespaces, initial_weights_path, output_features_namespace, output_features_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, non_structured_sources, non_structured_weights_namespace, non_structured_weights_path, arena_id, field_width_scale, max_delta_weight, max_opt_iter, max_weight_decay_fraction, max_non_structured_weight_decay_fraction, optimize_tol, peak_rate, reference_weights_are_delta, arena_margin, target_amplitude, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot, show_fig, save_fig, debug):
     """
 
     :param config: str (path to .yaml file)
@@ -549,13 +548,13 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             if reference_weights_path is not None:
                 reference_weight_dict = reference_weights_by_source_gid_dict[destination_gid]
                 
-            normalized_LTP_delta_weights_dict, LTD_delta_weights_dict, arena_LS_map = \
+            LTP_delta_weights_dict, LTD_delta_weights_dict, arena_structured_map = \
                synapses.generate_structured_weights(destination_gid,
                                                  target_map=target_selectivity_features_dict[destination_gid]['Arena Rate Map'],
                                                  initial_weight_dict=initial_weights_by_source_gid_dict[destination_gid],
-                                                 reference_weight_dict=reference_weight_dict,
-                                                 reference_weights_are_delta=reference_weights_are_delta,
-                                                 reference_weights_namespace=reference_weights_namespace,
+                                                 #reference_weight_dict=reference_weight_dict,
+                                                 #reference_weights_are_delta=reference_weights_are_delta,
+                                                 #reference_weights_namespace=reference_weights_namespace,
                                                  input_rate_map_dict=input_rate_maps_by_source_gid_dict,
                                                  non_structured_input_rate_map_dict=non_structured_input_rate_maps_by_source_gid_dict,
                                                  non_structured_weights_dict=non_structured_weights_by_source_gid_dict[destination_gid],
@@ -563,11 +562,10 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                  max_delta_weight=max_delta_weight,
                                                  max_opt_iter=max_opt_iter,
                                                  max_weight_decay_fraction=max_weight_decay_fraction,
+                                                 max_non_structured_weight_decay_fraction=max_non_structured_weight_decay_fraction,
                                                  target_amplitude=target_amplitude,
                                                  arena_x=arena_x, arena_y=arena_y,
-                                                 optimize_method=optimize_method,
                                                  optimize_tol=optimize_tol,
-                                                 optimize_grad=optimize_grad,
                                                  verbose=verbose if rank == 0 else False, 
                                                  plot=plot, show_fig=show_fig,
                                                  save_fig=save_fig_path,
@@ -576,7 +574,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             input_rate_maps_by_source_gid_dict.clear()
 
             target_map_flat = target_selectivity_features_dict[destination_gid]['Arena Rate Map'].flat
-            arena_map_residual_sum = np.sum(np.abs(arena_LS_map - target_map_flat))
+            arena_map_residual_sum = np.sum(np.abs(arena_structured_map - target_map_flat))
             output_features_dict[destination_gid] = \
                { fld: target_selectivity_features_dict[destination_gid][fld]
                  for fld in ['Selectivity Type',
@@ -592,10 +590,10 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             LTD_output_weights = np.empty(this_structured_syn_id_count, dtype='float32')
             LTP_output_weights = np.empty(this_structured_syn_id_count, dtype='float32')
             i = 0
-            for source_gid in normalized_LTP_delta_weights_dict:
+            for source_gid in LTP_delta_weights_dict:
                  for syn_id in syn_ids_by_source_gid_dict[destination_gid][source_gid]:
                      output_syn_ids[i] = syn_id
-                     LTP_output_weights[i] = normalized_LTP_delta_weights_dict[source_gid]
+                     LTP_output_weights[i] = LTP_delta_weights_dict[source_gid]
                      LTD_output_weights[i] = LTD_delta_weights_dict[source_gid]
                      i += 1
             LTP_output_weights_dict[destination_gid] = {'syn_id': output_syn_ids, synapse_name: LTP_output_weights}
