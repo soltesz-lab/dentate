@@ -318,9 +318,9 @@ def plot_vertex_distribution(connectivity_path, coords_path, distances_namespace
     
     if not has_vertex_dist_metrics:
         vertex_distribution_dict = vertex_distribution(connectivity_path, coords_path,
-                                                        distances_namespace,
-                                                        destination, sources,
-                                                        bin_size, cache_size, comm=comm)
+                                                       distances_namespace,
+                                                       destination, sources,
+                                                       bin_size, cache_size, comm=comm)
         
         
                     
@@ -1164,8 +1164,8 @@ def plot_biophys_cell_tree (env, biophys_cell, node_filters={'swc_types': ['apic
     logger.info('plotting tree %i' % biophys_cell.gid)
     
     # Plot morphology graph with Mayavi
-    plot_graph(xcoords, ycoords, zcoords, start_idx, end_idx, 
-                opacity=0.8, colormap=colormap, line_width=line_width)
+    plot_graph(xcoords, ycoords, zcoords, start_idx, end_idx, edge_color=(1,1,1),
+                opacity=0.8, line_width=line_width)
 
 
     # Obtain and plot synapse xyz locations
@@ -1202,7 +1202,7 @@ def plot_biophys_cell_tree (env, biophys_cell, node_filters={'swc_types': ['apic
     logger.info('plotting %i synapses' % len(syns_dict))
     for sec_id, syn_xyz in viewitems(syn_xyz_sec_dict):
         syn_sources = syn_src_sec_dict[sec_id]
-        mlab.points3d(syn_xyz[:,0], syn_xyz[:,1], syn_xyz[:,2], syn_sources, scale_mode='vector',scale_factor=2.0)
+        mlab.points3d(syn_xyz[:,0], syn_xyz[:,1], syn_xyz[:,2], syn_sources, scale_mode='vector',scale_factor=10.0)
         
     mlab.gcf().scene.x_plus_view()
     mlab.show()
@@ -1931,8 +1931,14 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
                     logger.info('plot_state: min/max/mean value of state {i} is '
                                 f'{np.min(cell_state):.02f} / {np.max(cell_state):.02f} '
                                 f'/ {np.mean(cell_state):.02f}')
-                    legend_labels.append(f'{pop_name} {gid} '
-                                         f'{cell_state_mat[2][i]} ({cell_state_mat[3][i]:.02f} um)')
+
+                    if cell_state_mat[3][i] is not None:
+                        legend_labels.append(f'{pop_name} {gid} '
+                                             f'{cell_state_mat[2][i]} ({cell_state_mat[3][i]:.02f} um)')
+                    else:
+                        legend_labels.append(f'{pop_name} {gid} '
+                                             f'{cell_state_mat[2][i]}')
+                        
                     
             ax.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
             if distance:
@@ -2275,6 +2281,8 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     fig_options = copy.copy(default_fig_options)
     fig_options.update(kwargs)
 
+    mpl.rcParams['font.size'] = fig_options.fontSize
+
     (population_ranges, N) = read_population_ranges(input_path)
     population_names  = read_population_names(input_path)
 
@@ -2373,7 +2381,8 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
 
         sct = None
         if len(pop_spkinds) > 0:
-            sct = axes[i].scatter(pop_spkts, pop_spkinds, s=10, linewidths=fig_options.lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name)
+            sct = axes[i].scatter(pop_spkts, pop_spkinds, s=1, linewidths=fig_options.lw,
+                                  marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name)
         axes[i].spines["top"].set_visible(False)
         axes[i].spines["bottom"].set_visible(False)
         axes[i].spines["left"].set_visible(False)
@@ -2388,8 +2397,10 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
                 for pop_name in spkpoplst ]
             
     # set raster plot y tick labels to the middle of the index range for each population
-    for pop_name, a in zip_longest(spkpoplst, fig.axes[:-1]):
+    for pop_name, a in zip_longest(spkpoplst, fig.axes):
         if pop_name not in pop_active_cells:
+            continue
+        if a is None:
             continue
         if len(pop_active_cells[pop_name]) > 0:
             maxN = max(pop_active_cells[pop_name])
@@ -2415,7 +2426,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
             ax2.set_xlim(time_range)
         elif spike_hist == 'subplot':
             ax2=axes[-1]
-            ax2.plot (sphist_x_res, sphist_y_res, linewidth=1.0)
+            ax2.bar (sphist_x_res, sphist_y_res, linewidth=1.0)
             ax2.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
             ax2.set_ylabel('Spikes', fontsize=fig_options.fontSize)
             ax2.set_xlim(time_range)
@@ -2451,7 +2462,10 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
         max_label_len = max([len(l) for l in lgd_labels])
         
     elif labels == 'yticks':
-        for pop_name, info, a in zip_longest(spkpoplst, lgd_info, fig.axes[:-1]):
+        for pop_name, info, a in zip_longest(spkpoplst, lgd_info, fig.axes):
+            if a is None or info is None:
+                continue
+
             if pop_rates:
                 label = '%.02f%%\n%.2g Hz' % (info[0], info[1])
             else:
@@ -2464,11 +2478,11 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
             a.set_yticklabels([pop_name, label])
             yticklabels = a.get_yticklabels()
             # Create offset transform in x direction
-            dx = -66/72.; dy = 0/72. 
+            dx = -80/72.; dy = 0/72. 
             offset = mpl.transforms.ScaledTranslation(dx, dy, fig.dpi_scale_trans)
             # apply offset transform to labels.
             yticklabels[0].set_transform(yticklabels[0].get_transform() + offset)
-            dx = -55/72.; dy = 0/72. 
+            dx = -80/72.; dy = 0/72. 
             offset = mpl.transforms.ScaledTranslation(dx, dy, fig.dpi_scale_trans)
             yticklabels[1].set_ha('left')    
             yticklabels[1].set_transform(yticklabels[1].get_transform() + offset)
@@ -3123,7 +3137,7 @@ def plot_spike_rates(input_path, namespace_id, config_path=None, include = ['eac
 
         color = dflt_colors[iplot%len(dflt_colors)]
 
-        plt.subplot(len(spkpoplst),1,iplot+1)  # if subplot, create new subplot
+        plt.subplot(1,len(spkpoplst),iplot+1)  # if subplot, create new subplot
         if meansub:
             plt.title ('%s Mean-subtracted Instantaneous Firing Rate' % str(subset), fontsize=fig_options.fontSize)
         else:
@@ -3412,6 +3426,7 @@ def plot_spike_histogram (input_path, namespace_id, config_path=None, include = 
     pop_active_cells = spkdata['pop_active_cells']
     tmin             = spkdata['tmin']
     tmax             = spkdata['tmax']
+    fraction_active  = { pop_name: float(len(pop_active_cells[pop_name])) / float(pop_num_cells[pop_name]) for pop_name in include }
 
     time_range = [tmin, tmax]
 
@@ -3497,17 +3512,18 @@ def plot_spike_histogram (input_path, namespace_id, config_path=None, include = 
         
         color = dflt_colors[iplot%len(dflt_colors)]
 
-        if not overlay:
-            if pop_rates:
-                label = str(subset)  + ' (%i active; %.3g Hz)' % (len(pop_active_cells[subset]), avg_rates[subset])
-            else:
-                label = str(subset)  + ' (%i active)' % (len(pop_active_cells[subset]))
+        if pop_rates:
+            label = f'{subset}\n{fraction_active[subset]*100.:.02f}%\n{avg_rates[subset]:.3g} Hz'
+        else:
+            label = f'{subset}\n{fraction_active[subset]*100.:.02f}%'
 
         ax = plt.subplot(len(spkpoplst),1,(iplot+1))
-        plt.title (label, fontsize=fig_options.fontSize)
+        pad = 5
+        ax.annotate(label, xy=(1, 0.5), xytext=(pad,0),                    
+                    xycoords='axes fraction', textcoords='offset points',
+                    size='small', ha='left', va='center')
         ax.tick_params(labelsize=fig_options.fontSize)
-        #axes[iplot].xaxis.set_visible(False)
-            
+        
         if smooth:
             hsignal = signal.savgol_filter(hist_y, window_length=2*((len(hist_y) / 16)) + 1, polyorder=smooth) 
         else:
@@ -3517,6 +3533,7 @@ def plot_spike_histogram (input_path, namespace_id, config_path=None, include = 
             ax.plot (hist_x, hsignal, linewidth=fig_options.lw, color = color)
         elif graph_type == 'bar':
             ax.bar(hist_x, hsignal, width = bin_size, color = color)
+        ax.set_yticks([ax.get_yticks()[-2]])
 
         if iplot == 0:
             ax.set_ylabel(yaxisLabel, fontsize=fig_options.fontSize)
@@ -3524,20 +3541,16 @@ def plot_spike_histogram (input_path, namespace_id, config_path=None, include = 
             ax.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
         else:
             ax.tick_params(labelbottom='off')
+            ax.xaxis.set_visible(False)
 
-            
         ax.set_xlim(time_range)
 
-
-    plt.tight_layout()
 
     # Add legend
     if overlay:
         for i,subset in enumerate(spkpoplst):
             plt.plot(0,0,color=dflt_colors[i%len(dflt_colors)],label=str(subset))
         plt.legend(fontsize=fig_options.fontSize, bbox_to_anchor=(1.04, 1), loc=2, borderaxespad=0.)
-        maxLabelLen = min(10,max([len(str(l)) for l in include]))
-        plt.subplots_adjust(right=(0.9-0.012*maxLabelLen))
 
 
     if fig_options.saveFig:

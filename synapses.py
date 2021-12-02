@@ -2,8 +2,7 @@ import sys, collections, copy, itertools, math, pprint, uuid, time, traceback
 from functools import reduce
 from collections import defaultdict
 import numpy as np
-import scipy
-import scipy.optimize as opt
+from nnls import nnls_gdal
 from neuroh5.io import write_cell_attributes
 from dentate.cells import get_distance_to_node, get_donor, get_mech_rules_dict, get_param_val_by_distance, \
     import_mech_dict_from_file, make_section_graph, custom_filter_if_terminal, \
@@ -2531,17 +2530,130 @@ def generate_sparse_weights(weights_name, fraction, seed, source_syn_dict):
     return weights_dict
 
 
+def get_structured_input_arrays(structured_weights_dict, gid):
+
+    target_map = structured_weights_dict['target_map']
+    initial_weight_dict = structured_weights_dict['initial_weight_dict']
+    input_rate_map_dict = structured_weights_dict['input_rate_map_dict']
+    non_structured_input_rate_map_dict = structured_weights_dict['non_structured_input_rate_map_dict']
+    non_structured_weights_dict = structured_weights_dict['non_structured_weights_dict']
+    syn_count_dict = structured_weights_dict['syn_count_dict']
+
+    input_matrix = np.empty((target_map.size, len(input_rate_map_dict)),
+                            dtype=np.float64)
+    source_gid_array = np.empty(len(input_rate_map_dict), dtype=np.uint32)
+    syn_count_array = np.empty(len(input_rate_map_dict), dtype=np.uint32)
+    initial_weight_array = np.empty(len(input_rate_map_dict), dtype=np.float64)
+    for i, source_gid in enumerate(input_rate_map_dict):
+        source_gid_array[i] = source_gid
+        this_syn_count = syn_count_dict[source_gid]
+        this_input = input_rate_map_dict[source_gid].ravel() * this_syn_count
+        input_matrix[:, i] = this_input
+        syn_count_array[i] = this_syn_count
+        initial_weight_array[i] = initial_weight_dict[source_gid]
+
+
+    non_structured_input_matrix = None
+    if non_structured_input_rate_map_dict is not None:
+        non_structured_input_matrix = np.empty((target_map.size, len(non_structured_input_rate_map_dict)),
+                                    dtype=np.float32)
+        non_structured_weight_array = np.empty(len(non_structured_input_rate_map_dict), dtype=np.float32)
+        non_structured_source_gid_array = np.empty(len(non_structured_input_rate_map_dict), dtype=np.uint32)
+        for i, source_gid in enumerate(non_structured_input_rate_map_dict):
+            non_structured_source_gid_array[i] = source_gid
+            this_syn_count = syn_count_dict[source_gid]
+            this_input = non_structured_input_rate_map_dict[source_gid].ravel() * this_syn_count
+            non_structured_input_matrix[:, i] = this_input
+            non_structured_weight_array[i] = non_structured_weights_dict.get(source_gid, 1.0)
+
+    return {'target_map': target_map,
+            'input_matrix': input_matrix, 
+            'initial_weight_array': initial_weight_array, 
+            'non_structured_input_matrix': non_structured_input_matrix, 
+            'non_structured_weight_array': non_structured_weight_array, 
+            'non_structured_source_gid_array': non_structured_source_gid_array,
+            'syn_count_array': syn_count_array, 
+            'source_gid_array': source_gid_array}
+
+
+def get_scaled_input_maps(target_amplitude, structured_weights_dict, gid):
     
+    input_arrays_dict = get_structured_input_arrays(structured_weights_dict, gid)
+    
+    target_map = input_arrays_dict['target_map']
+    initial_weight_array = input_arrays_dict['initial_weight_array']
+    input_matrix = input_arrays_dict['input_matrix']
+    non_structured_weight_array = input_arrays_dict['non_structured_weight_array']
+    non_structured_input_matrix = np.asarray(input_arrays_dict['non_structured_input_matrix'], dtype=np.float64)
+    
+    initial_map = np.dot(input_matrix, initial_weight_array) + \
+                         np.dot(non_structured_input_matrix, non_structured_weight_array)
+    if np.mean(initial_map)<= 0.:
+       raise RuntimeError('generate_structured_delta_weights: initial weights must produce positive activation')
+
+    input_matrix_max = np.max(input_matrix)
+    scaled_input_matrix = input_matrix / input_matrix_max
+    
+    non_structured_input_max = np.max(non_structured_input_matrix)
+    scaled_non_structured_input_matrix = non_structured_input_matrix / non_structured_input_max
+    
+    initial_weights_norm = np.linalg.norm(initial_weight_array)
+    normed_initial_weights = initial_weight_array / initial_weights_norm
+    non_structured_weights_norm = np.linalg.norm(initial_weight_array)
+    normed_non_structured_weights = non_structured_weight_array / non_structured_weights_norm
+    
+    scaled_initial_map = np.dot(scaled_input_matrix, normed_initial_weights) + \
+                         np.dot(scaled_non_structured_input_matrix, normed_non_structured_weights)
+
+    target_map_scaling_factor = target_amplitude / np.max(target_map)
+    scaled_target_map = target_map.flat * target_map_scaling_factor
+
+    return {'scaled_input_matrix' : scaled_input_matrix,
+            'scaled_non_structured_input_matrix': scaled_non_structured_input_matrix,
+            'scaled_target_map': scaled_target_map,
+            'scaled_initial_map': scaled_initial_map,
+            'normed_initial_weights': normed_initial_weights,
+            'normed_non_structured_weights': normed_non_structured_weights,
+            'initial_weights_norm': initial_weights_norm,
+            'non_structured_weights_norm': non_structured_weights_norm
+           }
+    
+def get_structured_delta_weights(initial_weight_array, normed_initial_weights, 
+                                 non_structured_weight_array, normed_non_structured_weights,
+                                 lsqr_delta_weights, max_weight_decay_fraction, max_delta_weight,
+                                 max_non_structured_weight_decay_fraction):
+    
+    structured_weights_lb = np.asarray([ -(max_weight_decay_fraction * x)
+                                         for x in initial_weight_array ])
+
+    bounded_lsqr_weights = np.clip(lsqr_delta_weights, None, max_delta_weight) + normed_initial_weights
+                                   
+    structured_delta_weights = np.clip(bounded_lsqr_weights - initial_weight_array,
+                                       structured_weights_lb, None)
+    
+    bounded_non_structured_delta_weights = None
+    if non_structured_weight_array is not None:
+        non_structured_delta_weights_lb = np.asarray([ -(max_non_structured_weight_decay_fraction * x)
+                                                       for x in non_structured_weight_array ])
+        non_structured_delta_weights = normed_non_structured_weights - non_structured_weight_array
+        bounded_non_structured_delta_weights = np.clip(non_structured_delta_weights,
+                                                       non_structured_delta_weights_lb, None)
+    
+
+    return structured_delta_weights, bounded_non_structured_delta_weights
+
+
 def generate_structured_weights(destination_gid, target_map, initial_weight_dict, input_rate_map_dict, syn_count_dict,
                                 max_delta_weight=10., target_amplitude=3.,
                                 max_weight_decay_fraction = 1.,
+                                max_non_structured_weight_decay_fraction = 0.95,
                                 arena_x=None, arena_y=None,
                                 non_structured_input_rate_map_dict=None, 
                                 non_structured_weights_dict=None, 
                                 reference_weight_dict=None, reference_weights_are_delta=False,
-                                reference_weights_namespace=None, optimize_method='L-BFGS-B',
+                                reference_weights_namespace=None, 
                                 optimize_tol=1e-6, max_opt_iter=1000,
-                                optimize_grad=False, verbose=False, plot=False, show_fig=False, save_fig=None,
+                                verbose=False, plot=False, show_fig=False, save_fig=None,
                                 fig_kwargs={}):
     """
 
@@ -2557,7 +2669,6 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
     :param reference_weight_dict: dict: {int: float}
     :param reference_weights_are_delta: bool
     :param reference_weights_namespace: str
-    :param optimize_method: str
     :param verbose: bool
     :param plot: bool
     :return: dict: {int: float}
@@ -2570,211 +2681,81 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
         assert(len(non_structured_weights_dict) == len(non_structured_input_rate_map_dict))
 
     assert((max_weight_decay_fraction >= 0.) and (max_weight_decay_fraction <= 1.))
-    input_matrix = np.empty((target_map.size, len(input_rate_map_dict)),
-                            dtype=np.float32)
-    source_gid_array = np.empty(len(input_rate_map_dict), dtype=np.uint32)
-    initial_weight_array = np.empty(len(input_rate_map_dict), dtype=np.float32)
-    if reference_weight_dict is None:
-        reference_weight_array = None
-    else:
-        reference_weight_array = np.empty(len(input_rate_map_dict), dtype=np.float32)
+    assert((max_non_structured_weight_decay_fraction >= 0.) and (max_non_structured_weight_decay_fraction <= 1.))
 
-    for i, source_gid in enumerate(input_rate_map_dict):
-        source_gid_array[i] = source_gid
-        this_syn_count = syn_count_dict[source_gid]
-        this_input = input_rate_map_dict[source_gid].ravel() * this_syn_count
-        input_matrix[:, i] = this_input
-        initial_weight_array[i] = initial_weight_dict[source_gid]
-        if reference_weight_array is not None:
-            reference_weight_array[i] = reference_weight_dict[source_gid]
-            
-    non_structured_input_matrix = None
-    if non_structured_input_rate_map_dict is not None:
-        non_structured_input_matrix = np.empty((target_map.size, len(non_structured_input_rate_map_dict)),
-                                               dtype=np.float32)
-        non_structured_weight_array = np.empty(len(non_structured_input_rate_map_dict), dtype=np.float32)
-        for i, source_gid in enumerate(non_structured_input_rate_map_dict):
-            this_syn_count = syn_count_dict[source_gid]
-            this_input = non_structured_input_rate_map_dict[source_gid].ravel() * this_syn_count
-            non_structured_input_matrix[:, i] = this_input
-            non_structured_weight_array[i] = non_structured_weights_dict.get(source_gid, 1.0)
+    structured_weights_dict = { 'target_map': target_map,
+                                'initial_weight_dict': initial_weight_dict,
+                                'input_rate_map_dict': input_rate_map_dict,
+                                'non_structured_input_rate_map_dict': non_structured_input_rate_map_dict,
+                                'non_structured_weights_dict': non_structured_weights_dict,
+                                'syn_count_dict': syn_count_dict,
+                                }
+    structured_input_arrays_dict = get_structured_input_arrays(structured_weights_dict, destination_gid)
+    source_gid_array = structured_input_arrays_dict['source_gid_array']
+    non_structured_source_gid_array = structured_input_arrays_dict['non_structured_source_gid_array']
+    initial_weight_array = structured_input_arrays_dict['initial_weight_array']
+    non_structured_weight_array = structured_input_arrays_dict.get('non_structured_weight_array', None)
+    scaled_maps_dict = get_scaled_input_maps(target_amplitude, structured_weights_dict, destination_gid)
 
-    scaled_target_map = np.asarray(target_map.flat - np.min(target_map), dtype=np.float64)
-    if np.max(scaled_target_map) > 0.:
-        target_map_scaling_factor = target_amplitude / np.max(scaled_target_map)
-        scaled_target_map = scaled_target_map.flat * target_map_scaling_factor
-    scaled_target_map = scaled_target_map.ravel()
-
-    mean_initial_weight = np.mean(initial_weight_array)
-    initial_background_map = np.dot(input_matrix, initial_weight_array)
-    if non_structured_input_matrix is not None:
-        initial_background_map += np.dot(non_structured_input_matrix, non_structured_weight_array)
-    if np.mean(initial_background_map)<= 0.:
-        raise RuntimeError('generate_structured_delta_weights: initial weights must produce positive activation')
-    mean_initial_background = np.mean(initial_background_map)
-    scaled_background_map = initial_background_map / mean_initial_background
-    scaled_background_map -= 1.
-   
-    scaled_input_matrix = np.divide(input_matrix, mean_initial_background, out=input_matrix)
-    scaled_non_structured_input_matrix = None
-    scaled_non_structured_input_map = None
-    if non_structured_input_matrix is not None:
-        scaled_non_structured_input_matrix = np.divide(non_structured_input_matrix, mean_initial_background,
-                                                       out=non_structured_input_matrix)
-        scaled_non_structured_input_map = np.dot(scaled_non_structured_input_matrix, non_structured_weight_array)
-        
-    ## Compute pseudo inverse of scaled_input_matrix
-    #[U, s, Vh] = np.linalg.svd(scaled_input_matrix)
-    #V = Vh.T
-    #D = np.zeros_like(input_matrix)
-    #beta = np.mean(s)  # Previously, beta was provided by user, but should depend on scale if data is not normalized
-    #D[np.where(np.eye(*D.shape))] = s / (s ** 2. + beta ** 2.)
-    #input_matrix_pinv = V.dot(D.conj().T).dot(U.conj().T)
-    #SVD_delta_weights = np.dot(input_matrix_pinv, scaled_target_map)
-
-    def activation_map_residual(weights, input_matrix, target_map):
-        a = np.dot(np.asarray(input_matrix, dtype=np.float32),
-                   np.asarray(weights, dtype=np.float32))
-        e = np.subtract(target_map, a)
-                                           
-        res = np.square(e).mean() / 2.
-        return np.asarray(res, dtype=np.float64)
-
-    def activation_map_residual_grad(weights, input_matrix, target_map):
-        N = weights.shape[0]
-        a = np.dot(np.asarray(input_matrix, dtype=np.float32),
-                   np.asarray(weights, dtype=np.float32))
-        e = np.subtract(target_map, a)
-        grad = -1./N * np.dot(input_matrix.T, e)
-        return np.asarray(grad, dtype=np.float64)
-
-    lsqr_target_map = np.asarray(np.copy(scaled_target_map) - scaled_background_map, dtype=np.float32)
-    res = scipy.sparse.linalg.lsmr(scaled_input_matrix, 
-                                   lsqr_target_map, maxiter=1000, 
-                                   damp=0.1, show=True)
-    lsqr_delta_weights = np.asarray(res[0], dtype=np.float32)
-
+    scaled_target_map = scaled_maps_dict['scaled_target_map']
+    scaled_initial_map = scaled_maps_dict['scaled_initial_map']
+    scaled_input_matrix = scaled_maps_dict['scaled_input_matrix']
+    normed_initial_weights = scaled_maps_dict['normed_initial_weights']
+    scaled_non_structured_input_matrix = scaled_maps_dict.get('scaled_non_structured_input_matrix', None)
+    normed_non_structured_weights = scaled_maps_dict.get('normed_non_structured_weights', None)
     
-    opt_bounds = [ (-(max_weight_decay_fraction * x), max_delta_weight)
-                   for x in initial_weight_array ]
+    lsqr_target_map = scaled_target_map - scaled_initial_map
+    res = nnls_gdal(scaled_input_matrix, lsqr_target_map.reshape((-1,1)),
+                    max_n_iter=max_opt_iter, epsilon=optimize_tol, verbose=True)
+    lsqr_delta_weights = np.asarray(res, dtype=np.float32).reshape((res.shape[0],))
 
-    initial_LS_bounds = (np.asarray([b[0] for b in opt_bounds]), np.asarray([b[1] for b in opt_bounds]))
-    initial_LS_delta_weights = np.clip(lsqr_delta_weights, initial_LS_bounds[0], initial_LS_bounds[1])
+    structured_delta_weights, bounded_non_structured_delta_weights = \
+        get_structured_delta_weights(initial_weight_array, normed_initial_weights, 
+                                     non_structured_weight_array, normed_non_structured_weights,
+                                     lsqr_delta_weights, max_weight_decay_fraction, max_delta_weight,
+                                     max_non_structured_weight_decay_fraction)
     
-
-    if optimize_method == 'dogbox':
-        result = opt.least_squares(activation_map_residual, initial_LS_delta_weights,
-                                   jac=activation_map_residual_grad if optimize_grad else None,
-                                   args=(scaled_input_matrix, scaled_target_map),
-                                   bounds=opt_bounds, method='dogbox', ftol=optimize_tol, loss='soft_l1', 
-                                   verbose=2 if verbose else 0, max_nfev=max_opt_iter)
-        LS_delta_weights = np.array(result.x)
-    elif optimize_method == 'oja':
-        from sklearn.decomposition import PCA
-        pca = PCA(whiten=True)
-        w = pca.fit_transform(initial_LS_delta_weights.reshape((-1, 1)))
-        input_matrix = scaled_input_matrix
-        tol = optimize_tol
-        learning_rate = 1e-4
-        it = 0
-        while activation_map_residual(w, input_matrix, scaled_target_map) > tol and it < max_opt_iter:
-            y = np.dot(input_matrix, w)
-            u = np.dot(y, w.T)
-            e = input_matrix - u
-            dw = learning_rate * np.dot(e.T, y)
-            w += dw
-            it += 1
-            
-        LS_delta_weights = np.copy(w)
-    else:
-        constraints = ()
-        method_options = {'disp': verbose, 'maxiter': max_opt_iter}
-        if optimize_method == 'L-BFGS-B':
-            method_options['maxfun'] = 1000000
-        if optimize_method == 'SLSQP':
-            initial_weights_sum = np.sum(initial_LS_delta_weights)
-            n = len(initial_LS_delta_weights)
-            constraints = scipy.optimize.LinearConstraint(np.ones((1,n)), initial_weights_sum, np.inf)
-        result = opt.minimize(activation_map_residual,
-                              initial_LS_delta_weights, 
-                              jac=activation_map_residual_grad if optimize_grad else None,
-                              args=(scaled_input_matrix, lsqr_target_map),
-                              method=optimize_method,
-                              bounds=opt_bounds,
-                              tol=optimize_tol,
-                              constraints=constraints,
-                              options=method_options)
-        if not result.success:
-            logger.info(f'Error in structured weight optimization for gid {destination_gid}: \n'
-                        f'  initial weights: {initial_weight_dict}\n'
-                        f'  input rate maps: {input_rate_map_dict}\n'
-                        f'  non-structured weights: {non_structured_weights_dict}\n'
-                        f'  non-structured input rate maps: {non_structured_input_rate_map_dict}\n')
-            raise RuntimeError(f"Error in structured weight optimization for gid {destination_gid}")
-        LS_delta_weights = np.array(result.x)
     
-    LS_delta_map = np.dot(scaled_input_matrix,
-                          np.asarray(LS_delta_weights + initial_weight_array,
-                                     dtype=np.float32)) - 1
-    if scaled_non_structured_input_map is not None:
-        LS_delta_map += scaled_non_structured_input_map
+    LTD_delta_weights_array = np.minimum(structured_delta_weights, 0.)
+    LTP_delta_weights_array = np.maximum(structured_delta_weights, 0.)
 
-    LTD_delta_weights_array = np.minimum(LS_delta_weights, 0.)
-    LTP_delta_weights_array = np.maximum(LS_delta_weights, 0.)
-    LTP_scale = target_amplitude / np.max(LS_delta_map)
-    scaled_LTP_delta_weights = LTP_delta_weights_array * LTP_scale
-    normalized_LTP_delta_weights_array = np.asarray(scaled_LTP_delta_weights / np.max(scaled_LTP_delta_weights),
-                                                    dtype=np.float32)
-    
-    scaled_LS_weights = scaled_LTP_delta_weights + LTD_delta_weights_array + initial_weight_array
+    structured_weights = LTP_delta_weights_array + LTD_delta_weights_array + initial_weight_array
+    assert(np.min(structured_weights) >= 0.)
 
-    assert(np.min(scaled_LS_weights) >= 0.)
-    LS_map = np.dot(scaled_input_matrix, scaled_LS_weights) - 1
-    if scaled_non_structured_input_map is not None:
-       LS_map += scaled_non_structured_input_map
-
-    normalized_LTP_delta_weights_dict = dict(zip(source_gid_array, normalized_LTP_delta_weights_array))
+    LTP_delta_weights_dict = dict(zip(source_gid_array, LTP_delta_weights_array))
     LTD_delta_weights_dict = dict(zip(source_gid_array, LTD_delta_weights_array))
-       
+    non_structured_delta_weights_dict = dict(zip(non_structured_source_gid_array,
+                                                 bounded_non_structured_delta_weights))
+            
+    structured_activation_map = np.dot(scaled_input_matrix, structured_weights)
+    if scaled_non_structured_input_matrix is not None:
+        bounded_non_structured_weights = bounded_non_structured_delta_weights + non_structured_weight_array
+        structured_activation_map += np.dot(scaled_non_structured_input_matrix, bounded_non_structured_weights)
+    
     if plot:
-        lsqr_map = np.dot(scaled_input_matrix,
-                               np.asarray(lsqr_delta_weights + initial_weight_array,
-                                          dtype=np.float32)) - 1
-        if scaled_non_structured_input_map is not None:
-            lsqr_map += scaled_non_structured_input_map
-            
-        initial_LS_map = np.dot(scaled_input_matrix,
-                                     np.asarray(initial_LS_delta_weights + initial_weight_array,
-                                                dtype=np.float32)) - 1
-        if scaled_non_structured_input_map is not None:
-            initial_LS_map += scaled_non_structured_input_map
+        lsqr_weights = lsqr_delta_weights + normed_initial_weights
+        lsqr_map = np.dot(scaled_input_matrix, lsqr_weights)
+        if scaled_non_structured_input_matrix is not None:
+            lsqr_map += np.dot(scaled_non_structured_input_matrix, normed_non_structured_weights)
 
-            
 
-        plot_callback_structured_weights(optimize_method = optimize_method,
-                                         arena_x = arena_x,
+        plot_callback_structured_weights(arena_x = arena_x,
                                          arena_y = arena_y,
-                                         bounds = initial_LS_bounds,
-                                         max_weight = np.max(scaled_LS_weights),
-                                         scaled_non_structured_input_map = scaled_non_structured_input_map,
-                                         lsqr_delta_weights = lsqr_delta_weights,
-                                         initial_LS_delta_weights = initial_LS_delta_weights,
-                                         scaled_LTP_delta_weights = scaled_LTP_delta_weights,
-                                         LTD_delta_weights = LTD_delta_weights_array,
                                          initial_weight_array = initial_weight_array,
+                                         non_structured_weight_array = non_structured_weight_array,
+                                         lsqr_delta_weights = lsqr_delta_weights,
+                                         LTP_delta_weights = LTP_delta_weights_array,
+                                         LTD_delta_weights = LTD_delta_weights_array,
+                                         scaled_input_matrix = scaled_input_matrix,
+                                         scaled_non_structured_input_matrix = scaled_non_structured_input_matrix,
                                          scaled_target_map = scaled_target_map,
                                          lsqr_map = lsqr_map,
-                                         initial_LS_map = initial_LS_map,
-                                         LS_delta_map = LS_delta_map,
-                                         LS_map = LS_map,
-                                         initial_background_map = scaled_background_map,
-                                         reference_weight_array = reference_weight_array,
-                                         reference_weights_are_delta = reference_weights_are_delta,
+                                         structured_activation_map = structured_activation_map,
                                          show_fig=show_fig, save_fig=save_fig,
                                          **fig_kwargs)
 
 
-    return normalized_LTP_delta_weights_dict, LTD_delta_weights_dict, LS_map
+    return LTP_delta_weights_dict, LTD_delta_weights_dict, non_structured_delta_weights_dict, structured_activation_map
 
 
 def plot_callback_structured_weights(**kwargs):
@@ -2790,49 +2771,28 @@ def plot_callback_structured_weights(**kwargs):
     save_fig = kwargs.get('save_fig', None)
     arena_x = kwargs['arena_x']
     arena_y = kwargs['arena_y']
-    bounds = kwargs['bounds']
-    max_weight = kwargs['max_weight']
-    optimize_method = kwargs['optimize_method']
+    
+    initial_weight_array = kwargs['initial_weight_array']
+    non_structured_weight_array = kwargs['non_structured_weight_array']
+    scaled_input_matrix = kwargs['scaled_input_matrix']
+    scaled_non_structured_input_matrix = kwargs.get('scaled_non_structured_input_matrix', None)
     lsqr_delta_weights = kwargs['lsqr_delta_weights']
-    initial_LS_delta_weights = kwargs['initial_LS_delta_weights']
-    scaled_LTP_delta_weights = kwargs['scaled_LTP_delta_weights']
+    LTP_delta_weights = kwargs['LTP_delta_weights']
     LTD_delta_weights = kwargs['LTD_delta_weights']
     scaled_target_map = kwargs['scaled_target_map']
     lsqr_map = kwargs['lsqr_map']
-    LS_map = kwargs['LS_map']
-    LS_delta_map = kwargs['LS_delta_map']
-    initial_LS_map = kwargs['initial_LS_map']
-    initial_background_map = kwargs['initial_background_map']
-    initial_weight_array = kwargs['initial_weight_array']
-    mean_initial_weight = np.mean(initial_weight_array)
-    reference_weight_array = kwargs.get('reference_weight_array', None)
-    reference_weights_are_delta = kwargs.get('reference_weights_are_delta', False)
-    scaled_non_structured_input_map = kwargs.get('scaled_non_structured_input_map', None)
-    
-    
-    min_delta_weight, max_delta_weight = bounds
-    
-    num_bins = 20
+    structured_activation_map = kwargs['structured_activation_map']
 
-    min_vals = [np.min(scaled_target_map),
-                np.min(lsqr_map),
-                np.min(LS_map),
-                np.min(initial_background_map)]
-    max_vals1 = [np.max(scaled_target_map), np.max(lsqr_map)]
-    max_vals2 = [np.max(LS_map), np.max(initial_background_map)]
-    if reference_weight_array is not None:
-        if reference_weights_are_delta:
-            reference_weights = reference_weight_array / np.max(reference_weight_array) * max_delta_weight + \
-              mean_initial_weight
-        else:
-            reference_weights = reference_weight_array
-            reference_map = reference_weights.dot(scaled_input_matrix) - 1.
-            min_vals.append(np.min(reference_map))
-            max_vals2.append(np.max(reference_map))
+    initial_map = np.dot(scaled_input_matrix, initial_weight_array)
+    if scaled_non_structured_input_matrix is not None:
+        initial_map += np.dot(scaled_non_structured_input_matrix, non_structured_weight_array)
+    
+
+    min_vals = [np.min(scaled_target_map), np.min(lsqr_map)]
+    max_vals = [np.max(scaled_target_map), np.max(lsqr_map)]
 
     vmin = min(min_vals)
-    vmax1 = max(max_vals1)
-    vmax2 = max(max_vals2)
+    vmax = max(max_vals)
 
     fig = plt.figure(figsize=(15,8), constrained_layout=True)
     gs = fig.add_gridspec(2, 2)
@@ -2841,108 +2801,79 @@ def plot_callback_structured_weights(**kwargs):
     inner_grid = gs[row, 0].subgridspec(1, 2)
 
     ax = fig.add_subplot(inner_grid[0, 0])
-    ax.plot(range(len(scaled_target_map)), initial_background_map,
-                label='Initial', alpha=0.5, color='C0')
-    if reference_weight_array is not None:
-        ax.plot(range(len(scaled_target_map)), reference_map, label='Reference',
-                alpha=0.5, color='C5')
+    ax.plot(range(len(scaled_target_map)), initial_map, label='Initial', alpha=0.5, color='C0')
     ax.plot(range(len(scaled_target_map)), scaled_target_map, label='Target',
             alpha=0.5, color='C1')
     ax.set_ylabel('Normalized activity')
     ax.set_xlabel('Arena spatial bin')
-    ax.legend(loc='upper right', #bbox_to_anchor=(0.6, 0.5), 
+    ax.legend(loc='best', #bbox_to_anchor=(0.6, 0.5), 
               frameon=False, framealpha=0.5, fontsize=8)
 
     ax = fig.add_subplot(inner_grid[0, 1])
     ax.plot(range(len(scaled_target_map)), scaled_target_map, label='Target',
             alpha=0.5, color='C1')
-    ax.plot(range(len(scaled_target_map)), lsqr_map, label='Least squares',
+    ax.plot(range(len(scaled_target_map)), lsqr_map, label='NNLS',
             alpha=0.5, color='C2')
-    ax.plot(range(len(scaled_target_map)), LS_map, label=optimize_method,
+    ax.plot(range(len(scaled_target_map)), structured_activation_map, label='Structured',
             alpha=0.75, color='C3')
-    #ax.set_ylabel('Normalized activity')
     ax.set_xlabel('Arena spatial bin')
-    ax.legend(loc='upper right', #bbox_to_anchor=(0.6, 0.5), 
+    ax.legend(loc='best', #bbox_to_anchor=(0.6, 0.5), 
               frameon=False, framealpha=0.5, fontsize=8)
     
-    if reference_weight_array is None:
-        ax = fig.add_subplot(gs[row, 1])
-        p = ax.pcolormesh(arena_x, arena_y, LS_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
-        ax.set_xlabel('Arena location (x)')
-        ax.set_ylabel('Arena location (y)')
-        ax.set_title(optimize_method, fontsize=font_size)
-        fig.colorbar(p, ax=ax)
-    else:
-        inner_grid = gs[row, 1].subgridspec(2, 1)
-        
-        ax = fig.add_subplot(inner_grid[0])
-        p = ax.pcolormesh(arena_x, arena_y, LS_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
-        ax.set_title(optimize_method, fontsize=font_size)
-        ax.set_xlabel('Arena location (x)')
-        fig.colorbar(p, ax=ax)
-        
-        ax = fig.add_subplot(inner_grid[1])
-        ax.pcolormesh(arena_x, arena_y, reference_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax2)
-        ax.set_title('Reference', fontsize=font_size)
-        ax.set_xlabel('Arena location (x)')
+    ax = fig.add_subplot(gs[row, 1])
+    p = ax.pcolormesh(arena_x, arena_y, structured_activation_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax)
+    ax.set_xlabel('Arena location (x)')
+    ax.set_ylabel('Arena location (y)')
+    ax.set_title('Structured activation map', fontsize=font_size)
+    fig.colorbar(p, ax=ax)
     row += 1
     
     inner_grid = gs[row, 0].subgridspec(2, 2)
-    hist, edges = np.histogram(initial_weight_array, bins=num_bins, density=True)
+    hist, edges = np.histogram(initial_weight_array, bins='fd', density=True)
     ax = fig.add_subplot(inner_grid[0])
     if (np.max(initial_weight_array) - np.min(initial_weight_array)) > 0.:
         ax.fill_between(edges[:-1], hist, label='Initial weights')
-        ax.set_yscale('log', nonposy='clip')
     else:
         ax.semilogy(edges[:-1], hist, label='Initial weights')
+        
     ax.set_title('Initial weights')
-    #ax.set_xlim(-mean_initial_weight, max_delta_weight + 2. * mean_initial_weight)
-    ax.set_ylabel('Log probability')
-    hist, edges2 = np.histogram(np.add(lsqr_delta_weights, initial_weight_array), bins=2 * num_bins, density=True)
+    ax.set_ylabel('Probability')
+    hist, edges2 = np.histogram(np.add(lsqr_delta_weights, initial_weight_array), bins='fd', density=True)
     ax = fig.add_subplot(inner_grid[1])
-    ax.fill_between(edges2[:-1], hist, label='Least squares')
-    ax.set_yscale('log', nonposy='clip')
-    ax.set_title('Least squares')
-    hist, edges3 = np.histogram(np.add(initial_LS_delta_weights, initial_weight_array), bins=num_bins, density=True)
+    ax.fill_between(edges2[:-1], hist, label='NNLS')
+    ax.set_xscale('log')
+    ax.set_title('NNLS weights')
+    
+    structured_weights = LTP_delta_weights + LTD_delta_weights + initial_weight_array
+    hist, edges4 = np.histogram(structured_weights, bins='fd', density=True)
+    sys.stdout.flush()
     ax = fig.add_subplot(inner_grid[2])
-    ax.fill_between(edges3[:-1], hist, label='Truncated least squares')
-    ax.set_yscale('log', nonposy='clip')
-    ax.set_xlabel('Synaptic weight')
-    ax.set_title('Truncated least squares')
-    scaled_structured_weights = scaled_LTP_delta_weights + LTD_delta_weights + initial_weight_array
-    hist, edges4 = np.histogram(scaled_structured_weights, bins=num_bins, density=True)
-    ax = fig.add_subplot(inner_grid[3])
-    ax.fill_between(edges4[:-1], hist, label=optimize_method)
-    ax.set_yscale('log', nonposy='clip')
-    ax.set_title(optimize_method)
-    if reference_weight_array is not None:
-        hist, edges5 = np.histogram(reference_weights, bins=num_bins, density=True)
-        ax.fill_between(edges5[:-1], hist, label='Reference')
-        ax.set_yscale('log', nonposy='clip')
+    ax.fill_between(edges4[:-1], hist, label='Structured')
+    ax.set_xscale('log')
+    ax.set_title('Structured weights')
+    #if reference_weight_array is not None:
+    #    hist, edges5 = np.histogram(reference_weights, bins=num_bins, density=True)
+    #    ax.fill_between(edges5[:-1], hist, label='Reference')
+    #    ax.set_yscale('log', nonposy='clip')
 
     inner_grid = gs[row, 1].subgridspec(2, 2)
+
     ax = fig.add_subplot(inner_grid[0])
-    p = ax.pcolormesh(arena_x, arena_y, scaled_target_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax1)
+    p = ax.pcolormesh(arena_x, arena_y, initial_map.reshape(arena_x.shape))
+    ax.set_title('Initial', fontsize=font_size)
+    fig.colorbar(p, ax=ax)
+
+    ax = fig.add_subplot(inner_grid[1])
+    p = ax.pcolormesh(arena_x, arena_y, scaled_target_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax)
     ax.set_title('Target', fontsize=font_size)
     ax.set_ylabel('Y position [cm]')
     fig.colorbar(p, ax=ax)
 
-    ax = fig.add_subplot(inner_grid[1])
-    p = ax.pcolormesh(arena_x, arena_y, initial_background_map.reshape(arena_x.shape)) #, vmin=vmin, vmax=vmax2)
-    ax.set_title('Initial', fontsize=font_size)
-    fig.colorbar(p, ax=ax)
-
     ax = fig.add_subplot(inner_grid[2])
-    p = ax.pcolormesh(arena_x, arena_y, lsqr_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax1)
-    ax.set_title('Least squares', fontsize=font_size)
+    p = ax.pcolormesh(arena_x, arena_y, lsqr_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax)
+    ax.set_title('NNLS', fontsize=font_size)
     ax.set_xlabel('X position [cm]')
     fig.colorbar(p, ax=ax)
-
-    ax = fig.add_subplot(inner_grid[3])
-    p = ax.pcolormesh(arena_x, arena_y, initial_LS_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax1)
-    ax.set_title('Truncated least squares', fontsize=font_size)
-    fig.colorbar(p, ax=ax)
-    row += 1
 
     fig.suptitle(f'gid {gid}; field width is {field_width[0]:.02f} cm')
 
