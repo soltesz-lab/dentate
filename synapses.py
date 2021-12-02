@@ -2558,7 +2558,9 @@ def get_structured_input_arrays(structured_weights_dict, gid):
         non_structured_input_matrix = np.empty((target_map.size, len(non_structured_input_rate_map_dict)),
                                     dtype=np.float32)
         non_structured_weight_array = np.empty(len(non_structured_input_rate_map_dict), dtype=np.float32)
+        non_structured_source_gid_array = np.empty(len(non_structured_input_rate_map_dict), dtype=np.uint32)
         for i, source_gid in enumerate(non_structured_input_rate_map_dict):
+            non_structured_source_gid_array[i] = source_gid
             this_syn_count = syn_count_dict[source_gid]
             this_input = non_structured_input_rate_map_dict[source_gid].ravel() * this_syn_count
             non_structured_input_matrix[:, i] = this_input
@@ -2569,6 +2571,7 @@ def get_structured_input_arrays(structured_weights_dict, gid):
             'initial_weight_array': initial_weight_array, 
             'non_structured_input_matrix': non_structured_input_matrix, 
             'non_structured_weight_array': non_structured_weight_array, 
+            'non_structured_source_gid_array': non_structured_source_gid_array,
             'syn_count_array': syn_count_array, 
             'source_gid_array': source_gid_array}
 
@@ -2689,6 +2692,7 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
                                 }
     structured_input_arrays_dict = get_structured_input_arrays(structured_weights_dict, destination_gid)
     source_gid_array = structured_input_arrays_dict['source_gid_array']
+    non_structured_source_gid_array = structured_input_arrays_dict['non_structured_source_gid_array']
     initial_weight_array = structured_input_arrays_dict['initial_weight_array']
     non_structured_weight_array = structured_input_arrays_dict.get('non_structured_weight_array', None)
     scaled_maps_dict = get_scaled_input_maps(target_amplitude, structured_weights_dict, destination_gid)
@@ -2720,7 +2724,13 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
 
     LTP_delta_weights_dict = dict(zip(source_gid_array, LTP_delta_weights_array))
     LTD_delta_weights_dict = dict(zip(source_gid_array, LTD_delta_weights_array))
+    non_structured_delta_weights_dict = dict(zip(non_structured_source_gid_array,
+                                                 bounded_non_structured_delta_weights))
             
+    structured_activation_map = np.dot(scaled_input_matrix, structured_weights)
+    if scaled_non_structured_input_matrix is not None:
+        bounded_non_structured_weights = bounded_non_structured_delta_weights + non_structured_weight_array
+        structured_activation_map += np.dot(scaled_non_structured_input_matrix, bounded_non_structured_weights)
     
     if plot:
         lsqr_weights = lsqr_delta_weights + normed_initial_weights
@@ -2728,10 +2738,6 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
         if scaled_non_structured_input_matrix is not None:
             lsqr_map += np.dot(scaled_non_structured_input_matrix, normed_non_structured_weights)
 
-        structured_activation_map = np.dot(scaled_input_matrix, structured_weights)
-        if scaled_non_structured_input_matrix is not None:
-            bounded_non_structured_weights = bounded_non_structured_delta_weights + non_structured_weight_array
-            structured_activation_map += np.dot(scaled_non_structured_input_matrix, bounded_non_structured_weights)
 
         plot_callback_structured_weights(arena_x = arena_x,
                                          arena_y = arena_y,
@@ -2749,7 +2755,7 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
                                          **fig_kwargs)
 
 
-    return LTP_delta_weights_dict, LTD_delta_weights_dict, structured_activation_map
+    return LTP_delta_weights_dict, LTD_delta_weights_dict, non_structured_delta_weights_dict, structured_activation_map
 
 
 def plot_callback_structured_weights(**kwargs):
