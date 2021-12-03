@@ -110,7 +110,7 @@ NGFC:
     offset: [0., 0.]
 IS:
   default:
-    width: [3000., 3000.]
+    width: [1000., 1000.]
     offset: [0., 0.]
 CA3c:
   default:
