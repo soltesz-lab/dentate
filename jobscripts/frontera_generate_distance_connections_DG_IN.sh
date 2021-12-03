@@ -11,6 +11,7 @@
 #SBATCH --mail-type=BEGIN
 #
 
+module load intel/18.0.5
 module load gcc/9.1.0
 module load phdf5/1.10.4
 
@@ -32,7 +33,7 @@ ibrun python3 ./scripts/generate_distance_connections.py \
     --config-prefix=./config \
     --config=Full_Scale_Basis.yaml \
     --forest-path=$DATA_PREFIX/Full_Scale_Control/DG_IN_forest_syns_20211026.h5 \
-    --connectivity-path=$DATA_PREFIX/Full_Scale_Control/DG_IN_connections_20211026.h5 \
+    --connectivity-path=$DATA_PREFIX/Full_Scale_Control/DG_IN_connections_20211116.h5 \
     --connectivity-namespace=Connections \
     --coords-path=$DATA_PREFIX/Full_Scale_Control/DG_coords_20190717_compressed.h5 \
     --coords-namespace=Coordinates \

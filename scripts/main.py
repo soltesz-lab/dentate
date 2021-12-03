@@ -54,7 +54,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--node-rank-file", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False),
                   help='name of file specifying assignment of cell gids to MPI ranks')
 @click.option("--io-size", type=int, default=0, help='the number of MPI ranks to be used for I/O operations')
-@click.option("--recording-fraction", type=float, default=0.001,
+@click.option("--recording-fraction", type=float, default=0.005,
               help='fraction of cells for intracellular recording')
 @click.option("--recording-profile", type=str, default='Network default',
               help='intracellular recording profile to use')

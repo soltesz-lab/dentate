@@ -1,22 +1,22 @@
 #!/bin/bash
 #
-#SBATCH -J generate_distance_structured_weights_DG_GC
+#SBATCH -J generate_structured_weights_DG_GC
 #SBATCH -o ./results/generate_structured_weights_DG_GC.%j.o
 #SBATCH -N 40
 #SBATCH --ntasks-per-node=56
 #SBATCH -p normal      # Queue (partition) name
-#SBATCH -t 6:00:00
+#SBATCH -t 6:30:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #SBATCH --mail-type=BEGIN
 #
 
-
+module load gcc/9.1.0
 module load python3
-module load phdf5
+module load phdf5/1.10.4
 
-export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
-export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
+export NEURONROOT=$SCRATCH/bin/nrnpython3_gcc9
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/gcc9:$PYTHONPATH
 
 set -x
 
@@ -33,17 +33,17 @@ ibrun python3 ./scripts/generate_structured_weights_as_cell_attr.py \
     -d GC -s MPP -s LPP -n MC -n ConMC \
     --config=./config/Full_Scale_GC_Exc_Sat_DD_SLN.yaml \
     --initial-weights-namespace='Log-Normal Weights' \
-    --initial-weights-path=$DATA_PREFIX/DG_GC_syn_weights_LN_20210908_compressed.h5 \
+    --initial-weights-path=$DATA_PREFIX/DG_GC_syn_weights_LN_20210920_compressed.h5 \
     --non-structured-weights-namespace='Normal Weights' \
-    --non-structured-weights-path=$DATA_PREFIX/DG_GC_syn_weights_LN_20210908_compressed.h5 \
+    --non-structured-weights-path=$DATA_PREFIX/DG_GC_syn_weights_LN_20210920_compressed.h5 \
     --output-features-namespace='Random Place Input Features' \
-    --output-features-path=$DATA_PREFIX/DG_GC_syn_weights_S_20210908.h5 \
+    --output-features-path=$DATA_PREFIX/DG_GC_syn_weights_S_20211201.h5 \
     --output-weights-namespace='Structured Weights' \
-    --output-weights-path=$DATA_PREFIX/DG_GC_syn_weights_S_20210908.h5 \
-    --connections-path=$DATA_PREFIX/DG_GC_connections_20210827_compressed.h5 \
+    --output-weights-path=$DATA_PREFIX/DG_GC_syn_weights_S_20211201.h5 \
+    --connections-path=$DATA_PREFIX/DG_GC_connections_20210920_compressed.h5 \
     --input-features-path=$DATA_PREFIX/DG_input_features_20200910_compressed.h5 \
-    --arena-id=A --optimize-tol 1e-3 --optimize-grad --arena-margin=0.3 \
-    --max-delta-weight=10 --max-weight-decay-fraction=0.5 --target-amplitude=3 \
+    --arena-id=A --arena-margin=0.3 \
+    --max-delta-weight=20 --target-amplitude=4 \
     --io-size=96 --value-chunk-size=10000 --chunk-size=10000 --write-size=0 -v
 
 

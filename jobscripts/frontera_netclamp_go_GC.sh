@@ -42,9 +42,10 @@ export DATA_PREFIX=$SCRATCH/striped2/dentate
 # ConMC: 1195650
 
 gid=184775    
+gid=184609
 
 mpirun -n 1 python3 network_clamp.py go \
-    --config-file Full_Scale_GC_Aradi_SLN_IN_PR.yaml \
+    --config-file Network_Clamp_GC_Aradi_SLN_IN_PR.yaml \
     --template-paths=templates \
     -p GC -g $gid -t 9500 --dt 0.01 --use-coreneuron \
     --dataset-prefix $DATA_PREFIX \

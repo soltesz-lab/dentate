@@ -85,7 +85,7 @@ def main(config, config_prefix, weights_path, weights_namespace, weights_name, c
     connection_gen_list = []
     for source in sources:
         connection_gen_list.append(NeuroH5ProjectionGen(connections_path, source, destination, \
-                                                        namespaces=['Synapses'], \
+                                                        namespaces=['Synapses'], cache_size=cache_size, \
                                                         comm=comm, io_size=io_size))
 
     weights_dict = {}

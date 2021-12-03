@@ -82,7 +82,7 @@ def main(config, config_prefix, weights_path, weights_namespace, weights_name, c
     start_time = time.time()
 
     connection_gen_list = [NeuroH5ProjectionGen(connections_path, source, destination, \
-                                                    namespaces=['Synapses'], \
+                                                    namespaces=['Synapses'], cache_size=cache_size, \
                                                     comm=comm, io_size=io_size) for source in sources]
 
     weights_dict = {}

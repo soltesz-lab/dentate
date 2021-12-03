@@ -10,13 +10,14 @@
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
+module load gcc/9.1.0
 module load python3
 module load phdf5
 
 set -x
 
-export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
-export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
+export NEURONROOT=$SCRATCH/bin/nrnpython3_gcc9
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/gcc9:$PYTHONPATH
 export PATH=$NEURONROOT/bin:$PATH
 export DATA_PREFIX="$SCRATCH/striped2/dentate"
 export results_path=$SCRATCH/dentate/results/sample_extent_proximal_pf_$SLURM_JOB_ID
