@@ -28,7 +28,7 @@ def read_weights(weights_path, weights_namespace, synapse_name, destination, sel
                  weights_by_syn_id_dict, logger=None):
 
     if logger is not None:
-        logger.info("reading weights from namespace %s..." % weights_namespace)
+        logger.info(f"reading weights from namespace {weights_namespace}...")
     if weights_path is not None:
         weights_iter = \
           scatter_read_cell_attribute_selection(weights_path, destination,
@@ -49,8 +49,8 @@ def read_weights(weights_path, weights_namespace, synapse_name, destination, sel
             weights_syn_count += len(syn_ids)
 
         if logger is not None:
-            logger.info('destination: %s; read initial synaptic weights for %i gids and %i syns' %
-                        (destination, weights_gid_count, weights_syn_count))
+            logger.info(f'destination {destination}: '
+                        f'read initial synaptic weights for {weights_gid_count} gids and {weights_syn_count} syns')
 
     return weights_by_syn_id_dict
 
@@ -65,7 +65,8 @@ def init_selectivity_config(destination_gid, spatial_resolution,
     assert(destination_gid in input_features_attr_dict)
     this_target_selectivity_features_dict = input_features_attr_dict[destination_gid]
     if logger is not None:
-        logger.info("init_selectivity_config: feature_dict for gid %i is %s" % (destination_gid, this_target_selectivity_features_dict))
+        logger.info(f"init_selectivity_config: feature_dict for gid {destination_gid} is "
+                    f"{this_target_selectivity_features_dict}")
     this_target_selectivity_features_dict['Selectivity Type'] = np.asarray([target_selectivity_type], dtype=np.uint8)
 
     if len(coordinates) > 0:
@@ -92,7 +93,7 @@ def init_selectivity_config(destination_gid, spatial_resolution,
         this_target_selectivity_features_dict['Peak Rate'] = np.asarray([peak_rate]*num_fields, dtype=np.float32)
 
     if logger is not None:
-        logger.info("init_selectivity_config: gid %i has %i fields" % (destination_gid, num_fields))
+        logger.info(f"init_selectivity_config: gid {destination_gid} has {num_fields} fields")
 
     if num_fields > 0:
         input_cell_config = stimulus.get_input_cell_config(target_selectivity_type,
@@ -125,7 +126,8 @@ def init_syn_weight_dicts(destination, non_structured_sources,
                           source_gid_set_dict,
                           syn_count_by_source_gid_dict,
                           syn_ids_by_source_gid_dict,
-                          structured_syn_id_count):
+                          structured_syn_id_count,
+                          non_structured_syn_id_count):
 
     syn_counts_by_source = {}
 
@@ -176,7 +178,9 @@ def init_syn_weight_dicts(destination, non_structured_sources,
 
             syn_counts_by_source[source][this_gid] = count
 
-            if source not in non_structured_sources:
+            if source in non_structured_sources:
+                non_structured_syn_id_count[this_gid] += len(syn_ids)
+            else:
                 structured_syn_id_count[this_gid] += len(syn_ids)
 
     return syn_counts_by_source
@@ -238,9 +242,8 @@ def exchange_input_features(comm, requested_gids, input_features_attr_dict):
 @click.option("--max-delta-weight", type=float, default=4.)
 @click.option("--max-opt-iter", type=int, default=1000)
 @click.option("--max-weight-decay-fraction", type=float, default=1.)
-@click.option("--optimize-method", type=str, default='L-BFGS-B')
-@click.option("--optimize-tol", type=float, default=1e-4)
-@click.option("--optimize-grad", is_flag=True)
+@click.option("--max-non-structured-weight-decay-fraction", type=float, default=0.95)
+@click.option("--optimize-tol", type=float, default=1e-8)
 @click.option("--peak-rate", type=float)
 @click.option("--reference-weights-are-delta", type=bool, default=False)
 @click.option("--target-amplitude", type=float, default=3.)
@@ -256,7 +259,7 @@ def exchange_input_features(comm, requested_gids, input_features_attr_dict):
 @click.option("--show-fig", is_flag=True)
 @click.option("--save-fig", type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--debug", is_flag=True)
-def main(config, coordinates, field_width, gid, input_features_path, input_features_namespaces, initial_weights_path, output_features_namespace, output_features_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, non_structured_sources, non_structured_weights_namespace, non_structured_weights_path, arena_id, field_width_scale, max_delta_weight, max_opt_iter, max_weight_decay_fraction, optimize_method, optimize_tol, optimize_grad, peak_rate, reference_weights_are_delta, arena_margin, target_amplitude, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot, show_fig, save_fig, debug):
+def main(config, coordinates, field_width, gid, input_features_path, input_features_namespaces, initial_weights_path, output_features_namespace, output_features_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, non_structured_sources, non_structured_weights_namespace, non_structured_weights_path, arena_id, field_width_scale, max_delta_weight, max_opt_iter, max_weight_decay_fraction, max_non_structured_weight_decay_fraction, optimize_tol, peak_rate, reference_weights_are_delta, arena_margin, target_amplitude, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot, show_fig, save_fig, debug):
     """
 
     :param config: str (path to .yaml file)
@@ -277,7 +280,8 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     """
 
     utils.config_logging(verbose)
-    logger = utils.get_script_logger(__file__)
+    script_name = __file__
+    logger = utils.get_script_logger(script_name)
 
     
     comm = MPI.COMM_WORLD
@@ -287,7 +291,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
-        logger.info('%s: %i ranks have been allocated' % (__file__, comm.size))
+        logger.info(f'{comm.size} ranks have been allocated')
 
     env = Env(comm=comm, config_file=config, io_size=io_size)
     env.comm.barrier()
@@ -309,9 +313,11 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             output_file.close()
     env.comm.barrier()
 
-    LTD_output_weights_namespace = 'LTD %s %s' % (output_weights_namespace, arena_id)
-    LTP_output_weights_namespace = 'LTP %s %s' % (output_weights_namespace, arena_id)
-    this_input_features_namespaces = ['%s %s' % (input_features_namespace, arena_id) for input_features_namespace in input_features_namespaces]
+    LTD_output_weights_namespace = f'LTD {output_weights_namespace} {arena_id}'
+    LTP_output_weights_namespace = f'LTP {output_weights_namespace} {arena_id}'
+    non_structured_output_weights_namespace = f'NS {output_weights_namespace} {arena_id}'
+    this_input_features_namespaces = [f'{input_features_namespace} {arena_id}'
+                                      for input_features_namespace in input_features_namespaces]
 
     selectivity_type_index = { i: n for n, i in viewitems(env.selectivity_types) }
     target_selectivity_type_name = 'place'
@@ -339,7 +345,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     graph_info = read_graph_info(connections_path, namespaces=['Connections', 'Synapses'], read_node_index=True)
     for projection in projections:
         if projection not in graph_info:
-            raise RuntimeError('Projection %s -> %s is not present in connections file.' % projection)
+            raise RuntimeError(f'Projection {projection[0]} -> {projection[1]} is not present in connections file.')
         if target_gid_set is None:
             target_gid_set = set(graph_info[projection][1])
         
@@ -348,7 +354,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     for source in sorted(all_sources):
         this_src_input_features_attr_dict = {}
         for this_input_features_namespace in this_input_features_namespaces:
-            logger.info('Rank %i: Reading %s feature data for cells in population %s' % (rank, this_input_features_namespace, source))
+            logger.info(f'Rank {rank}: Reading {this_input_features_namespace} feature data for cells in population {source}')
             input_features_dict = scatter_read_cell_attributes(input_features_path, source, 
                                                                namespaces=[this_input_features_namespace],
                                                                mask=set(source_features_attr_names), 
@@ -358,7 +364,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
         src_input_features_attr_dict[source] = this_src_input_features_attr_dict
         source_gid_count = env.comm.reduce(len(this_src_input_features_attr_dict), op=MPI.SUM, root=0)
         if rank == 0:
-            logger.info('Rank %i: Read feature data for %i cells in population %s' % (rank, source_gid_count, source))
+            logger.info(f'Rank {rank}: Read feature data for {source_gid_count} cells in population {source}')
 
     dst_gids = []
     if target_gid_set is not None:
@@ -370,7 +376,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     for this_input_features_namespace in this_input_features_namespaces:
         feature_count = 0
         gid_count = 0
-        logger.info('Rank %d: reading %s feature data for %d cells in population %s' % (rank, this_input_features_namespace, len(dst_gids), destination))
+        logger.info(f'Rank {rank}: reading {this_input_features_namespace} feature data for {len(dst_gids)} cells in population {destination}')
         input_features_iter = scatter_read_cell_attribute_selection(input_features_path, destination, 
                                                                     namespace=this_input_features_namespace,
                                                                     mask=set(target_features_attr_names),
@@ -382,11 +388,12 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                 dst_input_features_attr_dict[gid] = attr_dict
                 feature_count += 1
 
-        logger.info('Rank %d: read %s feature data for %i / %i cells in population %s' % (rank, this_input_features_namespace, gid_count, feature_count, destination))
+        logger.info(f'Rank {rank}: read {this_input_features_namespace} feature data for '
+                    f'{gid_count} / {feature_count} cells in population {destination}')
         feature_count = env.comm.reduce(feature_count, op=MPI.SUM, root=0)
         env.comm.barrier()
         if rank == 0:
-            logger.info('Read %s feature data for %i cells in population %s' % (this_input_features_namespace, feature_count, destination))
+            logger.info(f'Read {this_input_features_namespace} feature data for {feature_count} cells in population {destination}')
 
     feature_dst_gids = list(dst_input_features_attr_dict.keys())
     all_feature_gids_per_rank = comm.allgather(feature_dst_gids)
@@ -401,13 +408,13 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     dst_gids = list(dst_input_features_attr_dict.keys())
     
     if rank == 0:
-        logger.info("Rank %d feature dict is %s" % (rank, str(dst_input_features_attr_dict)))
+        logger.info(f"Rank {rank} feature dict is {dst_input_features_attr_dict}")
 
     dst_count = env.comm.reduce(len(dst_gids), op=MPI.SUM, root=0)
 
-    logger.info("Rank %d has %d feature gids" % (rank, len(dst_gids)))
+    logger.info(f"Rank {rank} has {len(dst_gids)} feature gids")
     if rank == 0:
-        logger.info('Total %d feature gids' % dst_count)
+        logger.info(f'Total {dst_count} feature gids')
 
     max_dst_count = env.comm.allreduce(len(dst_gids), op=MPI.MAX)
     env.comm.barrier()
@@ -416,6 +423,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     output_features_dict = {}
     LTP_output_weights_dict = {}
     LTD_output_weights_dict = {}
+    non_structured_output_weights_dict = {}
     for iter_count in range(max_iter_count):
 
         gc.collect()
@@ -425,7 +433,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
         if len(dst_gids) > 0:
             dst_gid = dst_gids.pop()
             selection.append(dst_gid)
-            logger.info('Rank %i received %d' % (rank, dst_gid))
+            logger.info(f'Rank {rank} received gid {dst_gid}')
 
         env.comm.barrier()
 
@@ -480,7 +488,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
         syn_count_by_source_gid_dict = defaultdict(lambda: defaultdict(int))
         syn_ids_by_source_gid_dict = defaultdict(lambda: defaultdict(list))
         structured_syn_id_count = defaultdict(int)
-
+        non_structured_syn_id_count = defaultdict(int)
 
         projections = [ (source, destination) for source in all_sources ]
         edge_iter_dict, edge_attr_info = scatter_read_graph_selection(connections_path, selection=selection,
@@ -499,13 +507,14 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                      source_gid_set_dict,
                                                      syn_count_by_source_gid_dict,
                                                      syn_ids_by_source_gid_dict,
-                                                     structured_syn_id_count)
+                                                     structured_syn_id_count,
+                                                     non_structured_syn_id_count)
     
         for source in syn_counts_by_source:
             for this_gid in syn_counts_by_source[source]:
                 count = syn_counts_by_source[source][this_gid]
-                logger.info('Rank %i; destination: %s; gid %i; %d edges from source population %s' %
-                            (rank, destination, this_gid, count, source))
+                logger.info(f'Rank {rank}: destination: {destination}; gid {this_gid}; '
+                            f'{count} edges from source population {source}')
 
         input_rate_maps_by_source_gid_dict = {}
         if len(non_structured_sources) > 0:
@@ -516,7 +525,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
         for source in all_sources:
             source_gids = list(source_gid_set_dict[source])
             if rank == 0:
-                logger.info('Rank %i: Getting feature data for %i cells in population %s' % (rank, len(source_gids), source))
+                logger.info(f'Rank {rank}: getting feature data for {len(source_gids)} cells in population {source}')
             this_src_input_features = exchange_input_features(env.comm, source_gids, 
                                                               src_input_features_attr_dict[source])
 
@@ -543,19 +552,19 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
 
             save_fig_path = None
             if save_fig is not None:
-                save_fig_path = '%s/Structured Weights %s %d.png' % (save_fig, destination, destination_gid)
+                save_fig_path = f'{save_fig}/Structured Weights {destination} {destination_gid}.png'
                 
             reference_weight_dict = None
             if reference_weights_path is not None:
                 reference_weight_dict = reference_weights_by_source_gid_dict[destination_gid]
                 
-            normalized_LTP_delta_weights_dict, LTD_delta_weights_dict, arena_LS_map = \
+            LTP_delta_weights_dict, LTD_delta_weights_dict, non_structured_delta_weights_dict, arena_structured_map = \
                synapses.generate_structured_weights(destination_gid,
                                                  target_map=target_selectivity_features_dict[destination_gid]['Arena Rate Map'],
                                                  initial_weight_dict=initial_weights_by_source_gid_dict[destination_gid],
-                                                 reference_weight_dict=reference_weight_dict,
-                                                 reference_weights_are_delta=reference_weights_are_delta,
-                                                 reference_weights_namespace=reference_weights_namespace,
+                                                 #reference_weight_dict=reference_weight_dict,
+                                                 #reference_weights_are_delta=reference_weights_are_delta,
+                                                 #reference_weights_namespace=reference_weights_namespace,
                                                  input_rate_map_dict=input_rate_maps_by_source_gid_dict,
                                                  non_structured_input_rate_map_dict=non_structured_input_rate_maps_by_source_gid_dict,
                                                  non_structured_weights_dict=non_structured_weights_by_source_gid_dict[destination_gid],
@@ -563,11 +572,10 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                  max_delta_weight=max_delta_weight,
                                                  max_opt_iter=max_opt_iter,
                                                  max_weight_decay_fraction=max_weight_decay_fraction,
+                                                 max_non_structured_weight_decay_fraction=max_non_structured_weight_decay_fraction,
                                                  target_amplitude=target_amplitude,
                                                  arena_x=arena_x, arena_y=arena_y,
-                                                 optimize_method=optimize_method,
                                                  optimize_tol=optimize_tol,
-                                                 optimize_grad=optimize_grad,
                                                  verbose=verbose if rank == 0 else False, 
                                                  plot=plot, show_fig=show_fig,
                                                  save_fig=save_fig_path,
@@ -576,7 +584,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             input_rate_maps_by_source_gid_dict.clear()
 
             target_map_flat = target_selectivity_features_dict[destination_gid]['Arena Rate Map'].flat
-            arena_map_residual_sum = np.sum(np.abs(arena_LS_map - target_map_flat))
+            arena_map_residual_mae = np.mean(np.abs(arena_structured_map - target_map_flat))
             output_features_dict[destination_gid] = \
                { fld: target_selectivity_features_dict[destination_gid][fld]
                  for fld in ['Selectivity Type',
@@ -585,24 +593,39 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                              'Peak Rate',
                              'X Offset',
                              'Y Offset',]}
-            output_features_dict[destination_gid]['Rate Map Residual Sum'] = np.asarray([arena_map_residual_sum], dtype=np.float32)
+            output_features_dict[destination_gid]['Rate Map Residual Mean Error'] = np.asarray([arena_map_residual_mae], dtype=np.float32)
             
             this_structured_syn_id_count = structured_syn_id_count[destination_gid]
             output_syn_ids = np.empty(this_structured_syn_id_count, dtype='uint32')
             LTD_output_weights = np.empty(this_structured_syn_id_count, dtype='float32')
             LTP_output_weights = np.empty(this_structured_syn_id_count, dtype='float32')
             i = 0
-            for source_gid in normalized_LTP_delta_weights_dict:
+            for source_gid in LTP_delta_weights_dict:
                  for syn_id in syn_ids_by_source_gid_dict[destination_gid][source_gid]:
                      output_syn_ids[i] = syn_id
-                     LTP_output_weights[i] = normalized_LTP_delta_weights_dict[source_gid]
+                     LTP_output_weights[i] = LTP_delta_weights_dict[source_gid]
                      LTD_output_weights[i] = LTD_delta_weights_dict[source_gid]
                      i += 1
             LTP_output_weights_dict[destination_gid] = {'syn_id': output_syn_ids, synapse_name: LTP_output_weights}
             LTD_output_weights_dict[destination_gid] = {'syn_id': output_syn_ids, synapse_name: LTD_output_weights}
+
+            this_non_structured_syn_id_count = non_structured_syn_id_count[destination_gid]
+            non_structured_output_weights = np.empty(this_non_structured_syn_id_count, dtype='float32')
+            non_structured_output_syn_ids = np.empty(this_non_structured_syn_id_count, dtype='uint32')
+            this_non_structured_syn_id_count = non_structured_syn_id_count[destination_gid]
+            i = 0
+            for source_gid in non_structured_delta_weights_dict:
+                 for syn_id in syn_ids_by_source_gid_dict[destination_gid][source_gid]:
+                     non_structured_output_syn_ids[i] = syn_id
+                     non_structured_output_weights[i] = non_structured_delta_weights_dict[source_gid]
+                     i += 1
+            non_structured_output_weights_dict[destination_gid] = {'syn_id': non_structured_output_syn_ids,
+                                                                   synapse_name: non_structured_output_weights}
+
+            
             logger.info(f'Rank {rank}; destination: {destination}; gid {destination_gid}; '
                         f'generated structured weights for {len(output_syn_ids)} inputs in {time.time() - local_time:.2f} s; '
-                        f'residual sum is {arena_map_residual_sum:.2f}')
+                        f'residual error is {arena_map_residual_mae:.2f}')
             gid_count += 1
             gc.collect()
 
@@ -615,25 +638,31 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                 append_cell_attributes(output_weights_path, destination, LTP_output_weights_dict,
                                        namespace=LTP_output_weights_namespace, comm=env.comm, io_size=env.io_size,
                                        chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+                append_cell_attributes(output_weights_path, destination, non_structured_output_weights_dict,
+                                       namespace=non_structured_output_weights_namespace,
+                                       comm=env.comm, io_size=env.io_size,
+                                       chunk_size=chunk_size, value_chunk_size=value_chunk_size)
                 count = env.comm.reduce(len(LTP_output_weights_dict), op=MPI.SUM, root=0)
                 env.comm.barrier()
 
                 if rank == 0:
-                    logger.info('Destination: %s; appended weights for %i cells' % (destination, count))
+                    logger.info(f'Destination: {destination}; appended weights for {count} cells')
                 if output_features_path is not None:
                     if output_features_namespace is None:
-                        output_features_namespace = '%s Selectivity' % target_selectivity_type_name.title()
-                    this_output_features_namespace = '%s %s' % (output_features_namespace, arena_id)
+                        output_features_namespace = f'{target_selectivity_type_name.title()} Selectivity'
+                    this_output_features_namespace = f'{output_features_namespace} {arena_id}'
                     append_cell_attributes(output_features_path, destination, output_features_dict,
                                            namespace=this_output_features_namespace)
                     count = env.comm.reduce(len(output_features_dict), op=MPI.SUM, root=0)
                     env.comm.barrier()
 
                     if rank == 0:
-                        logger.info('Destination: %s; appended selectivity features for %i cells' % (destination, count))
+                        logger.info(f'Destination: {destination}; appended selectivity features for {count} cells')
+                        
 
             LTP_output_weights_dict.clear()
             LTD_output_weights_dict.clear()
+            non_structured_output_weights_dict.clear()
             output_features_dict.clear()
             gc.collect()
 
@@ -650,30 +679,36 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
         append_cell_attributes(output_weights_path, destination, LTP_output_weights_dict,
                                namespace=LTP_output_weights_namespace, comm=env.comm, io_size=env.io_size,
                                chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+        append_cell_attributes(output_weights_path, destination, non_structured_output_weights_dict,
+                               namespace=non_structured_output_weights_namespace,
+                               comm=env.comm, io_size=env.io_size,
+                               chunk_size=chunk_size, value_chunk_size=value_chunk_size)
         count = comm.reduce(len(LTP_output_weights_dict), op=MPI.SUM, root=0)
         env.comm.barrier()
 
         if rank == 0:
-            logger.info('Destination: %s; appended weights for %i cells' % (destination, count))
+            logger.info(f'Destination: {destination}; appended weights for {count} cells')
         if output_features_path is not None:
             if output_features_namespace is None:
                 output_features_namespace = 'Selectivity Features'
-            this_output_features_namespace = '%s %s' % (output_features_namespace, arena_id)
+            this_output_features_namespace = f'{output_features_namespace} {arena_id}'
             append_cell_attributes(output_features_path, destination, output_features_dict,
                                    namespace=this_output_features_namespace)
             count = env.comm.reduce(len(output_features_dict), op=MPI.SUM, root=0)
             env.comm.barrier()
 
             if rank == 0:
-                logger.info('Destination: %s; appended selectivity features for %i cells' % (destination, count))
+                logger.info(f'Destination: {destination}; appended selectivity features for {count} cells')
 
     env.comm.barrier()
     global_count = env.comm.gather(gid_count, root=0)
     env.comm.barrier()
 
     if rank == 0:
-        logger.info('Destination: %s; %i ranks assigned structured weights to %i cells in %.2f s' %
-                    (destination, env.comm.size, np.sum(global_count), time.time() - start_time))
+        total_count = np.sum(global_count)
+        total_time = time.time() - start_time
+        logger.info(f'Destination: {destination}; '
+                    f'{env.comm.size} ranks assigned structured weights to {total_count} cells in {total_time:.2f} s')
 
 
 if __name__ == '__main__':
