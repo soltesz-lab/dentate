@@ -341,20 +341,19 @@ def plot_vertex_distribution(connectivity_path, coords_path, distances_namespace
                 dist_u_hist_vals, dist_u_bin_edges = vertex_distribution_dict['U distance'][destination][source]
                 dist_v_hist_vals, dist_v_bin_edges = vertex_distribution_dict['V distance'][destination][source]
 
-            fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=fig_options.figSize)
+            fig, (ax2, ax3) = plt.subplots(1, 2, figsize=fig_options.figSize)
             fig.suptitle('Distribution of connection distances for projection %s -> %s' % (source, destination), fontsize=fig_options.fontSize)
 
-            ax1.fill_between(dist_bin_edges, dist_hist_vals, alpha=0.5)
-            ax1.set_xlabel('Total distance (um)', fontsize=fig_options.fontSize)
-            ax1.set_ylabel('Number of connections', fontsize=fig_options.fontSize)
+            #ax1.fill_between(dist_bin_edges, dist_hist_vals, alpha=0.5)
+            #ax1.set_xlabel('Total distance (um)', fontsize=fig_options.fontSize)
+            #ax1.set_ylabel('Number of connections', fontsize=fig_options.fontSize)
+            #ax1.tick_params(labelsize=fig_options.fontSize)
         
             ax2.fill_between(dist_u_bin_edges, dist_u_hist_vals, alpha=0.5)
             ax2.set_xlabel('Septal - temporal (um)', fontsize=fig_options.fontSize)
-            
             ax3.fill_between(dist_v_bin_edges, dist_v_hist_vals, alpha=0.5)
             ax3.set_xlabel('Supra - infrapyramidal (um)', fontsize=fig_options.fontSize)
 
-            ax1.tick_params(labelsize=fig_options.fontSize)
             ax2.tick_params(labelsize=fig_options.fontSize)
             ax3.tick_params(labelsize=fig_options.fontSize)
             
@@ -2364,7 +2363,10 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
     fig.suptitle ('DG Spike Raster', fontsize=fig_options.fontSize)
 
     sctplots = []
-    
+
+    if n_subplots == 1:
+        axes = [axes]
+        
     for i, pop_name in enumerate(spkpoplst):
 
         if pop_name not in pop_spk_dict:
@@ -2383,6 +2385,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
         if len(pop_spkinds) > 0:
             sct = axes[i].scatter(pop_spkts, pop_spkinds, s=1, linewidths=fig_options.lw,
                                   marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name)
+
         axes[i].spines["top"].set_visible(False)
         axes[i].spines["bottom"].set_visible(False)
         axes[i].spines["left"].set_visible(False)
