@@ -12,7 +12,7 @@ def mpi_excepthook(type, value, traceback):
     sys_excepthook(type, value, traceback)
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
-#sys.excepthook = mpi_excepthook
+sys.excepthook = mpi_excepthook
 
 script_name = os.path.basename(__file__)
 
@@ -37,7 +37,6 @@ def main(connectivity_path, coords_path, distances_namespace, destination, sourc
                                                          bin_size, cache_size, comm=comm)
 
     if rank == 0:
-        print(vertex_distribution_dict)
         f = h5py.File(connectivity_path, 'r+')
         
         for dst, src_dict in utils.viewitems(vertex_distribution_dict['Total distance']):
