@@ -2,8 +2,8 @@ import sys, collections, copy, itertools, math, pprint, uuid, time, traceback
 from functools import reduce
 from collections import defaultdict
 import numpy as np
-from nnls import nnls_gdal
 from neuroh5.io import write_cell_attributes
+from dentate.nnls import nnls_gdal
 from dentate.cells import get_distance_to_node, get_donor, get_mech_rules_dict, get_param_val_by_distance, \
     import_mech_dict_from_file, make_section_graph, custom_filter_if_terminal, \
     custom_filter_modify_slope_if_terminal, custom_filter_by_branch_order
@@ -2448,16 +2448,16 @@ def generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict, 
     local_random.seed(int(seed))
     source_weights = rejection_sampling(lambda n: local_random.lognormal(mu, sigma, n),
                                         len(source_syn_dict), clip)
+    assert(len(source_weights) == len(source_syn_dict))
     syn_weight_dict = {}
     # weights are synchronized across all inputs from the same source_gid
     for this_source_gid, this_weight in zip(source_syn_dict, source_weights):
         for this_syn_id in source_syn_dict[this_source_gid]:
             syn_weight_dict[this_syn_id] = this_weight
     weights = np.array(list(syn_weight_dict.values())).astype('float32', copy=False)
-    normed_weights = weights
     weights_dict = \
         {'syn_id': np.array(list(syn_weight_dict.keys())).astype('uint32', copy=False),
-         weights_name: normed_weights}
+         weights_name: weights}
     return weights_dict
 
 
@@ -2483,6 +2483,7 @@ def generate_normal_weights(weights_name, mu, sigma, seed, source_syn_dict, clip
     local_random.seed(int(seed))
     source_weights = rejection_sampling(lambda n: local_random.normal(mu, sigma, n),
                                         len(source_syn_dict), clip)
+    assert(len(source_weights) == len(source_syn_dict))
     syn_weight_dict = {}
     # weights are synchronized across all inputs from the same source_gid
     for this_source_gid, this_weight in zip(source_syn_dict, source_weights):
@@ -2715,12 +2716,17 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
                                      lsqr_delta_weights, max_weight_decay_fraction, max_delta_weight,
                                      max_non_structured_weight_decay_fraction)
     
-    
+    logger.info(f'gid {destination_gid}: min/max structured delta weights: '
+                f'{np.min(structured_delta_weights):.2f}/{np.max(structured_delta_weights):.2f} '
+                f'min/max non-structured delta weights: '
+                f'{np.min(bounded_non_structured_delta_weights):.2f}/{np.max(bounded_non_structured_delta_weights):.2f} ')
     LTD_delta_weights_array = np.minimum(structured_delta_weights, 0.)
     LTP_delta_weights_array = np.maximum(structured_delta_weights, 0.)
 
     structured_weights = LTP_delta_weights_array + LTD_delta_weights_array + initial_weight_array
     assert(np.min(structured_weights) >= 0.)
+    logger.info(f'gid {destination_gid}: min/max structured weights: '
+                f'{np.min(structured_weights):.2f}/{np.max(structured_weights):.2f} ')
 
     LTP_delta_weights_dict = dict(zip(source_gid_array, LTP_delta_weights_array))
     LTD_delta_weights_dict = dict(zip(source_gid_array, LTD_delta_weights_array))
@@ -2773,7 +2779,7 @@ def plot_callback_structured_weights(**kwargs):
     arena_y = kwargs['arena_y']
     
     initial_weight_array = kwargs['initial_weight_array']
-    non_structured_weight_array = kwargs['non_structured_weight_array']
+    non_structured_weight_array = kwargs.get('non_structured_weight_array', None)
     scaled_input_matrix = kwargs['scaled_input_matrix']
     scaled_non_structured_input_matrix = kwargs.get('scaled_non_structured_input_matrix', None)
     lsqr_delta_weights = kwargs['lsqr_delta_weights']
@@ -2846,15 +2852,17 @@ def plot_callback_structured_weights(**kwargs):
     
     structured_weights = LTP_delta_weights + LTD_delta_weights + initial_weight_array
     hist, edges4 = np.histogram(structured_weights, bins='fd', density=True)
-    sys.stdout.flush()
     ax = fig.add_subplot(inner_grid[2])
     ax.fill_between(edges4[:-1], hist, label='Structured')
     ax.set_xscale('log')
     ax.set_title('Structured weights')
-    #if reference_weight_array is not None:
-    #    hist, edges5 = np.histogram(reference_weights, bins=num_bins, density=True)
-    #    ax.fill_between(edges5[:-1], hist, label='Reference')
-    #    ax.set_yscale('log', nonposy='clip')
+    
+    if non_structured_weight_array is not None:
+        ax = fig.add_subplot(inner_grid[3])
+        hist, edges5 = np.histogram(non_structured_weight_array, bins='fd', density=True)
+        ax.fill_between(edges5[:-1], hist, label='Non-structured')
+        ax.set_xscale('log')
+        ax.set_title('Non-structured weights')
 
     inner_grid = gs[row, 1].subgridspec(2, 2)
 
