@@ -1,12 +1,12 @@
 import os, sys, gc, copy, time
 import numpy as np
 from scipy.interpolate import Rbf
-from scipy.ndimage import gaussian_filter
+from scipy.ndimage import gaussian_filter1d
 from collections import defaultdict, ChainMap, namedtuple
-from mpi4py import MPI
 from dentate.utils import get_module_logger, object, range, str, Struct, gauss2d, gaussian, viewitems
 from dentate.stgen import get_inhom_poisson_spike_times_by_thinning
 from neuroh5.io import read_cell_attributes, append_cell_attributes, NeuroH5CellAttrGen, scatter_read_cell_attribute_selection
+from mpi4py import MPI
 import h5py
 
 
@@ -381,8 +381,8 @@ class PlaceInputCellConfig(object):
         rate_array = np.zeros_like(x, dtype=np.float32)
         for i in range(self.num_fields):
             rate_array = np.maximum(rate_array, get_place_rate_map(self.x0[i], self.y0[i], self.field_width[i] * scale, x, y))
-        rate_array = gaussian_filter(rate_array, sigma=5)
         rate_array *= self.peak_rate
+        rate_array = gaussian_filter1d(rate_array, sigma=5)
         mean_rate = np.mean(rate_array)
         
         if (self.num_fields > 0) and (self.phase_mod_function is not None):
@@ -1421,6 +1421,7 @@ def arena_rate_maps_from_features (env, population, input_features_path, input_f
             input_rate_map_dict[gid] = rate_map
             
     return input_rate_map_dict
+
 
 
 
