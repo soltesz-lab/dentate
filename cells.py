@@ -621,6 +621,7 @@ class PRneuron(object):
                        'cm_ratio':  cell_config.cm_ratio,
                        'global_cm':  cell_config.global_cm,
                        'global_diam':  cell_config.global_diam,
+                       'e_pas':  cell_config.e_pas,
         }
 
         PR_nrn = h.PR_nrn(param_dict)
