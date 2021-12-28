@@ -48,9 +48,13 @@ def read_weights(weights_path, weights_namespace, synapse_name, destination, sel
             weights_gid_count += 1
             weights_syn_count += len(syn_ids)
 
+            if logger is not None:
+                logger.info(f'destination {destination}; gid {this_gid} has {len(syn_ids)} synaptic weights; '
+                            f'min/max/mean is  {(np.min(weights), np.max(weights), np.mean(weights))}')
+
         if logger is not None:
             logger.info(f'destination {destination}: '
-                        f'read initial synaptic weights for {weights_gid_count} gids and {weights_syn_count} syns')
+                        f'read initial synaptic weights for {weights_gid_count} gids and {weights_syn_count} syns; ')
 
     return weights_by_syn_id_dict
 

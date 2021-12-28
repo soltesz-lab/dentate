@@ -17,9 +17,8 @@ def mpi_excepthook(type, value, traceback):
         MPI.COMM_WORLD.Abort(1)
 sys.excepthook = mpi_excepthook
 
-mu = 1.0
-sigma = 0.25
-clip = (0.0, 3.0)
+mu = 0.0
+sigma = 1.0
 
 
 @click.command()
@@ -28,6 +27,8 @@ clip = (0.0, 3.0)
 @click.option("--weights-path", required=True, type=click.Path(file_okay=True, dir_okay=False))
 @click.option("--weights-namespace", type=str, default='Normal Weights')
 @click.option("--weights-name", type=str, default='AMPA')
+@click.option("--min-weight", type=float, default=0.0)
+@click.option("--max-weight", type=float, default=1.0)
 @click.option("--connections-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--destination", '-d', type=str)
 @click.option("--sources", '-s', type=str, multiple=True)
@@ -38,7 +39,7 @@ clip = (0.0, 3.0)
 @click.option("--write-size", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
-def main(config, config_prefix, weights_path, weights_namespace, weights_name, connections_path, destination, sources, io_size, chunk_size, value_chunk_size, write_size, cache_size, verbose, dry_run):
+def main(config, config_prefix, weights_path, weights_namespace, weights_name, min_weight, max_weight, connections_path, destination, sources, io_size, chunk_size, value_chunk_size, write_size, cache_size, verbose, dry_run):
     """
 
     :param weights_path: str
@@ -59,6 +60,11 @@ def main(config, config_prefix, weights_path, weights_namespace, weights_name, c
     rank = comm.rank
 
     env = Env(comm=comm, config_file=config, config_prefix=config_prefix)
+
+    if max_weight < min_weight:
+        x = max_weight
+        max_weight = min_weight
+        min_weight = x
 
     if io_size == -1:
         io_size = comm.size
@@ -107,7 +113,7 @@ def main(config, config_prefix, weights_path, weights_namespace, weights_name, c
                     this_syn_id = conn_attr_dict['Synapses']['syn_id'][j]
                     source_syn_dict[this_source_gid].append(this_syn_id)
             weights_dict[destination_gid] = \
-              synapses.generate_normal_weights(weights_name, mu, sigma, seed, source_syn_dict, clip=clip)
+              synapses.generate_normal_weights(weights_name, mu, sigma, seed, source_syn_dict, clip=(min_weight,max_weight))
             logger.info('Rank %i; destination: %s; destination gid %i; sources: %s; generated normal weights for %i inputs in ' \
                         '%.2f s' % (rank, destination, destination_gid, \
                                     [source.encode('ascii') for source in list(sources)], \

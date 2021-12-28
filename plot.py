@@ -23,7 +23,7 @@ from dentate.cells import default_ordered_sec_types, get_distance_to_node, make_
 from dentate.env import Env
 from dentate.synapses import get_syn_filter_dict, get_syn_mech_param
 from dentate.utils import get_module_logger, Promise, Struct, add_bins, update_bins, finalize_bins
-from dentate.utils import power_spectrogram, butter_bandpass_filter, apply_filter, kde_scipy, make_geometric_graph, viewitems, \
+from dentate.utils import get_low_pass_filtered_trace, power_spectrogram, butter_bandpass_filter, apply_filter, kde_scipy, make_geometric_graph, viewitems, \
     zip_longest
 from dentate.neuron_utils import interplocs
 from dentate.io_utils import get_h5py_attr, set_h5py_attr
@@ -1816,7 +1816,8 @@ def plot_lfp_spectrogram(config, input_path, time_range = None, window_size=4096
 ## Plot intracellular state trace 
 def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], time_range=None,
                               time_variable='t', state_variable='v', max_units = 1, gid_set=None,
-                              n_trials = 1, labels='legend',  reduce=False, distance=False, **kwargs): 
+                              n_trials = 1, labels='legend', lowpass_plot=None,
+                              reduce=False, distance=False, **kwargs): 
     ''' 
     Line plot of intracellular state variable (default: v). Returns the figure handle.
 
@@ -1888,24 +1889,25 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
                 pop_state_mat_dict[pop_name][gid] = (cell_state_x, cell_state_mat, cell_state_labels, cell_state_distances, cell_state_ri)
     
     stplots = []
-    
-    fig, ax = plt.subplots(figsize=fig_options.figSize,sharex='all',sharey='all')
 
+    fig, ax, ax_lowpass = None, None, None
+    if lowpass_plot is None:
+        fig, ax = plt.subplots(figsize=fig_options.figSize,sharex='all',sharey='all')
+    elif lowpass_plot == 'subplot':
+        fig, (ax, ax_lowpass) = plt.subplots(nrows=2, figsize=fig_options.figSize,sharex='all',sharey='all')
+    else:
+        fig, ax = plt.subplots(figsize=fig_options.figSize,sharex='all',sharey='all')
+        ax_lowpass = ax
+    
     legend_labels = []
     for (pop_name, pop_states) in viewitems(pop_state_mat_dict):
         
         for (gid, cell_state_mat) in viewitems(pop_states):
             
             m, n = cell_state_mat[1].shape
-
-            if reduce:
-                cell_state = np.asarray(cell_state_mat[1][0,:]).reshape((n,))
-                for i in range(1,m):
-                    cell_state += np.asarray(cell_state_mat[1][i,:]).reshape((n,))
-                line, = ax.plot(cell_state_mat[0][0].reshape((n,)), cell_state)
-                stplots.append(line)
-                logger.info('plot_state: min/max/mean value is %.02f / %.02f / %.02f' % (np.min(cell_state), np.max(cell_state), np.mean(cell_state)))
-            elif distance:
+            st_x = cell_state_mat[0][0].reshape((n,))
+            
+            if distance:
                 cell_state_distances = cell_state_mat[3]
                 cell_state_ri = cell_state_mat[4]
                 distance_rank = np.argsort(cell_state_distances, kind='stable')
@@ -1915,40 +1917,54 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
                     j = distance_rank_descending[i]
                     state_rows.append(np.asarray(cell_state_mat[1][j,:]).reshape((n,)))
                 state_mat = np.row_stack(state_rows)
-                t = cell_state_mat[0][0].reshape((n,))
                 d = np.asarray(cell_state_distances)[distance_rank_descending]
                 ri = np.asarray(cell_state_ri)[distance_rank_descending]
-                pcm = ax.pcolormesh(t, d, state_mat, cmap=fig_options.colormap)
+                pcm = ax.pcolormesh(st_x, d, state_mat, cmap=fig_options.colormap)
                 cb = fig.colorbar(pcm, ax=ax, shrink=0.9, aspect=20)
                 stplots.append(pcm)
                 legend_labels.append(f'{pop_name} {gid}')
-            else:
-                for i in range(m):
-                    cell_state = np.asarray(cell_state_mat[1][i,:]).reshape((n,))
-                    line, = ax.plot(cell_state_mat[0][0].reshape((n,)), cell_state)
-                    stplots.append(line)
-                    logger.info('plot_state: min/max/mean value of state {i} is '
-                                f'{np.min(cell_state):.02f} / {np.max(cell_state):.02f} '
-                                f'/ {np.mean(cell_state):.02f}')
 
-                    if cell_state_mat[3][i] is not None:
-                        legend_labels.append(f'{pop_name} {gid} '
-                                             f'{cell_state_mat[2][i]} ({cell_state_mat[3][i]:.02f} um)')
-                    else:
-                        legend_labels.append(f'{pop_name} {gid} '
-                                             f'{cell_state_mat[2][i]}')
-                        
+            else:
+                
+                cell_states = [np.asarray(cell_state_mat[1][i,:]).reshape((n,)) for i in range(m)]
+                
+                if reduce:
+                    cell_state = np.mean(np.vstack(cell_states), axis=0)
+                    line, = ax.plot(st_x, cell_state)
+                    stplots.append(line)
+                    logger.info(f'plot_state: min/max/mean value is '
+                                f'{np.min(cell_state):.02f} / {np.max(cell_state):.02f} / '
+                                f'{np.mean(cell_state):.02f}')
+                else:
+                    for i, cell_state in enumerate(cell_states):
+                        line, = ax.plot(st_x, cell_state)
+                        stplots.append(line)
+                        logger.info(f'plot_state: min/max/mean value of state {i} is '
+                                    f'{np.min(cell_state):.02f} / {np.max(cell_state):.02f} '
+                                    f'/ {np.mean(cell_state):.02f}')
+
+                        if cell_state_mat[3][i] is not None:
+                            legend_labels.append(f'{pop_name} {gid} '
+                                                 f'{cell_state_mat[2][i]} ({cell_state_mat[3][i]:.02f} um)')
+                        else:
+                            legend_labels.append(f'{pop_name} {gid} '
+                                                 f'{cell_state_mat[2][i]}')
+
+                if lowpass_plot is not None and not distance:
+                    filtered_cell_states = [get_low_pass_filtered_trace(cell_state, st_x) for cell_state in cell_states]
+                    mean_filtered_cell_state = np.mean(filtered_cell_states, axis=0)
+                    ax_lowpass.plot(st_x, mean_filtered_cell_state, label=f'{pop_name} {gid} (filtered)',
+                                    linewidth=fig_options.lw, alpha=0.75)
+
                     
-            ax.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
+            ax.set_xlabel('Time [ms]', fontsize=fig_options.fontSize)
             if distance:
                 ax.set_ylabel("distance from soma [um]", fontsize=fig_options.fontSize)
             else:
                 ax.set_ylabel(state_variable, fontsize=fig_options.fontSize)
             #ax.legend()
 
-    
     # Add legend
-    
     if labels == 'legend':
         lgd = plt.legend(stplots, legend_labels, fontsize=fig_options.fontSize, scatterpoints=1, markerscale=5.,
                          loc='upper right', bbox_to_anchor=(0.5, 1.0))
@@ -2076,7 +2092,8 @@ def plot_axial_current (input_path, namespace_ids, include = ['eachPop'], time_r
                     cell_state += np.asarray(cell_state_mat[1][i,:]).reshape((n,))
                 line, = ax.plot(cell_state_mat[0][0].reshape((n,)), cell_state)
                 stplots.append(line)
-                logger.info('plot_state: min/max/mean value is %.02f / %.02f / %.02f' % (np.min(cell_state), np.max(cell_state), np.mean(cell_state)))
+                logger.info(f'plot_state: min/max/mean value is '
+                            f'{np.min(cell_state):.02f} / {np.max(cell_state):.02f} / {np.mean(cell_state):.02f}')
             elif distance:
                 distance_rank = np.argsort(cell_state_distances, kind='stable')
                 distance_rank_descending = distance_rank[::-1]
@@ -2096,8 +2113,9 @@ def plot_axial_current (input_path, namespace_ids, include = ['eachPop'], time_r
                     line, = ax.plot(cell_state_mat[0][0].reshape((n,)), cell_state,
                                     label='%s (%s um)' % (cell_state_mat[2][i], cell_state_mat[3][i]))
                     stplots.append(line)
-                    logger.info('plot_state: min/max/mean value of state %d is %.02f / %.02f / %.02f' % (i, np.min(cell_state), np.max(cell_state), np.mean(cell_state)))
-            ax.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
+                    logger.info(f'plot_state: min/max/mean value of state {i} is '
+                                f'{np.min(cell_state):.02f} / {np.max(cell_state):.02f} / {np.mean(cell_state):.02f}')
+            ax.set_xlabel('Time [ms]', fontsize=fig_options.fontSize)
             if distance:
                 ax.set_ylabel("distance from soma [um]", fontsize=fig_options.fontSize)
             else:

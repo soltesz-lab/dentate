@@ -1,12 +1,12 @@
 Network Clamp:  !include Network_Clamp.yaml
-Model Name: Single_GC_Aradi_Sat_SLN_IN_PR_proximal_pf
+Model Name: Single_GC_Aradi_SLN_IN_PR_proximal_pf
 Dataset Name: Slice
 Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-Cell Data: dentatenet_Full_Scale_GC_Aradi_Sat_SLN_proximal_pf_20210916.h5
-Connection Data: dentatenet_Full_Scale_GC_Aradi_Sat_SLN_proximal_pf_20210916.h5
+Cell Data: dentatenet_Slice_SLN_proximal_pf_20211201.h5
+Connection Data: dentatenet_Slice_SLN_proximal_pf_20211201.h5
 #Gap Junction Data: DG_gapjunctions_20191112.h5
 Connection Generator: !include Full_Scale_Connections_GC_Aradi_IN_PR.yaml
 Recording: !include Recording.yaml
