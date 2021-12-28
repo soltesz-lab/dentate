@@ -92,22 +92,37 @@ def vertex_distribution(connectivity_path, coords_path, distances_namespace, des
 
     rank = comm.Get_rank()
         
+    color = 0
+    if rank == 0:
+         color = 1
+    comm0 = comm.Split(color, 0)
+
     (population_ranges, _) = read_population_ranges(coords_path)
 
     destination_start = population_ranges[destination][0]
     destination_count = population_ranges[destination][1]
-
-    if rank == 0:
-        logger.info('reading %s distances...' % destination)
-        
-    destination_soma_distances = bcast_cell_attributes(coords_path, destination, namespace=distances_namespace, comm=comm, root=0)
     
 
+    destination_soma_distances = {}
+    if rank == 0:
+        logger.info(f'Reading {destination} distances...')
+        distances_iter = read_cell_attributes(coords_path, destination, comm=comm0,
+                                              mask=set(['U Distance', 'V Distance']),
+                                              namespace=distances_namespace)
+
+        destination_soma_distances = { k: (float(v['U Distance'][0]), 
+                                           float(v['V Distance'][0])) for (k,v) in distances_iter }
+            
+        gc.collect()
+
+    comm.barrier()
+
+    destination_soma_distances = comm.bcast(destination_soma_distances, root=0)
     destination_soma_distance_U = {}
     destination_soma_distance_V = {}
-    for k,v in destination_soma_distances:
-        destination_soma_distance_U[k] = v['U Distance'][0]
-        destination_soma_distance_V[k] = v['V Distance'][0]
+    for k,v in viewitems(destination_soma_distances):
+        destination_soma_distance_U[k] = v[0]
+        destination_soma_distance_V[k] = v[1]
 
     del(destination_soma_distances)
 
@@ -118,40 +133,53 @@ def vertex_distribution(connectivity_path, coords_path, distances_namespace, des
                 sources.append(src)
 
     source_soma_distances = {}
-    for s in sources:
-        if rank == 0:
-            logger.info('reading %s distances...' % s)
-        source_soma_distances[s] = bcast_cell_attributes(coords_path, s, namespace=distances_namespace, comm=comm, root=0)
+    if rank == 0:
+        for s in sources:
+            logger.info(f'Reading {s} distances...')
+            distances_iter = read_cell_attributes(coords_path, s, comm=comm0,
+                                                  mask=set(['U Distance', 'V Distance']),
+                                                  namespace=distances_namespace)
 
+            source_soma_distances[s] = { k: (float(v['U Distance'][0]), 
+                                             float(v['V Distance'][0])) for (k,v) in distances_iter }
+            
+            gc.collect()
+
+
+    comm.barrier()
+    comm0.Free()
+
+    source_soma_distances = comm.bcast(source_soma_distances, root=0)
     
     source_soma_distance_U = {}
     source_soma_distance_V = {}
     for s in sources:
         this_source_soma_distance_U = {}
         this_source_soma_distance_V = {}
-        for k,v in source_soma_distances[s]:
-            this_source_soma_distance_U[k] = v['U Distance'][0]
-            this_source_soma_distance_V[k] = v['V Distance'][0]
+        for k,v in viewitems(source_soma_distances[s]):
+            this_source_soma_distance_U[k] = v[0]
+            this_source_soma_distance_V[k] = v[1]
         source_soma_distance_U[s] = this_source_soma_distance_U
         source_soma_distance_V[s] = this_source_soma_distance_V
     del(source_soma_distances)
 
     if rank == 0:
-        logger.info('reading connections %s -> %s...' % (str(sources), destination))
+        logger.info('Reading connections %s -> %s...' % (str(sources), destination))
 
 
     dist_bins = defaultdict(dict)
     dist_u_bins = defaultdict(dict)
     dist_v_bins = defaultdict(dict)
 
-    gg = [ NeuroH5ProjectionGen (connectivity_path, source, destination, cache_size=cache_size, comm=comm) for source in sources ]
+    gg = [ NeuroH5ProjectionGen (connectivity_path, source, destination,
+                                 cache_size=cache_size, comm=comm) for source in sources ]
     
     for prj_gen_tuple in zip_longest(*gg):
         destination_gid = prj_gen_tuple[0][0]
         if rank == 0 and destination_gid is not None:
             logger.info('%d' % destination_gid)
         if not all([prj_gen_elt[0] == destination_gid for prj_gen_elt in prj_gen_tuple]):
-            raise RuntimeError('destination %s: destination_gid %i not matched across multiple projection generators: '
+            raise RuntimeError('destination %s: destination gid %i not matched across multiple projection generators: '
                                '%s' % (destination, destination_gid, [prj_gen_elt[0] for prj_gen_elt in prj_gen_tuple]))
 
         if destination_gid is not None:

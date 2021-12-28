@@ -1,13 +1,8 @@
 
-import gc
-import math
-import os
-import sys
-
+import gc, math, os, sys
 import click
 import dentate
-from dentate import plot
-from dentate import utils
+from dentate import plot, utils
 from dentate.env import Env
 from mpi4py import MPI
 
@@ -27,9 +22,9 @@ script_name = os.path.basename(__file__)
 @click.option("--normed", type=bool, default=False, is_flag=True)
 @click.option("--bin-size", type=float, default=20.0)
 @click.option("--font-size", type=float, default=14)
-@click.option("--save-format", type=str, default='png')
+@click.option("--fig-format", type=str, default='png')
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(config, config_prefix, connectivity_path, coords_path, distances_namespace, target_gid, destination, source, extent_type, direction, normed, bin_size, font_size, save_format, verbose):
+def main(config, config_prefix, connectivity_path, coords_path, distances_namespace, target_gid, destination, source, extent_type, direction, normed, bin_size, font_size, fig_format, verbose):
 
     utils.config_logging(verbose)
     logger = utils.get_script_logger(os.path.basename(script_name))
@@ -39,7 +34,7 @@ def main(config, config_prefix, connectivity_path, coords_path, distances_namesp
     plot.plot_single_vertex_dist (env, connectivity_path, coords_path, distances_namespace, \
                                   target_gid, destination, source, direction=direction, \
                                   normed=normed, extent_type=extent_type, bin_size=bin_size, \
-                                  fontSize=font_size, saveFig=True, figFormat=save_format)
+                                  fontSize=font_size, saveFig=True, figFormat=fig_format)
     
 
 if __name__ == '__main__':

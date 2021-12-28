@@ -23,15 +23,16 @@ script_name = os.path.basename(__file__)
 @click.option("--bin-size", type=float, default=20.0)
 @click.option("--font-size", type=float, default=14)
 @click.option("--fig-size", type=(int,int), default=(15,5))
+@click.option("--fig-format", type=str, default="png")
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(connectivity_path, coords_path, distances_namespace, destination, source, bin_size, font_size, fig_size, verbose):
+def main(connectivity_path, coords_path, distances_namespace, destination, source, bin_size, font_size, fig_size, fig_format, verbose):
 
     utils.config_logging(verbose)
     comm = MPI.COMM_WORLD
 
     plot.plot_vertex_distribution (connectivity_path, coords_path, distances_namespace,
                                    destination, source, bin_size, fontSize=font_size,
-                                   saveFig=True, figSize=fig_size, comm=comm)
+                                   saveFig=True, figSize=fig_size, figFormat=fig_format, comm=comm)
 
 
     
