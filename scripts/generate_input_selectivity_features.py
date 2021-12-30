@@ -3,7 +3,7 @@ import click
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 from dentate.env import Env
 from dentate.stimulus import InputSelectivityConfig, choose_input_selectivity_type, get_2D_arena_spatial_mesh, \
-    generate_input_selectivity_features
+    get_2D_arena_bounds, generate_input_selectivity_features
 from dentate.utils import *
 from mpi4py import MPI
 import h5py
@@ -187,6 +187,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
         raise RuntimeError('Arena with ID: %s not specified by configuration at file path: %s' %
                            (arena_id, config_prefix + '/' + config))
     arena = env.stimulus_config['Arena'][arena_id]
+    arena_x_bounds, arena_y_bounds = get_2D_arena_bounds(arena)
     arena_x_mesh, arena_y_mesh = None, None
     if rank == 0:
         arena_x_mesh, arena_y_mesh = \
@@ -213,6 +214,10 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
             logger.info('Generating input selectivity features for population %s...' % population)
 
         reference_u_arc_distance_bounds = reference_u_arc_distance_bounds_dict[population]
+
+        noise_gen = MPINoiseGenerator(comm=comm, bounds=(arena_x_bounds, arena_y_bounds),
+                                      bin_size=0.1, seed=selectivity_seed_offset)
+
         
         this_pop_norm_distances = {}
         this_rate_map_sum = defaultdict(lambda: np.zeros_like(arena_x_mesh))
@@ -237,6 +242,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
                                                      gid, (norm_u_arc_distance, v_arc_distance),
                                                      selectivity_config, selectivity_type_names,
                                                      selectivity_type_namespaces,
+                                                     noise_gen=noise_gen,
                                                      rate_map_sum=this_rate_map_sum,
                                                      debug= (debug_callback, context) if debug else False)
                 selectivity_attr_dict[this_selectivity_type_name][gid] = this_selectivity_attr_dict

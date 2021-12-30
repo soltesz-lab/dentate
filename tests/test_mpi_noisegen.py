@@ -1,12 +1,32 @@
-import logging
+import sys, logging
 import numpy as np
 from functools import partial
 import matplotlib.pyplot as plt
-from dentate.utils import NoiseGenerator, gauss2d
+from dentate.utils import MPINoiseGenerator, gauss2d
+from mpi4py import MPI
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('test_mpi_noisegen')
-    
+
+def mpi_excepthook(type, value, traceback):
+    """
+
+    :param type:
+    :param value:
+    :param traceback:
+    :return:
+    """
+    sys_excepthook(type, value, traceback)
+    sys.stderr.flush()
+    sys.stdout.flush()
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort(1)
+
+
+sys_excepthook = sys.excepthook
+sys.excepthook = mpi_excepthook
+
+
 def plotFFT(pattern, fft_vmax=1):
   fig, axs = plt.subplots(1, 3, figsize=(15, 10))
   im = axs[0].imshow(pattern)
@@ -20,10 +40,11 @@ def plotFFT(pattern, fft_vmax=1):
   fig.colorbar(im, ax=axs[2], fraction=0.046, pad=0.04)
   plt.show()
 
-npts = 1000
-width = 40
-gen = NoiseGenerator(n_tiles_per_dim=1, bounds=[[-100, 100],[-100, 100]], bin_size=0.1, seed=42)
+comm = MPI.COMM_WORLD
+rank = comm.rank
 
+width = 40
+gen = MPINoiseGenerator(comm=comm, bounds=[[-100, 100],[-100, 100]], bin_size=0.1, seed=42)
     
 def energy_fn(width, point, grid):
 
@@ -36,16 +57,16 @@ def energy_fn(width, point, grid):
 
 for i in range(50):
     p0 = gen.next()
-    print(p0)
+    logger.info(f'Rank {rank}: {p0}')
     gen.add(p0, partial(energy_fn, width))
 
-en = gen.energy_map
-plotFFT(en)
-
-for i in range(100):
+for i in range(1000):
     p1 = gen.next()
-    print(p1)
+    logger.info(f'Rank {rank}: {p1}')
     gen.add(p1, partial(energy_fn, width))
+    
 
 en = gen.energy_map
-plotFFT(en)
+if comm.rank == 0:
+    plotFFT(en)
+

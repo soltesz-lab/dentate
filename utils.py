@@ -4,7 +4,7 @@ import pprint, string, sys, time, click
 from builtins import input, map, next, object, range, str, zip
 from collections import MutableMapping, Iterable, defaultdict, namedtuple
 import numpy as np
-import numpy.ma as ma
+from numpy.lib.stride_tricks import as_strided
 import scipy
 from scipy import sparse, signal
 from scipy.spatial import cKDTree
@@ -17,11 +17,95 @@ yaml.add_representer(defaultdict, Representer.represent_dict)
         
 is_interactive = bool(getattr(sys, 'ps1', sys.flags.interactive))
 
+# Code from scikit-image
+def view_as_blocks(arr_in, block_shape):
+    """Block view of the input n-dimensional array (using re-striding).
+    Blocks are non-overlapping views of the input array.
+    Parameters
+    ----------
+    arr_in : ndarray
+        N-d input array.
+    block_shape : tuple
+        The shape of the block. Each dimension must divide evenly into the
+        corresponding dimensions of `arr_in`.
+    Returns
+    -------
+    arr_out : ndarray
+        Block view of the input array.
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from skimage.util.shape import view_as_blocks
+    >>> A = np.arange(4*4).reshape(4,4)
+    >>> A
+    array([[ 0,  1,  2,  3],
+           [ 4,  5,  6,  7],
+           [ 8,  9, 10, 11],
+           [12, 13, 14, 15]])
+    >>> B = view_as_blocks(A, block_shape=(2, 2))
+    >>> B[0, 0]
+    array([[0, 1],
+           [4, 5]])
+    >>> B[0, 1]
+    array([[2, 3],
+           [6, 7]])
+    >>> B[1, 0, 1, 1]
+    13
+    >>> A = np.arange(4*4*6).reshape(4,4,6)
+    >>> A  # doctest: +NORMALIZE_WHITESPACE
+    array([[[ 0,  1,  2,  3,  4,  5],
+            [ 6,  7,  8,  9, 10, 11],
+            [12, 13, 14, 15, 16, 17],
+            [18, 19, 20, 21, 22, 23]],
+           [[24, 25, 26, 27, 28, 29],
+            [30, 31, 32, 33, 34, 35],
+            [36, 37, 38, 39, 40, 41],
+            [42, 43, 44, 45, 46, 47]],
+           [[48, 49, 50, 51, 52, 53],
+            [54, 55, 56, 57, 58, 59],
+            [60, 61, 62, 63, 64, 65],
+            [66, 67, 68, 69, 70, 71]],
+           [[72, 73, 74, 75, 76, 77],
+            [78, 79, 80, 81, 82, 83],
+            [84, 85, 86, 87, 88, 89],
+            [90, 91, 92, 93, 94, 95]]])
+    >>> B = view_as_blocks(A, block_shape=(1, 2, 2))
+    >>> B.shape
+    (4, 2, 3, 1, 2, 2)
+    >>> B[2:, 0, 2]  # doctest: +NORMALIZE_WHITESPACE
+    array([[[[52, 53],
+             [58, 59]]],
+           [[[76, 77],
+             [82, 83]]]])
+    """
+    if not isinstance(block_shape, tuple):
+        raise TypeError('block needs to be a tuple')
+
+    block_shape = np.array(block_shape)
+    if (block_shape <= 0).any():
+        raise ValueError("'block_shape' elements must be strictly positive")
+
+    if block_shape.size != arr_in.ndim:
+        raise ValueError("'block_shape' must have the same length "
+                         "as 'arr_in.shape'")
+
+    arr_shape = np.array(arr_in.shape)
+    if (arr_shape % block_shape).sum() != 0:
+        raise ValueError("'block_shape' is not compatible with 'arr_in'")
+
+    # -- restride the array to build the block view
+    new_shape = tuple(arr_shape // block_shape) + tuple(block_shape)
+    new_strides = tuple(arr_in.strides * block_shape) + arr_in.strides
+
+    arr_out = as_strided(arr_in, shape=new_shape, strides=new_strides)
+
+    return arr_out
 
 
 class NoiseGenerator:
 
-    """Random noise sample generator. Inspired by the void and cluster method.
+    """Random noise sample generator. Inspired by the void and cluster
+    method for blue noise texture generation.
 
     The generator is initialized with a few random seed
     locations. This is necessary as the algorithm is fully
@@ -33,9 +117,10 @@ class NoiseGenerator:
         1. Find point with least energy.
         2. Set this point to the index of added points.
         3. Add energy contribution of this pixel to the accumulated map.
+
     """
 
-    def __init__(self, tile_rank=0, n_tiles_per_dim=1, mask_fraction=0.99, seed=None, bounds=[[-1, 1],[-1, 1]], bin_size=0.01, n_seed_points_per_dim=None):
+    def __init__(self, tile_rank=0, n_tiles_per_dim=1, mask_fraction=0.95, seed=None, bounds=[[-1, 1],[-1, 1]], bin_size=0.05, n_seed_points_per_dim=None, **kwargs):
         """Creates a new noise generator structure."""
         self.seed = None
         self.local_random = np.random.default_rng(seed)
@@ -50,6 +135,8 @@ class NoiseGenerator:
             s = d//n_tiles_per_dim
             tile_map_dims.append([d // s, s])
             tile_dims.append(s)
+        self.tile_index_map = np.column_stack(tuple(x.flat for x in np.meshgrid(*[np.arange(dim) for dim in [n_tiles_per_dim]*self.ndims],
+                                                                                indexing='ij')))
         self.tile_map_shape = tuple(itertools.chain(*tile_map_dims))
         self.tile_shape = tuple(tile_dims)
         self.n_tiles = np.prod([n_tiles_per_dim]*self.ndims)
@@ -57,14 +144,17 @@ class NoiseGenerator:
         if n_seed_points_per_dim is None:
             n_seed_points_per_dim = np.maximum(np.asarray(self.energy_map_shape) // 256, 1)
         self.n_seed_points_per_dim = n_seed_points_per_dim
+        
         self.energy_map = np.zeros(self.energy_map_shape, dtype=np.float32)
-        self.energy_mask = np.zeros_like(self.energy_map, dtype=np.bool)
-        self.energy_tile_map = self.energy_map.reshape(self.tile_map_shape).swapaxes(1,2).reshape((self.n_tiles,)+self.tile_shape)
-        self.energy_tile_mask = self.energy_mask.reshape(self.tile_map_shape).swapaxes(1,2).reshape((self.n_tiles,)+self.tile_shape)
+        self.energy_mask = np.zeros(self.energy_map.shape, dtype=np.bool)
+        
+        self.energy_tile_map = view_as_blocks(self.energy_map, self.tile_shape)
+        self.energy_tile_mask = view_as_blocks(self.energy_mask, self.tile_shape)
         self.energy_bins = tuple([np.arange(b[0], b[1], bin_size) for b in self.bounds])
+        
         self.energy_meshgrid = tuple((x.reshape(self.energy_map_shape) for x in np.meshgrid(*self.energy_bins, indexing='ij')))
-        self.energy_tile_meshgrid = tuple((x.reshape(self.tile_map_shape).swapaxes(1,2).reshape((self.n_tiles,)+self.tile_shape)
-                                           for x in self.energy_meshgrid))
+        self.energy_tile_meshgrid = tuple((view_as_blocks(x, self.tile_shape) for x in self.energy_meshgrid))
+
         self.n_seed_points = np.prod(self.n_seed_points_per_dim)
         self.mask_fraction = mask_fraction
         self.points = []
@@ -77,9 +167,10 @@ class NoiseGenerator:
         self.energy_mask[peak_idxs] = True
         self.energy_map += energy
         self.points.append(point)
+        return energy, peak_idxs
         
     def next(self):
-        tile_index = self.tile_rank % self.n_tiles
+        tile_index = tuple(self.tile_index_map[self.tile_rank % self.n_tiles])
         if len(self.mypoints) > self.n_seed_points // self.n_tiles:
             mask = np.argwhere(~self.energy_tile_mask[tile_index])
             if len(mask) > 0:
@@ -90,6 +181,7 @@ class NoiseGenerator:
                 self.energy_tile_mask[tile_index].fill(0)
                 em = self.energy_tile_map[tile_index]
                 tile_pos = tuple(np.argwhere(em == em.min())[0])
+            en = self.energy_tile_map[tile_index][tile_pos]
             p = np.asarray(tuple((x[tile_index][tile_pos] for x in self.energy_tile_meshgrid)))
         else:
             tile_coords = tuple((x[tile_index] for x in self.energy_tile_meshgrid))
@@ -99,7 +191,49 @@ class NoiseGenerator:
         return p
 
 
+class MPINoiseGenerator(NoiseGenerator):
 
+    """Distributed random noise sample generator. Each rank uses
+    NoiseGenerator and updates energy map via MPI collective calls.
+
+    """
+    def __init__(self, comm=None, **kwargs):
+        if comm is None:
+            comm = MPI.COMM_WORLD
+        self.comm = comm
+        kwargs['tile_rank'] = comm.rank
+        bounds = kwargs['bounds']
+        ndims = len(bounds)
+        n_tiles_per_dim = self.comm.size
+        kwargs['n_tiles_per_dim'] = n_tiles_per_dim
+        seed = self.comm.rank
+        if kwargs['seed'] is not None:
+            seed = seed + self.comm.rank
+        kwargs['seed'] = seed
+        n_seed_points_per_dim = kwargs.get('n_seed_points_per_dim', None)
+        if n_seed_points_per_dim is None:
+            bin_size = kwargs['bin_size']
+            energy_map_shape = tuple(map(lambda x: int((x[1] - x[0])//bin_size + 1), bounds))
+            n_seed_points_per_dim = np.maximum(np.asarray(energy_map_shape) // 256, 1)*self.comm.size
+        kwargs['n_seed_points_per_dim'] = n_seed_points_per_dim
+        super().__init__(**kwargs)
+
+    def add(self, point, energy_fn):
+        energy, peak_idxs = super().add(point, energy_fn)
+        it = iter(self.comm.alltoall(((point,energy,peak_idxs),)*self.comm.size))
+        for i, (point_i, energy_i, peak_idxs_i) in enumerate(it):
+            if i != self.comm.rank:
+                self.energy_mask[peak_idxs_i] = True
+                self.energy_map += energy_i
+                self.points.append(point_i)
+
+    def next(self):
+        p = super().next()
+        self.tile_rank += 1
+        return p
+        
+        
+    
 
 """UnionFind.py
 

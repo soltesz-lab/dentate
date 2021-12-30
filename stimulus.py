@@ -132,7 +132,7 @@ class InputSelectivityConfig(object):
 class GridInputCellConfig(object):
     def __init__(self, selectivity_type=None, arena=None, selectivity_config=None,
                  peak_rate=None, distance=None, local_random=None, selectivity_attr_dict=None,
-                 phase_mod_config=None):
+                 phase_mod_config=None, noise_gen=None):
         """
         :param selectivity_type: int
         :param arena: namedtuple
@@ -180,8 +180,14 @@ class GridInputCellConfig(object):
                 delta_grid_orientation = local_random.normal(0., selectivity_config.grid_orientation_sigma)
                 self.grid_orientation += delta_grid_orientation
 
-            self.x0 = local_random.uniform(*arena_x_bounds)
-            self.y0 = local_random.uniform(*arena_y_bounds)
+            if noise_gen is None:
+                self.x0 = local_random.uniform(*arena_x_bounds)
+                self.y0 = local_random.uniform(*arena_y_bounds)
+            else:
+                p = noise_gen.next()
+                noise_gen.add(p, lambda p, g: self.get_rate_map(*g))
+                self.x0, self.y0 = p
+                
 
             self.grid_field_width_concentration_factor = selectivity_config.grid_field_width_concentration_factor
 
@@ -246,7 +252,7 @@ class GridInputCellConfig(object):
 class PlaceInputCellConfig(object):
     def __init__(self, selectivity_type=None, arena=None, normalize_scale=True, selectivity_config=None,
                  peak_rate=None, distance=None, modular=None, num_place_field_probabilities=None, field_width=None,
-                 local_random=None, selectivity_attr_dict=None, phase_mod_config=None):
+                 local_random=None, selectivity_attr_dict=None, phase_mod_config=None, noise_gen=None):
         """
 
         :param selectivity_type: int
@@ -319,8 +325,14 @@ class PlaceInputCellConfig(object):
                             this_field_width += self.mean_field_width * delta_field_width_factor
                 self.field_width.append(this_field_width)
 
-                this_x0 = local_random.uniform(*arena_x_bounds)
-                this_y0 = local_random.uniform(*arena_y_bounds)
+                if noise_gen is None:
+                    this_x0 = local_random.uniform(*arena_x_bounds)
+                    this_y0 = local_random.uniform(*arena_y_bounds)
+                else:
+                    p = noise_gen.next()
+                    noise_gen.add(p, lambda p, g: self.get_rate_map(*g))
+                    this_x0, this_y0 = p
+
 
                 self.x0.append(this_x0)
                 self.y0.append(this_y0)
@@ -512,7 +524,7 @@ def get_grid_rate_map(x0, y0, spacing, orientation, x, y, a=0.7):
 
 def get_input_cell_config(selectivity_type, selectivity_type_names, population=None, stimulus_config=None,
                           arena=None, selectivity_config=None, distance=None, local_random=None,
-                          selectivity_attr_dict=None, phase_mod_config=None):
+                          selectivity_attr_dict=None, phase_mod_config=None, noise_gen=None):
     """
 
     :param selectivity_type: int
@@ -566,7 +578,7 @@ def get_input_cell_config(selectivity_type, selectivity_type_names, population=N
             input_cell_config = \
                 GridInputCellConfig(selectivity_type=selectivity_type, arena=arena,
                                     selectivity_config=selectivity_config, peak_rate=peak_rate, distance=distance,
-                                    local_random=local_random, phase_mod_config=phase_mod_config)
+                                    local_random=local_random, phase_mod_config=phase_mod_config, noise_gen=noise_gen)
         elif selectivity_type_name == 'place':
             if population in stimulus_config['Non-modular Place Selectivity Populations']:
                 modular = False
@@ -580,7 +592,7 @@ def get_input_cell_config(selectivity_type, selectivity_type_names, population=N
                 PlaceInputCellConfig(selectivity_type=selectivity_type, arena=arena,
                                      selectivity_config=selectivity_config, peak_rate=peak_rate, distance=distance,
                                      modular=modular, num_place_field_probabilities=num_place_field_probabilities,
-                                     local_random=local_random, phase_mod_config=phase_mod_config)
+                                     local_random=local_random, phase_mod_config=phase_mod_config, noise_gen=noise_gen)
         elif selectivity_type_name == 'constant':
             input_cell_config = ConstantInputCellConfig(selectivity_type=selectivity_type, arena=arena,
                                                         selectivity_config=selectivity_config, peak_rate=peak_rate,
@@ -914,7 +926,7 @@ def generate_linear_trajectory(trajectory, temporal_resolution=1., equilibration
 def generate_input_selectivity_features(env, population, arena, arena_x, arena_y,
                                         gid, norm_distances, 
                                         selectivity_config, selectivity_type_names,
-                                        selectivity_type_namespaces,
+                                        selectivity_type_namespaces, noise_gen=None,
                                         rate_map_sum=None, debug=False):
     """
     Generates input selectivity features for the given population and
@@ -955,7 +967,8 @@ def generate_input_selectivity_features(env, population, arena, arena_x, arena_y
                                               arena=arena,
                                               selectivity_config=selectivity_config,
                                               distance=norm_u_arc_distance,
-                                              local_random=local_random)
+                                              local_random=local_random,
+                                              noise_gen=noise_gen)
     
     this_selectivity_type_name = selectivity_type_names[this_selectivity_type]
     selectivity_attr_dict = input_cell_config.get_selectivity_attr_dict()
