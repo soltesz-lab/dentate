@@ -229,6 +229,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
         selectivity_attr_dict = dict((key, dict()) for key in env.selectivity_types)
         for iter_count, (gid, distances_attr_dict) in enumerate(distances_attr_gen):
             if gid is not None:
+                logger.info(f'generating selectivity features for gid {gid}...')
                 u_arc_distance = distances_attr_dict['U Distance'][0]
                 v_arc_distance = distances_attr_dict['V Distance'][0]
                 norm_u_arc_distance = ((u_arc_distance - reference_u_arc_distance_bounds[0]) /
@@ -247,7 +248,6 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
                                                      debug= (debug_callback, context) if debug else False)
                 selectivity_attr_dict[this_selectivity_type_name][gid] = this_selectivity_attr_dict
                 gid_count[this_selectivity_type_name] += 1
-
                  
             if (iter_count > 0 and iter_count % write_every == 0) or (debug and iter_count == 10):
                 total_gid_count = 0
@@ -274,6 +274,8 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
 
             if debug and iter_count >= 10:
                 break
+
+
             
         pop_norm_distances[population] = this_pop_norm_distances
         rate_map_sum[population] = this_rate_map_sum
