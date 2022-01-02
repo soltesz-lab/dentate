@@ -228,8 +228,11 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
 
         selectivity_attr_dict = dict((key, dict()) for key in env.selectivity_types)
         for iter_count, (gid, distances_attr_dict) in enumerate(distances_attr_gen):
-            if gid is not None:
-                logger.info(f'generating selectivity features for gid {gid}...')
+            if gid is None:
+                logger.info(f'Rank {rank} received None')
+                noise_gen.add(np.empty( shape=(0, 0) ), None, None)
+            else:
+                logger.info(f'Rank {rank} generating selectivity features for gid {gid}...')
                 u_arc_distance = distances_attr_dict['U Distance'][0]
                 v_arc_distance = distances_attr_dict['V Distance'][0]
                 norm_u_arc_distance = ((u_arc_distance - reference_u_arc_distance_bounds[0]) /
