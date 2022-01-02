@@ -25,9 +25,10 @@ width = 40
 gen = NoiseGenerator(n_tiles_per_dim=1, bounds=[[-100, 100],[-100, 100]], bin_size=0.1, seed=42)
 
     
-def energy_fn(width, point, grid):
+def energy_fn(point, grid, width):
 
-    x0, y0 = point.T
+    print(f'point = {point}')
+    x0, y0 = point
     x, y = grid
 
     fw = 2. * np.sqrt(2. * np.log(100.))
@@ -37,7 +38,7 @@ def energy_fn(width, point, grid):
 for i in range(50):
     p0 = gen.next()
     print(p0)
-    gen.add(p0, partial(energy_fn, width))
+    gen.add(p0, energy_fn, energy_kwargs={'width': width})
 
 en = gen.energy_map
 plotFFT(en)
@@ -45,7 +46,8 @@ plotFFT(en)
 for i in range(100):
     p1 = gen.next()
     print(p1)
-    gen.add(p1, partial(energy_fn, width))
+    gen.add(p1, energy_fn, energy_kwargs={'width': width})
+
 
 en = gen.energy_map
 plotFFT(en)
