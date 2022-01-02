@@ -185,7 +185,9 @@ class GridInputCellConfig(object):
                 self.y0 = local_random.uniform(*arena_y_bounds)
             else:
                 p = noise_gen.next()
-                noise_gen.add(p, lambda p, g: self.get_rate_map(*g))
+                noise_gen.add(p, lambda p, g: get_grid_rate_map(p[0], p[1], self.grid_spacing,
+                                                                self.grid_orientation, g[0], g[1],
+                                                                a=self.grid_field_width_concentration_factor))
                 self.x0, self.y0 = p
                 
 
@@ -330,9 +332,9 @@ class PlaceInputCellConfig(object):
                     this_y0 = local_random.uniform(*arena_y_bounds)
                 else:
                     p = noise_gen.next()
-                    noise_gen.add(p, lambda p, g: self.get_rate_map(*g))
+                    noise_gen.add(p, lambda p, g: get_place_rate_map(p[0], p[1],
+                                                                     self.field_width[i], g[0], g[1]))
                     this_x0, this_y0 = p
-
 
                 self.x0.append(this_x0)
                 self.y0.append(this_y0)
@@ -556,8 +558,7 @@ def get_input_cell_config(selectivity_type, selectivity_type_names, population=N
         else:
             RuntimeError('get_input_cell_config: selectivity type %s is not supported' % selectivity_type_name)
     elif any([arg is None for arg in [population, stimulus_config, arena]]):
-        raise RuntimeError('get_input_cell_config: missing argument(s) required to construct %s cell config object' %
-                           selectivity_type_name)
+        raise RuntimeError(f'get_input_cell_config: missing argument(s) required to construct {selectivity_type_name} cell config object: population: {population} arena: {arena} stimulus_config: {stimulus_config}')
     else:
         if population not in stimulus_config['Peak Rate'] or \
                 selectivity_type not in stimulus_config['Peak Rate'][population]:
@@ -586,7 +587,7 @@ def get_input_cell_config(selectivity_type, selectivity_type_names, population=N
                 modular = True
             if population not in stimulus_config['Num Place Field Probabilities']:
                 raise RuntimeError('get_input_cell_config: probabilities for number of place fields not specified for '
-                                   'population: %s' % population)
+                                   f'population: {population}')
             num_place_field_probabilities = stimulus_config['Num Place Field Probabilities'][population]
             input_cell_config = \
                 PlaceInputCellConfig(selectivity_type=selectivity_type, arena=arena,
@@ -598,7 +599,7 @@ def get_input_cell_config(selectivity_type, selectivity_type_names, population=N
                                                         selectivity_config=selectivity_config, peak_rate=peak_rate,
                                                         phase_mod_config=phase_mod_config)
         else:
-            RuntimeError('get_input_cell_config: selectivity type: %s not implemented' % selectivity_type_name)
+            RuntimeError(f'get_input_cell_config: selectivity type: {selectivity_type_name} not implemented')
 
     return input_cell_config
 
@@ -961,7 +962,8 @@ def generate_input_selectivity_features(env, population, arena, arena_x, arena_y
      choose_input_selectivity_type(p=env.stimulus_config['Selectivity Type Probabilities'][population],
                                    local_random=local_random)
     
-    input_cell_config = get_input_cell_config(selectivity_type=this_selectivity_type,
+    input_cell_config = get_input_cell_config(population=population,
+                                              selectivity_type=this_selectivity_type,
                                               selectivity_type_names=selectivity_type_names,
                                               stimulus_config=env.stimulus_config,
                                               arena=arena,
@@ -1128,7 +1130,7 @@ def remap_input_selectivity_features(env, arena, population, selectivity_path, s
         selectivity_type_name = None
         gid_count = 0
         if rank == 0:
-            logger.info('Remapping input selectivity features for population %s [%s]...' % (population, selectivity_type_namespace))
+            logger.info(f'Remapping input selectivity features for population {population} [{selectivity_type_namespace}]...')
             
         process_time = 0
         start_time = time.time()
@@ -1172,7 +1174,7 @@ def remap_input_selectivity_features(env, arena, population, selectivity_path, s
                 total_gid_count = comm.reduce(gid_count, root=0, op=MPI.SUM)
                 if rank == 0:
                    logger.info('remapped input features for %i %s %s cells' %
-                                   (total_gid_count, population, selectivity_type_name))
+                               (total_gid_count, population, selectivity_type_name))
                    
                 if not dry_run:
                     append_cell_attributes(output_path, population, remap_attr_dict,
