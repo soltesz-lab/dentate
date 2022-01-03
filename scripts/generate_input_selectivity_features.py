@@ -59,6 +59,7 @@ mpi_op_merge_count_dict = MPI.Op.Create(merge_count_dict, commute=True)
 @click.option("--output-path", type=click.Path(file_okay=True, dir_okay=False), default=None)
 @click.option("--arena-id", type=str, default='A')
 @click.option("--populations", '-p', type=str, multiple=True)
+@click.option("--use-noise-gen", is_flag=True, default=False)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
@@ -75,7 +76,7 @@ mpi_op_merge_count_dict = MPI.Op.Create(merge_count_dict, commute=True)
 @click.option("--font-size", type=float, default=14)
 @click.option("--fig-format", required=False, type=str, default='svg')
 @click.option("--dry-run", is_flag=True)
-def main(config, config_prefix, coords_path, distances_namespace, output_path, arena_id, populations, io_size,
+def main(config, config_prefix, coords_path, distances_namespace, output_path, arena_id, populations, use_noise_gen, io_size,
          chunk_size, value_chunk_size, cache_size, write_size, verbose, gather, interactive, debug, plot, show_fig,
          save_fig, save_fig_dir, font_size, fig_format, dry_run):
     """
@@ -215,8 +216,10 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
 
         reference_u_arc_distance_bounds = reference_u_arc_distance_bounds_dict[population]
 
-        noise_gen = MPINoiseGenerator(comm=comm, bounds=(arena_x_bounds, arena_y_bounds),
-                                      bin_size=0.1, seed=selectivity_seed_offset)
+        noise_gen = None
+        if use_noise_gen:
+            noise_gen = MPINoiseGenerator(comm=comm, bounds=(arena_x_bounds, arena_y_bounds),
+                                          bin_size=0.1, seed=selectivity_seed_offset)
 
         
         this_pop_norm_distances = {}
@@ -229,7 +232,8 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
         selectivity_attr_dict = dict((key, dict()) for key in env.selectivity_types)
         for iter_count, (gid, distances_attr_dict) in enumerate(distances_attr_gen):
             if gid is None:
-                noise_gen.add(np.empty( shape=(0, 0), dtype=np.float32 ), None)
+                if noise_gen is not None:
+                    noise_gen.add(np.empty( shape=(0, 0), dtype=np.float32 ), None)
             else:
                 if rank == 0:
                     logger.info(f'Rank {rank} generating selectivity features for gid {gid}...')

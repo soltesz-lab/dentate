@@ -3,7 +3,7 @@
 #SBATCH -J generate_DG_input_features
 #SBATCH -o ./results/generate_DG_input_features.%j.o
 #SBATCH -p development      # Queue (partition) name
-#SBATCH --nodes=8
+#SBATCH --nodes=25
 #SBATCH --ntasks-per-node=56
 #SBATCH -t 2:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
@@ -28,12 +28,10 @@ export I_MPI_ADJUST_ALLTOALL=4
 export I_MPI_ADJUST_ALLTOALLV=2
 export I_MPI_ADJUST_ALLREDUCE=6
 
-ibrun -n 100 python3 $HOME/model/dentate/scripts/generate_input_selectivity_features.py \
-    --config=Full_Scale_Basis.yaml -p GC -p MC -p CA3c -p MPP -p LPP \
-    --config-prefix=./config \
+ibrun -n 1400 python3 $HOME/model/dentate/scripts/generate_input_selectivity_features.py \
+    --config=Full_Scale_Basis.yaml -p GC -p MC -p CA3c -p MPP -p LPP --write-size 50000 \
+    --config-prefix=./config --use-noise-gen \
     --coords-path=${DATA_PREFIX}/Full_Scale_Control/DG_coords_20190717_compressed.h5 \
-    --output-path=${DATA_PREFIX}/Full_Scale_Control/DG_IN_input_features_20220103.h5 \
+    --output-path=${DATA_PREFIX}/Full_Scale_Control/DG_input_features_20220103.h5 \
     --io-size 24 \
     -v
-
-
