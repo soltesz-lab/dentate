@@ -260,12 +260,14 @@ class MPINoiseGenerator(NoiseGenerator):
 
     def add(self, points, energy_fn, energy_kwargs={}):
         energy, peak_idxs = super().add(points, energy_fn, energy_kwargs=energy_kwargs, update_state=False)
-        self.energy_map += self.comm.allreduce(energy, op=mpi_op_ndarray_add)
+        all_energy = self.comm.allreduce(energy, op=mpi_op_ndarray_add)
         self.comm.barrier()
         all_peak_idxs = self.comm.allreduce(peak_idxs, op=mpi_op_ndarray_tuple_concat)
         self.comm.barrier()
         all_points = self.comm.allreduce([points], op=mpi_op_list_concat)
         self.comm.barrier()
+        if all_energy is not None:
+            self.energy_map += all_energy
         self.energy_mask[all_peak_idxs] = True
         for points_i in all_points:
             for i in range(points_i.shape[0]):
