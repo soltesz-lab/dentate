@@ -229,7 +229,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
         selectivity_attr_dict = dict((key, dict()) for key in env.selectivity_types)
         for iter_count, (gid, distances_attr_dict) in enumerate(distances_attr_gen):
             if gid is None:
-                noise_gen.add(np.empty( shape=(0, 0) ), None)
+                noise_gen.add(np.empty( shape=(0, 0), dtype=np.float32 ), None)
             else:
                 if rank == 0:
                     logger.info(f'Rank {rank} generating selectivity features for gid {gid}...')
@@ -272,6 +272,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
                         append_cell_attributes(output_path, population, selectivity_attr_dict[selectivity_type_name],
                                                namespace=selectivity_type_namespace, comm=comm, io_size=io_size,
                                                chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+                        comm.barrier()
                 del selectivity_attr_dict
                 selectivity_attr_dict = dict((key, dict()) for key in env.selectivity_types)
 
