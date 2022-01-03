@@ -24,14 +24,14 @@ def ndarray_add(a, b, datatype):
 
 mpi_op_ndarray_add = MPI.Op.Create(ndarray_add, commute=True)
 
-def ndarray_concat(a, b, datatype):
+def ndarray_tuple_concat(a, b, datatype):
     if a is None:
         return b
     if b is None:
         return a
-    return np.concatenate((a, b),axis=None)
+    return tuple((np.concatenate(x,axis=None) for x in zip(a,b)))
 
-mpi_op_ndarray_concat = MPI.Op.Create(ndarray_concat, commute=True)
+mpi_op_ndarray_tuple_concat = MPI.Op.Create(ndarray_tuple_concat, commute=True)
 
 def list_concat(a, b, datatype):
     return a+b
@@ -202,7 +202,7 @@ class NoiseGenerator:
             if update_state:
                 self.points.append(point)
         if len(peak_idxs) > 0:
-            peak_idxs = tuple(np.vstack(peak_idxs).T)
+            peak_idxs = tuple(np.vstack(peak_idxs).T.astype(np.int))
             if update_state:
                 self.energy_mask[peak_idxs] = True
         if energy is not None and update_state:
@@ -262,7 +262,7 @@ class MPINoiseGenerator(NoiseGenerator):
         energy, peak_idxs = super().add(points, energy_fn, energy_kwargs=energy_kwargs, update_state=False)
         self.energy_map += self.comm.allreduce(energy, op=mpi_op_ndarray_add)
         self.comm.barrier()
-        all_peak_idxs = self.comm.allreduce(peak_idxs, op=mpi_op_ndarray_concat)
+        all_peak_idxs = self.comm.allreduce(peak_idxs, op=mpi_op_ndarray_tuple_concat)
         self.comm.barrier()
         all_points = self.comm.allreduce([points], op=mpi_op_list_concat)
         self.comm.barrier()
