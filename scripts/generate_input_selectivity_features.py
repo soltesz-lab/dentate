@@ -230,7 +230,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
         for iter_count, (gid, distances_attr_dict) in enumerate(distances_attr_gen):
             if gid is None:
                 logger.info(f'Rank {rank} received None')
-                noise_gen.add(np.empty( shape=(0, 0) ), None, None)
+                noise_gen.add(np.empty( shape=(0, 0) ), None)
             else:
                 logger.info(f'Rank {rank} generating selectivity features for gid {gid}...')
                 u_arc_distance = distances_attr_dict['U Distance'][0]

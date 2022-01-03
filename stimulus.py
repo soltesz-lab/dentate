@@ -188,7 +188,7 @@ class GridInputCellConfig(object):
                 self.x0, self.y0 = p[0]
                 noise_gen.add(p, lambda p, g: get_grid_rate_map(p[0], p[1], self.grid_spacing,
                                                                 self.grid_orientation, g[0], g[1],
-                                                                a=self.grid_field_width_concentration_factor))
+                                                                a=selectivity_config.grid_field_width_concentration_factor))
                 
 
             self.grid_field_width_concentration_factor = selectivity_config.grid_field_width_concentration_factor

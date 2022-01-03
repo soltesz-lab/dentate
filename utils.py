@@ -160,7 +160,7 @@ class NoiseGenerator:
         self.points = []
         self.mypoints = []
             
-    def add(self, points, energy_fn, energy_kwargs):
+    def add(self, points, energy_fn, energy_kwargs={}):
         assert(len(points.shape) == self.ndims)
         peak_idxs = []
         energy = None
@@ -232,7 +232,7 @@ class MPINoiseGenerator(NoiseGenerator):
         kwargs['n_seed_points_per_dim'] = n_seed_points_per_dim
         super().__init__(**kwargs)
 
-    def add(self, points, energy_fn, energy_kwargs):
+    def add(self, points, energy_fn, energy_kwargs={}):
         energy, peak_idxs = super().add(points, energy_fn, energy_kwargs)
         it = iter(self.comm.alltoall(((points, energy, peak_idxs),)*self.comm.size))
         for i, (points_i, energy_i, peak_idxs_i) in enumerate(it):
