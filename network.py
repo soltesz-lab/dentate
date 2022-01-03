@@ -5,13 +5,13 @@ __author__ = 'See AUTHORS.md'
 
 import os, sys, gc, time, resource, random, pprint
 import numpy as np
-from mpi4py import MPI
 
 from dentate import cells, io_utils, lfp, lpt, simtime, synapses
 from dentate.neuron_utils import h, configure_hoc_env, cx, make_rec, mkgap, load_cell_template
 from dentate.utils import compose_iter, imapreduce, get_module_logger, profile_memory, Promise
 from dentate.utils import range, str, viewitems, viewkeys, zip, zip_longest
 from neuroh5.io import bcast_graph, read_cell_attribute_selection, scatter_read_cell_attribute_selection, read_graph_selection, read_tree_selection, scatter_read_cell_attributes, scatter_read_graph, scatter_read_trees, write_cell_attributes, write_graph
+from mpi4py import MPI
 
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)

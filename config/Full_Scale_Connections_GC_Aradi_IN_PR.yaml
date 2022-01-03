@@ -112,7 +112,7 @@ Synapses:
             tau_decay: 9.0
             e: -75
             g_unit: 0.001
-            weight: 1.5
+            weight: 1.0
     HCC:  
       type: inhibitory
       sections: [apical]
@@ -125,7 +125,7 @@ Synapses:
           tau_decay: 9.0
           e: -75
           g_unit: 0.001
-          weight: 4.0
+          weight: 1.0
     HC:   
       type: inhibitory
       sections: [apical, apical]
