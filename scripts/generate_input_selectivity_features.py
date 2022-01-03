@@ -187,7 +187,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
         raise RuntimeError('Arena with ID: %s not specified by configuration at file path: %s' %
                            (arena_id, config_prefix + '/' + config))
     arena = env.stimulus_config['Arena'][arena_id]
-    arena_x_bounds, arena_y_bounds = get_2D_arena_bounds(arena)
+    arena_x_bounds, arena_y_bounds = get_2D_arena_bounds(arena, margin_fraction=0.1)
     arena_x_mesh, arena_y_mesh = None, None
     if rank == 0:
         arena_x_mesh, arena_y_mesh = \
