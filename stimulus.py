@@ -845,14 +845,20 @@ def calibrate_num_place_field_probabilities(num_place_field_probabilities, field
     return num_place_field_probabilities
 
 
-def get_2D_arena_bounds(arena, margin=0.):
+def get_2D_arena_bounds(arena, margin=0., margin_fraction=None):
     """
 
     :param arena: namedtuple
     :return: tuple of (tuple of float)
     """
+
     vertices_x = np.asarray([v[0] for v in arena.domain.vertices], dtype=np.float32)
     vertices_y = np.asarray([v[1] for v in arena.domain.vertices], dtype=np.float32)
+    if margin_fraction is not None:
+        extent_x = np.abs(np.max(vertices_x) - np.min(vertices_x))
+        extent_y = np.abs(np.max(vertices_y) - np.min(vertices_y))
+        margin = max(margin_fraction*extent_x, margin_fraction*extent_y)
+        logger.info(f'extent_x = {extent_x} extnt_y = {extent_y} margin = {margin}')
     arena_x_bounds = (np.min(vertices_x) - margin, np.max(vertices_x) + margin)
     arena_y_bounds = (np.min(vertices_y) - margin, np.max(vertices_y) + margin)
 

@@ -44,7 +44,7 @@ comm = MPI.COMM_WORLD
 rank = comm.rank
 
 width = 40
-gen = MPINoiseGenerator(comm=comm, bounds=[[-100, 100],[-100, 100]], mask_fraction=0.99, bin_size=0.1, seed=42)
+gen = MPINoiseGenerator(comm=comm, bounds=[[-100, 100],[-100, 100]], mask_fraction=0.99, bin_size=0.05, seed=42)
     
 def energy_fn(point, grid, width):
 
@@ -60,7 +60,7 @@ for i in range(50):
     logger.info(f'Rank {rank}: {p0}')
     gen.add(p0, energy_fn, energy_kwargs={'width': width})
 
-for i in range(100):
+for i in range(1000):
     p1 = gen.next()
     logger.info(f'Rank {rank}: {p1}')
     gen.add(p1, energy_fn, energy_kwargs={'width': width})

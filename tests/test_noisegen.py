@@ -27,7 +27,6 @@ gen = NoiseGenerator(n_tiles_per_dim=1, bounds=[[-100, 100],[-100, 100]], bin_si
     
 def energy_fn(point, grid, width):
 
-    print(f'point = {point}')
     x0, y0 = point
     x, y = grid
 

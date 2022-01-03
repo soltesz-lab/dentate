@@ -1,4 +1,3 @@
-from __future__ import absolute_import, division
 import copy, datetime, gc, itertools, logging, math, numbers, os.path, importlib
 import pprint, string, sys, time, click
 from builtins import input, map, next, object, range, str, zip
@@ -9,10 +8,35 @@ import scipy
 from scipy import sparse, signal
 from scipy.spatial import cKDTree
 from scipy.ndimage import find_objects
+from mpi4py import MPI
 import yaml
 
 from yaml.representer import Representer
 yaml.add_representer(defaultdict, Representer.represent_dict)
+
+
+def ndarray_add(a, b, datatype):
+    if a is None:
+        return b
+    if b is None:
+        return a
+    return np.add(a, b)
+
+mpi_op_ndarray_add = MPI.Op.Create(ndarray_add, commute=True)
+
+def ndarray_concat(a, b, datatype):
+    if a is None:
+        return b
+    if b is None:
+        return a
+    return np.concatenate((a, b),axis=None)
+
+mpi_op_ndarray_concat = MPI.Op.Create(ndarray_concat, commute=True)
+
+def list_concat(a, b, datatype):
+    return a+b
+
+mpi_op_list_concat = MPI.Op.Create(list_concat, commute=True)
 
         
 is_interactive = bool(getattr(sys, 'ps1', sys.flags.interactive))
@@ -120,7 +144,7 @@ class NoiseGenerator:
 
     """
 
-    def __init__(self, tile_rank=0, n_tiles_per_dim=1, mask_fraction=0.95, seed=None, bounds=[[-1, 1],[-1, 1]], bin_size=0.05, n_seed_points_per_dim=None, **kwargs):
+    def __init__(self, tile_rank=0, n_tiles_per_dim=1, mask_fraction=0.99, seed=None, bounds=[[-1, 1],[-1, 1]], bin_size=0.05, n_seed_points_per_dim=None, **kwargs):
         """Creates a new noise generator structure."""
         self.seed = None
         self.local_random = np.random.default_rng(seed)
@@ -160,7 +184,7 @@ class NoiseGenerator:
         self.points = []
         self.mypoints = []
             
-    def add(self, points, energy_fn, energy_kwargs={}):
+    def add(self, points, energy_fn, energy_kwargs={}, update_state=True):
         assert(len(points.shape) == self.ndims)
         peak_idxs = []
         energy = None
@@ -175,11 +199,13 @@ class NoiseGenerator:
                 energy += energy_fn(point, self.energy_meshgrid, **kwargs_i)
             peak = np.max(energy)
             peak_idxs.append(np.argwhere(energy >= peak*self.mask_fraction))
-            self.points.append(point)
+            if update_state:
+                self.points.append(point)
         if len(peak_idxs) > 0:
             peak_idxs = tuple(np.vstack(peak_idxs).T)
-            self.energy_mask[peak_idxs] = True
-        if energy is not None:
+            if update_state:
+                self.energy_mask[peak_idxs] = True
+        if energy is not None and update_state:
             self.energy_map += energy
         return energy, peak_idxs
         
@@ -233,14 +259,17 @@ class MPINoiseGenerator(NoiseGenerator):
         super().__init__(**kwargs)
 
     def add(self, points, energy_fn, energy_kwargs={}):
-        energy, peak_idxs = super().add(points, energy_fn, energy_kwargs)
-        it = iter(self.comm.alltoall(((points, energy, peak_idxs),)*self.comm.size))
-        for i, (points_i, energy_i, peak_idxs_i) in enumerate(it):
-            if i != self.comm.rank and energy_i is not None:
-                self.energy_mask[peak_idxs_i] = True
-                self.energy_map += energy_i
-                for i in range(points_i.shape[0]):
-                    self.points.append(points_i[i])
+        energy, peak_idxs = super().add(points, energy_fn, energy_kwargs=energy_kwargs, update_state=False)
+        self.energy_map += self.comm.allreduce(energy, op=mpi_op_ndarray_add)
+        self.comm.barrier()
+        all_peak_idxs = self.comm.allreduce(peak_idxs, op=mpi_op_ndarray_concat)
+        self.comm.barrier()
+        all_points = self.comm.allreduce([points], op=mpi_op_list_concat)
+        self.comm.barrier()
+        self.energy_mask[all_peak_idxs] = True
+        for points_i in all_points:
+            for i in range(points_i.shape[0]):
+                self.points.append(points_i[i])
 
     def next(self):
         p = super().next()
