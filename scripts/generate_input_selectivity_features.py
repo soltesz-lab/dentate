@@ -23,16 +23,17 @@ sys.excepthook = mpi_excepthook
 
 
 def debug_callback(context):
-    from dentate.plot import plot_2D_rate_map
+    from dentate.plot import plot_2D_rate_map, close_figure
     fig_title = '%s %s cell %i' % (context.population, context.this_selectivity_type_name, context.gid)
     fig_options = copy.copy(context.fig_options)
     if context.save_fig is not None:
         fig_options.saveFig = '%s %s' % (context.save_fig, fig_title)
-    plot_2D_rate_map(x=context.arena_x_mesh, y=context.arena_y_mesh, rate_map=context.rate_map,
-                     peak_rate = context.env.stimulus_config['Peak Rate'][context.population][context.this_selectivity_type],
-                     title='%s\nNormalized cell position: %.3f' % (fig_title, context.norm_u_arc_distance),
-                     **fig_options())
-
+    fig = plot_2D_rate_map(x=context.arena_x_mesh, y=context.arena_y_mesh, rate_map=context.rate_map,
+                           peak_rate = context.env.stimulus_config['Peak Rate'][context.population][context.this_selectivity_type],
+                           title='%s\nNormalized cell position: %.3f' % (fig_title, context.norm_u_arc_distance),
+                           **fig_options())
+    close_figure(fig)
+    
 def merge_dict(d1, d2, datatype):
     dd = {}
     for d in (d1, d2):
@@ -46,8 +47,44 @@ def merge_count_dict(d1, d2, datatype):
             dd[key] += value
     return dict(dd.items())
 
+def concatenate_ndarray_dict(a, b, datatype):
+    merged_ndarray_dict = {}
+    for k in a:
+        if k not in b:
+            merged_rate_map_dict[k] = a[k]
+        else:
+            merged_ndarray_dict[k] = np.concatenate((a[k], b[k]), axis=None)
+    for k in b:
+        if k not in a:
+            merged_rate_map_dict[k] = b[k]
+    return merged_ndarray_dict
+
+def merge_rate_map_dict(m1, m2, datatype):
+    merged_rate_map_dict = {}
+    for population in m1:
+        if population not in merged_rate_map_dict:
+            merged_rate_map_dict[population] = {}
+        for selectivity_type_name in m1[population]:
+            srm = m1[population][selectivity_type_name]
+            if selectivity_type_name in merged_rate_map_dict[population]:
+                merged_rate_map_dict[population][selectivity_type_name] += srm
+            else:
+                merged_rate_map_dict[population][selectivity_type_name] = srm.copy()
+    for population in m2:
+        if population not in merged_rate_map_dict:
+            merged_rate_map_dict[population] = {}
+        for selectivity_type_name in m2[population]:
+            srm = m2[population][selectivity_type_name]
+            if selectivity_type_name in merged_rate_map_dict[population]:
+                merged_rate_map_dict[population][selectivity_type_name] += srm
+            else:
+                merged_rate_map_dict[population][selectivity_type_name] = srm.copy()
+    return merged_rate_map_dict
+
 mpi_op_merge_dict = MPI.Op.Create(merge_dict, commute=True)
 mpi_op_merge_count_dict = MPI.Op.Create(merge_count_dict, commute=True)
+mpi_op_merge_rate_map_dict = MPI.Op.Create(merge_rate_map_dict, commute=True)
+mpi_op_concatenate_ndarray_dict = MPI.Op.Create(concatenate_ndarray_dict, commute=True)
     
 
 @click.command()
@@ -114,14 +151,14 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
-        logger.info('%i ranks have been allocated' % comm.size)
+        logger.info(f'{comm.size} ranks have been allocated')
 
     if save_fig is not None:
         plot = True
 
     if plot:
         import matplotlib.pyplot as plt
-        from dentate.plot import plot_2D_rate_map, default_fig_options, save_figure, clean_axes
+        from dentate.plot import plot_2D_rate_map, default_fig_options, save_figure, clean_axes, close_figure
 
         fig_options = copy.copy(default_fig_options)
         fig_options.saveFigDir = save_fig_dir
@@ -185,8 +222,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
         selectivity_type_namespaces[this_selectivity_type_name] = ''.join(chars) + ' Selectivity %s' % arena_id
 
     if arena_id not in env.stimulus_config['Arena']:
-        raise RuntimeError('Arena with ID: %s not specified by configuration at file path: %s' %
-                           (arena_id, config_prefix + '/' + config))
+        raise RuntimeError(f'Arena with ID: {arena_id} not specified by configuration at file path: {config_prefix}/{config}')
     arena = env.stimulus_config['Arena'][arena_id]
     arena_x_bounds, arena_y_bounds = get_2D_arena_bounds(arena, margin_fraction=0.1)
     arena_x_mesh, arena_y_mesh = None, None
@@ -209,21 +245,25 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
 
     pop_norm_distances = {}
     rate_map_sum = {}
+    x0_dict = {}
+    y0_dict = {}
     write_every = max(1, int(math.floor(write_size / comm.size)))
     for population in sorted(populations):
         if rank == 0:
-            logger.info('Generating input selectivity features for population %s...' % population)
+            logger.info(f'Generating input selectivity features for population {population}...')
 
         reference_u_arc_distance_bounds = reference_u_arc_distance_bounds_dict[population]
 
         noise_gen = None
         if use_noise_gen:
             noise_gen = MPINoiseGenerator(comm=comm, bounds=(arena_x_bounds, arena_y_bounds),
-                                          bin_size=0.1, seed=selectivity_seed_offset)
+                                          tile_rank=comm.rank, bin_size=0.1, seed=selectivity_seed_offset)
 
         
         this_pop_norm_distances = {}
         this_rate_map_sum = defaultdict(lambda: np.zeros_like(arena_x_mesh))
+        this_x0_list = []
+        this_y0_list = []
         start_time = time.time()
         gid_count = defaultdict(lambda: 0)
         distances_attr_gen = NeuroH5CellAttrGen(coords_path, population, namespace=distances_namespace,
@@ -253,6 +293,8 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
                                                      noise_gen=noise_gen,
                                                      rate_map_sum=this_rate_map_sum,
                                                      debug= (debug_callback, context) if debug else False)
+                this_x0_list.append(this_selectivity_attr_dict['X Offset'])
+                this_y0_list.append(this_selectivity_attr_dict['Y Offset'])
                 selectivity_attr_dict[this_selectivity_type_name][gid] = this_selectivity_attr_dict
                 gid_count[this_selectivity_type_name] += 1
                  
@@ -271,7 +313,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
                 if not dry_run:
                     for selectivity_type_name in sorted(selectivity_attr_dict.keys()):
                         if rank == 0:
-                            logger.info('writing selectivity features for %s [%s]...' % (population, selectivity_type_name))
+                            logger.info(f'writing selectivity features for {population} [{selectivity_type_name}]...')
                         selectivity_type_namespace = selectivity_type_namespaces[selectivity_type_name]
                         append_cell_attributes(output_path, population, selectivity_attr_dict[selectivity_type_name],
                                                namespace=selectivity_type_namespace, comm=comm, io_size=io_size,
@@ -286,8 +328,10 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
 
             
         pop_norm_distances[population] = this_pop_norm_distances
-        rate_map_sum[population] = this_rate_map_sum
-                    
+        rate_map_sum[population] = dict(this_rate_map_sum)
+        x0_dict[population] = np.concatenate(this_x0_list, axis=None)
+        y0_dict[population] = np.concatenate(this_y0_list, axis=None)
+        
         total_gid_count = 0
         gid_count_dict = dict(gid_count.items())
         selectivity_gid_count = comm.reduce(gid_count_dict, root=0, op=mpi_op_merge_count_dict)
@@ -303,7 +347,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
         if not dry_run:
             for selectivity_type_name in sorted(selectivity_attr_dict.keys()):
                 if rank == 0:
-                    logger.info('writing selectivity features for %s [%s]...' % (population, selectivity_type_name))
+                    logger.info(f'writing selectivity features for {population} [{selectivity_type_name}]...')
                 selectivity_type_namespace = selectivity_type_namespaces[selectivity_type_name]
                 append_cell_attributes(output_path, population, selectivity_attr_dict[selectivity_type_name],
                                        namespace=selectivity_type_namespace, comm=comm, io_size=io_size,
@@ -318,40 +362,48 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
             merged_pop_norm_distances[population] = \
               comm.reduce(pop_norm_distances[population], root=0,
                           op=mpi_op_merge_dict)
-        rate_map_sum = dict([(key, dict(val.items())) for key, val in viewitems(rate_map_sum)])
-        rate_map_sum = comm.gather(rate_map_sum, root=0)
+        merged_rate_map_sum = comm.reduce(rate_map_sum, root=0, op=mpi_op_merge_rate_map_dict)
+        merged_x0 = comm.reduce(x0_dict, root=0, op=mpi_op_concatenate_ndarray_dict)
+        merged_y0 = comm.reduce(y0_dict, root=0, op=mpi_op_concatenate_ndarray_dict)
         if rank == 0:
-            merged_rate_map_sum = defaultdict(lambda: defaultdict(lambda: np.zeros_like(arena_x_mesh)))
-            for each_rate_map_sum in rate_map_sum:
-                for population in each_rate_map_sum:
-                    for selectivity_type_name in each_rate_map_sum[population]:
-                        merged_rate_map_sum[population][selectivity_type_name] = \
-                            np.add(merged_rate_map_sum[population][selectivity_type_name],
-                                   each_rate_map_sum[population][selectivity_type_name])
             if plot:
                 for population in merged_pop_norm_distances:
                     norm_distance_values = np.asarray(list(merged_pop_norm_distances[population].values()))
                     hist, edges = np.histogram(norm_distance_values, bins=100)
                     fig, axes = plt.subplots(1)
                     axes.plot(edges[1:], hist)
-                    axes.set_title('Population: %s' % population)
+                    axes.set_title(f'Population: {population}')
                     axes.set_xlabel('Normalized cell position')
                     axes.set_ylabel('Cell count')
                     clean_axes(axes)
                     if save_fig is not None:
-                        save_figure('%s %s normalized distances histogram' % (save_fig, population),
+                        save_figure(f'{save_fig} {population} normalized distances histogram',
                                     fig=fig, **fig_options())
                     if fig_options.showFig:
                         fig.show()
+                    close_figure(fig)
                 for population in merged_rate_map_sum:
                     for selectivity_type_name in merged_rate_map_sum[population]:
-                        fig_title = '%s %s summed rate maps' % (population, this_selectivity_type_name)
+                        fig_title = f'{population} {this_selectivity_type_name} summed rate maps'
                         if save_fig is not None:
-                            fig_options.saveFig = '%s %s' % (save_fig, fig_title)
+                            fig_options.saveFig = f'{save_fig} {fig_title}'
                         plot_2D_rate_map(x=arena_x_mesh, y=arena_y_mesh,
                                          rate_map=merged_rate_map_sum[population][selectivity_type_name],
-                                         title='Summed rate maps\n%s %s cells' %
-                                               (population, selectivity_type_name), **fig_options())
+                                         title=f'Summed rate maps\n{population} {selectivity_type_name} cells',
+                                               **fig_options())
+                for population in merged_x0:
+                    fig_title = f'{population} place field locations'
+                    if save_fig is not None:
+                        fig_options.saveFig = f'{save_fig} {fig_title}'
+                    x0 = merged_x0[population]
+                    y0 = merged_y0[population]
+                    fig, axes = plt.subplots(1)
+                    axes.scatter(x0, y0)
+                    if save_fig is not None:
+                        save_figure(f'{save_fig} {fig_title}', fig=fig, **fig_options())
+                    if fig_options.showFig:
+                        fig.show()
+                    close_figure(fig)
 
     if interactive and rank == 0:
         context.update(locals())

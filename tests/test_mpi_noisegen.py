@@ -60,7 +60,11 @@ for i in range(50):
     logger.info(f'Rank {rank}: {p0}')
     gen.add(p0, energy_fn, energy_kwargs={'width': width})
 
-for i in range(1000):
+en = gen.energy_map
+if comm.rank == 0:
+    plotFFT(en)
+
+for i in range(200):
     p1 = gen.next()
     logger.info(f'Rank {rank}: {p1}')
     gen.add(p1, energy_fn, energy_kwargs={'width': width})

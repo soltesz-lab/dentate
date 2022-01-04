@@ -337,6 +337,7 @@ class PlaceInputCellConfig(object):
                 self.x0.append(this_x0)
                 self.y0.append(this_y0)
 
+                
             if noise_gen is not None:
                 p = np.column_stack((np.asarray(self.x0), np.asarray(self.y0)))
                 noise_gen.add(p, lambda p, g, width: get_place_rate_map(p[0], p[1], width, g[0], g[1]),
@@ -395,7 +396,7 @@ class PlaceInputCellConfig(object):
         
         if (velocity is None) and (self.phase_mod_function is not None):
             raise RuntimeError("PlaceInputCellConfig.get_rate_map: when phase modulation is provided, velocity must be provided to get_rate_map")
-        
+
         rate_array = np.zeros_like(x, dtype=np.float32)
         for i in range(self.num_fields):
             rate_array = np.maximum(rate_array, get_place_rate_map(self.x0[i], self.y0[i], self.field_width[i] * scale, x, y))
@@ -992,9 +993,8 @@ def generate_input_selectivity_features(env, population, arena, arena_x, arena_y
         callback(this_context)
         
     if rate_map_sum is not None:
-        rate_map_sum[this_selectivity_type_name] = \
-         np.add(rate_map_sum[this_selectivity_type_name], rate_map)
-    
+        rate_map_sum[this_selectivity_type_name] += rate_map
+
     return this_selectivity_type_name, selectivity_attr_dict
 
 

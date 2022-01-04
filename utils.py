@@ -178,7 +178,7 @@ class NoiseGenerator:
         
         self.energy_meshgrid = tuple((x.reshape(self.energy_map_shape) for x in np.meshgrid(*self.energy_bins, indexing='ij')))
         self.energy_tile_meshgrid = tuple((view_as_blocks(x, self.tile_shape) for x in self.energy_meshgrid))
-
+        
         self.n_seed_points = np.prod(self.n_seed_points_per_dim)
         self.mask_fraction = mask_fraction
         self.points = []
@@ -209,18 +209,20 @@ class NoiseGenerator:
             self.energy_map += energy
         return energy, peak_idxs
         
-    def next(self):
+    def next(self, offset=0):
+        if offset<0:
+            offset=0
         tile_index = tuple(self.tile_index_map[self.tile_rank % self.n_tiles])
         if len(self.mypoints) > self.n_seed_points // self.n_tiles:
             mask = np.argwhere(~self.energy_tile_mask[tile_index])
             if len(mask) > 0:
                 em = self.energy_tile_map[tile_index][tuple(mask.T)]
-                mask_pos = np.argwhere(em == em.min())[0]
-                tile_pos = tuple(mask[mask_pos][0])
+                mask_pos = np.argsort(em)[offset:offset+1]
+                tile_pos = tuple(mask[mask_pos])
             else:
                 self.energy_tile_mask[tile_index].fill(0)
                 em = self.energy_tile_map[tile_index]
-                tile_pos = tuple(np.argwhere(em == em.min())[0])
+                tile_pos = tuple(np.argsort(em)[offset:offset+1])
             en = self.energy_tile_map[tile_index][tile_pos]
             p = np.asarray(tuple((x[tile_index][tile_pos] for x in self.energy_tile_meshgrid))).reshape((-1, self.ndims))
         else:
@@ -241,11 +243,12 @@ class MPINoiseGenerator(NoiseGenerator):
         if comm is None:
             comm = MPI.COMM_WORLD
         self.comm = comm
-        kwargs['tile_rank'] = comm.rank
         bounds = kwargs['bounds']
         ndims = len(bounds)
         n_tiles_per_dim = self.comm.size
+        n_tiles_per_rank = (n_tiles_per_dim**ndims) // self.comm.size
         kwargs['n_tiles_per_dim'] = n_tiles_per_dim
+        kwargs['tile_rank'] = self.comm.rank
         seed = self.comm.rank
         if kwargs['seed'] is not None:
             seed = seed + self.comm.rank
@@ -273,9 +276,9 @@ class MPINoiseGenerator(NoiseGenerator):
             for i in range(points_i.shape[0]):
                 self.points.append(points_i[i])
 
-    def next(self):
-        p = super().next()
-        self.tile_rank += 1
+    def next(self, offset=0):
+        p = super().next(offset=offset)
+        self.tile_rank += self.comm.size
         return p
         
         
