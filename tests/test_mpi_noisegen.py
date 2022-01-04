@@ -44,7 +44,7 @@ comm = MPI.COMM_WORLD
 rank = comm.rank
 
 width = 40
-gen = MPINoiseGenerator(comm=comm, bounds=[[-100, 100],[-100, 100]], mask_fraction=0.99, bin_size=0.05, seed=42)
+gen = MPINoiseGenerator(comm=comm, bounds=[[-100, 100],[-100, 100]], mask_fraction=0.99, bin_size=0.05, seed=42, n_tiles_per_rank=10)
     
 def energy_fn(point, grid, width):
 
@@ -64,7 +64,7 @@ en = gen.energy_map
 if comm.rank == 0:
     plotFFT(en)
 
-for i in range(200):
+for i in range(100):
     p1 = gen.next()
     logger.info(f'Rank {rank}: {p1}')
     gen.add(p1, energy_fn, energy_kwargs={'width': width})

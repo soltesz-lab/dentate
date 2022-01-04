@@ -257,7 +257,8 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
         noise_gen = None
         if use_noise_gen:
             noise_gen = MPINoiseGenerator(comm=comm, bounds=(arena_x_bounds, arena_y_bounds),
-                                          tile_rank=comm.rank, bin_size=0.1, seed=selectivity_seed_offset)
+                                          tile_rank=comm.rank, n_tiles_per_rank=10, bin_size=0.1,
+                                          seed=selectivity_seed_offset)
 
         
         this_pop_norm_distances = {}
@@ -392,7 +393,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
                                          title=f'Summed rate maps\n{population} {selectivity_type_name} cells',
                                                **fig_options())
                 for population in merged_x0:
-                    fig_title = f'{population} place field locations'
+                    fig_title = f'{population} field offsets'
                     if save_fig is not None:
                         fig_options.saveFig = f'{save_fig} {fig_title}'
                     x0 = merged_x0[population]
