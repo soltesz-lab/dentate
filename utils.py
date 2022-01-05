@@ -155,15 +155,16 @@ class NoiseGenerator:
         if isinstance(n_tiles_per_dim, int):
             n_tiles_per_dim = [n_tiles_per_dim]*self.ndims
         self.n_tiles_per_dim = n_tiles_per_dim
-        tile_map_dims = []
         tile_dims = []
+
+        if (self.energy_map_shape % self.n_tiles_per_dim).sum() != 0:
+            raise ValueError("'n_tiles_per_dim' is not compatible with input space bounds")
+
         for i in range(self.ndims):
             d = self.energy_map_shape[i]
             s = d//self.n_tiles_per_dim[i]
-            tile_map_dims.append([d // s, s])
             tile_dims.append(s)
-
-        self.tile_map_shape = tuple(itertools.chain(*tile_map_dims))
+        
         self.tile_shape = tuple(tile_dims)
         self.n_tiles = np.prod(self.n_tiles_per_dim)
         self.tile_rank = tile_rank
