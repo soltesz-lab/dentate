@@ -35,7 +35,7 @@ def energy_fn(point, grid, width):
 
 
 for i in range(50):
-    p0 = gen.next(size=2)
+    p0 = gen.next()
     print(p0)
     gen.add(p0, energy_fn, energy_kwargs={'width': width})
 
@@ -43,7 +43,7 @@ en = gen.energy_map
 plotFFT(en)
 
 for i in range(100):
-    p1 = gen.next(size=2)
+    p1 = gen.next()
     print(p1)
     gen.add(p1, energy_fn, energy_kwargs={'width': width})
 

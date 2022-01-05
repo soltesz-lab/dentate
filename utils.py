@@ -38,6 +38,15 @@ def list_concat(a, b, datatype):
 
 mpi_op_list_concat = MPI.Op.Create(list_concat, commute=True)
 
+def noise_gen_merge(a, b, datatype):
+    energy_a, peak_idxs_a, points_a = a
+    energy_b, peak_idxs_b, points_b = b
+    energy_res = ndarray_add(energy_a, energy_b, datatype)
+    peak_idxs_res = ndarray_tuple_concat(peak_idxs_a, peak_idxs_b, datatype)
+    points_res = list_concat(points_a, points_b, datatype)
+    return energy_res, peak_idxs_res, points_res
+
+mpi_op_noise_gen_merge = MPI.Op.Create(noise_gen_merge, commute=True)
         
 is_interactive = bool(getattr(sys, 'ps1', sys.flags.interactive))
 
@@ -212,20 +221,18 @@ class NoiseGenerator:
             self.energy_map += energy
         return energy, peak_idxs
         
-    def next(self, offset=0):
-        if offset<0:
-            offset=0
+    def next(self):
         tile_index = (self.tile_rank,)+self.tile_ptr
         if len(self.mypoints) > self.n_seed_points // self.n_tiles:
             mask = np.argwhere(~self.energy_tile_mask[tile_index])
             if len(mask) > 0:
                 em = self.energy_tile_map[tile_index][tuple(mask.T)]
-                mask_pos = np.argsort(em)[offset:offset+1]
+                mask_pos = np.argmin(em)
                 tile_pos = tuple(mask[mask_pos])
             else:
                 self.energy_tile_mask[tile_index].fill(0)
                 em = self.energy_tile_map[tile_index]
-                tile_pos = tuple(np.argsort(em)[offset:offset+1])
+                tile_pos = tuple(np.argmin(em))
             en = self.energy_tile_map[tile_index][tile_pos]
             p = np.asarray(tuple((x[tile_index][tile_pos] for x in self.energy_tile_meshgrid))).reshape((-1, self.ndims))
         else:
@@ -270,11 +277,7 @@ class MPINoiseGenerator(NoiseGenerator):
 
     def add(self, points, energy_fn, energy_kwargs={}):
         energy, peak_idxs = super().add(points, energy_fn, energy_kwargs=energy_kwargs, update_state=False)
-        all_energy = self.comm.allreduce(energy, op=mpi_op_ndarray_add)
-        self.comm.barrier()
-        all_peak_idxs = self.comm.allreduce(peak_idxs, op=mpi_op_ndarray_tuple_concat)
-        self.comm.barrier()
-        all_points = self.comm.allreduce([points], op=mpi_op_list_concat)
+        all_energy, all_peak_idxs, all_points = self.comm.allreduce((energy,peak_idxs,[points]), op=mpi_op_noise_gen_merge)
         self.comm.barrier()
         if all_energy is not None:
             self.energy_map += all_energy
@@ -283,8 +286,8 @@ class MPINoiseGenerator(NoiseGenerator):
             for i in range(points_i.shape[0]):
                 self.points.append(points_i[i])
 
-    def next(self, offset=0):
-        p = super().next(offset=offset)
+    def next(self):
+        p = super().next()
         self.tile_ptr = tuple((self.local_random.choice(n) for n in self.n_tiles_per_rank))
         return p
         
