@@ -23,15 +23,20 @@ set -x
 cd $SLURM_SUBMIT_DIR
 
 export DATA_PREFIX=$SCRATCH/striped2/dentate  
- 
-export I_MPI_ADJUST_ALLTOALL=4
-export I_MPI_ADJUST_ALLTOALLV=2
-export I_MPI_ADJUST_ALLREDUCE=6
 
+export I_MPI_ADJUST_ALLGATHER=2
+export I_MPI_ADJUST_ALLTOALL=4
+export I_MPI_ADJUST_ALLTOALLV=2 
+export I_MPI_ADJUST_ALLREDUCE=2
+export I_MPI_ADJUST_BCAST=4
+export I_MPI_ADJUST_BARRIER=4
+
+
+# -p GC -p MPP -p LPP -p CA3c -p MC
 ibrun -n 1400 python3 $HOME/model/dentate/scripts/generate_input_selectivity_features.py \
-    --config=Full_Scale_Basis.yaml -p GC -p MC -p CA3c -p MPP -p LPP --write-size 50000 \
+    --config=Full_Scale_Basis.yaml -p GC --write-size 100000 \
     --config-prefix=./config --use-noise-gen \
     --coords-path=${DATA_PREFIX}/Full_Scale_Control/DG_coords_20190717_compressed.h5 \
-    --output-path=${DATA_PREFIX}/Full_Scale_Control/DG_input_features_20220103.h5 \
-    --io-size 24 \
+    --output-path=${DATA_PREFIX}/Full_Scale_Control/DG_input_features_20220105.h5 \
+    --io-size 2 \
     -v

@@ -277,8 +277,9 @@ class MPINoiseGenerator(NoiseGenerator):
 
     def add(self, points, energy_fn, energy_kwargs={}):
         energy, peak_idxs = super().add(points, energy_fn, energy_kwargs=energy_kwargs, update_state=False)
+        req = self.comm.Ibarrier()
         all_energy, all_peak_idxs, all_points = self.comm.allreduce((energy,peak_idxs,[points]), op=mpi_op_noise_gen_merge)
-        self.comm.barrier()
+        req.wait()
         if all_energy is not None:
             self.energy_map += all_energy
         self.energy_mask[all_peak_idxs] = True
