@@ -313,15 +313,15 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
 
                 if not dry_run:
                     for selectivity_type_name in sorted(selectivity_attr_dict.keys()):
+                        comm.barrier()
                         if rank == 0:
                             logger.info(f'writing selectivity features for {population} [{selectivity_type_name}]...')
                         selectivity_type_namespace = selectivity_type_namespaces[selectivity_type_name]
                         append_cell_attributes(output_path, population, selectivity_attr_dict[selectivity_type_name],
                                                namespace=selectivity_type_namespace, comm=comm, io_size=io_size,
                                                chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-                        comm.barrier()
-                del selectivity_attr_dict
-                selectivity_attr_dict = dict((key, dict()) for key in env.selectivity_types)
+                    del selectivity_attr_dict
+                    selectivity_attr_dict = dict((key, dict()) for key in env.selectivity_types)
 
             if debug and iter_count >= 10:
                 break
@@ -347,14 +347,14 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
 
         if not dry_run:
             for selectivity_type_name in sorted(selectivity_attr_dict.keys()):
+                comm.barrier()
                 if rank == 0:
                     logger.info(f'writing selectivity features for {population} [{selectivity_type_name}]...')
                 selectivity_type_namespace = selectivity_type_namespaces[selectivity_type_name]
                 append_cell_attributes(output_path, population, selectivity_attr_dict[selectivity_type_name],
                                        namespace=selectivity_type_namespace, comm=comm, io_size=io_size,
                                        chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-        del selectivity_attr_dict
-        comm.barrier()
+            del selectivity_attr_dict
             
                 
     if gather:
