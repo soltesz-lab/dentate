@@ -1,5 +1,5 @@
 
-import click
+import click, gc
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 from dentate.env import Env
 from dentate.stimulus import InputSelectivityConfig, choose_input_selectivity_type, get_2D_arena_spatial_mesh, \
@@ -272,6 +272,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
 
         selectivity_attr_dict = dict((key, dict()) for key in env.selectivity_types)
         for iter_count, (gid, distances_attr_dict) in enumerate(distances_attr_gen):
+            req = comm.Ibarrier()
             if gid is None:
                 if noise_gen is not None:
                     noise_gen.add(np.empty( shape=(0, 0), dtype=np.float32 ), None)
@@ -298,11 +299,14 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
                 this_y0_list.append(this_selectivity_attr_dict['Y Offset'])
                 selectivity_attr_dict[this_selectivity_type_name][gid] = this_selectivity_attr_dict
                 gid_count[this_selectivity_type_name] += 1
-                 
+            req.wait()
+
             if (iter_count > 0 and iter_count % write_every == 0) or (debug and iter_count == 10):
                 total_gid_count = 0
                 gid_count_dict = dict(gid_count.items())
+                req = comm.Ibarrier() 
                 selectivity_gid_count = comm.reduce(gid_count_dict, root=0, op=mpi_op_merge_count_dict)
+                req.wait()
                 if rank == 0:
                     for selectivity_type_name in selectivity_gid_count:
                         total_gid_count += selectivity_gid_count[selectivity_type_name]
@@ -323,6 +327,8 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
                        req.wait()
                     del selectivity_attr_dict
                     selectivity_attr_dict = dict((key, dict()) for key in env.selectivity_types)
+                    gc.collect()
+
 
             if debug and iter_count >= 10:
                 break
@@ -336,7 +342,9 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
         
         total_gid_count = 0
         gid_count_dict = dict(gid_count.items())
+        req = comm.Ibarrier()
         selectivity_gid_count = comm.reduce(gid_count_dict, root=0, op=mpi_op_merge_count_dict)
+        req.wait()
         
         if rank == 0:
             for selectivity_type_name in selectivity_gid_count:
@@ -357,7 +365,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
                                        chunk_size=chunk_size, value_chunk_size=value_chunk_size)
                 req.wait()
             del selectivity_attr_dict
-            
+            gc.collect()
                 
     if gather:
         merged_pop_norm_distances = {}
