@@ -53,7 +53,12 @@ def concatenate_ndarray_dict(a, b, datatype):
         if k not in b:
             merged_rate_map_dict[k] = a[k]
         else:
-            merged_ndarray_dict[k] = np.concatenate((a[k], b[k]), axis=None)
+            if len(b[k]) == 0:
+                merged_ndarray_dict[k] = a[k]
+            elif len(a[k]) == 0:
+                merged_ndarray_dict[k] = b[k]
+            else:
+                merged_ndarray_dict[k] = np.concatenate((a[k], b[k]), axis=None)
     for k in b:
         if k not in a:
             merged_rate_map_dict[k] = b[k]
@@ -295,8 +300,9 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
                                                      noise_gen=noise_gen,
                                                      rate_map_sum=this_rate_map_sum,
                                                      debug= (debug_callback, context) if debug else False)
-                this_x0_list.append(this_selectivity_attr_dict['X Offset'])
-                this_y0_list.append(this_selectivity_attr_dict['Y Offset'])
+                if 'X Offset' in this_selectivity_attr_dict:
+                    this_x0_list.append(this_selectivity_attr_dict['X Offset'])
+                    this_y0_list.append(this_selectivity_attr_dict['Y Offset'])
                 selectivity_attr_dict[this_selectivity_type_name][gid] = this_selectivity_attr_dict
                 gid_count[this_selectivity_type_name] += 1
             req.wait()
@@ -337,8 +343,10 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
             
         pop_norm_distances[population] = this_pop_norm_distances
         rate_map_sum[population] = dict(this_rate_map_sum)
-        x0_dict[population] = np.concatenate(this_x0_list, axis=None)
-        y0_dict[population] = np.concatenate(this_y0_list, axis=None)
+        if len(this_x0_list) > 0:
+            x0_dict[population] = np.concatenate(this_x0_list, axis=None)
+            y0_dict[population] = np.concatenate(this_y0_list, axis=None)
+            
         
         total_gid_count = 0
         gid_count_dict = dict(gid_count.items())
@@ -366,6 +374,8 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
                 req.wait()
             del selectivity_attr_dict
             gc.collect()
+        req = comm.Ibarrier()
+        req.wait()
                 
     if gather:
         merged_pop_norm_distances = {}
