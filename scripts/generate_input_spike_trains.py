@@ -75,7 +75,7 @@ def plot_summed_spike_psth(t, trajectory_id, selectivity_type_name, merged_spike
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
-@click.option("--cache-size", type=int, default=50)
+@click.option("--cache-size", type=int, default=100)
 @click.option("--write-size", type=int, default=10000)
 @click.option("--output-path", type=click.Path(file_okay=True, dir_okay=False), default=None)
 @click.option("--spikes-namespace", type=str, default='Input Spikes')
@@ -252,6 +252,10 @@ def main(config, config_prefix, selectivity_path, selectivity_namespace, coords_
         write_every = max(1, int(math.floor(write_size / comm.size)))
         for population in populations:
 
+            req = comm.Ibarrier()
+            gc.collect()
+            req.wait()
+
             pop_start = int(population_ranges[population][0])
             num_cells = int(population_ranges[population][1])
 
@@ -268,14 +272,18 @@ def main(config, config_prefix, selectivity_path, selectivity_namespace, coords_
                     logger.info('Generating input source spike trains for population %s [%s]...' % (population, this_selectivity_namespace))
             
                 start_time = time.time()
+                req = comm.Ibarrier()
                 selectivity_attr_gen = NeuroH5CellAttrGen(selectivity_path, population,
                                                           namespace=this_selectivity_namespace,
                                                           comm=comm, io_size=io_size,
                                                           cache_size=cache_size)
+                req.wait()
                 spikes_attr_dict = dict()
                 gid_count = 0
                 for iter_count, (gid, selectivity_attr_dict) in enumerate(selectivity_attr_gen):
                     if gid is not None:
+                        if rank == 0:
+                            logger.info(f'Rank {rank}: generating spike trains for gid {gid}...')
                         context.update(locals())
                         phase_mod_config = None
                         if phase_mod_config_dict is not None:
@@ -288,38 +296,50 @@ def main(config, config_prefix, selectivity_path, selectivity_namespace, coords_
                                                         equilibrate=equilibrate,
                                                         phase_mod_config=phase_mod_config,
                                                         spike_hist_sum=this_spike_hist_sum,
+                                                        return_selectivity_features=False,
                                                         debug= (debug_callback, context) if debug else False)
                         gid_count += 1
 
                     if (iter_count > 0 and iter_count % write_every == 0) or (debug and iter_count == 10):
+                        req = comm.Ibarrier()
                         total_gid_count = comm.reduce(gid_count, root=0, op=MPI.SUM)
                         if rank == 0:
                             logger.info('generated spike trains for %i %s cells' %
                                         (total_gid_count, population))
+                        req.wait()
                     
+                        req = comm.Ibarrier()
                         if not dry_run:
                             append_cell_attributes(output_path, population, spikes_attr_dict,
                                                    namespace=output_namespace, comm=comm, io_size=io_size,
                                                    chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+                        req.wait()
+                        req = comm.Ibarrier()
                         del spikes_attr_dict
                         spikes_attr_dict = dict()
                         gc.collect()
-
+                        req.wait()
                         if debug and iter_count == 10:
                             break
             
             if not dry_run:
+                req = comm.Ibarrier()
                 append_cell_attributes(output_path, population, spikes_attr_dict,
                                        namespace=output_namespace, comm=comm, io_size=io_size,
                                        chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+                req.wait()
+                req = comm.Ibarrier()
                 del spikes_attr_dict
                 spikes_attr_dict = dict()
+                req.wait()
             process_time = time.time() - start_time
             
+            req = comm.Ibarrier()
             total_gid_count = comm.reduce(gid_count, root=0, op=MPI.SUM)
             if rank == 0:
                 logger.info('generated spike trains for %i %s cells in %.2f s' %
                             (total_gid_count, population, process_time))
+            req.wait()
 
             if gather:
                 spike_hist_sum_dict[population] = this_spike_hist_sum
@@ -346,7 +366,6 @@ def main(config, config_prefix, selectivity_path, selectivity_namespace, coords_
                         plot_summed_spike_psth(t, trajectory_id, selectivity_type_name, merged_spike_hist_sum,
                                                spike_hist_resolution, fig_options)
 
-        comm.barrier()
 
     if is_interactive and rank == 0:
         context.update(locals())
