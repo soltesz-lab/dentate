@@ -33,7 +33,7 @@ export I_MPI_ADJUST_BARRIER=4
 
 
 ibrun -n 1400 python3 $HOME/model/dentate/scripts/generate_input_selectivity_features.py \
-    --config=Full_Scale_Basis.yaml -p GC -p MPP -p LPP -p CA3c -p MC  --write-size 50000 \
+    --config=Full_Scale_Basis.yaml -p GC -p MPP -p LPP -p CA3c -p MC -p ConMC --write-size 50000 \
     --config-prefix=./config --use-noise-gen \
     --coords-path=${DATA_PREFIX}/Full_Scale_Control/DG_coords_20190717_compressed.h5 \
     --output-path=${DATA_PREFIX}/Full_Scale_Control/DG_input_features_20220105.h5 \
