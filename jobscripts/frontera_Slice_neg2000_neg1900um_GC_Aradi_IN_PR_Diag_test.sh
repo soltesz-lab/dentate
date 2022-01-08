@@ -30,7 +30,7 @@ export I_MPI_ADJUST_ALLTOALL=4
 export I_MPI_ADJUST_ALLTOALLV=2
 export I_MPI_ADJUST_ALLREDUCE=6
 
-results_path=$SCRATCH/dentate/results/Slice_neg2000_neg1800um_GC_Aradi_SLN_IN_PR_Diag_$SLURM_JOB_ID
+results_path=$SCRATCH/dentate/results/Slice_neg2000_neg1900um_GC_Aradi_SLN_IN_PR_Diag_$SLURM_JOB_ID
 export results_path
 
 cd $SLURM_SUBMIT_DIR
@@ -40,22 +40,22 @@ mkdir -p $results_path
 #git ls-files | tar -zcf ${results_path}/dentate.tgz --files-from=/dev/stdin
 
 ibrun -n 168 env PYTHONPATH=$PYTHONPATH python3 ./scripts/main.py  \
-    --config-file=Network_Clamp_Slice_neg2000_neg1800um_IN_PR.yaml  \
+    --config-file=Network_Clamp_Slice_neg2000_neg1900um_IN_PR.yaml  \
     --arena-id=A --trajectory-id=Diag \
     --template-paths=templates \
     --dataset-prefix="$SCRATCH/striped2/dentate" \
     --results-path=$results_path \
-    --spike-input-path="$DATA_PREFIX/Slice/dentatenet_Slice_SLN_neg2000_neg1800um_20220107_compressed.h5" \
+    --spike-input-path="$DATA_PREFIX/Slice/dentatenet_Slice_SLN_neg2000_neg1900um_20220108_compressed.h5" \
     --spike-input-namespace='Input Spikes A Diag' \
     --spike-input-attr='Spike Train' \
     --microcircuit-inputs \
     --io-size=1 \
     --use-cell-attr-gen \
-    --tstop=7500 \
+    --tstop=1000 \
     --v-init=-75 \
     --results-write-time=600 \
     --stimulus-onset=0.0 \
     --max-walltime-hours=0.49 \
-    --dt 0.0125 --use-coreneuron \
+    --dt 0.025 --use-coreneuron \
     --verbose
 
