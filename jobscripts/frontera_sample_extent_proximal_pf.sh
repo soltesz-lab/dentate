@@ -26,15 +26,16 @@ mkdir -p $results_path
 
 cd $SLURM_SUBMIT_DIR
 
+#    --spike-input-path="$DATA_PREFIX/Full_Scale_Control/DG_input_spike_trains_phasemod_20210606_compressed.h5"  \
+#    --spike-input-namespace='Input Spikes A Diag' \
+
 ibrun -np 16  python3 ./scripts/sample_extent.py \
     --arena-id='A' --trajectory-id=Diag \
     --config=Full_Scale_GC_Aradi_SLN_IN_PR.yaml \
     --config-prefix=./config \
     --dataset-prefix="$DATA_PREFIX" \
     --output-path=$results_path \
-    --spike-input-path="$DATA_PREFIX/Full_Scale_Control/DG_input_spike_trains_phasemod_20210606_compressed.h5"  \
-    --spike-input-namespace='Input Spikes A Diag' \
-    --input-features-path="$DATA_PREFIX/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
+    --input-features-path="$DATA_PREFIX/Full_Scale_Control/DG_input_features_20220105.h5" \
     --output-path=${results_path} \
     --bin-sample-proximal-pf \
     --bin-sample-count 10 \

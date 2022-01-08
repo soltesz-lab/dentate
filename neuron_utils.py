@@ -212,6 +212,9 @@ def configure_hoc_env(env, bcast_template=False):
     ## sparse parallel transfer
     if hasattr(h, 'nrn_sparse_partrans'):
         h.nrn_sparse_partrans = 1
+    ## do not call MPI abort when hoc_execerror is called
+    if hasattr(h.pc, 'mpiabort_on_error'):
+        h.pc.mpiabort_on_error(0)
 
 
 def load_cell_template(env, pop_name, bcast_template=False):

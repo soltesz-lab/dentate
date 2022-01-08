@@ -9,13 +9,13 @@ __author__ = 'See AUTHORS.md'
 import os, sys, logging
 import click
 import numpy as np
-from mpi4py import MPI
 from collections import defaultdict, namedtuple
 import dentate
 from dentate import synapses, spikedata, stimulus, utils
 from dentate.env import Env
 from dentate.utils import viewitems
 from enum import Enum, IntEnum, unique
+from mpi4py import MPI
 
 SynParam = namedtuple('SynParam',
                       ['population',

@@ -7,7 +7,6 @@ import os, sys, logging, datetime, gc
 from functools import partial
 import click
 import numpy as np
-from mpi4py import MPI
 from collections import defaultdict, namedtuple
 import dentate
 from dentate import network, network_clamp, synapses, spikedata, stimulus, utils, optimization
@@ -17,6 +16,7 @@ from dentate.optimization import (SynParam, OptConfig, syn_param_from_dict, opti
                                   update_network_params, network_features)
 from dentate.stimulus import rate_maps_from_features
 from dmosopt import dmosopt
+from mpi4py import MPI
 
 logger = get_module_logger(__name__)
 
@@ -64,7 +64,7 @@ def dmosopt_broker_init(broker, *args):
 @click.option("--resample-fraction", type=float)
 @click.option("--mutation-rate", type=float)
 @click.option("--collective-mode", type=str, default='gather')
-@click.option("--spawn-startup-wait", type=int, default=30)
+@click.option("--spawn-startup-wait", type=int, default=3)
 @click.option("--verbose", '-v', is_flag=True)
 def main(config_path, target_features_path, target_features_namespace, optimize_file_dir, optimize_file_name, nprocs_per_worker, n_iter, n_initial, initial_maxiter, initial_method, optimizer_method, population_size, num_generations, resample_fraction, mutation_rate, collective_mode, spawn_startup_wait, verbose):
 

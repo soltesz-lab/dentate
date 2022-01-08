@@ -5,7 +5,7 @@
 #SBATCH -N 40
 #SBATCH --ntasks-per-node=56
 #SBATCH -p normal      # Queue (partition) name
-#SBATCH -t 6:30:00
+#SBATCH -t 2:30:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #SBATCH --mail-type=BEGIN
@@ -37,11 +37,11 @@ ibrun python3 ./scripts/generate_structured_weights_as_cell_attr.py \
     --non-structured-weights-namespace='Normal Weights' \
     --non-structured-weights-path=$DATA_PREFIX/DG_GC_syn_weights_LN_20210920_compressed.h5 \
     --output-features-namespace='Random Place Input Features' \
-    --output-features-path=$DATA_PREFIX/DG_GC_syn_weights_S_20211201.h5 \
+    --output-features-path=$DATA_PREFIX/DG_GC_syn_weights_S_20220105.h5 \
     --output-weights-namespace='Structured Weights' \
-    --output-weights-path=$DATA_PREFIX/DG_GC_syn_weights_S_20211201.h5 \
+    --output-weights-path=$DATA_PREFIX/DG_GC_syn_weights_S_20220105.h5 \
     --connections-path=$DATA_PREFIX/DG_GC_connections_20210920_compressed.h5 \
-    --input-features-path=$DATA_PREFIX/DG_input_features_20200910_compressed.h5 \
+    --input-features-path=$DATA_PREFIX/DG_input_features_20220105.h5 \
     --arena-id=A --arena-margin=0.3 \
     --max-delta-weight=20 --target-amplitude=4 \
     --io-size=96 --value-chunk-size=10000 --chunk-size=10000 --write-size=0 -v

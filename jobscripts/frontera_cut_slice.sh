@@ -10,14 +10,13 @@
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
-module load gcc/9.1.0
 module load python3
 module load phdf5
 
 set -x
 
-export NEURONROOT=$SCRATCH/bin/nrnpython3_gcc9
-export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/gcc9:$PYTHONPATH
+export NEURONROOT=$HOME/bin/nrnpython3_intel19
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
 export PATH=$NEURONROOT/bin:$PATH
 
 export I_MPI_ADJUST_SCATTER=2
@@ -43,10 +42,10 @@ ibrun python3 ./scripts/cut_slice.py \
     --dataset-prefix="$SCRATCH/striped2/dentate" \
     --output-path=$results_path \
     --io-size=24 \
-    --spike-input-path="$SCRATCH/striped2/dentate/Full_Scale_Control/DG_input_spike_trains_phasemod_20210606_compressed.h\
+    --spike-input-path="$SCRATCH/striped2/dentate/Full_Scale_Control/DG_input_spike_trains_phasemod_20220106_compressed.h\
 5" \
     --spike-input-namespace='Input Spikes A Diag' \
     --spike-input-attr="Spike Train" \
-    --distance-limits -2000 -1500 \
+    --distance-limits -2000 -1900 \
     --write-selection \
     --verbose

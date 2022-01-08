@@ -14,9 +14,9 @@ module load phdf5
 
 set -x
 
-export prefix=$SCRATCH/striped/dentate/Full_Scale_Control
-export input=$prefix/DG_input_spike_trains_phasemod_20210606.h5
-export output=$prefix/DG_input_spike_trains_phasemod_20210606_compressed.h5
+export prefix=$SCRATCH/striped2/dentate/Full_Scale_Control
+export input=$prefix/DG_input_spike_trains_phasemod_20220106.h5
+export output=$prefix/DG_input_spike_trains_phasemod_20220106_compressed.h5
 
 export H5TOOLS_BUFSIZE=$((64 * 1024 * 1024 * 1024))
 echo H5TOOLS_BUFSIZE is $H5TOOLS_BUFSIZE
