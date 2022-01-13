@@ -1,6 +1,6 @@
 import numbers, os, copy, pprint, sys, time
 from collections import defaultdict
-from scipy import interpolate, signal
+from scipy import interpolate, signal, ndimage
 import numpy as np
 from mpi4py import MPI
 from neuroh5.io import NeuroH5ProjectionGen, bcast_cell_attributes, read_cell_attributes, read_population_names, \
@@ -2972,10 +2972,8 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
             ax_spk.add_artist(at)
         i_ax += 1
 
-    if target_rate is not None:
+    if target_rate is not None :
         t = np.arange(time_range[0], time_range[1], 1.)
-        trial_sdf_matrix = np.row_stack([trial_sdf_ip(t) for trial_sdf_ip in trial_sdf_ips])
-        mean_sdf = np.mean(trial_sdf_matrix, axis=0)
         target_rate = target_rate_ip(t)
         ax_target_rate = axes[i_ax]
         i_ax += 1
@@ -2983,7 +2981,10 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
         ax_target_rate.set_yticks([])
         ax_mean_sdf = axes[i_ax]
         i_ax += 1
-        ax_mean_sdf.imshow(mean_sdf[np.newaxis,:], aspect="auto")
+        if len(trial_sdf_ips) > 0:
+            trial_sdf_matrix = np.row_stack([trial_sdf_ip(t) for trial_sdf_ip in trial_sdf_ips])
+            mean_sdf = np.mean(trial_sdf_matrix, axis=0)
+            ax_mean_sdf.imshow(mean_sdf[np.newaxis,:], aspect="auto")
         ax_mean_sdf.set_yticks([])
         
     # Plot intracellular state
@@ -5623,8 +5624,44 @@ def plot_1D_rate_map(t, rate_map, peak_rate=None, spike_train=None, title=None, 
     if fig_options.showFig:
         fig.show()
 
+#=============================================================================
+# Get radially averaged PSD of 2D PSD (total power spectrum by angular bin)
+#=============================================================================
+def get_RPSD(psd2D, dTheta=30, rMin=10, rMax=100):
+    
+    h  = psd2D.shape[0]
+    w  = psd2D.shape[1]
+    wc = w//2
+    hc = h//2
+    
+    # note that displaying PSD as image inverts Y axis
+    # create an array of integer angular slices of dTheta
+    Y, X  = np.ogrid[0:h, 0:w]
+    theta = np.rad2deg(np.arctan2(-(Y-hc), (X-wc)))
+    theta = np.mod(theta + dTheta/2 + 360, 360)
+    theta = dTheta * (theta//dTheta)
+    theta = theta.astype(np.int)
+    
+    # mask below rMin and above rMax by setting to -100
+    R     = np.hypot(-(Y-hc), (X-wc))
+    mask  = np.logical_and(R > rMin, R < rMax)
+    theta = theta + 100
+    theta = np.multiply(mask, theta)
+    theta = theta - 100
+    
+    # SUM all psd2D pixels with label 'theta' for 0<=theta❤60 between rMin and rMax
+    angF  = np.arange(0, 360, int(dTheta))
+    psd1D = ndimage.sum(psd2D, theta, index=angF)
+    
+    # normalize each sector to the total sector power
+    pwrTotal = np.sum(psd1D)
+    psd1D    = psd1D/pwrTotal
+    
+    return angF, psd1D        
 
-def plot_2D_rate_map(x, y, rate_map, peak_rate=None, title=None, **kwargs):
+
+
+def plot_2D_rate_map(x, y, rate_map, peak_rate=None, title=None, fft_vmax=10., density_bin_size=10., **kwargs):
     """
 
     :param x: array
@@ -5635,20 +5672,46 @@ def plot_2D_rate_map(x, y, rate_map, peak_rate=None, title=None, **kwargs):
     """
     fig_options = copy.copy(default_fig_options)
     fig_options.update(kwargs)
-
+    
     if peak_rate is None:
         peak_rate = np.max(rate_map)
-    fig, axes = plt.subplots(figsize=fig_options.figSize)
-    pc = axes.pcolor(x, y, rate_map, vmin=0., vmax=peak_rate, cmap=fig_options.colormap)
-    axes.set_aspect('equal')
-    cbar = fig.colorbar(pc, ax=axes)
+
+    fig = plt.figure(constrained_layout=True, figsize=fig_options.figSize)
+    gs = gridspec.GridSpec(2, 3, figure=fig, width_ratios=[2,1,1])
+
+    x_min = np.min(x)
+    x_max = np.max(x)
+    y_min = np.min(y)
+    y_max = np.max(y)
+    
+    ax = fig.add_subplot(gs[0,0])
+    pc = ax.pcolor(x, y, rate_map, vmin=0., vmax=peak_rate, cmap=fig_options.colormap)
+    cbar = fig.colorbar(pc, ax=ax, fraction=0.046, pad=0.04)
     cbar.set_label('Firing Rate (Hz)', rotation=270., labelpad=20., fontsize=fig_options.fontSize)
-    axes.set_xlabel('X Position (cm)', fontsize=fig_options.fontSize)
-    axes.set_ylabel('Y Position (cm)', fontsize=fig_options.fontSize)
-    axes.tick_params(labelsize=fig_options.fontSize)
-    clean_axes(axes)
+    ax.set_title('Rate Map')
+    ax.set_aspect('equal')
+    ax.set_xlabel('X Position (cm)', fontsize=fig_options.fontSize)
+    ax.set_ylabel('Y Position (cm)', fontsize=fig_options.fontSize)
+    ax.tick_params(labelsize=fig_options.fontSize)
+    clean_axes(ax)
+
+    ax = fig.add_subplot(gs[1,0])
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
+    psd2D = np.abs(np.fft.fftshift(np.fft.fft2(rate_map - np.mean(rate_map))/ rate_map.shape[0]))
+    im = ax.imshow(psd2D, vmax=fft_vmax, cmap=fig_options.colormap, extent=[x_min, x_max, y_min, y_max])
+    cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    cbar.set_label('Power', rotation=270., labelpad=20., fontsize=fig_options.fontSize)
+    ax.set_title('Rate Periodogram')
+    ax.set_aspect('equal')
+
+    angF, rpsd = get_RPSD(psd2D)
+    ax = fig.add_subplot(gs[:,1])
+    sct = ax.scatter(angF, rpsd, cmap=fig_options.colormap)
+    ax.set_title('Radially Averaged Spectrogram')
+
     if title is not None:
-        axes.set_title(title, fontsize=fig_options.fontSize)
+        fig.suptitle(title, fontsize=fig_options.fontSize)
 
     if fig_options.saveFig is not None:
         save_figure(fig_options.saveFig, fig=fig, **fig_options())
