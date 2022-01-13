@@ -43,6 +43,7 @@ def get_inhom_poisson_spike_times_by_thinning(rate, t, dt=0.02, refractory=3., g
         generator = random
     interp_t = np.arange(t[0], t[-1] + dt, dt)
 #    try:
+    rate[np.isclose(rate, 0., atol=1e-3, rtol=1e-3)] = 0.
     rate_ip = Akima1DInterpolator(t, rate)
     interp_rate = rate_ip(interp_t)
 #    except Exception:
