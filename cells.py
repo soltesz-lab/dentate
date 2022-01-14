@@ -2156,9 +2156,6 @@ def apply_custom_mech_rules(cell, node, mech_name, param_name, baseline, rules, 
     new_rules['value'] = baseline
     new_rules = func(cell, node, baseline, new_rules, donor, **custom)
     if new_rules:
-        if mech_name == 'nas':
-            print('debug: getting here with %s; %s' % (node.name, new_rules))
-            sys.stdout.flush()
         apply_mech_rules(cell, node, mech_name, param_name, new_rules, donor, verbose=verbose)
 
 
