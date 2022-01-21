@@ -1,13 +1,13 @@
-## Model configuration of dentate gyrus network
-Model Name: dentatenet_Full_Scale_GC_Aradi_SLN_IN_PR
+Network Clamp:  !include Network_Clamp.yaml
+Model Name: Network_Clamp_GC_Aradi_SLN_IN_PR
 Dataset Name: Full_Scale_Control
 Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-Cell Data: DG_Cells_Full_Scale_20220109.h5
-Connection Data: DG_Connections_Full_Scale_20220109.h5
-#Gap Junction Data: DG_gapjunctions_20210728.h5
+Cell Data: DG_Cells_Full_Scale_20211201.h5
+Connection Data: DG_Connections_Full_Scale_20211116.h5
+#Gap Junction Data: DG_gapjunctions_20191112.h5
 Connection Generator: !include Full_Scale_Connections_GC_Aradi_IN_PR.yaml
 Recording: !include Recording.yaml
 Stimulus: !include Input_Configuration.yaml
@@ -30,7 +30,7 @@ Cell Types:
       density: !include MC_synapse_density.yaml
   HC:
     template: PR_nrn
-    mechanism file: DG_HICAP_PR_config.yaml
+    mechanism file: DG_HIPP_PR_config.yaml
     synapses:
       density: !include HC_synapse_density.yaml
   BC:

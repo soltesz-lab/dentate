@@ -12,6 +12,7 @@ PinskyRinzel:
   dend_d_Caconc: 7.7939773
   ic_constant:  0.0022316
   cm_ratio: 1.0
+  e_pas: -60
   global_diam:  10.0
   global_cm:  3.0
   V_rest: -64.0

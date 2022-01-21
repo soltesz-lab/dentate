@@ -52,9 +52,6 @@ sys.excepthook = mpi_excepthook
 @click.option("--node-rank-file", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False),
                   help='name of file specifying assignment of cell gids to MPI ranks')
 @click.option("--io-size", type=int, default=0, help='the number of MPI ranks to be used for I/O operations')
-@click.option("--vrecord-fraction", type=float, default=0.001,
-              help='fraction of cells to record intracellular voltage from')
-@click.option("--coredat", is_flag=True, help='Save CoreNEURON data')
 @click.option("--tstop", type=int, default=1, help='physical time to simulate (ms)')
 @click.option("--v-init", type=float, default=-75.0, help='initialization membrane potential (mV)')
 @click.option("--stimulus-onset", type=float, default=1.0, help='starting time of stimulus (ms)')
@@ -72,7 +69,7 @@ sys.excepthook = mpi_excepthook
 @click.option('--verbose', '-v', is_flag=True, help='print verbose diagnostic messages while constructing the network')
 @click.option('--run-test', is_flag=True, help='whether to actually execute simulation after building network')
 def main(cell_selection_path, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix,
-         results_path, results_id, node_rank_file, io_size, vrecord_fraction, coredat, tstop, v_init,
+         results_path, results_id, node_rank_file, io_size, tstop, v_init,
          stimulus_onset, max_walltime_hours, results_write_time, spike_input_path, spike_input_namespace,
          dt, ldbal, lptbal, cleanup, verbose, run_test):
     """
@@ -86,8 +83,6 @@ def main(cell_selection_path, config_file, template_paths, hoc_lib_path, dataset
     :param results_id: str; label for neuroh5 namespaces to write spike and voltage trace data
     :param node_rank_file: str; name of file specifying assignment of node gids to MPI ranks
     :param io_size: int; the number of MPI ranks to be used for I/O operations
-    :param vrecord_fraction: float; fraction of cells to record intracellular voltage from
-    :param coredat: bool; Save CoreNEURON data
     :param tstop: int; physical time to simulate (ms)
     :param v_init: float; initialization membrane potential (mV)
     :param stimulus_onset: float; starting time of stimulus (ms)

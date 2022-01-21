@@ -10,7 +10,7 @@ from dentate import cells, io_utils, lfp, lpt, simtime, synapses
 from dentate.neuron_utils import h, configure_hoc_env, cx, make_rec, mkgap, load_cell_template
 from dentate.utils import compose_iter, imapreduce, get_module_logger, profile_memory, Promise
 from dentate.utils import range, str, viewitems, viewkeys, zip, zip_longest
-from neuroh5.io import bcast_graph, read_cell_attribute_selection, scatter_read_cell_attribute_selection, read_graph_selection, read_tree_selection, scatter_read_cell_attributes, scatter_read_graph, scatter_read_trees, write_cell_attributes, write_graph
+from neuroh5.io import bcast_graph, read_cell_attribute_selection, scatter_read_cell_attribute_selection, read_graph_selection, read_tree_selection, scatter_read_cell_attributes, scatter_read_graph, scatter_read_trees, write_cell_attributes, write_graph, NeuroH5CellAttrGen
 from mpi4py import MPI
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -116,27 +116,65 @@ def connect_cells(env):
 
         cell_attr_namespaces = ['Synapse Attributes']
 
-        if env.node_allocation is None:
-            cell_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
-                                                                namespaces=sorted(cell_attr_namespaces),
-                                                                mask=set(['syn_ids', 'syn_locs', 'syn_secs', 'syn_layers',
-                                                                          'syn_types', 'swc_types']), 
-                                                                comm=env.comm, io_size=env.io_size,
-                                                                return_type='tuple')
-        else:
-            cell_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
-                                                                namespaces=sorted(cell_attr_namespaces),
-                                                                mask=set(['syn_ids', 'syn_locs', 'syn_secs', 'syn_layers',
-                                                                          'syn_types', 'swc_types']), 
-                                                                comm=env.comm, node_allocation=env.node_allocation,
-                                                                io_size=env.io_size,
-                                                                return_type='tuple')
+        if env.use_cell_attr_gen:
+            synapses_attr_gen = None
+            if env.node_allocation is None:
+                synapses_attr_gen = NeuroH5CellAttrGen(forest_file_path, postsyn_name, 
+                                                       namespace='Synapse Attributes',
+                                                       comm=env.comm, return_type='tuple',
+                                                       io_size=env.io_size, 
+                                                       cache_size=env.cell_attr_gen_cache_size)
+            else:
+                synapses_attr_gen = NeuroH5CellAttrGen(forest_file_path, postsyn_name, 
+                                                       namespace='Synapse Attributes',
+                                                       comm=env.comm, return_type='tuple',
+                                                       io_size=env.io_size, 
+                                                       cache_size=env.cell_attr_gen_cache_size,
+                                                       node_allocation=env.node_allocation)
+                
 
-        syn_attrs_iter, syn_attrs_info = cell_attributes_dict['Synapse Attributes']
-        syn_attrs.init_syn_id_attrs_from_iter(syn_attrs_iter, attr_type='tuple', 
-                                              attr_tuple_index=syn_attrs_info, debug=(rank == 0))
-        del cell_attributes_dict
-        gc.collect()
+            for iter_count, (gid, gid_attr_data) in enumerate(synapses_attr_gen):
+                
+                if gid is not None:
+                    (attr_tuple, attr_tuple_index) = gid_attr_data
+                    syn_ids_ind = attr_tuple_index.get('syn_ids', None)
+                    syn_locs_ind = attr_tuple_index.get('syn_locs', None)
+                    syn_layers_ind = attr_tuple_index.get('syn_layers', None)
+                    syn_types_ind = attr_tuple_index.get('syn_types', None)
+                    swc_types_ind = attr_tuple_index.get('swc_types', None)
+                    syn_secs_ind = attr_tuple_index.get('syn_secs', None)
+                    syn_locs_ind = attr_tuple_index.get('syn_locs', None)
+
+                    syn_ids = attr_tuple[syn_ids_ind]
+                    syn_layers = attr_tuple[syn_layers_ind]
+                    syn_types = attr_tuple[syn_types_ind]
+                    swc_types = attr_tuple[swc_types_ind]
+                    syn_secs = attr_tuple[syn_secs_ind]
+                    syn_locs = attr_tuple[syn_locs_ind]
+
+                    syn_attrs.init_syn_id_attrs(gid, syn_ids, syn_layers, syn_types, swc_types, syn_secs, syn_locs)
+        else:
+            if env.node_allocation is None:
+                cell_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
+                                                                    namespaces=sorted(cell_attr_namespaces),
+                                                                    mask=set(['syn_ids', 'syn_locs', 'syn_secs', 'syn_layers',
+                                                                              'syn_types', 'swc_types']), 
+                                                                    comm=env.comm, io_size=env.io_size,
+                                                                    return_type='tuple')
+            else:
+                cell_attributes_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
+                                                                    namespaces=sorted(cell_attr_namespaces),
+                                                                    mask=set(['syn_ids', 'syn_locs', 'syn_secs', 'syn_layers',
+                                                                              'syn_types', 'swc_types']), 
+                                                                    comm=env.comm, node_allocation=env.node_allocation,
+                                                                    io_size=env.io_size,
+                                                                    return_type='tuple')
+
+                syn_attrs_iter, syn_attrs_info = cell_attributes_dict['Synapse Attributes']
+                syn_attrs.init_syn_id_attrs_from_iter(syn_attrs_iter, attr_type='tuple', 
+                                                      attr_tuple_index=syn_attrs_info, debug=(rank == 0))
+                del cell_attributes_dict
+                gc.collect()
 
         weight_attr_mask = list(syn_attrs.syn_mech_names)
         weight_attr_mask.append('syn_id')
@@ -1289,7 +1327,7 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
             io_utils.mkout(env, env.results_file_path)
 
     if rank == 0:
-        logger.info("*** Running simulation")
+        logger.info(f"*** Running simulation; recording profile is {pprint.pformat(env.recording_profile)}")
 
     rec_dt = None
     if env.recording_profile is not None:

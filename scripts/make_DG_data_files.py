@@ -13,8 +13,8 @@ DG_populations = ["AAC", "BC", "GC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC", "M
 DG_IN_populations = ["AAC", "BC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC"]
 DG_EXT_populations = ["MPP", "LPP", "CA3c", "ConMC"]
 
-DG_cells_file = "DG_Cells_Full_Scale_20211201.h5"
-DG_connections_file = "DG_Connections_Full_Scale_20211116.h5"
+DG_cells_file = "DG_Cells_Full_Scale_20220109.h5"
+DG_connections_file = "DG_Connections_Full_Scale_20220109.h5"
 
 DG_GC_coordinate_file  = "DG_coords_20190717_compressed.h5"
 DG_IN_coordinate_file  = "DG_coords_20190717_compressed.h5"
@@ -27,9 +27,9 @@ DG_GC_forest_syns_file = "DGC_forest_syns_20210920_compressed.h5"
 DG_IN_forest_syns_file = "DG_IN_forest_syns_20211026.h5"
 
 DG_GC_syn_weights_LN_file = "DG_GC_syn_weights_LN_20210920_compressed.h5"
-DG_GC_syn_weights_S_file = "DG_GC_syn_weights_S_20211201_compressed.h5"
+DG_GC_syn_weights_S_file = "DG_GC_syn_weights_S_20220109_compressed.h5"
 DG_MC_syn_weights_LN_file = "DG_MC_syn_weights_LN_20211116_compressed.h5"
-DG_MC_syn_weights_S_file = "DG_MC_syn_weights_S_20211201_compressed.h5"
+DG_MC_syn_weights_S_file = "DG_MC_syn_weights_S_20220109_compressed.h5"
 
 DG_GC_connectivity_file = "DG_GC_connections_20210920_compressed.h5"
 DG_IN_connectivity_file = "DG_IN_connections_20211116_compressed.h5"
@@ -47,7 +47,7 @@ connectivity_files = {
 }
 
 DG_vecstim_file_dict = { 
-    'A Diag': "DG_input_spike_trains_phasemod_20210606_compressed.h5"
+    'A Diag': "DG_input_spike_trains_phasemod_20220109_compressed.h5"
 
 }
 
@@ -127,7 +127,7 @@ syn_weight_files = {
              "LTD Structured Weights A": DG_GC_syn_weights_S_file,
              "Log-Normal Weights": DG_GC_syn_weights_LN_file ,
              "Normal Weights": DG_GC_syn_weights_LN_file,
-             "Non-Structured Weights A": DG_GC_syn_weights_LN_file,
+             "NS Structured Weights A": DG_GC_syn_weights_LN_file,
      },
 
      'MC': { 
@@ -135,7 +135,7 @@ syn_weight_files = {
              "LTD Structured Weights A": DG_MC_syn_weights_S_file,
              "Log-Normal Weights": DG_MC_syn_weights_LN_file,
              "Normal Weights": DG_MC_syn_weights_LN_file,
-             "Non-Structured Weights A": DG_GC_syn_weights_LN_file,
+             "NS Structured Weights A": DG_GC_syn_weights_LN_file,
      }
 
 
@@ -165,7 +165,7 @@ with h5py.File(DG_cells_file, 'a') as f_dst:
             h5_copy_dataset(f_src, f_dst, distances_dset_path)
 
 
-# ## Creates forest entries and synapse attributes
+## Creates forest entries and synapse attributes
 for p in DG_populations:
     if p in forest_files:
         forest_file = forest_files[p]

@@ -45,7 +45,7 @@ sys.excepthook = mpi_excepthook
 ))
 @click.option("--config-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False), \
               help='path to evaluation configuration file')
-@click.option("--params-id", required=True, type=int, help='index of parameter set')
+@click.option("--params-id", type=int, help='index of parameter set')
 @click.option("--output-file-name", type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--verbose", '-v', is_flag=True)
 def main(config_path, params_id, output_file_name, verbose):
@@ -68,30 +68,29 @@ def main(config_path, params_id, output_file_name, verbose):
             result.append((param_tuple, x[i]))
         return result
 
-    x = network_param_values[params_id]
-    param_tuple_values = from_param_list(x)
+    params_id_list = []
+    if params_id is None:
+        params_id_list = list(network_param_values.keys())
+    else:
+        params_id_list = [params_id]
 
-    def rec_dd():
-        return defaultdict(rec_dd)
-
-    def dd2dict(d):
-        for k, v in d.items():
-            
-            if isinstance(v, dict):
-                d[k] = dd2dict(v)
-        return dict(d)
-
-    param_output_ddict = rec_dd()
-
-    for param_tuple, param_value in param_tuple_values:
-        if isinstance(param_tuple.param_path, tuple):
-            param_output_ddict[param_tuple.population][param_tuple.source][param_tuple.sec_type][param_tuple.syn_name][param_tuple.param_path[0]][param_tuple.param_path[1]] = param_value
-        else:
-            param_output_ddict[param_tuple.population][param_tuple.source][param_tuple.sec_type][param_tuple.syn_name][param_tuple.param_path] = param_value
-
-    param_output_dict = dd2dict(param_output_ddict)
+    param_output_dict = dict()
+    for this_params_id in params_id_list:
+        x = network_param_values[this_params_id]
+        param_tuple_values = from_param_list(x)
+        this_param_list = []
+        for param_tuple, param_value in param_tuple_values:
+            this_param_list.append((param_tuple.population, 
+                                    param_tuple.source,
+                                    param_tuple.sec_type,
+                                    param_tuple.syn_name,
+                                    param_tuple.param_path,
+                                    param_value))
+        param_output_dict[this_params_id] = this_param_list
+                
     pprint.pprint(param_output_dict)
-    write_to_yaml(output_file_name, param_output_dict)
+    if output_file_name is not None:
+        write_to_yaml(output_file_name, param_output_dict)
     
     
 

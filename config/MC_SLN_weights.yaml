@@ -1,5 +1,5 @@
 - namespace: ['LTP Structured Weights A', 'LTD Structured Weights A', 'Log-Normal Weights']
-  expr: 4*(ltp + ltd + lnw)
+  expr: ltp + ltd + lnw
   parameter: [ltp, ltd, lnw]
 - namespace: ['NS Structured Weights A', 'Normal Weights']
   expr: nsw + nw

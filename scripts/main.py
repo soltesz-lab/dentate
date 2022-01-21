@@ -54,6 +54,9 @@ sys.excepthook = mpi_excepthook
 @click.option("--node-rank-file", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False),
                   help='name of file specifying assignment of cell gids to MPI ranks')
 @click.option("--io-size", type=int, default=0, help='the number of MPI ranks to be used for I/O operations')
+@click.option("--use-cell-attr-gen", is_flag=True, help='whether to use cell attribute generator for I/O operations')
+@click.option("--cell-attr-gen-cache-size", type=int, default=10,
+              help='cell attribute generator cache readahead size')
 @click.option("--recording-fraction", type=float, default=0.005,
               help='fraction of cells for intracellular recording')
 @click.option("--recording-profile", type=str, default='Network default',
@@ -89,7 +92,7 @@ sys.excepthook = mpi_excepthook
 @click.option('--debug', is_flag=True, help='enable debug mode')
 @click.option('--dry-run', is_flag=True, help='whether to actually execute simulation after building network')
 def main(arena_id, cell_selection_path, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix,
-         results_path, results_id, node_rank_file, io_size, recording_fraction, recording_profile, output_syn_spike_count,
+         results_path, results_id, node_rank_file, io_size, use_cell_attr_gen, cell_attr_gen_cache_size, recording_fraction, recording_profile, output_syn_spike_count,
          use_coreneuron, trajectory_id, tstop, v_init, stimulus_onset, max_walltime_hours, microcircuit_inputs, 
          checkpoint_clear_data, checkpoint_interval, results_write_time, spike_input_path, spike_input_namespace, 
          spike_input_attr, dt, ldbal, lptbal, cleanup, profile_memory, write_selection, verbose, debug, dry_run):

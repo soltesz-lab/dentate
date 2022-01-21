@@ -11,12 +11,11 @@
 #SBATCH --mail-type=BEGIN
 #
 
-module load gcc/9.1.0
 module load python3
 module load phdf5/1.10.4
 
-export NEURONROOT=$SCRATCH/bin/nrnpython3_gcc9
-export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/gcc9:$PYTHONPATH
+export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
 
 set -x
 
@@ -28,14 +27,13 @@ export I_MPI_ADJUST_ALLGATHER=2
 export I_MPI_ADJUST_ALLTOALL=4
 export I_MPI_ADJUST_ALLREDUCE=2
 export I_MPI_ADJUST_BCAST=4
-export I_MPI_ADJUST_BARRIER=4
+export I_MPI_SHM=off
 
-
-
-ibrun -n 1400 python3 $HOME/model/dentate/scripts/generate_input_selectivity_features.py \
-    --config=Full_Scale_Basis.yaml -p GC -p MPP -p LPP -p CA3c -p MC  --write-size 50000 \
+# -p GC -p MPP -p LPP -p CA3c -p MC -p ConMC
+ibrun -n 2000 python3 $HOME/model/dentate/scripts/generate_input_selectivity_features.py \
+    --config=Full_Scale_Basis.yaml -p GC --write-size 50000 \
     --config-prefix=./config --use-noise-gen \
     --coords-path=${DATA_PREFIX}/Full_Scale_Control/DG_coords_20190717_compressed.h5 \
-    --output-path=${DATA_PREFIX}/Full_Scale_Control/DG_input_features_20220105.h5 \
+    --output-path=${DATA_PREFIX}/Full_Scale_Control/DG_input_features_20220108.h5 \
     --io-size 2 \
     -v

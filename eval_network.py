@@ -7,10 +7,10 @@ import os, sys, logging, datetime, gc, pprint
 from functools import partial
 import click
 import numpy as np
-import h5py
-from mpi4py import MPI
-from neuroh5.io import scatter_read_cell_attribute_selection, read_cell_attribute_info, append_cell_attributes
 from collections import defaultdict, namedtuple
+from mpi4py import MPI
+import h5py
+from neuroh5.io import scatter_read_cell_attribute_selection, read_cell_attribute_info, append_cell_attributes
 import dentate
 from dentate import network, network_clamp, synapses, spikedata, stimulus, utils, io_utils, optimization
 from dentate.env import Env
