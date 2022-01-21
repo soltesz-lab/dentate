@@ -51,19 +51,19 @@ mpirun -rr -n 171 \
     python3 optimize_network.py \
     --config-path=$DG_HOME/config/DG_optimize_network_neg2000_neg1900um.yaml \
     --optimize-file-dir=$results_path \
-    --target-features-path="$DATA_PREFIX/Full_Scale_Control/DG_input_features_20220105.h5" \
+    --target-features-path="$DATA_PREFIX/Full_Scale_Control/DG_input_features_20220108.h5" \
     --target-features-namespace="Place Selectivity" \
     --verbose \
     --nprocs-per-worker=168 \
-    --n-iter=6 \
-    --n-initial=100 --initial-method="slh" --num-generations=400 --population-size=100 --resample-fraction 1.0 \
+    --n-epochs=6 \
+    --n-initial=100 --initial-method="slh" --num-generations=400 --population-size=200 --resample-fraction 1.0 \
     --no_cleanup \
     --arena_id=A --trajectory_id=Diag \
     --template_paths=$DG_HOME/templates \
     --dataset_prefix="$DATA_PREFIX" \
     --config_prefix=$DG_HOME/config \
     --results_path=$results_path \
-    --spike_input_path="$DATA_PREFIX/Slice/dentatenet_Slice_SLN_neg2000_neg1900um_20220108_compressed.h5" \
+    --spike_input_path="$DATA_PREFIX/Slice/dentatenet_Slice_SLN_neg2000_neg1900um_20220109_compressed.h5" \
     --spike_input_namespace='Input Spikes A Diag' \
     --spike_input_attr='Spike Train' \
     --max_walltime_hours=24.0 \

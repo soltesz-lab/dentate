@@ -6,18 +6,17 @@
 #SBATCH -p normal      # Queue (partition) name
 #SBATCH -N 512             # Total # of nodes 
 #SBATCH --ntasks-per-node=56            # # of mpi tasks per node
-#SBATCH -t 9:00:00        # Run time (hh:mm:ss)
+#SBATCH -t 6:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
-module load gcc/9.1.0
 module load python3
 module load phdf5/1.10.4
 
 set -x
 
-export NEURONROOT=$SCRATCH/bin/nrnpython3_gcc9
-export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/gcc9:$PYTHONPATH
+export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
 export PATH=$NEURONROOT/bin:$PATH
 export MODEL_HOME=$HOME/model
 export DG_HOME=$MODEL_HOME/dentate
@@ -48,7 +47,7 @@ ibrun env PYTHONPATH=$PYTHONPATH $PYTHON ./scripts/main.py  \
     --template-paths=templates \
     --dataset-prefix="$SCRATCH/striped2/dentate" \
     --results-path=$results_path \
-    --io-size=96 \
+    --io-size=84 \
     --tstop=9500 \
     --v-init=-75 \
     --results-write-time=600 \

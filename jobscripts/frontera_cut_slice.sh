@@ -42,7 +42,7 @@ ibrun python3 ./scripts/cut_slice.py \
     --dataset-prefix="$SCRATCH/striped2/dentate" \
     --output-path=$results_path \
     --io-size=24 \
-    --spike-input-path="$SCRATCH/striped2/dentate/Full_Scale_Control/DG_input_spike_trains_phasemod_20220106_compressed.h\
+    --spike-input-path="$SCRATCH/striped2/dentate/Full_Scale_Control/DG_input_spike_trains_phasemod_20220109_compressed.h\
 5" \
     --spike-input-namespace='Input Spikes A Diag' \
     --spike-input-attr="Spike Train" \

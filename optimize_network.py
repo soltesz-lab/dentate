@@ -54,7 +54,7 @@ def dmosopt_broker_init(broker, *args):
 @click.option("--optimize-file-dir", type=click.Path(exists=True, file_okay=False, dir_okay=True), default='results')
 @click.option("--optimize-file-name", type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--nprocs-per-worker", type=int, default=1)
-@click.option("--n-iter", type=int, default=1)
+@click.option("--n-epochs", type=int, default=1)
 @click.option("--n-initial", type=int, default=30)
 @click.option("--initial-maxiter", type=int, default=50)
 @click.option("--initial-method", type=str, default='glp')
@@ -66,7 +66,7 @@ def dmosopt_broker_init(broker, *args):
 @click.option("--collective-mode", type=str, default='gather')
 @click.option("--spawn-startup-wait", type=int, default=3)
 @click.option("--verbose", '-v', is_flag=True)
-def main(config_path, target_features_path, target_features_namespace, optimize_file_dir, optimize_file_name, nprocs_per_worker, n_iter, n_initial, initial_maxiter, initial_method, optimizer_method, population_size, num_generations, resample_fraction, mutation_rate, collective_mode, spawn_startup_wait, verbose):
+def main(config_path, target_features_path, target_features_namespace, optimize_file_dir, optimize_file_name, nprocs_per_worker, n_epochs, n_initial, initial_maxiter, initial_method, optimizer_method, population_size, num_generations, resample_fraction, mutation_rate, collective_mode, spawn_startup_wait, verbose):
 
     network_args = click.get_current_context().args
     network_config = {}
@@ -140,12 +140,14 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
                       'initial_maxiter': initial_maxiter,
                       'initial_method': initial_method,
                       'optimizer': optimizer_method,
-                      'n_iter': n_iter,
+                      'n_epochs': n_epochs,
                       'population_size': population_size,
                       'num_generations': num_generations,
                       'resample_fraction': resample_fraction,
                       'mutation_rate': mutation_rate,
                       'file_path': f'{optimize_file_dir}/{optimize_file_name}',
+                      'termination_conditions': True,
+                      'save_surrogate_eval': True,
                       'save': True,
                       'save_eval': 5
                       }
@@ -170,7 +172,7 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
             for i in range(n_res):
                 result_param_list = []
                 for param_pattern, param_tuple in zip(param_names, param_tuples):
-                    result_param_list.append(float(prms_dict[param_pattern][i]))
+                    result_param_list.append([param_pattern, float(prms_dict[param_pattern][i])])
                 results_config_dict[i] = result_param_list
             write_to_yaml(yaml_file_path, results_config_dict)
 

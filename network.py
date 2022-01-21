@@ -1327,7 +1327,7 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
             io_utils.mkout(env, env.results_file_path)
 
     if rank == 0:
-        logger.info("*** Running simulation")
+        logger.info(f"*** Running simulation; recording profile is {pprint.pformat(env.recording_profile)}")
 
     rec_dt = None
     if env.recording_profile is not None:

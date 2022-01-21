@@ -10,14 +10,13 @@
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
-module load gcc/9.1.0
 module load python3
 module load phdf5
 
 set -x
 
-export NEURONROOT=$SCRATCH/bin/nrnpython3_gcc9
-export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/gcc9:$PYTHONPATH
+export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
 export PATH=$NEURONROOT/bin:$PATH
 export DATA_PREFIX="$SCRATCH/striped2/dentate"
 export results_path=$SCRATCH/dentate/results/sample_extent_proximal_pf_$SLURM_JOB_ID
@@ -26,8 +25,6 @@ mkdir -p $results_path
 
 cd $SLURM_SUBMIT_DIR
 
-#    --spike-input-path="$DATA_PREFIX/Full_Scale_Control/DG_input_spike_trains_phasemod_20210606_compressed.h5"  \
-#    --spike-input-namespace='Input Spikes A Diag' \
 
 ibrun -np 16  python3 ./scripts/sample_extent.py \
     --arena-id='A' --trajectory-id=Diag \
@@ -35,7 +32,9 @@ ibrun -np 16  python3 ./scripts/sample_extent.py \
     --config-prefix=./config \
     --dataset-prefix="$DATA_PREFIX" \
     --output-path=$results_path \
-    --input-features-path="$DATA_PREFIX/Full_Scale_Control/DG_input_features_20220105.h5" \
+    --input-features-path="$DATA_PREFIX/Full_Scale_Control/DG_input_features_20220108.h5" \
+    --spike-input-path="$DATA_PREFIX/Full_Scale_Control/DG_input_spike_trains_phasemod_20220109_compressed.h5"  \
+    --spike-input-namespace='Input Spikes A Diag' \
     --output-path=${results_path} \
     --bin-sample-proximal-pf \
     --bin-sample-count 10 \
