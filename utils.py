@@ -156,17 +156,19 @@ class NoiseGenerator:
     def __init__(self, tile_rank=0, n_tiles_per_dim=1, mask_fraction=0.99, seed=None, bounds=[[-1, 1],[-1, 1]], bin_size=0.05, n_seed_points_per_dim=None, **kwargs):
         """Creates a new noise generator structure."""
         self.seed = None
-        self.local_random = np.random.default_rng(seed)
+        self.local_random = np.random.default_rng(seed + tile_rank)
+        self.global_random = np.random.default_rng(seed)
         self.bounds = bounds
         self.ndims = len(self.bounds)
         self.bin_size = bin_size
         self.energy_map_shape = tuple(map(lambda x: int((x[1] - x[0])//bin_size + 1), bounds))
+        self.energy_bins = tuple([np.arange(b[0], b[1], bin_size) for b in self.bounds])
         if isinstance(n_tiles_per_dim, int):
             n_tiles_per_dim = [n_tiles_per_dim]*self.ndims
         self.n_tiles_per_dim = n_tiles_per_dim
         tile_dims = []
 
-        if (self.energy_map_shape % self.n_tiles_per_dim).sum() != 0:
+        if (np.asarray(self.energy_map_shape) % self.n_tiles_per_dim).sum() != 0:
             raise ValueError("'n_tiles_per_dim' is not compatible with input space bounds")
 
         for i in range(self.ndims):
@@ -183,13 +185,18 @@ class NoiseGenerator:
         
         self.energy_map = np.zeros(self.energy_map_shape, dtype=np.float32)
         self.energy_mask = np.zeros(self.energy_map.shape, dtype=np.bool)
+        self.energy_meshgrid = tuple((x.reshape(self.energy_map_shape)
+                                      for x in np.meshgrid(*self.energy_bins, indexing='ij')))
         
-        self.energy_tile_map = view_as_blocks(self.energy_map, self.tile_shape)
-        self.energy_tile_mask = view_as_blocks(self.energy_mask, self.tile_shape)
-        self.energy_bins = tuple([np.arange(b[0], b[1], bin_size) for b in self.bounds])
+        energy_idxs = np.indices(self.energy_map_shape)
+        energy_tile_indices = tuple((view_as_blocks(x.reshape(self.energy_map_shape), self.tile_shape)
+                                     for x in energy_idxs))
+        self.energy_tile_indices = energy_tile_indices
+        n_ranks = energy_tile_indices[0].shape[0]
+        n_tiles_per_rank = energy_tile_indices[0].shape[1]
+        self.energy_tile_perm = self.global_random.permutation(list(np.ndindex(n_ranks, n_tiles_per_rank))).reshape(n_ranks,-1,2)
+        self.tile_ptr = 0
         
-        self.energy_meshgrid = tuple((x.reshape(self.energy_map_shape) for x in np.meshgrid(*self.energy_bins, indexing='ij')))
-        self.energy_tile_meshgrid = tuple((view_as_blocks(x, self.tile_shape) for x in self.energy_meshgrid))
         
         self.n_seed_points = np.prod(self.n_seed_points_per_dim)
         self.mask_fraction = mask_fraction
@@ -222,22 +229,24 @@ class NoiseGenerator:
         return energy, peak_idxs
         
     def next(self):
-        tile_index = (self.tile_rank,)+self.tile_ptr
+        tile_choice = tuple(self.energy_tile_perm[self.tile_rank, self.tile_ptr].flatten())
+        tile_idxs = tuple((x[tile_choice]
+                           for x in self.energy_tile_indices))
         if len(self.mypoints) > self.n_seed_points // self.n_tiles:
-            mask = np.argwhere(~self.energy_tile_mask[tile_index])
+            mask = np.argwhere(~self.energy_mask[tile_idxs])
             if len(mask) > 0:
-                em = self.energy_tile_map[tile_index][tuple(mask.T)]
+                em = self.energy_map[tile_idxs][tuple(mask.T)]
                 mask_pos = np.argmin(em)
                 tile_pos = tuple(mask[mask_pos])
             else:
-                self.energy_tile_mask[tile_index].fill(0)
-                em = self.energy_tile_map[tile_index]
+                self.energy_mask[tile_idxs].fill(0)
+                em = self.energy_map[tile_idxs]
                 tile_pos = tuple(np.argmin(em))
-            en = self.energy_tile_map[tile_index][tile_pos]
-            p = np.asarray(tuple((x[tile_index][tile_pos] for x in self.energy_tile_meshgrid))).reshape((-1, self.ndims))
+            en = self.energy_map[tile_idxs][tile_pos]
+            p = np.asarray(tuple((x[tile_idxs][tile_pos] for x in self.energy_meshgrid))).reshape((-1, self.ndims))
         else:
-            tile_coords = tuple((x[tile_index] for x in self.energy_tile_meshgrid))
-            pos = tuple([self.local_random.integers(0, s) for s in tile_coords[0].shape])
+            tile_coords = tuple((x[tile_idxs] for x in self.energy_meshgrid))
+            pos = tuple((self.local_random.integers(0, s) for s in tile_coords[0].shape))
             p = np.asarray(tuple((x[pos] for x in tile_coords))).reshape((-1, self.ndims))
         self.mypoints.append(p)
         return p
@@ -262,9 +271,12 @@ class MPINoiseGenerator(NoiseGenerator):
         n_tiles_per_dim = np.concatenate(((self.comm.size,), self.n_tiles_per_rank),axis=None)
         kwargs['n_tiles_per_dim'] = n_tiles_per_dim
         kwargs['tile_rank'] = self.comm.rank
-        seed = self.comm.rank
-        if kwargs['seed'] is not None:
-            seed = seed + self.comm.rank
+        seed = kwargs.get('seed', None)
+        if seed is None:
+            if self.comm.rank == 0:
+                seed = self.comm.bcast(time.time(), root=0)
+            else:
+                seed = self.comm.bcast(None, root=0)
         kwargs['seed'] = seed
         n_seed_points_per_dim = kwargs.get('n_seed_points_per_dim', None)
         if n_seed_points_per_dim is None:
@@ -273,7 +285,7 @@ class MPINoiseGenerator(NoiseGenerator):
             n_seed_points_per_dim = np.maximum(np.asarray(energy_map_shape) // 256, 1)*self.comm.size
         kwargs['n_seed_points_per_dim'] = n_seed_points_per_dim
         super().__init__(**kwargs)
-        self.tile_ptr = tuple((self.local_random.choice(n) for n in self.n_tiles_per_rank))
+        self.tile_ptr = self.local_random.choice(np.prod(self.n_tiles_per_rank))
 
     def add(self, points, energy_fn, energy_kwargs={}):
         req = self.comm.Ibarrier()
@@ -292,7 +304,7 @@ class MPINoiseGenerator(NoiseGenerator):
 
     def next(self):
         p = super().next()
-        self.tile_ptr = tuple((self.local_random.choice(n) for n in self.n_tiles_per_rank))
+        self.tile_ptr = self.local_random.choice(np.prod(self.n_tiles_per_rank))
         return p
         
         
