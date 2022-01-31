@@ -1,7 +1,7 @@
 import os, sys, gc, copy, time
 import numpy as np
 from scipy.interpolate import Rbf
-from scipy.ndimage import gaussian_filter1d
+from scipy.ndimage import gaussian_filter
 from collections import defaultdict, ChainMap, namedtuple
 from dentate.utils import get_module_logger, object, range, str, Struct, gauss2d, gaussian, viewitems, mpi_op_set_union
 from dentate.stgen import get_inhom_poisson_spike_times_by_thinning
@@ -425,7 +425,7 @@ class PlaceInputCellConfig(object):
         for i in range(self.num_fields):
             rate_array = np.maximum(rate_array, get_place_rate_map(self.x0[i], self.y0[i], self.field_width[i] * scale, x, y))
         rate_array *= self.peak_rate
-        rate_array = gaussian_filter1d(rate_array, sigma=5)
+        rate_array = gaussian_filter(rate_array, sigma=1)
         mean_rate = np.mean(rate_array)
         
         if (self.num_fields > 0) and (self.phase_mod_function is not None):
@@ -624,7 +624,7 @@ def get_input_cell_config(selectivity_type, selectivity_type_names, population=N
                                      selectivity_config=selectivity_config, peak_rate=peak_rate, distance=distance,
                                      modular=modular, num_place_field_probabilities=num_place_field_probabilities,
                                      local_random=local_random, phase_mod_config=phase_mod_config,
-                                     noise_gen=noise_gen, comm=comm)
+                                     noise_gen_dict=noise_gen_dict, comm=comm)
         elif selectivity_type_name == 'constant':
             input_cell_config = ConstantInputCellConfig(selectivity_type=selectivity_type, arena=arena,
                                                         selectivity_config=selectivity_config, peak_rate=peak_rate,

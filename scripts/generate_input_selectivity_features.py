@@ -260,7 +260,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
         reference_u_arc_distance_bounds = reference_u_arc_distance_bounds_dict[population]
 
         modular = True
-        if population in stimulus_config['Non-modular Place Selectivity Populations']:
+        if population in env.stimulus_config['Non-modular Place Selectivity Populations']:
             modular = False
 
         noise_gen_dict = None
