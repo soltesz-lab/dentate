@@ -3,7 +3,7 @@ import numpy as np
 from scipy.interpolate import Rbf
 from scipy.ndimage import gaussian_filter1d
 from collections import defaultdict, ChainMap, namedtuple
-from dentate.utils import get_module_logger, object, range, str, Struct, gauss2d, gaussian, viewitems
+from dentate.utils import get_module_logger, object, range, str, Struct, gauss2d, gaussian, viewitems, mpi_op_set_union
 from dentate.stgen import get_inhom_poisson_spike_times_by_thinning
 from neuroh5.io import read_cell_attributes, append_cell_attributes, NeuroH5CellAttrGen, scatter_read_cell_attribute_selection
 from mpi4py import MPI
@@ -132,7 +132,7 @@ class InputSelectivityConfig(object):
 class GridInputCellConfig(object):
     def __init__(self, selectivity_type=None, arena=None, selectivity_config=None,
                  peak_rate=None, distance=None, local_random=None, selectivity_attr_dict=None,
-                 phase_mod_config=None, noise_gen=None):
+                 phase_mod_config=None, noise_gen_dict=None, comm=None):
         """
         :param selectivity_type: int
         :param arena: namedtuple
@@ -141,6 +141,9 @@ class GridInputCellConfig(object):
         :param distance: float; u arc distance normalized to reference layer
         :param local_random: :class:'np.random.RandomState'
         :param selectivity_attr_dict: dict
+        :param phase_mod_config: dict with phase modulation configuration
+        :param noise_gen_dict: dictionary with per-module noise generator objects
+        :param comm: MPI communicator
         """
         self.phase_mod_function = None
         if phase_mod_config is not None:
@@ -180,15 +183,23 @@ class GridInputCellConfig(object):
                 delta_grid_orientation = local_random.normal(0., selectivity_config.grid_orientation_sigma)
                 self.grid_orientation += delta_grid_orientation
 
-            if noise_gen is None:
+            if noise_gen_dict is None:
                 self.x0 = local_random.uniform(*arena_x_bounds)
                 self.y0 = local_random.uniform(*arena_y_bounds)
             else:
-                p = noise_gen.next()
-                self.x0, self.y0 = p[0]
-                noise_gen.add(p, lambda p, g: get_grid_rate_map(p[0], p[1], self.grid_spacing,
-                                                                self.grid_orientation, g[0], g[1],
-                                                                a=selectivity_config.grid_field_width_concentration_factor))
+                # Use allreduce to determine the set of modules on each rank and determine which noise_gens to call
+                all_module_ids = comm.allreduce(set([self.module_id]), op=mpi_op_set_union)
+                for this_module_id in all_module_ids:
+                    this_noise_gen = noise_gen_dict[this_module_id]
+                    if this_module_id == self.module_id:
+                        p = this_noise_gen.next()
+                        self.x0, self.y0 = p[0]
+                        this_noise_gen.add(p, lambda p, g: get_grid_rate_map(p[0], p[1], self.grid_spacing,
+                                                                             self.grid_orientation, g[0], g[1],
+                                                                             a=selectivity_config.grid_field_width_concentration_factor))
+                    else:
+                        this_noise_gen.add(np.empty( shape=(0, 0), dtype=np.float32 ), None)
+
                 
 
             self.grid_field_width_concentration_factor = selectivity_config.grid_field_width_concentration_factor
@@ -254,7 +265,7 @@ class GridInputCellConfig(object):
 class PlaceInputCellConfig(object):
     def __init__(self, selectivity_type=None, arena=None, normalize_scale=True, selectivity_config=None,
                  peak_rate=None, distance=None, modular=None, num_place_field_probabilities=None, field_width=None,
-                 local_random=None, selectivity_attr_dict=None, phase_mod_config=None, noise_gen=None):
+                 local_random=None, selectivity_attr_dict=None, phase_mod_config=None, noise_gen_dict=None, comm=None):
         """
 
         :param selectivity_type: int
@@ -269,6 +280,9 @@ class PlaceInputCellConfig(object):
         :param field_width: float; option to enforce field_width rather than choose from distance-dependent distribution
         :param local_random: :class:'np.random.RandomState'
         :param selectivity_attr_dict: dict
+        :param phase_mod_config: dict with phase modulation configuration
+        :param noise_gen_dict: dictionary with per-module noise generator objects
+        :param comm: MPI communicator
         """
 
         self.phase_mod_function = None
@@ -327,21 +341,31 @@ class PlaceInputCellConfig(object):
                             this_field_width += self.mean_field_width * delta_field_width_factor
                 self.field_width.append(this_field_width)
 
-                if noise_gen is None:
+                if noise_gen_dict is None:
                     this_x0 = local_random.uniform(*arena_x_bounds)
                     this_y0 = local_random.uniform(*arena_y_bounds)
                 else:
-                    p = noise_gen.next()
+                    p = noise_gen_dict[self.module_id].next()
                     this_x0, this_y0 = p[0]
 
                 self.x0.append(this_x0)
                 self.y0.append(this_y0)
 
                 
-            if noise_gen is not None:
-                p = np.column_stack((np.asarray(self.x0), np.asarray(self.y0)))
-                noise_gen.add(p, lambda p, g, width: get_place_rate_map(p[0], p[1], width, g[0], g[1]),
-                              energy_kwargs=tuple(({'width': width} for width in self.field_width)))
+            if noise_gen_dict is not None:
+                # Use allreduce to determine the set of modules on each rank and determine which noise_gens to call
+                all_module_ids = [-1]
+                if modular:
+                    all_module_ids = comm.allreduce(set([self.module_id]), op=mpi_op_set_union)
+                for this_module_id in all_module_ids:
+                    this_noise_gen = noise_gen_dict[this_module_id]
+                    if this_module_id == self.module_id:
+                        p = np.column_stack((np.asarray(self.x0), np.asarray(self.y0)))
+                        noise_gen_dict.add(p, lambda p, g, width: get_place_rate_map(p[0], p[1], width, g[0], g[1]),
+                                           energy_kwargs=tuple(({'width': width} for width in self.field_width)))
+                    else:
+                        this_noise_gen.add(np.empty( shape=(0, 0), dtype=np.float32 ), None)
+
 
                 
     def init_from_attr_dict(self, selectivity_attr_dict):
@@ -531,7 +555,7 @@ def get_grid_rate_map(x0, y0, spacing, orientation, x, y, a=0.7):
 
 def get_input_cell_config(selectivity_type, selectivity_type_names, population=None, stimulus_config=None,
                           arena=None, selectivity_config=None, distance=None, local_random=None,
-                          selectivity_attr_dict=None, phase_mod_config=None, noise_gen=None):
+                          selectivity_attr_dict=None, phase_mod_config=None, noise_gen_dict=None, comm=None):
     """
 
     :param selectivity_type: int
@@ -584,7 +608,8 @@ def get_input_cell_config(selectivity_type, selectivity_type_names, population=N
             input_cell_config = \
                 GridInputCellConfig(selectivity_type=selectivity_type, arena=arena,
                                     selectivity_config=selectivity_config, peak_rate=peak_rate, distance=distance,
-                                    local_random=local_random, phase_mod_config=phase_mod_config, noise_gen=noise_gen)
+                                    local_random=local_random, phase_mod_config=phase_mod_config,
+                                    noise_gen_dict=noise_gen_dict, comm=comm)
         elif selectivity_type_name == 'place':
             if population in stimulus_config['Non-modular Place Selectivity Populations']:
                 modular = False
@@ -598,7 +623,8 @@ def get_input_cell_config(selectivity_type, selectivity_type_names, population=N
                 PlaceInputCellConfig(selectivity_type=selectivity_type, arena=arena,
                                      selectivity_config=selectivity_config, peak_rate=peak_rate, distance=distance,
                                      modular=modular, num_place_field_probabilities=num_place_field_probabilities,
-                                     local_random=local_random, phase_mod_config=phase_mod_config, noise_gen=noise_gen)
+                                     local_random=local_random, phase_mod_config=phase_mod_config,
+                                     noise_gen=noise_gen, comm=comm)
         elif selectivity_type_name == 'constant':
             input_cell_config = ConstantInputCellConfig(selectivity_type=selectivity_type, arena=arena,
                                                         selectivity_config=selectivity_config, peak_rate=peak_rate,
@@ -937,7 +963,7 @@ def generate_linear_trajectory(trajectory, temporal_resolution=1., equilibration
 def generate_input_selectivity_features(env, population, arena, arena_x, arena_y,
                                         gid, norm_distances, 
                                         selectivity_config, selectivity_type_names,
-                                        selectivity_type_namespaces, noise_gen=None,
+                                        selectivity_type_namespaces, noise_gen_dict=None,
                                         rate_map_sum=None, debug=False):
     """
     Generates input selectivity features for the given population and
@@ -971,6 +997,8 @@ def generate_input_selectivity_features(env, population, arena, arena_x, arena_y
     this_selectivity_type = \
      choose_input_selectivity_type(p=env.stimulus_config['Selectivity Type Probabilities'][population],
                                    local_random=local_random)
+
+    
     
     input_cell_config = get_input_cell_config(population=population,
                                               selectivity_type=this_selectivity_type,
@@ -980,7 +1008,8 @@ def generate_input_selectivity_features(env, population, arena, arena_x, arena_y
                                               selectivity_config=selectivity_config,
                                               distance=norm_u_arc_distance,
                                               local_random=local_random,
-                                              noise_gen=noise_gen)
+                                              noise_gen_dict=noise_gen_dict,
+                                              comm=env.comm)
     
     this_selectivity_type_name = selectivity_type_names[this_selectivity_type]
     selectivity_attr_dict = input_cell_config.get_selectivity_attr_dict()

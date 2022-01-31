@@ -38,6 +38,12 @@ def list_concat(a, b, datatype):
 
 mpi_op_list_concat = MPI.Op.Create(list_concat, commute=True)
 
+
+def set_union(a, b, datatype):
+    return a | b
+
+mpi_op_set_union = MPI.Op.Create(set_union, commute=True)
+
 def noise_gen_merge(a, b, datatype):
     energy_a, peak_idxs_a, points_a = a
     energy_b, peak_idxs_b, points_b = b
@@ -288,11 +294,15 @@ class MPINoiseGenerator(NoiseGenerator):
         self.tile_ptr = self.local_random.choice(np.prod(self.n_tiles_per_rank))
 
     def add(self, points, energy_fn, energy_kwargs={}):
+        
         req = self.comm.Ibarrier()
         energy, peak_idxs = super().add(points, energy_fn, energy_kwargs=energy_kwargs, update_state=False)
         req.wait()
         req = self.comm.Ibarrier()
-        all_energy, all_peak_idxs, all_points = self.comm.allreduce((energy,peak_idxs,[points]), 
+        points_list = []
+        if energy is not None:
+            points_list = [points]
+        all_energy, all_peak_idxs, all_points = self.comm.allreduce((energy,peak_idxs,points_list), 
                                                                     op=mpi_op_noise_gen_merge)
         req.wait()
         if all_energy is not None:

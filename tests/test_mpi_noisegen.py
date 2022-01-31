@@ -64,7 +64,7 @@ en = gen.energy_map
 if comm.rank == 0:
     plotFFT(en)
 
-for i in range(100):
+for i in range(400):
     p1 = gen.next()
     logger.info(f'Rank {rank}: {p1}')
     gen.add(p1, energy_fn, energy_kwargs={'width': width})

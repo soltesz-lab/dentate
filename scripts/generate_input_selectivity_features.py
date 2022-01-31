@@ -259,11 +259,22 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
 
         reference_u_arc_distance_bounds = reference_u_arc_distance_bounds_dict[population]
 
-        noise_gen = None
+        modular = True
+        if population in stimulus_config['Non-modular Place Selectivity Populations']:
+            modular = False
+
+        noise_gen_dict = None
         if use_noise_gen:
-            noise_gen = MPINoiseGenerator(comm=comm, bounds=(arena_x_bounds, arena_y_bounds),
-                                          tile_rank=comm.rank, n_tiles_per_rank=10, bin_size=0.1,
-                                          seed=selectivity_seed_offset)
+            if modular:
+                for module_id in range(stimulus_config['Number Modules']):
+                    noise_gen = MPINoiseGenerator(comm=comm, bounds=(arena_x_bounds, arena_y_bounds),
+                                                  tile_rank=comm.rank, n_tiles_per_rank=10, bin_size=0.1,
+                                                  seed=selectivity_seed_offset)
+                    noise_gen_dict[module_id] = noise_gen
+            else:
+                noise_gen_dict[-1] = MPINoiseGenerator(comm=comm, bounds=(arena_x_bounds, arena_y_bounds),
+                                                       tile_rank=comm.rank, n_tiles_per_rank=10, bin_size=0.1,
+                                                       seed=selectivity_seed_offset)
 
         
         this_pop_norm_distances = {}
@@ -279,8 +290,10 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
         for iter_count, (gid, distances_attr_dict) in enumerate(distances_attr_gen):
             req = comm.Ibarrier()
             if gid is None:
-                if noise_gen is not None:
-                    noise_gen.add(np.empty( shape=(0, 0), dtype=np.float32 ), None)
+                if noise_gen_dict is not None:
+                    all_module_ids = comm.allreduce(set([]), op=mpi_op_set_union)
+                    for module_id in all_module_ids:
+                        noise_gen[module_id].add(np.empty( shape=(0, 0), dtype=np.float32 ), None)
             else:
                 if rank == 0:
                     logger.info(f'Rank {rank} generating selectivity features for gid {gid}...')
@@ -297,7 +310,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
                                                      gid, (norm_u_arc_distance, v_arc_distance),
                                                      selectivity_config, selectivity_type_names,
                                                      selectivity_type_namespaces,
-                                                     noise_gen=noise_gen,
+                                                     noise_gen_dict=noise_gen_dict,
                                                      rate_map_sum=this_rate_map_sum,
                                                      debug= (debug_callback, context) if debug else False)
                 if 'X Offset' in this_selectivity_attr_dict:
