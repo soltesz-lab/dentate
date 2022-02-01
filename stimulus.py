@@ -361,7 +361,7 @@ class PlaceInputCellConfig(object):
                     this_noise_gen = noise_gen_dict[this_module_id]
                     if this_module_id == self.module_id:
                         p = np.column_stack((np.asarray(self.x0), np.asarray(self.y0)))
-                        noise_gen_dict.add(p, lambda p, g, width: get_place_rate_map(p[0], p[1], width, g[0], g[1]),
+                        this_noise_gen.add(p, lambda p, g, width: get_place_rate_map(p[0], p[1], width, g[0], g[1]),
                                            energy_kwargs=tuple(({'width': width} for width in self.field_width)))
                     else:
                         this_noise_gen.add(np.empty( shape=(0, 0), dtype=np.float32 ), None)

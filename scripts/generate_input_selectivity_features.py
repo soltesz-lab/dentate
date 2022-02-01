@@ -265,8 +265,9 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
 
         noise_gen_dict = None
         if use_noise_gen:
+            noise_gen_dict = {}
             if modular:
-                for module_id in range(stimulus_config['Number Modules']):
+                for module_id in range(env.stimulus_config['Number Modules']):
                     noise_gen = MPINoiseGenerator(comm=comm, bounds=(arena_x_bounds, arena_y_bounds),
                                                   tile_rank=comm.rank, n_tiles_per_rank=10, bin_size=0.1,
                                                   seed=selectivity_seed_offset)
