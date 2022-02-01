@@ -1,16 +1,15 @@
-export LD_PRELOAD=$MKLROOT/lib/intel64_lin/libmkl_core.so:$MKLROOT/lib/intel64_lin/libmkl_sequential.so
-export FI_MLX_ENABLE_SPAWN=yes
+export DATASET_PREFIX=/media/igr/d865f900-7fcd-45c7-a7a7-bd2a7391bc40/Data/DG
 
-ibrun -n 8 python3  network_clamp.py optimize -c Network_Clamp_GC_Exc_Sat_SLN_IN_Izh_extent.yaml \
-    --template-paths templates --dt 0.01 \
+mpirun.mpich -n 8 python3  network_clamp.py optimize -c Network_Clamp_GC_Aradi_SLN_IN_PR.yaml \
+    --template-paths templates --dt 0.0125 --use-coreneuron \
     -p MC -g 1015624 -t 9500 \
-    --dataset-prefix /scratch1/03320/iraikov/striped/dentate \
+    --dataset-prefix $DATASET_PREFIX \
     --config-prefix config \
-    --input-features-path /scratch1/03320/iraikov/striped/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5 \
+    --input-features-path $DATASET_PREFIX/Full_Scale_Control/DG_input_features_20200910_compressed.h5 \
     --input-features-namespaces 'Place Selectivity' \
     --input-features-namespaces 'Grid Selectivity' \
     --input-features-namespaces 'Constant Selectivity' \
     --arena-id A --trajectory-id Diag \
     --results-path results/netclamp \
-    --param-config-name "Weight inh" \
-    --opt-iter 400 rate
+    --param-config-name "Weight exc inh microcircuit" \
+    --opt-iter 600 rate

@@ -247,8 +247,9 @@ class NoiseGenerator:
             else:
                 self.energy_mask[tile_idxs].fill(0)
                 em = self.energy_map[tile_idxs]
-                tile_pos = tuple(np.argmin(em))
+                tile_pos = np.unravel_index(np.argmin(em), em.shape)
             en = self.energy_map[tile_idxs][tile_pos]
+                
             p = np.asarray(tuple((x[tile_idxs][tile_pos] for x in self.energy_meshgrid))).reshape((-1, self.ndims))
         else:
             tile_coords = tuple((x[tile_idxs] for x in self.energy_meshgrid))
