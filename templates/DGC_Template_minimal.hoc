@@ -1,0 +1,396 @@
+
+begintemplate DGC
+
+// GCL - granular layer dendrite
+// PD - proximal dendrite
+// MD - middle dendrite
+// DD - distal dendrite
+
+public all, soma, axon, allaxon, ais, hillock, apical, basal
+public nDends, nGCLD, nPD, nMD, nDD
+public GCLDidxs, PDidxs, MDidxs, DDidxs
+public syns, syntypes, layers
+public ndendpts
+public verbose, filemode
+public addSyn, correct_for_spines, syn_vclamp_exc, syn_vclamp_inh, syn_iclamp_exc, syn_iclamp_inh
+public syn_stim
+public is_art, connect2target
+public xx, yy, zz
+verbose = 1
+filemode = 1
+id  = -1
+gid = -1
+random_stream_offset = 0
+
+create sections[1]
+
+objref GCLDs, PDs, MDs, DDs, all, soma, axon, allaxon, ais, hillock, apical, basal
+objref rates_soma, rates_axon, rates_seg
+objref gna_y_axon, gna_y_dend, dist_x_dend, dist_x_axon
+objref GCLDidxs, PDidxs, MDidxs, DDidxs, ndendpts
+objref GCLDweights, PDweights, MDweights, DDweights, GCLPDweights, MDDweights, GCLPDidxs, MDDidxs
+objref apicalidx, basalidx, somaidx, axonidx, aisidx, hilidx
+objref syns, syntypes, layers
+objref syn_stim
+objref nodesecmap
+
+strdef forest_path
+strdef dendrite_topology_fn, dendrite_points_fn, spine_density_fn
+strdef dendrite_topology_index_fn, dendrite_points_index_fn, spine_density_index_fn
+
+
+//xopen("DGC_Parameters_passive_na8st.hoc")
+//xopen("DGC_Morphology_from_file_na8st.hoc")
+xopen("DGC_Morphology_minimal.hoc")
+//xopen("DGC_Biophysics_passive_na8st.hoc")
+//xopen("DGC_Synapses.hoc")
+
+
+proc assert() { local test strdef errmsg
+    
+    test = $1
+    errmsg = $s2
+    
+    if (!test) {
+        execerror ("Assertion failed: ", errmsg)
+    }
+}
+
+proc read_Na_rates() { localobj fileS, fileA
+    
+    rates_soma = new Vector()
+    rates_axon = new Vector()
+    
+    fileS = new File()
+    fileA = new File()
+    
+    fileS.ropen("./dat/soma_st8.dat")
+    fileA.ropen("./dat/axon_st8.dat")
+    
+    while (fileS.eof==0){
+	rates_soma.append( fileS.scanvar() )
+	rates_axon.append( fileA.scanvar() )
+    }
+    
+    fileS.close()
+    fileA.close()
+}
+
+
+proc init() {
+    
+    gid = $1
+    forest_path = $s2
+    
+    xx = 0
+    yy = 0
+    zz = 0
+    
+    filemode = 0
+    
+    if (filemode > 0) {
+        celldef()
+    } else {
+        if (numarg() > 11) {
+            celldef($o3,$o4,$o5,$o6,$o7,$o8,$o9,$o10,$o11,$o12)
+        }
+    }
+    
+    
+}
+
+
+proc celldef() {
+    
+    GCLDidxs = new Vector()
+    PDidxs  = new Vector()
+    MDidxs  = new Vector()
+    DDidxs  = new Vector()
+    
+    apicalidx = new Vector()
+    basalidx  = new Vector()
+    somaidx   = new Vector()
+    axonidx   = new Vector()
+    aisidx    = new Vector()
+    hilidx    = new Vector()
+    
+    layers = new List() 
+    syns = new List() 
+    syntypes = new List() 
+    syntypes.append(new List())
+    syntypes.append(new List())
+    
+    if (numarg() > 6) {
+        shape($o1,$o6,$o7,$o8,$o9)
+    } else if (numarg() > 1) {
+        shape($o5)
+    } else {
+        shape()
+    }
+    if (numarg() > 1) {
+        topol($o1,$o2,$o3,$o4,$o5,$o10)
+    } else {
+        topol()
+    }
+    geom()
+    subsets()
+}
+
+func is_art()  { return 0 }
+
+proc position() { local i
+    
+    forsec soma {
+        for i = 0, n3d()-1 {
+            pt3dchange(i, $1-xx+x3d(i), $2-yy+y3d(i), $3-zz+z3d(i), diam3d(i))
+        }
+    }
+    xx = $1  yy = $2  zz = $3
+}
+
+external cvode_active, continuerun
+
+proc write_state_trace() { local logsize  localobj logfile, tlog, xlog, ylog
+    
+    logfile=$o1
+    tlog=$o2
+    xlog=$o3
+    if (numarg() > 3) {
+        ylog = $o4
+    }
+    
+    logsize = tlog.size()
+    
+    if (numarg() > 3) {
+        for i=0,tlog.size()-1 {
+	    logfile.printf("%g %g %g\n", tlog.x[i], xlog.x[i], ylog.x[i])
+        }
+    } else {
+        for i=0,tlog.size()-1 {
+	    logfile.printf("%g %g\n", tlog.x[i], xlog.x[i])
+        }
+    }
+    
+}
+
+obfunc syntest_exc() { local vec_size, i_holding, idx localobj logfile, se, vec_i, vec_v, results, tlog, nil strdef fname
+    
+    tstart = $1
+    v_holding = $2
+    v_init    = $3
+    if (numarg() > 3) {
+        fname = $s4
+    }
+    
+    soma { 
+        se = new SEClamp(0.5)
+        se.rs = 10
+        se.dur1 = 1010
+        se.amp1 = v_holding 
+    }
+    
+    mainDT = 0.001
+    dt = mainDT
+    tstop = 1000
+    
+    vec_size = tstop/mainDT + 1
+    
+    vec_v = new Vector(vec_size)
+    soma {
+        vec_v.record(&v(0.5))
+    }
+    
+    vec_i = new Vector(vec_size)
+    vec_i.record(&se.i)
+    
+    tlog = new Vector(vec_size)
+    tlog.record(&t)
+    
+    cvode_active(1)
+
+    finitialize(v_init)
+    fadvance()
+    continuerun(tstop)
+    
+    t_holding_index = tlog.indwhere(">=",tstart)
+    t_holding = tlog.x[t_holding_index]
+    i_holding = vec_i.x[t_holding_index]
+    idx = tlog.indwhere(">=",tstart) - 1
+    vec_i.remove(0,idx)
+    vec_v.remove(0,idx)
+    tlog.remove(0,idx)
+    
+    logfile = new File()
+    logfile.wopen (fname)
+    write_state_trace(logfile, tlog, vec_i, vec_v)
+    logfile.close()
+    
+    i_peak = vec_i.min()
+    t_peak = tlog.x[vec_i.indwhere("==",i_peak)]
+    
+    print "i_peak = ", i_peak
+    print "i_holding = ", i_holding
+    print "i_peak - i_holding = ", i_peak - i_holding
+    print "t_peak = ", t_peak
+    print "t_holding = ", t_holding
+
+    amp = abs(i_peak - i_holding) * 1000
+    
+    i_0001 = i_holding + (i_peak - i_holding) * 1/10000
+    i_10 = i_holding + (i_peak - i_holding) * 1/10
+    i_20 = i_holding + (i_peak - i_holding) * 2/10
+    i_50 = i_holding + (i_peak - i_holding) * 5/10
+    i_80 = i_holding + (i_peak - i_holding) * 8/10
+    i_90 = i_holding + (i_peak - i_holding) * 9/10
+    
+    t_10_90 = tlog.x[vec_i.indwhere("<",i_90)] - tlog.x[vec_i.indwhere("<",i_10)]
+    t_20_80 = tlog.x[vec_i.indwhere("<",i_80)] - tlog.x[vec_i.indwhere("<",i_20)]
+    
+    t_all = t_peak - tlog.x[(vec_i.indwhere("<",i_0001))]
+    t_50  = t_peak - tlog.x[(vec_i.indwhere(">",i_50))]
+    
+    idx = vec_i.indwhere("==",i_peak) - 1
+    if (idx >= 0) {
+        vec_i.remove(0,idx)
+        tlog.remove(0,idx)
+    }
+    
+    i_t	= i_holding - ((1/exp(1)) * abs(i_peak - i_holding))
+    t_decay = tlog.x[vec_i.indwhere(">",i_t)] - tlog.x[0]
+    
+    results = new Vector()
+    results.append(amp,t_10_90,t_20_80,t_all,t_50,t_decay)
+    
+    return results
+}
+
+
+obfunc syntest_inh() { local vec_size, i_holding, t_holding, t_holding_index, idx localobj se, vec_i, vec_v, results, tlog, logfile, nil
+    
+    tstart = $1
+    v_holding = $2
+    v_init = $3
+    if (numarg() > 3) {
+        fname = $s4
+    }
+    
+    soma { 
+        se = new SEClamp(0.5)
+        se.rs = 10
+        se.dur1 = 1010
+        se.amp1 = v_holding 
+    }
+    
+    mainDT = 0.001
+    dt = mainDT
+    tstop = 1000
+    
+    vec_size = tstop/mainDT + 1
+    
+    vec_v = new Vector(vec_size)
+    soma {
+        vec_v.record(&v(0.5))
+    }
+    
+    vec_i = new Vector(vec_size)
+    vec_i.record(&se.i)
+    
+    tlog = new Vector(vec_size)
+    tlog.record(&t)
+    
+    cvode_active(1)
+    //cvode.use_daspk(1)
+    //cvode.dae_init_dteps(1e-9, 2)
+    finitialize(v_init)
+    fadvance()
+    continuerun(tstop)
+    
+    
+    t_holding_index = tlog.indwhere(">=",tstart)
+    t_holding = tlog.x(t_holding_index)
+    i_holding = vec_i.x[t_holding_index]
+    idx = tlog.indwhere(">=",tstart) - 1
+    vec_i.remove(0,idx)
+    vec_v.remove(0,idx)
+    tlog.remove(0,idx)
+    
+    logfile = new File()
+    logfile.wopen (fname)
+    write_state_trace(logfile, tlog, vec_i, vec_v)
+    logfile.close()
+    
+    i_peak = vec_i.max()
+    t_peak = tlog.x[vec_i.indwhere("==",i_peak)]
+    
+    print "celsius = ", celsius
+    print "i_peak = ", i_peak
+    print "i_holding = ", i_holding
+    print "i_peak - i_holding = ", i_peak - i_holding
+    print "t_peak = ", t_peak
+    print "t_holding = ", t_holding
+
+    amp = abs(i_peak - i_holding) * 1000
+    
+    i_0001 = i_holding + (i_peak - i_holding) * 1/10000
+    i_10 = i_holding + (i_peak - i_holding) * 1/10
+    i_20 = i_holding + (i_peak - i_holding) * 2/10
+    i_50 = i_holding + (i_peak - i_holding) * 5/10
+    i_80 = i_holding + (i_peak - i_holding) * 8/10
+    i_90 = i_holding + (i_peak - i_holding) * 9/10
+    
+    t_10_90 = tlog.x[vec_i.indwhere(">",i_90)] - tlog.x[vec_i.indwhere(">",i_10)]
+    t_20_80 = tlog.x[vec_i.indwhere(">",i_80)] - tlog.x[vec_i.indwhere(">",i_20)]
+    
+    t_all = t_peak - tlog.x[(vec_i.indwhere(">",i_0001))]
+    t_50  = t_peak - tlog.x[(vec_i.indwhere(">",i_50))]
+    
+    idx = vec_i.indwhere("==",i_peak) - 1
+    if (idx >= 0) {
+        vec_i.remove(0,idx)
+        tlog.remove(0,idx)
+    }
+    
+    i_t	= i_holding + ((1/exp(1)) * abs(i_peak - i_holding))
+    t_decay = tlog.x[vec_i.indwhere("<",i_t)] - tlog.x[0]
+    
+    results = new Vector()
+    results.append(amp,t_10_90,t_20_80,t_all,t_50,t_decay)
+    
+    return results
+}
+
+
+obfunc syntest_rate() { local vec_size, rate, idx localobj vec, synlist, results, tlog, nil
+    
+    tstart = $1
+    rate = $2
+    v_init = $3
+    
+    mainDT = 0.001
+    dt = mainDT
+    tstop = 1000
+    
+    vec_size = tstop/mainDT + 1
+    
+    vec = new Vector(vec_size)
+    vec.record(&sections[0].v(0.5))
+    
+    tlog = new Vector(vec_size)
+    tlog.record(&t)
+    
+    cvode_active(1)
+    //cvode.use_daspk(1)
+    //cvode.dae_init_dteps(1e-9, 2)
+    finitialize(v_init)
+    fadvance()
+    continuerun(tstop)
+    
+    results = new List()
+    results.append(tlog)
+    results.append(vec)
+    
+    return results
+}
+
+
+endtemplate DGC
