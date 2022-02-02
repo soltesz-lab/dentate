@@ -190,11 +190,11 @@ class NoiseGenerator:
         self.n_seed_points_per_dim = n_seed_points_per_dim
         
         self.energy_map = np.zeros(self.energy_map_shape, dtype=np.float32)
-        self.energy_mask = np.zeros(self.energy_map.shape, dtype=np.bool)
+        self.energy_mask = np.zeros(self.energy_map.shape, dtype=np.bool_)
         self.energy_meshgrid = tuple((x.reshape(self.energy_map_shape)
-                                      for x in np.meshgrid(*self.energy_bins, indexing='ij')))
+                                      for x in np.meshgrid(*self.energy_bins, indexing='ij', copy=False)))
         
-        energy_idxs = np.indices(self.energy_map_shape)
+        energy_idxs = np.indices(self.energy_map_shape, dtype=np.uint32)
         energy_tile_indices = tuple((view_as_blocks(x.reshape(self.energy_map_shape), self.tile_shape)
                                      for x in energy_idxs))
         self.energy_tile_indices = energy_tile_indices
@@ -247,8 +247,9 @@ class NoiseGenerator:
             else:
                 self.energy_mask[tile_idxs].fill(0)
                 em = self.energy_map[tile_idxs]
-                tile_pos = tuple(np.argmin(em))
+                tile_pos = np.unravel_index(np.argmin(em), em.shape)
             en = self.energy_map[tile_idxs][tile_pos]
+                
             p = np.asarray(tuple((x[tile_idxs][tile_pos] for x in self.energy_meshgrid))).reshape((-1, self.ndims))
         else:
             tile_coords = tuple((x[tile_idxs] for x in self.energy_meshgrid))

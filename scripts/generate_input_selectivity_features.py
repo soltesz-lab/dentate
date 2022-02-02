@@ -292,9 +292,12 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
             req = comm.Ibarrier()
             if gid is None:
                 if noise_gen_dict is not None:
-                    all_module_ids = comm.allreduce(set([]), op=mpi_op_set_union)
+                    all_module_ids = [-1]
+                    if modular:
+                        all_module_ids = comm.allreduce(set([]), op=mpi_op_set_union)
                     for module_id in all_module_ids:
-                        noise_gen[module_id].add(np.empty( shape=(0, 0), dtype=np.float32 ), None)
+                        this_noise_gen = noise_gen_dict[module_id]
+                        this_noise_gen.add(np.empty( shape=(0, 0), dtype=np.float32 ), None)
             else:
                 if rank == 0:
                     logger.info(f'Rank {rank} generating selectivity features for gid {gid}...')
