@@ -301,7 +301,7 @@ Synapses:
           e: 0
           sat: 0.9
           g_unit: 0.0025
-          weight: 0.753
+          weight: 1.822
     CA3c:   
       type: excitatory
       sections: [soma, apical]
@@ -313,7 +313,7 @@ Synapses:
           tau_offset: 3.6
           e: 0
           g_unit: 0.001
-          weight: 0.553
+          weight: 1.822
           sat: 0.9
     MC:   
       type: excitatory
@@ -328,7 +328,7 @@ Synapses:
           e: 0
           sat: 0.9
           g_unit: 0.0025
-          weight: 0.553
+          weight: 1.822
     HC:  
       type: inhibitory
       sections: [apical]
@@ -341,7 +341,7 @@ Synapses:
           tau_offset: 10.48
           e: -75
           g_unit: 0.001
-          weight: 0.535
+          weight: 2.116
     IS:  
       type: inhibitory
       sections: [apical, soma]
@@ -354,7 +354,7 @@ Synapses:
           tau_offset: 10.48
           e: -75
           g_unit: 0.001
-          weight: 1.66
+          weight: 0.54
   BC:
     GC:   
       type: excitatory
@@ -824,7 +824,7 @@ Synapses:
           e: 0
           sat: 0.9
           g_unit: 0.002
-          weight: 1.0
+          weight: 1.17
     LPP:
       type: excitatory
       sections: [apical]
@@ -837,7 +837,7 @@ Synapses:
           e: 0
           sat: 0.9
           g_unit: 0.002
-          weight: 1.0
+          weight: 1.17
     HC:  
       type: inhibitory
       sections: [soma, basal, apical]
@@ -849,7 +849,7 @@ Synapses:
           tau_offset: 4.7
           e: -75
           g_unit: 0.001
-          weight: 1.88
+          weight: 0.257
     NGFC: 
       type: inhibitory
       sections: [soma, basal, apical]
@@ -861,13 +861,13 @@ Synapses:
           tau_offset: 14.0
           e: -75
           g_unit: 0.001
-          weight: 1.88
+          weight: 0.2
         GABA_B:
           dur_onset:  50.0
           tau_offset: 200.0
           e: -90
           g_unit: 0.001
-          weight: 0.154
+          weight: 0.282
     MOPP: 
       type: inhibitory
       sections: [soma, basal, apical]
@@ -879,7 +879,7 @@ Synapses:
           tau_offset: 14.0
           e: -75
           g_unit: 0.001
-          weight: 1.88
+          weight: 0.2
   MOPP:
     MPP:
       type: excitatory
@@ -893,7 +893,7 @@ Synapses:
           e: 0
           sat: 0.9
           g_unit: 0.0025
-          weight: 1.2
+          weight: 3.923
     LPP:
       type: excitatory
       sections: [apical]
@@ -906,7 +906,7 @@ Synapses:
           e: 0
           sat: 0.9
           g_unit: 0.0025
-          weight: 1.2
+          weight: 3.923
     MC:   
       type: excitatory
       sections: [soma, basal]
@@ -919,7 +919,7 @@ Synapses:
           e: 0
           sat: 0.9
           g_unit: 0.002
-          weight: 1.2
+          weight: 3.923
     HC:  
       type: inhibitory
       sections: [basal, apical]
@@ -931,7 +931,7 @@ Synapses:
           tau_offset: 4.7
           e: -75
           g_unit: 0.001
-          weight: 0.9
+          weight: 1.78
     HCC:  
       type: inhibitory
       sections: [soma, basal]
@@ -943,7 +943,7 @@ Synapses:
           tau_offset: 4.7
           e: -75
           g_unit: 0.001
-          weight: 0.9
+          weight: 0.31
     NGFC: 
       type: inhibitory
       sections: [apical, apical]
@@ -955,13 +955,13 @@ Synapses:
           tau_offset: 14.0
           e: -75
           g_unit: 0.001
-          weight: 0.93
+          weight: 0.31
         GABA_B:
           dur_onset:  50.0
           tau_offset: 200.0
           e: -90
           g_unit: 0.001
-          weight: 0.154
+          weight: 2.29
     MOPP: 
       type: inhibitory
       sections: [apical, apical]
@@ -973,7 +973,7 @@ Synapses:
           tau_offset: 13.8
           e: -75
           g_unit: 0.001
-          weight: 0.93
+          weight: 0.31
   IS:
     GC:   
       type: excitatory
@@ -987,7 +987,7 @@ Synapses:
           e: 0
           sat: 0.9
           g_unit: 0.0005
-          weight: 1.0
+          weight: 0.548
     IS:   
       type: inhibitory
       sections: [soma, basal, apical]
@@ -999,6 +999,6 @@ Synapses:
           tau_offset: 10.48
           e: -75
           g_unit: 0.001
-          weight: 2.0
+          weight: 2.7
 Connection Velocity: !include Connection_Velocity.yaml
 Gap Junctions: !include Gap_Junctions_Control.yaml
