@@ -32,8 +32,8 @@ ibrun -np 16  python3 ./scripts/sample_extent.py \
     --config-prefix=./config \
     --dataset-prefix="$DATA_PREFIX" \
     --output-path=$results_path \
-    --input-features-path="$DATA_PREFIX/Full_Scale_Control/DG_input_features_20220108.h5" \
-    --spike-input-path="$DATA_PREFIX/Full_Scale_Control/DG_input_spike_trains_phasemod_20220109_compressed.h5"  \
+    --input-features-path="$DATA_PREFIX/Full_Scale_Control/DG_input_features_20220131_compressed.h5" \
+    --spike-input-path="$DATA_PREFIX/Full_Scale_Control/DG_input_spike_trains_phasemod_20220201_compressed.h5"  \
     --spike-input-namespace='Input Spikes A Diag' \
     --output-path=${results_path} \
     --bin-sample-proximal-pf \

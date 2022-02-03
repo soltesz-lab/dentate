@@ -28,7 +28,7 @@ cd $SLURM_SUBMIT_DIR
 
 mpirun -rr -n 24  python3 network_clamp.py optimize  -c Network_Clamp_GC_Aradi_SLN_IN_PR.yaml \
     -p NGFC -g $1 -t 9500 --n-trials 1 --trial-regime mean --use-coreneuron --dt 0.01 \
-    --template-paths $MODEL_HOME/XPPcode:$DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
+    --template-paths $DG_HOME/templates \
     --dataset-prefix $SCRATCH/striped2/dentate \
     --results-path $SCRATCH/dentate/results/netclamp \
     --input-features-path $SCRATCH/striped2/dentate/Full_Scale_Control/DG_input_features_20200910_compressed.h5 \

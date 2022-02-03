@@ -415,7 +415,7 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
 
 
 def optimize_run(env, population, param_config_name, selectivity_config_name, init_objfun, problem_regime, nprocs_per_worker=1,
-                 n_iter=10, n_initial=30, initial_maxiter=50, initial_method="glp", optimizer_method="nsga2",
+                 n_epochs=10, n_initial=30, initial_maxiter=50, initial_method="glp", optimizer_method="nsga2",
                  population_size=200, num_generations=200, resample_fraction=None, mutation_rate=None,
                  param_type='synaptic', init_params={}, results_file=None, cooperative_init=False, 
                  spawn_startup_wait=None, verbose=False):
@@ -483,7 +483,7 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
                       'feature_dtypes': feature_dtypes,
                       'constraint_names': constraint_names,
                       'n_initial': n_initial,
-                      'n_iter': n_iter,
+                      'n_epochs': n_epochs,
                       'population_size': population_size,
                       'num_generations': num_generations,
                       'resample_fraction': resample_fraction,
@@ -542,7 +542,7 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
 @click.option("--t-max", '-t', type=float, default=150.0, help='simulation end time')
 @click.option("--t-min", type=float)
 @click.option("--nprocs-per-worker", type=int, default=1, help='number of processes per worker')
-@click.option("--n-iter", type=int, default=1)
+@click.option("--n-epochs", type=int, default=1)
 @click.option("--n-initial", type=int, default=30)
 @click.option("--initial-maxiter", type=int, default=50)
 @click.option("--initial-method", type=str, default='glp')
@@ -596,7 +596,7 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
 @click.option('--cooperative-init', is_flag=True, help='use a single worker to read model data then send to the remaining workers')
 @click.option("--spawn-startup-wait", type=int)
 def main(config_file, population, dt, gid, gid_selection_file, arena_id, trajectory_id, generate_weights,
-         t_max, t_min,  nprocs_per_worker, n_iter, n_initial, initial_maxiter, initial_method, optimizer_method,
+         t_max, t_min,  nprocs_per_worker, n_epochs, n_initial, initial_maxiter, initial_method, optimizer_method,
          population_size, num_generations, resample_fraction, mutation_rate,
          template_paths, dataset_prefix, config_prefix,
          param_config_name, selectivity_config_name, param_type, recording_profile, results_file, results_path, spike_events_path,
@@ -680,7 +680,7 @@ def main(config_file, population, dt, gid, gid_selection_file, arena_id, traject
     init_objfun_name = 'init_selectivity_objfun'
         
     best = optimize_run(env, population, param_config_name, selectivity_config_name, init_objfun_name, problem_regime=problem_regime,
-                        n_iter=n_iter, n_initial=n_initial, initial_maxiter=initial_maxiter, initial_method=initial_method, 
+                        n_epochs=n_epochs, n_initial=n_initial, initial_maxiter=initial_maxiter, initial_method=initial_method, 
                         optimizer_method=optimizer_method, population_size=population_size, num_generations=num_generations, 
                         resample_fraction=resample_fraction, mutation_rate=mutation_rate, param_type=param_type, init_params=init_params, 
                         results_file=results_file, nprocs_per_worker=nprocs_per_worker, cooperative_init=cooperative_init,
