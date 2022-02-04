@@ -1,4 +1,5 @@
 import copy, datetime, gc, itertools, logging, math, numbers, os.path, importlib
+from fractions import Fraction
 import pprint, string, sys, time, click
 from builtins import input, map, next, object, range, str, zip
 from collections import MutableMapping, Iterable, defaultdict, namedtuple
@@ -159,23 +160,25 @@ class NoiseGenerator:
 
     """
 
-    def __init__(self, tile_rank=0, n_tiles_per_dim=1, mask_fraction=0.99, seed=None, bounds=[[-1, 1],[-1, 1]], bin_size=0.05, n_seed_points_per_dim=None, **kwargs):
+    def __init__(self, tile_rank=0, n_tiles_per_dim=1, mask_fraction=0.99, seed=None, bounds=[[-1, 1],[-1, 1]], bin_size=None, n_seed_points_per_dim=None, **kwargs):
         """Creates a new noise generator structure."""
+        if isinstance(n_tiles_per_dim, int):
+            n_tiles_per_dim = [n_tiles_per_dim]*self.ndims
+        if bin_size is None:
+            bin_size = Fraction(math.ceil(bounds[0][1] - bounds[0][0]), n_tiles_per_dim[0]) / 2
         self.seed = None
         self.local_random = np.random.default_rng(seed + tile_rank)
         self.global_random = np.random.default_rng(seed)
         self.bounds = bounds
         self.ndims = len(self.bounds)
         self.bin_size = bin_size
-        self.energy_map_shape = tuple(map(lambda x: int((x[1] - x[0])//bin_size + 1), bounds))
+        self.energy_map_shape = tuple(map(lambda x: int(math.ceil(x[1] - x[0])/bin_size), bounds))
         self.energy_bins = tuple([np.arange(b[0], b[1], bin_size) for b in self.bounds])
-        if isinstance(n_tiles_per_dim, int):
-            n_tiles_per_dim = [n_tiles_per_dim]*self.ndims
         self.n_tiles_per_dim = n_tiles_per_dim
         tile_dims = []
 
         if (np.asarray(self.energy_map_shape) % self.n_tiles_per_dim).sum() != 0:
-            raise ValueError("'n_tiles_per_dim' is not compatible with input space bounds")
+            raise ValueError(f"'n_tiles_per_dim' {self.n_tiles_per_dim} is not compatible with input space bounds {bounds} and bin size {bin_size}; map shape is {self.energy_map_shape}")
 
         for i in range(self.ndims):
             d = self.energy_map_shape[i]
@@ -278,6 +281,10 @@ class MPINoiseGenerator(NoiseGenerator):
         n_tiles_per_dim = np.concatenate(((self.comm.size,), self.n_tiles_per_rank),axis=None)
         kwargs['n_tiles_per_dim'] = n_tiles_per_dim
         kwargs['tile_rank'] = self.comm.rank
+        bin_size = kwargs.get('bin_size', None)
+        if bin_size is None:
+            bin_size = Fraction(math.ceil(bounds[0][1] - bounds[0][0]),  n_tiles_per_dim[0]) / 2
+        kwargs['bin_size'] = bin_size
         seed = kwargs.get('seed', None)
         if seed is None:
             if self.comm.rank == 0:
@@ -288,7 +295,7 @@ class MPINoiseGenerator(NoiseGenerator):
         n_seed_points_per_dim = kwargs.get('n_seed_points_per_dim', None)
         if n_seed_points_per_dim is None:
             bin_size = kwargs['bin_size']
-            energy_map_shape = tuple(map(lambda x: int((x[1] - x[0])//bin_size + 1), bounds))
+            energy_map_shape = tuple(map(lambda x: int(math.ceil(x[1] - x[0])/bin_size), bounds))
             n_seed_points_per_dim = np.maximum(np.asarray(energy_map_shape) // 256, 1)*self.comm.size
         kwargs['n_seed_points_per_dim'] = n_seed_points_per_dim
         super().__init__(**kwargs)
