@@ -517,7 +517,7 @@ def run(env, cvode=False, pc_runworker=False):
     h.finitialize(env.v_init)
 
     if rank == 0:
-        logger.info(f'*** Running simulation with dt = {h.dt:.03f} and tstop = {h.tstop:.02f}')
+        logger.info(f'*** Running simulation with dt = {h.dt:.04f} and tstop = {h.tstop:.02f}')
 
     env.pc.barrier()
     env.pc.psolve(h.tstop)
@@ -644,7 +644,7 @@ def run_with(env, param_dict, cvode=False, pc_runworker=False):
     h.finitialize(env.v_init)
 
     if rank == 0:
-        logger.info(f'*** Running simulation with dt = {h.dt:.03f} and tstop = {h.tstop:.02f}')
+        logger.info(f'*** Running simulation with dt = {h.dt:.04f} and tstop = {h.tstop:.02f}')
         logger.info(f'*** Parameters: {pprint.pformat(param_dict)}')
 
     env.pc.barrier()
