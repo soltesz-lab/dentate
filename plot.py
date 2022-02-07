@@ -2974,17 +2974,18 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
 
     if target_rate is not None :
         t = np.arange(time_range[0], time_range[1], 1.)
-        target_rate = target_rate_ip(t)
+        target_rate_t_range = target_rate_ip(t)
+        vmin, vmax = 0, np.max(target_rate_t_range)
         ax_target_rate = axes[i_ax]
         i_ax += 1
-        ax_target_rate.imshow(target_rate[np.newaxis,:], aspect="auto")
+        ax_target_rate.imshow(target_rate_t_range[np.newaxis,:], vmin=vmin, vmax=vmax, aspect="auto")
         ax_target_rate.set_yticks([])
         ax_mean_sdf = axes[i_ax]
         i_ax += 1
         if len(trial_sdf_ips) > 0:
             trial_sdf_matrix = np.row_stack([trial_sdf_ip(t) for trial_sdf_ip in trial_sdf_ips])
             mean_sdf = np.mean(trial_sdf_matrix, axis=0)
-            ax_mean_sdf.imshow(mean_sdf[np.newaxis,:], aspect="auto")
+            ax_mean_sdf.imshow(mean_sdf[np.newaxis,:], vmin=vmin, vmax=vmax, aspect="auto")
         ax_mean_sdf.set_yticks([])
         
     # Plot intracellular state
