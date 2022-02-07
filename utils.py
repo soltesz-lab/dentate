@@ -57,90 +57,13 @@ mpi_op_noise_gen_merge = MPI.Op.Create(noise_gen_merge, commute=True)
         
 is_interactive = bool(getattr(sys, 'ps1', sys.flags.interactive))
 
-# Code from scikit-image
-def view_as_blocks(arr_in, block_shape):
-    """Block view of the input n-dimensional array (using re-striding).
-    Blocks are non-overlapping views of the input array.
-    Parameters
-    ----------
-    arr_in : ndarray
-        N-d input array.
-    block_shape : tuple
-        The shape of the block. Each dimension must divide evenly into the
-        corresponding dimensions of `arr_in`.
-    Returns
-    -------
-    arr_out : ndarray
-        Block view of the input array.
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from skimage.util.shape import view_as_blocks
-    >>> A = np.arange(4*4).reshape(4,4)
-    >>> A
-    array([[ 0,  1,  2,  3],
-           [ 4,  5,  6,  7],
-           [ 8,  9, 10, 11],
-           [12, 13, 14, 15]])
-    >>> B = view_as_blocks(A, block_shape=(2, 2))
-    >>> B[0, 0]
-    array([[0, 1],
-           [4, 5]])
-    >>> B[0, 1]
-    array([[2, 3],
-           [6, 7]])
-    >>> B[1, 0, 1, 1]
-    13
-    >>> A = np.arange(4*4*6).reshape(4,4,6)
-    >>> A  # doctest: +NORMALIZE_WHITESPACE
-    array([[[ 0,  1,  2,  3,  4,  5],
-            [ 6,  7,  8,  9, 10, 11],
-            [12, 13, 14, 15, 16, 17],
-            [18, 19, 20, 21, 22, 23]],
-           [[24, 25, 26, 27, 28, 29],
-            [30, 31, 32, 33, 34, 35],
-            [36, 37, 38, 39, 40, 41],
-            [42, 43, 44, 45, 46, 47]],
-           [[48, 49, 50, 51, 52, 53],
-            [54, 55, 56, 57, 58, 59],
-            [60, 61, 62, 63, 64, 65],
-            [66, 67, 68, 69, 70, 71]],
-           [[72, 73, 74, 75, 76, 77],
-            [78, 79, 80, 81, 82, 83],
-            [84, 85, 86, 87, 88, 89],
-            [90, 91, 92, 93, 94, 95]]])
-    >>> B = view_as_blocks(A, block_shape=(1, 2, 2))
-    >>> B.shape
-    (4, 2, 3, 1, 2, 2)
-    >>> B[2:, 0, 2]  # doctest: +NORMALIZE_WHITESPACE
-    array([[[[52, 53],
-             [58, 59]]],
-           [[[76, 77],
-             [82, 83]]]])
-    """
-    if not isinstance(block_shape, tuple):
-        raise TypeError('block needs to be a tuple')
-
-    block_shape = np.array(block_shape)
-    if (block_shape <= 0).any():
-        raise ValueError("'block_shape' elements must be strictly positive")
-
-    if block_shape.size != arr_in.ndim:
-        raise ValueError("'block_shape' must have the same length "
-                         "as 'arr_in.shape'")
-
-    arr_shape = np.array(arr_in.shape)
-    if (arr_shape % block_shape).sum() != 0:
-        raise ValueError("'block_shape' is not compatible with 'arr_in'")
-
-    # -- restride the array to build the block view
-    new_shape = tuple(arr_shape // block_shape) + tuple(block_shape)
-    new_strides = tuple(arr_in.strides * block_shape) + arr_in.strides
-
-    arr_out = as_strided(arr_in, shape=new_shape, strides=new_strides)
-
-    return arr_out
-
+def block_permutation(a, local_random, N=10):
+    if isinstance(a, int):
+        a = np.asarray(range(a))
+    M = a.shape[0]//N
+    blocks = np.array_split(a, M)
+    out = np.concatenate([blocks[i] for i in local_random.permutation(M)])
+    return out
 
 class NoiseGenerator:
 
@@ -160,19 +83,17 @@ class NoiseGenerator:
 
     """
 
-    def __init__(self, tile_rank=0, n_tiles_per_dim=1, mask_fraction=0.99, seed=None, bounds=[[-1, 1],[-1, 1]], bin_size=None, n_seed_points_per_dim=None, **kwargs):
+    def __init__(self, tile_rank=0, n_tiles_per_dim=1, mask_fraction=0.99, seed=None, bounds=[[-1, 1],[-1, 1]], bin_size=0.1, n_seed_points_per_dim=None, block_permutation_size=50, **kwargs):
         """Creates a new noise generator structure."""
+        self.bounds = bounds
+        self.ndims = len(self.bounds)
         if isinstance(n_tiles_per_dim, int):
             n_tiles_per_dim = [n_tiles_per_dim]*self.ndims
-        if bin_size is None:
-            bin_size = Fraction(math.ceil(bounds[0][1] - bounds[0][0]), n_tiles_per_dim[0]) / 2
         self.seed = None
         self.local_random = np.random.default_rng(seed + tile_rank)
         self.global_random = np.random.default_rng(seed)
-        self.bounds = bounds
-        self.ndims = len(self.bounds)
         self.bin_size = bin_size
-        self.energy_map_shape = tuple(map(lambda x: int(math.ceil(x[1] - x[0])/bin_size), bounds))
+        self.energy_map_shape = tuple(map(lambda x: int((x[1] - x[0])/bin_size), bounds))
         self.energy_bins = tuple([np.arange(b[0], b[1], bin_size) for b in self.bounds])
         self.n_tiles_per_dim = n_tiles_per_dim
         tile_dims = []
@@ -185,7 +106,6 @@ class NoiseGenerator:
             s = d//self.n_tiles_per_dim[i]
             tile_dims.append(s)
         
-        self.tile_shape = tuple(tile_dims)
         self.n_tiles = np.prod(self.n_tiles_per_dim)
         self.tile_rank = tile_rank
         if n_seed_points_per_dim is None:
@@ -197,16 +117,20 @@ class NoiseGenerator:
         self.energy_meshgrid = tuple((x.reshape(self.energy_map_shape)
                                       for x in np.meshgrid(*self.energy_bins, indexing='ij', copy=False)))
         
+        n_ranks = self.n_tiles_per_dim[0]
+        n_tiles_per_rank = self.n_tiles_per_dim[1]
         energy_idxs = np.indices(self.energy_map_shape, dtype=np.uint32)
-        energy_tile_indices = tuple((view_as_blocks(x.reshape(self.energy_map_shape), self.tile_shape)
-                                     for x in energy_idxs))
+        self.energy_tile_perm = np.stack([np.take(energy_idxs[i],
+                                                  block_permutation(energy_idxs[i].shape[i],
+                                                                    self.local_random, N=block_permutation_size),
+                                                  axis=i)
+                                         for i in range(energy_idxs.shape[0])])
+        energy_tile_indices = tuple((tuple((np.array_split(s, self.n_tiles_per_dim[1], axis=1) for s in
+                                            np.array_split(x.reshape(self.energy_map_shape), self.n_tiles_per_dim[0])))
+                                            for x in self.energy_tile_perm))
         self.energy_tile_indices = energy_tile_indices
-        n_ranks = energy_tile_indices[0].shape[0]
-        n_tiles_per_rank = energy_tile_indices[0].shape[1]
-        self.energy_tile_perm = self.global_random.permutation(list(np.ndindex(n_ranks, n_tiles_per_rank))).reshape(n_ranks,-1,2)
         self.tile_ptr = 0
-        
-        
+
         self.n_seed_points = np.prod(self.n_seed_points_per_dim)
         self.mask_fraction = mask_fraction
         self.points = []
@@ -238,8 +162,7 @@ class NoiseGenerator:
         return energy, peak_idxs
         
     def next(self):
-        tile_choice = tuple(self.energy_tile_perm[self.tile_rank, self.tile_ptr].flatten())
-        tile_idxs = tuple((x[tile_choice]
+        tile_idxs = tuple((x[self.tile_rank][self.tile_ptr]
                            for x in self.energy_tile_indices))
         if len(self.mypoints) > self.n_seed_points // self.n_tiles:
             mask = np.argwhere(~self.energy_mask[tile_idxs])
@@ -272,19 +195,17 @@ class MPINoiseGenerator(NoiseGenerator):
         if comm is None:
             comm = MPI.COMM_WORLD
         self.comm = comm
+        bin_size = kwargs['bin_size']
         bounds = kwargs['bounds']
         ndims = len(bounds)
+        energy_map_shape = tuple(map(lambda x: int((x[1] - x[0])/bin_size), bounds))
         if isinstance(n_tiles_per_rank, int):
             n_tiles_per_rank = [n_tiles_per_rank]*(ndims-1)
         assert(len(n_tiles_per_rank) == (ndims-1))
         self.n_tiles_per_rank = np.maximum(n_tiles_per_rank, 1)
-        n_tiles_per_dim = np.concatenate(((self.comm.size,), self.n_tiles_per_rank),axis=None)
+        n_tiles_per_dim = np.concatenate(((self.comm.size,), self.n_tiles_per_rank), axis=None)
         kwargs['n_tiles_per_dim'] = n_tiles_per_dim
         kwargs['tile_rank'] = self.comm.rank
-        bin_size = kwargs.get('bin_size', None)
-        if bin_size is None:
-            bin_size = Fraction(math.ceil(bounds[0][1] - bounds[0][0]),  n_tiles_per_dim[0]) / 2
-        kwargs['bin_size'] = bin_size
         seed = kwargs.get('seed', None)
         if seed is None:
             if self.comm.rank == 0:
@@ -295,7 +216,6 @@ class MPINoiseGenerator(NoiseGenerator):
         n_seed_points_per_dim = kwargs.get('n_seed_points_per_dim', None)
         if n_seed_points_per_dim is None:
             bin_size = kwargs['bin_size']
-            energy_map_shape = tuple(map(lambda x: int(math.ceil(x[1] - x[0])/bin_size), bounds))
             n_seed_points_per_dim = np.maximum(np.asarray(energy_map_shape) // 256, 1)*self.comm.size
         kwargs['n_seed_points_per_dim'] = n_seed_points_per_dim
         super().__init__(**kwargs)
