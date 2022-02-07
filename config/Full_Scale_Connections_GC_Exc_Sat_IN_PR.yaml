@@ -18,11 +18,9 @@ Synapses:
           dur_onset: 0.5
           tau_offset: 5.5
           e: 0
-          g_unit: 0.002
-          weight: 1.0
           sat: 0.9
         NMDA:
-          g_unit: 0.002
+          e: 0
           weight: 1.0
     LPP:
       type: excitatory
@@ -35,14 +33,10 @@ Synapses:
           dur_onset: 0.5
           tau_offset: 5.5
           e: 0
-          g_unit: 0.0022
-          weight: 1.0
           sat: 0.9
         NMDA:
-          g_unit: 0.0022
+          e: 0
           weight: 1.0
-          dur_onset: 10.
-          tau_offset: 50.
     MC:   
       type: excitatory
       sections: [apical]
@@ -54,14 +48,9 @@ Synapses:
           dur_onset: 0.5
           tau_offset: 5.5
           e: 0
-          g_unit: 0.002
-          weight: 1.0
-          sat: 0.9
         NMDA:
-          g_unit: 0.00475
+          e: 0
           weight: 1.0
-          dur_onset: 10.
-          tau_offset: 50.
     ConMC:   
       type: excitatory
       sections: [apical]
@@ -74,13 +63,9 @@ Synapses:
           tau_offset: 5.5
           e: 0
           sat: 0.9
-          g_unit: 0.002
-          weight: 1.0
         NMDA:
-          g_unit: 0.00475
+          e: 0
           weight: 1.0
-          dur_onset: 10.
-          tau_offset: 50.
     AAC:
       type: inhibitory
       sections: [ais]
@@ -152,7 +137,7 @@ Synapses:
           GABA_A:
             dur_onset:  6.0
             tau_offset: 15.0
-            e:   -75
+            e: -75
             g_unit: 0.001
             weight: 0.17
           GABA_B:
@@ -171,7 +156,7 @@ Synapses:
         GABA_A:
           dur_onset:  6.0
           tau_offset: 15.0
-          e:   -75
+          e: -75
           g_unit: 0.001
           weight: 0.17
   MC:
@@ -187,7 +172,6 @@ Synapses:
           tau_offset: 6.2
           e: 0
           g_unit: 0.0055
-          weight: 1.0
           sat: 0.9
         NMDA:
           g_unit: 0.005
@@ -206,7 +190,6 @@ Synapses:
           tau_offset: 9.0
           e: 0
           g_unit: 0.0055
-          weight: 1.0
           sat: 0.9
         NMDA:
           g_unit: 0.005
@@ -226,7 +209,6 @@ Synapses:
           e: 0
           sat: 0.9
           g_unit: 0.005
-          weight: 1.0
     HC:   
       type: inhibitory
       sections: [apical]
