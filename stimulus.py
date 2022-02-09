@@ -891,6 +891,21 @@ def get_2D_arena_bounds(arena, margin=0., margin_fraction=None):
     return arena_x_bounds, arena_y_bounds
 
 
+def get_2D_arena_extents(arena):
+    """
+
+    :param arena: namedtuple
+    :return: tuple of (tuple of float)
+    """
+
+    vertices_x = np.asarray([v[0] for v in arena.domain.vertices], dtype=np.float32)
+    vertices_y = np.asarray([v[1] for v in arena.domain.vertices], dtype=np.float32)
+    extent_x = np.abs(np.max(vertices_x) - np.min(vertices_x))
+    extent_y = np.abs(np.max(vertices_y) - np.min(vertices_y))
+
+    return extent_x, extent_y
+
+
 def get_2D_arena_spatial_mesh(arena, spatial_resolution=5., margin=0., indexing='ij'):
     """
 

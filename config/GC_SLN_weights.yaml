@@ -1,9 +1,13 @@
 - namespace: ['LTP Structured Weights A', 'LTD Structured Weights A', 'Log-Normal Weights']
-  expr: a*ltp + (ltd + lnw)
+  expr: a*ltp + b*(ltd + lnw)
   parameter: [ltp, ltd, lnw]
   const:
    a: 1.0
+   b: 1.0
 - namespace: ['NS Structured Weights A', 'Normal Weights']
-  expr: nsw + nw
+  expr: c*(nsw + nw)
   parameter: [nsw, nw]
+  const:
+    c: 1.0
+
     

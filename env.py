@@ -561,8 +561,8 @@ class Env(object):
             for k, v in viewitems(mech_params):
                 if isinstance(v, dict):
                     if 'expr' in v:
-                        mech_params1[k] = ExprClosure([v['parameter']], v['expr'],
-                                                       v.get('const', None), ['x'])
+                        mech_params1[k] = ExprClosure(parameters=[v['parameter']], expr=v['expr'],
+                                                      consts=v.get('const', None), formals=['x'])
                     else:
                         raise RuntimeError('parse_syn_mechparams: unknown parameter type %s' % str(v))
                 else:
@@ -837,8 +837,8 @@ class Env(object):
                             if 'expr' in weights_dict:
                                 expr = weights_dict['expr']
                                 parameter = weights_dict['parameter']
-                                const = weights_dict.get('const', {})
-                                clos = ExprClosure(parameter, expr, const)
+                                const = weights_dict.get('const', None)
+                                clos = ExprClosure(parameters=parameter, expr=expr, consts=const)
                                 weights_dict['closure'] = clos
                         synapses_dict['weights'] = weights_dicts
                         

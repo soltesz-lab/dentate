@@ -241,7 +241,11 @@ Synaptic Optimization:
           ais:
             GABA_A:
               weight: [0.1, 5.0]
-        !!python/tuple [BC, HC, HCC, NGFC, MOPP]:
+        !!python/tuple [HCC, NGFC, MOPP]:
+          apical:
+            GABA_A:
+              weight: [0.1, 5.0]
+        !!python/tuple [BC, HC]:
           !!python/tuple [soma, apical]:
             GABA_A:
               weight: [0.1, 5.0]

@@ -4,7 +4,7 @@ Routines for selectivity optimization via Network Clamp.
 import os, sys, copy, uuid, pprint, time, gc
 from enum import Enum, IntEnum, unique
 from collections import defaultdict, namedtuple
-from neuroh5.io import read_cell_attribute_selection, scatter_read_cell_attribute_selection, read_cell_attribute_info
+from neuroh5.io import read_cell_attribute_info
 from mpi4py import MPI
 import numpy as np
 import click

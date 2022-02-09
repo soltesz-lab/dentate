@@ -3,7 +3,7 @@ import click, gc, math
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 from dentate.env import Env
 from dentate.stimulus import InputSelectivityConfig, choose_input_selectivity_type, get_2D_arena_spatial_mesh, \
-    get_2D_arena_bounds, generate_input_selectivity_features
+    get_2D_arena_bounds, get_2D_arena_extents, generate_input_selectivity_features
 from dentate.utils import *
 from mpi4py import MPI
 import h5py
@@ -267,18 +267,20 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
             noise_gen_dict = {}
             if modular:
                 for module_id in range(env.stimulus_config['Number Modules']):
-                    margin = math.ceil(selectivity_config.place_module_field_widths[module_id]//2)
-                    
-                    logger.info(f'module {module_id} margin = {margin}')
+                    extent_x, extent_y = get_2D_arena_extents(arena)
+                    margin = min(round(selectivity_config.place_module_field_widths[module_id] / 2.), 
+                                 max(0.25*extent_x, 0.25*extent_y))
                     arena_x_bounds, arena_y_bounds = get_2D_arena_bounds(arena, margin=margin)
                     noise_gen = MPINoiseGenerator(comm=comm, bounds=(arena_x_bounds, arena_y_bounds),
-                                                  tile_rank=comm.rank, n_tiles_per_rank=10, 
+                                                  tile_rank=comm.rank, n_tiles_per_rank=40, 
+                                                  bin_size=0.1,
                                                   seed=selectivity_seed_offset)
                     noise_gen_dict[module_id] = noise_gen
             else:
-                arena_x_bounds, arena_y_bounds = get_2D_arena_bounds(arena, margin_fraction=0.05)
+                arena_x_bounds, arena_y_bounds = get_2D_arena_bounds(arena, margin_fraction=0.25)
                 noise_gen_dict[-1] = MPINoiseGenerator(comm=comm, bounds=(arena_x_bounds, arena_y_bounds),
-                                                       tile_rank=comm.rank, n_tiles_per_rank=10, 
+                                                       tile_rank=comm.rank, n_tiles_per_rank=40, 
+                                                       bin_size=0.1,
                                                        seed=selectivity_seed_offset)
 
         

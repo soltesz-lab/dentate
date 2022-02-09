@@ -12,7 +12,7 @@
 #SBATCH -A BIR20001
 
 module load python3
-module load phdf5
+module load phdf5/1.10.4
 
 set -x
 
@@ -24,18 +24,20 @@ export DATA_PREFIX=$SCRATCH/striped2/dentate
 
 cd $SLURM_SUBMIT_DIR
 
+gid=1043950
+
 ibrun -n 1  python3 network_clamp.py go  -c Network_Clamp_GC_Exc_Sat_SLN_IN_PR.yaml \
-    -p HCC -g  1044649 -t 9500 --n-trials 1 --use-coreneuron --dt 0.01 \
-    --template-paths $MODEL_HOME/XPPcode:$DG_HOME/templates:$HOME/model/dgc/Mateos-Aparicio2014 \
+    -p HCC -g $gid -t 9500 --n-trials 1 --use-coreneuron --dt 0.01 \
+    --template-paths $DG_HOME/templates \
     --dataset-prefix $DATA_PREFIX \
     --config-prefix config \
     --results-path results/netclamp \
-    --input-features-path $DATA_PREFIX/Full_Scale_Control/DG_input_features_20200910_compressed.h5 \
+    --input-features-path $DATA_PREFIX/Full_Scale_Control/DG_input_features_20220131_compressed.h5 \
     --input-features-namespaces 'Place Selectivity' \
     --input-features-namespaces 'Grid Selectivity' \
     --input-features-namespaces 'Constant Selectivity' \
     --phase-mod --coords-path "$DATA_PREFIX/Full_Scale_Control/DG_coords_20190717_compressed.h5" \
-    --arena-id A --trajectory-id Diag \
-    --params-path $SCRATCH/dentate/results/netclamp/network_clamp.optimize.HCC_20210905_145222_NOS02279503.yaml
+    --arena-id A --trajectory-id Diag
+
 
  

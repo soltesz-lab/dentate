@@ -9,7 +9,7 @@
 #SBATCH -A BIR20001
 
 module load python3
-module load phdf5
+module load phdf5/1.10.4
 
 set -x
 
@@ -21,6 +21,7 @@ export DG_HOME=$MODEL_HOME/dentate
 export FI_MLX_ENABLE_SPAWN=1
 export I_MPI_HYDRA_TOPOLIB=ipl
 export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=off
+export I_MPI_HYDRA_BRANCH_COUNT=0
 export UCX_TLS="knem,dc_x"
 
 
