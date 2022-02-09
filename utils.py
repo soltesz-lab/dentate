@@ -15,6 +15,7 @@ import yaml
 from yaml.representer import Representer
 yaml.add_representer(defaultdict, Representer.represent_dict)
 
+import matplotlib.pyplot as plt
 
 def ndarray_add(a, b, datatype):
     if a is None:
@@ -83,7 +84,7 @@ class NoiseGenerator:
 
     """
 
-    def __init__(self, tile_rank=0, n_tiles_per_dim=1, mask_fraction=0.99, seed=None, bounds=[[-1, 1],[-1, 1]], bin_size=0.1, n_seed_points_per_dim=None, block_permutation_size=50, **kwargs):
+    def __init__(self, tile_rank=0, n_tiles_per_dim=1, mask_fraction=0.99, seed=None, bounds=[[-1, 1],[-1, 1]], bin_size=0.1, n_seed_points_per_dim=None, **kwargs):
         """Creates a new noise generator structure."""
         self.bounds = bounds
         self.ndims = len(self.bounds)
@@ -98,8 +99,8 @@ class NoiseGenerator:
         self.n_tiles_per_dim = n_tiles_per_dim
         tile_dims = []
 
-        if (np.asarray(self.energy_map_shape) % self.n_tiles_per_dim).sum() != 0:
-            raise ValueError(f"'n_tiles_per_dim' {self.n_tiles_per_dim} is not compatible with input space bounds {bounds} and bin size {bin_size}; map shape is {self.energy_map_shape}")
+#        if (np.asarray(self.energy_map_shape) % self.n_tiles_per_dim).sum() != 0:
+#            raise ValueError(f"'n_tiles_per_dim' {self.n_tiles_per_dim} is not compatible with input space bounds {bounds} and bin size {bin_size}; map shape is {self.energy_map_shape}")
 
         for i in range(self.ndims):
             d = self.energy_map_shape[i]
@@ -118,19 +119,13 @@ class NoiseGenerator:
                                       for x in np.meshgrid(*self.energy_bins, indexing='ij', copy=False)))
         
         n_ranks = self.n_tiles_per_dim[0]
-        n_tiles_per_rank = self.n_tiles_per_dim[1]
         energy_idxs = np.indices(self.energy_map_shape, dtype=np.uint32)
-        self.energy_tile_perm = np.stack([np.take(energy_idxs[i],
-                                                  block_permutation(energy_idxs[i].shape[i],
-                                                                    self.local_random, N=block_permutation_size),
-                                                  axis=i)
-                                         for i in range(energy_idxs.shape[0])])
         energy_tile_indices = tuple((tuple((np.array_split(s, self.n_tiles_per_dim[1], axis=1) for s in
                                             np.array_split(x.reshape(self.energy_map_shape), self.n_tiles_per_dim[0])))
-                                            for x in self.energy_tile_perm))
+                                            for x in energy_idxs))
         self.energy_tile_indices = energy_tile_indices
         self.tile_ptr = 0
-
+        
         self.n_seed_points = np.prod(self.n_seed_points_per_dim)
         self.mask_fraction = mask_fraction
         self.points = []
@@ -191,7 +186,7 @@ class MPINoiseGenerator(NoiseGenerator):
     NoiseGenerator and updates energy map via MPI collective calls.
 
     """
-    def __init__(self, n_tiles_per_rank=1, comm=None, **kwargs):
+    def __init__(self, comm=None, **kwargs):
         if comm is None:
             comm = MPI.COMM_WORLD
         self.comm = comm
@@ -199,11 +194,8 @@ class MPINoiseGenerator(NoiseGenerator):
         bounds = kwargs['bounds']
         ndims = len(bounds)
         energy_map_shape = tuple(map(lambda x: int((x[1] - x[0])/bin_size), bounds))
-        if isinstance(n_tiles_per_rank, int):
-            n_tiles_per_rank = [n_tiles_per_rank]*(ndims-1)
-        assert(len(n_tiles_per_rank) == (ndims-1))
-        self.n_tiles_per_rank = np.maximum(n_tiles_per_rank, 1)
-        n_tiles_per_dim = np.concatenate(((self.comm.size,), self.n_tiles_per_rank), axis=None)
+        n_tiles_per_rank = [1]*(ndims-1)
+        n_tiles_per_dim = np.concatenate(((self.comm.size,), n_tiles_per_rank), axis=None)
         kwargs['n_tiles_per_dim'] = n_tiles_per_dim
         kwargs['tile_rank'] = self.comm.rank
         seed = kwargs.get('seed', None)
@@ -219,7 +211,6 @@ class MPINoiseGenerator(NoiseGenerator):
             n_seed_points_per_dim = np.maximum(np.asarray(energy_map_shape) // 256, 1)*self.comm.size
         kwargs['n_seed_points_per_dim'] = n_seed_points_per_dim
         super().__init__(**kwargs)
-        self.tile_ptr = self.local_random.choice(np.prod(self.n_tiles_per_rank))
 
     def add(self, points, energy_fn, energy_kwargs={}):
         
@@ -242,7 +233,6 @@ class MPINoiseGenerator(NoiseGenerator):
 
     def next(self):
         p = super().next()
-        self.tile_ptr = self.local_random.choice(np.prod(self.n_tiles_per_rank))
         return p
         
         
