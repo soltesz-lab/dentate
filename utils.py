@@ -225,7 +225,11 @@ class MPINoiseGenerator(NoiseGenerator):
     def next(self):
         p = super().next()
         return p
-        
+
+    def sync(self, num_points):
+        global_num_points = self.comm.allreduce([num_points], op=MPI.MAX)
+        return global_num_points
+    
         
     
 
