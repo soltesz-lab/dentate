@@ -200,8 +200,6 @@ class GridInputCellConfig(object):
                     else:
                         this_noise_gen.add(np.empty( shape=(0, 0), dtype=np.float32 ), None)
 
-                
-
             self.grid_field_width_concentration_factor = selectivity_config.grid_field_width_concentration_factor
 
             
@@ -326,14 +324,14 @@ class PlaceInputCellConfig(object):
             self.field_width = []
             self.x0 = []
             self.y0 = []
+
             for i in range(self.num_fields):
                 this_field_width = self.mean_field_width
-                if modular is not None:
-                    if modular:
-                        if selectivity_config.place_module_field_width_sigma > 0.:
-                            delta_field_width_factor = \
-                                local_random.normal(0., selectivity_config.place_module_field_width_sigma)
-                            this_field_width += self.mean_field_width * delta_field_width_factor
+                if modular:
+                    if selectivity_config.place_module_field_width_sigma > 0.:
+                        delta_field_width_factor = \
+                            local_random.normal(0., selectivity_config.place_module_field_width_sigma)
+                        this_field_width += self.mean_field_width * delta_field_width_factor
                     else:
                         if selectivity_config.non_modular_place_field_width_sigma > 0.:
                             delta_field_width_factor = \
@@ -341,17 +339,6 @@ class PlaceInputCellConfig(object):
                             this_field_width += self.mean_field_width * delta_field_width_factor
                 self.field_width.append(this_field_width)
 
-                if noise_gen_dict is None:
-                    this_x0 = local_random.uniform(*arena_x_bounds)
-                    this_y0 = local_random.uniform(*arena_y_bounds)
-                else:
-                    p = noise_gen_dict[self.module_id].next()
-                    this_x0, this_y0 = p[0]
-
-                self.x0.append(this_x0)
-                self.y0.append(this_y0)
-
-                
             if noise_gen_dict is not None:
                 # Use allreduce to determine the set of modules on each rank and determine which noise_gens to call
                 all_module_ids = [-1]
@@ -359,13 +346,24 @@ class PlaceInputCellConfig(object):
                     all_module_ids = comm.allreduce(set([self.module_id]), op=mpi_op_set_union)
                 for this_module_id in all_module_ids:
                     this_noise_gen = noise_gen_dict[this_module_id]
-                    if this_module_id == self.module_id:
-                        p = np.column_stack((np.asarray(self.x0), np.asarray(self.y0)))
-                        this_noise_gen.add(p, lambda p, g, width: get_place_rate_map(p[0], p[1], width, g[0], g[1]),
-                                           energy_kwargs=tuple(({'width': width} for width in self.field_width)))
-                    else:
-                        this_noise_gen.add(np.empty( shape=(0, 0), dtype=np.float32 ), None)
-
+                    # Use allreduce to determine the total number of fields required on all ranks
+                    global_num_fields = this_noise_gen.sync(self.num_fields if this_module_id == self.module_id else 0)
+                    for i in range(global_num_fields):
+                        if this_module_id == self.module_id and i < self.num_fields:
+                            p = noise_gen_dict[self.module_id].next()
+                            this_x0, this_y0 = p[0]
+                            self.x0.append(this_x0)
+                            self.y0.append(this_y0)
+                            this_noise_gen.add(p, lambda p, g, width: get_place_rate_map(p[0], p[1], width, g[0], g[1]),
+                                               energy_kwargs=({'width': self.field_width[i]},))
+                        else:
+                            this_noise_gen.add(np.empty( shape=(0, 0), dtype=np.float32 ), None)
+            else:
+                for i in range(self.num_fields):
+                    this_x0 = local_random.uniform(*arena_x_bounds)
+                    this_y0 = local_random.uniform(*arena_y_bounds)
+                    self.x0.append(this_x0)
+                    self.y0.append(this_y0)
 
                 
     def init_from_attr_dict(self, selectivity_attr_dict):
