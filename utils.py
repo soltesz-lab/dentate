@@ -113,7 +113,6 @@ class NoiseGenerator:
                                             np.array_split(x.reshape(self.energy_map_shape), self.n_tiles_per_dim[0])))
                                             for x in energy_idxs))
         self.energy_tile_indices = energy_tile_indices
-        self.tile_ptr = 0
         
         self.n_seed_points = np.prod(self.n_seed_points_per_dim)
         self.mask_fraction = mask_fraction
@@ -146,8 +145,7 @@ class NoiseGenerator:
         return energy, peak_idxs
         
     def next(self):
-        tile_idxs = tuple((x[self.tile_rank][self.tile_ptr]
-                           for x in self.energy_tile_indices))
+        tile_idxs = tuple((x[self.tile_rank] for x in self.energy_tile_indices))
         tile_coords = tuple((x[tile_idxs] for x in self.energy_meshgrid))
         if len(self.mypoints) > self.n_seed_points // self.n_tiles:
             mask = np.argwhere(~self.energy_mask[tile_idxs])
