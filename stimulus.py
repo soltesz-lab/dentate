@@ -183,22 +183,24 @@ class GridInputCellConfig(object):
                 delta_grid_orientation = local_random.normal(0., selectivity_config.grid_orientation_sigma)
                 self.grid_orientation += delta_grid_orientation
 
-            if noise_gen_dict is None:
-                self.x0 = local_random.uniform(*arena_x_bounds)
-                self.y0 = local_random.uniform(*arena_y_bounds)
-            else:
+            if noise_gen_dict is not None:
                 # Use allreduce to determine the set of modules on each rank and determine which noise_gens to call
                 all_module_ids = comm.allreduce(set([self.module_id]), op=mpi_op_set_union)
                 for this_module_id in all_module_ids:
                     this_noise_gen = noise_gen_dict[this_module_id]
-                    if this_module_id == self.module_id:
-                        p = this_noise_gen.next()
-                        self.x0, self.y0 = p[0]
-                        this_noise_gen.add(p, lambda p, g: get_grid_rate_map(p[0], p[1], self.grid_spacing,
-                                                                             self.grid_orientation, g[0], g[1],
-                                                                             a=selectivity_config.grid_field_width_concentration_factor))
-                    else:
-                        this_noise_gen.add(np.empty( shape=(0, 0), dtype=np.float32 ), None)
+                    global_num_fields = this_noise_gen.sync(1 if this_module_id == self.module_id else 0)
+                    for i in range(global_num_fields):
+                        if this_module_id == self.module_id and i < 1:
+                            p = this_noise_gen.next()
+                            self.x0, self.y0 = p[0]
+                            this_noise_gen.add(p, lambda p, g: get_grid_rate_map(p[0], p[1], self.grid_spacing,
+                                                                                 self.grid_orientation, g[0], g[1],
+                                                                                 a=selectivity_config.grid_field_width_concentration_factor))
+                        else:
+                            this_noise_gen.add(np.empty( shape=(0, 0), dtype=np.float32 ), None)
+            else:
+                self.x0 = local_random.uniform(*arena_x_bounds)
+                self.y0 = local_random.uniform(*arena_y_bounds)
 
             self.grid_field_width_concentration_factor = selectivity_config.grid_field_width_concentration_factor
 
@@ -350,7 +352,7 @@ class PlaceInputCellConfig(object):
                     global_num_fields = this_noise_gen.sync(self.num_fields if this_module_id == self.module_id else 0)
                     for i in range(global_num_fields):
                         if this_module_id == self.module_id and i < self.num_fields:
-                            p = noise_gen_dict[self.module_id].next()
+                            p = this_noise_gen.next()
                             this_x0, this_y0 = p[0]
                             self.x0.append(this_x0)
                             self.y0.append(this_y0)

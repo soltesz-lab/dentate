@@ -182,7 +182,6 @@ class MPINoiseGenerator(NoiseGenerator):
         bin_size = kwargs.get('bin_size', 0.1)
         kwargs['bin_size'] = bin_size
         bounds = kwargs['bounds']
-        logger.info(f'bounds = {bounds}')
         ndims = len(bounds)
         energy_map_shape = tuple(map(lambda x: int((x[1] - x[0])/bin_size), bounds))
         n_tiles_per_rank = [1]*(ndims-1)
@@ -226,7 +225,7 @@ class MPINoiseGenerator(NoiseGenerator):
         return p
 
     def sync(self, num_points):
-        global_num_points = self.comm.allreduce([num_points], op=MPI.MAX)
+        global_num_points = self.comm.allreduce(num_points, op=MPI.MAX)
         return global_num_points
     
         
