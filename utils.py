@@ -108,10 +108,12 @@ class NoiseGenerator:
                                       for x in np.meshgrid(*self.energy_bins, indexing='ij', copy=False)))
         
         n_ranks = self.n_tiles_per_dim[0]
-        energy_idxs = np.indices(self.energy_map_shape, dtype=np.uint32)
+        energy_idxs_perm = np.indices(self.energy_map_shape, dtype=np.uint32)
+        for i in range(energy_idxs_perm.shape[0]):
+            energy_idxs_perm[i] = self.local_random.permuted(energy_idxs_perm[i],axis=1)
         energy_tile_indices = tuple((tuple((np.array_split(s, self.n_tiles_per_dim[1], axis=1) for s in
                                             np.array_split(x.reshape(self.energy_map_shape), self.n_tiles_per_dim[0])))
-                                            for x in energy_idxs))
+                                            for x in energy_idxs_perm))
         self.energy_tile_indices = energy_tile_indices
         
         self.n_seed_points = np.prod(self.n_seed_points_per_dim)
