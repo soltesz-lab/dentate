@@ -46,8 +46,7 @@ def set_union(a, b, datatype):
 
 mpi_op_set_union = MPI.Op.Create(set_union, commute=True)
 
-def permuted(local_random, seq):
-    perm = local_random.permutation(len(seq))
+def reorder(perm, seq):
     return [seq[i] for i in perm]
 
 def noise_gen_merge(a, b, datatype):
@@ -115,7 +114,10 @@ class NoiseGenerator:
         energy_idxs_perm = np.indices(self.energy_map_shape, dtype=np.uint32)
         for i in range(1, energy_idxs_perm.shape[0]):
             energy_idxs_perm[i] = self.global_random.permuted(energy_idxs_perm[i],axis=i)
-        energy_tile_indices = tuple(( permuted(self.global_random, np.array_split(x.reshape(self.energy_map_shape), self.n_tiles_per_dim[0]))
+        perm_order = self.global_random.permutation(range(self.n_tiles_per_dim[0]))
+        energy_tile_indices = tuple(( reorder(perm_order,
+                                              np.array_split(x.reshape(self.energy_map_shape),
+                                                             self.n_tiles_per_dim[0]))
                                      for x in energy_idxs_perm))
         self.energy_tile_indices = energy_tile_indices
 
