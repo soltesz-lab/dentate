@@ -12,8 +12,6 @@ from scipy.ndimage import find_objects
 from mpi4py import MPI
 import yaml
 
-import matplotlib.pyplot as plt
-
 from yaml.representer import Representer
 yaml.add_representer(defaultdict, Representer.represent_dict)
 
