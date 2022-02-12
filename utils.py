@@ -12,6 +12,8 @@ from scipy.ndimage import find_objects
 from mpi4py import MPI
 import yaml
 
+import matplotlib.pyplot as plt
+
 from yaml.representer import Representer
 yaml.add_representer(defaultdict, Representer.represent_dict)
 
@@ -43,6 +45,10 @@ def set_union(a, b, datatype):
     return a | b
 
 mpi_op_set_union = MPI.Op.Create(set_union, commute=True)
+
+def permuted(local_random, seq):
+    perm = local_random.permutation(len(seq))
+    return [seq[i] for i in perm]
 
 def noise_gen_merge(a, b, datatype):
     energy_a, peak_idxs_a, points_a = a
@@ -109,11 +115,10 @@ class NoiseGenerator:
         energy_idxs_perm = np.indices(self.energy_map_shape, dtype=np.uint32)
         for i in range(energy_idxs_perm.shape[0]):
             energy_idxs_perm[i] = self.local_random.permuted(energy_idxs_perm[i],axis=1)
-        energy_tile_indices = tuple((tuple((np.array_split(s, self.n_tiles_per_dim[1], axis=1) for s in
-                                            np.array_split(x.reshape(self.energy_map_shape), self.n_tiles_per_dim[0])))
-                                            for x in energy_idxs_perm))
+        energy_tile_indices = tuple(( np.array_split(x.reshape(self.energy_map_shape), self.n_tiles_per_dim[0])
+                                     for x in energy_idxs_perm))
         self.energy_tile_indices = energy_tile_indices
-        
+
         self.n_seed_points = np.prod(self.n_seed_points_per_dim)
         self.mask_fraction = mask_fraction
         self.points = []
@@ -146,7 +151,6 @@ class NoiseGenerator:
         
     def next(self):
         tile_idxs = tuple((x[self.tile_rank] for x in self.energy_tile_indices))
-        tile_coords = tuple((x[tile_idxs] for x in self.energy_meshgrid))
         if len(self.mypoints) > self.n_seed_points // self.n_tiles:
             mask = np.argwhere(~self.energy_mask[tuple(tile_idxs)])
             if len(mask) > 0:
@@ -160,11 +164,13 @@ class NoiseGenerator:
                 self.energy_mask[tuple(tile_idxs)].fill(0)
                 em = self.energy_map[tile_idxs]
                 tile_pos = np.unravel_index(np.argmin(em), em.shape)
-            en = self.energy_map[tile_idxs][tile_pos]
-            p = np.asarray(tuple((x[tile_pos] for x in tile_coords))).reshape((-1, self.ndims))
+            en = self.energy_map[tuple((x[tile_pos] for x in tile_idxs))]
+            grid_idx = tuple(([x[tile_pos] for x in tile_idxs]))
+            p = np.asarray(tuple((x[grid_idx] for x in self.energy_meshgrid))).reshape((-1, self.ndims))
         else:
-            tile_pos = tuple((self.local_random.integers(0, s) for s in tile_coords[0].shape))
-            p = np.asarray(tuple((x[tile_pos] for x in tile_coords))).reshape((-1, self.ndims))
+            tile_pos = tuple((self.local_random.integers(0, s) for s in tile_idxs[0].shape))
+            grid_idx = tuple(([x[tile_pos] for x in tile_idxs]))
+            p = np.asarray(tuple((x[grid_idx] for x in self.energy_meshgrid))).reshape((-1, self.ndims))
         self.mypoints.add(tile_pos)
         return p
 
