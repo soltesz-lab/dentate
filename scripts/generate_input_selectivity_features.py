@@ -3,7 +3,7 @@ import click, gc, math
 from neuroh5.io import NeuroH5CellAttrGen, append_cell_attributes, read_population_ranges
 from dentate.env import Env
 from dentate.stimulus import InputSelectivityConfig, choose_input_selectivity_type, get_2D_arena_spatial_mesh, \
-    get_2D_arena_bounds, generate_input_selectivity_features
+    get_2D_arena_bounds, get_2D_arena_extents, generate_input_selectivity_features
 from dentate.utils import *
 from mpi4py import MPI
 import h5py
@@ -267,18 +267,18 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
             noise_gen_dict = {}
             if modular:
                 for module_id in range(env.stimulus_config['Number Modules']):
-                    margin = math.ceil(selectivity_config.place_module_field_widths[module_id]//2)
-                    
-                    logger.info(f'module {module_id} margin = {margin}')
-                    arena_x_bounds, arena_y_bounds = get_2D_arena_bounds(arena, margin=margin)
+                    #extent_x, extent_y = get_2D_arena_extents(arena)
+                    #margin = min(round(selectivity_config.place_module_field_widths[module_id] / 2.), 
+                    #             max(0.1*extent_x, 0.1*extent_y))
+                    arena_x_bounds, arena_y_bounds = get_2D_arena_bounds(arena, margin_fraction=0.05)
                     noise_gen = MPINoiseGenerator(comm=comm, bounds=(arena_x_bounds, arena_y_bounds),
-                                                  tile_rank=comm.rank, n_tiles_per_rank=10, 
+                                                  tile_rank=comm.rank, bin_size=0.5,
                                                   seed=selectivity_seed_offset)
                     noise_gen_dict[module_id] = noise_gen
             else:
                 arena_x_bounds, arena_y_bounds = get_2D_arena_bounds(arena, margin_fraction=0.05)
                 noise_gen_dict[-1] = MPINoiseGenerator(comm=comm, bounds=(arena_x_bounds, arena_y_bounds),
-                                                       tile_rank=comm.rank, n_tiles_per_rank=10, 
+                                                       tile_rank=comm.rank, bin_size=0.5,
                                                        seed=selectivity_seed_offset)
 
         
@@ -301,7 +301,9 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
                         all_module_ids = comm.allreduce(set([]), op=mpi_op_set_union)
                     for module_id in all_module_ids:
                         this_noise_gen = noise_gen_dict[module_id]
-                        this_noise_gen.add(np.empty( shape=(0, 0), dtype=np.float32 ), None)
+                        global_num_fields = this_noise_gen.sync(0)
+                        for i in range(global_num_fields):
+                            this_noise_gen.add(np.empty( shape=(0, 0), dtype=np.float32 ), None)
             else:
                 if rank == 0:
                     logger.info(f'Rank {rank} generating selectivity features for gid {gid}...')
@@ -326,6 +328,9 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
                     this_y0_list.append(this_selectivity_attr_dict['Y Offset'])
                 selectivity_attr_dict[this_selectivity_type_name][gid] = this_selectivity_attr_dict
                 gid_count[this_selectivity_type_name] += 1
+            if noise_gen_dict is not None:
+                for m in noise_gen_dict:
+                    noise_gen_dict[m].tile_rank = (noise_gen_dict[m].tile_rank + 1) % comm.size
             req.wait()
 
             if (iter_count > 0 and iter_count % write_every == 0) or (debug and iter_count == 10):

@@ -76,7 +76,7 @@ def simulate(v_init, mainlength, prelength=0, use_cvode=True):
     h.continuerun(h.tstop)
 
 
-def mknetcon(pc, source, syn, weight=1, delay=0.1):
+def mknetcon(pc, source, syn, weight=0, delay=0.1):
     """
     Creates a network connection from the provided source to the provided synaptic point process.
     :param pc: :class:'h.ParallelContext'
@@ -92,7 +92,7 @@ def mknetcon(pc, source, syn, weight=1, delay=0.1):
     return nc
 
 
-def mknetcon_vecstim(syn, delay=0.1, weight=1, source=None):
+def mknetcon_vecstim(syn, delay=0.1, weight=0, source=None):
     """
     Creates a VecStim object to drive the provided synaptic point process, 
     and a network connection from the VecStim source to the synapse target.

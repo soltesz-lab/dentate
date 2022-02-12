@@ -15,8 +15,6 @@ import yaml
 from yaml.representer import Representer
 yaml.add_representer(defaultdict, Representer.represent_dict)
 
-import matplotlib.pyplot as plt
-
 def ndarray_add(a, b, datatype):
     if a is None:
         return b
@@ -76,7 +74,7 @@ class NoiseGenerator:
 
     """
 
-    def __init__(self, tile_rank=0, n_tiles_per_dim=1, mask_fraction=0.99, seed=None, bounds=[[-1, 1],[-1, 1]], bin_size=0.1, n_seed_points_per_dim=None, **kwargs):
+    def __init__(self, tile_rank=0, n_tiles_per_dim=1, mask_fraction=0.99, seed=None, bounds=[[-1, 1],[-1, 1]], bin_size=1.0, n_seed_points_per_dim=None, **kwargs):
         """Creates a new noise generator structure."""
         self.bounds = bounds
         self.ndims = len(self.bounds)
@@ -141,7 +139,7 @@ class NoiseGenerator:
         if len(peak_idxs) > 0:
             peak_idxs = tuple(np.vstack(peak_idxs).T.astype(np.int))
             if update_state:
-                self.energy_mask[peak_idxs] = True
+                self.energy_mask[tuple(peak_idxs)] = True
         if energy is not None and update_state:
             self.energy_map += energy
         return energy, peak_idxs
@@ -150,7 +148,7 @@ class NoiseGenerator:
         tile_idxs = tuple((x[self.tile_rank] for x in self.energy_tile_indices))
         tile_coords = tuple((x[tile_idxs] for x in self.energy_meshgrid))
         if len(self.mypoints) > self.n_seed_points // self.n_tiles:
-            mask = np.argwhere(~self.energy_mask[tile_idxs])
+            mask = np.argwhere(~self.energy_mask[tuple(tile_idxs)])
             if len(mask) > 0:
                 em = self.energy_map[tile_idxs][tuple(mask.T)]
                 free_mask_pos = np.argsort(em, axis=None)
@@ -159,7 +157,7 @@ class NoiseGenerator:
                     if tile_pos not in self.mypoints:
                         break
             else:
-                self.energy_mask[tile_idxs].fill(0)
+                self.energy_mask[tuple(tile_idxs)].fill(0)
                 em = self.energy_map[tile_idxs]
                 tile_pos = np.unravel_index(np.argmin(em), em.shape)
             en = self.energy_map[tile_idxs][tile_pos]
@@ -181,7 +179,8 @@ class MPINoiseGenerator(NoiseGenerator):
         if comm is None:
             comm = MPI.COMM_WORLD
         self.comm = comm
-        bin_size = kwargs['bin_size']
+        bin_size = kwargs.get('bin_size', 0.1)
+        kwargs['bin_size'] = bin_size
         bounds = kwargs['bounds']
         ndims = len(bounds)
         energy_map_shape = tuple(map(lambda x: int((x[1] - x[0])/bin_size), bounds))
@@ -198,7 +197,6 @@ class MPINoiseGenerator(NoiseGenerator):
         kwargs['seed'] = seed
         n_seed_points_per_dim = kwargs.get('n_seed_points_per_dim', None)
         if n_seed_points_per_dim is None:
-            bin_size = kwargs['bin_size']
             n_seed_points_per_dim = np.maximum(np.asarray(energy_map_shape) // 256, 1)*self.comm.size
         kwargs['n_seed_points_per_dim'] = n_seed_points_per_dim
         super().__init__(**kwargs)
@@ -227,7 +225,7 @@ class MPINoiseGenerator(NoiseGenerator):
         return p
 
     def sync(self, num_points):
-        global_num_points = self.comm.allreduce([num_points], op=MPI.MAX)
+        global_num_points = self.comm.allreduce(num_points, op=MPI.MAX)
         return global_num_points
     
         
