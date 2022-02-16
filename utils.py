@@ -31,7 +31,10 @@ def ndarray_tuple_concat(a, b, datatype):
         return b
     if b is None:
         return a
-    return tuple((np.concatenate(x,axis=None) for x in zip(a,b)))
+    res = np.vstack((a,b))
+    return res
+
+
 
 mpi_op_ndarray_tuple_concat = MPI.Op.Create(ndarray_tuple_concat, commute=True)
 
@@ -102,7 +105,7 @@ class NoiseGenerator:
         self.n_tiles = np.prod(self.n_tiles_per_dim)
         self.tile_rank = tile_rank
         if n_seed_points_per_dim is None:
-            n_seed_points_per_dim = np.maximum(np.asarray(self.energy_map_shape) // 256, 1)
+            n_seed_points_per_dim = np.maximum(np.asarray(self.energy_map_shape) // 16, 1)
         self.n_seed_points_per_dim = n_seed_points_per_dim
         
         self.energy_map = np.zeros(self.energy_map_shape, dtype=np.float32)
@@ -144,7 +147,7 @@ class NoiseGenerator:
             if update_state:
                 self.points.append(point)
         if len(peak_idxs) > 0:
-            peak_idxs = tuple(np.vstack(peak_idxs).T.astype(np.int))
+            peak_idxs = np.vstack(peak_idxs)
             if update_state:
                 self.energy_mask[tuple(peak_idxs)] = True
         if energy is not None and update_state:
@@ -174,6 +177,8 @@ class NoiseGenerator:
             grid_idx = tuple(([x[tile_pos] for x in tile_idxs]))
             p = np.asarray(tuple((x[grid_idx] for x in self.energy_meshgrid))).reshape((-1, self.ndims))
         self.mypoints.add(tile_pos)
+        self.tile_rank = (self.tile_rank + 1) % self.n_tiles_per_dim[0]
+        
         return p
 
 
@@ -223,7 +228,7 @@ class MPINoiseGenerator(NoiseGenerator):
         req.wait()
         if all_energy is not None:
             self.energy_map += all_energy
-        self.energy_mask[tuple(all_peak_idxs)] = True
+        self.energy_mask[tuple(all_peak_idxs.T)] = True
         for points_i in all_points:
             for i in range(points_i.shape[0]):
                 self.points.append(points_i[i])
