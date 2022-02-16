@@ -34,6 +34,6 @@ ibrun python3 $HOME/model/dentate/scripts/generate_input_selectivity_features.py
     --config=Full_Scale_Basis.yaml -p MC -p LPP  --write-size 100000 \
     --config-prefix=./config --use-noise-gen \
     --coords-path=${DATA_PREFIX}/Full_Scale_Control/DG_coords_20190717_compressed.h5 \
-    --output-path=${DATA_PREFIX}/Full_Scale_Control/DG_input_features_20220207.h5 \
+    --output-path=${DATA_PREFIX}/Full_Scale_Control/DG_input_features_20220215.h5 \
     --io-size 2 \
     -v

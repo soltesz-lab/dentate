@@ -21,6 +21,16 @@ def mpi_excepthook(type, value, traceback):
         MPI.COMM_WORLD.Abort(1)
 sys.excepthook = mpi_excepthook
 
+def roundf( n, f ):
+ 
+    # Smaller multiple
+    a = (n // f) * f
+     
+    # Larger multiple
+    b = a + f
+     
+    # Return of closest of two
+    return (b if n - a > b - n else a)
 
 def debug_callback(context):
     from dentate.plot import plot_2D_rate_map, close_figure
@@ -267,18 +277,18 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
             noise_gen_dict = {}
             if modular:
                 for module_id in range(env.stimulus_config['Number Modules']):
-                    #extent_x, extent_y = get_2D_arena_extents(arena)
-                    #margin = min(round(selectivity_config.place_module_field_widths[module_id] / 2.), 
-                    #             max(0.1*extent_x, 0.1*extent_y))
-                    arena_x_bounds, arena_y_bounds = get_2D_arena_bounds(arena, margin_fraction=0.05)
+                    extent_x, extent_y = get_2D_arena_extents(arena)
+                    margin = round(selectivity_config.place_module_field_widths[module_id] / 2.)
+                    arena_x_bounds, arena_y_bounds = get_2D_arena_bounds(arena, margin=margin)
                     noise_gen = MPINoiseGenerator(comm=comm, bounds=(arena_x_bounds, arena_y_bounds),
-                                                  tile_rank=comm.rank, bin_size=0.5,
+                                                  tile_rank=comm.rank, bin_size=0.5, mask_fraction=0.99,
                                                   seed=selectivity_seed_offset)
                     noise_gen_dict[module_id] = noise_gen
             else:
-                arena_x_bounds, arena_y_bounds = get_2D_arena_bounds(arena, margin_fraction=0.05)
+                margin = round(np.mean(selectivity_config.place_module_field_widths) / 2.)
+                arena_x_bounds, arena_y_bounds = get_2D_arena_bounds(arena, margin=margin)
                 noise_gen_dict[-1] = MPINoiseGenerator(comm=comm, bounds=(arena_x_bounds, arena_y_bounds),
-                                                       tile_rank=comm.rank, bin_size=0.5,
+                                                       tile_rank=comm.rank, bin_size=0.5, mask_fraction=0.99,
                                                        seed=selectivity_seed_offset)
 
         
