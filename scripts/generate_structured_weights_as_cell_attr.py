@@ -607,7 +607,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             for source_gid in LTP_delta_weights_dict:
                  for syn_id in syn_ids_by_source_gid_dict[destination_gid][source_gid]:
                      output_syn_ids[i] = syn_id
-                     LTP_output_weights[i] = LTP_delta_weights_dict[source_gid]
+                     LTP_output_weights[i] = LTP_delta_weights_dict[source_gid] / max_delta_weight
                      LTD_output_weights[i] = LTD_delta_weights_dict[source_gid]
                      i += 1
             LTP_output_weights_dict[destination_gid] = {'syn_id': output_syn_ids, synapse_name: LTP_output_weights}
