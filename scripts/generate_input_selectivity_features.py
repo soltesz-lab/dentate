@@ -121,6 +121,7 @@ mpi_op_concatenate_ndarray_dict = MPI.Op.Create(concatenate_ndarray_dict, commut
 @click.option("--gather", is_flag=True)
 @click.option("--interactive", is_flag=True)
 @click.option("--debug", is_flag=True)
+@click.option("--debug-count", type=int, default=10)
 @click.option("--plot", is_flag=True)
 @click.option("--show-fig", is_flag=True)
 @click.option("--save-fig", required=False, type=str, default=None)
@@ -129,7 +130,7 @@ mpi_op_concatenate_ndarray_dict = MPI.Op.Create(concatenate_ndarray_dict, commut
 @click.option("--fig-format", required=False, type=str, default='svg')
 @click.option("--dry-run", is_flag=True)
 def main(config, config_prefix, coords_path, distances_namespace, output_path, arena_id, populations, use_noise_gen, io_size,
-         chunk_size, value_chunk_size, cache_size, write_size, verbose, gather, interactive, debug, plot, show_fig,
+         chunk_size, value_chunk_size, cache_size, write_size, verbose, gather, interactive, debug, debug_count, plot, show_fig,
          save_fig, save_fig_dir, font_size, fig_format, dry_run):
     """
 
@@ -282,7 +283,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
                     arena_x_bounds, arena_y_bounds = get_2D_arena_bounds(arena, margin=margin)
                     noise_gen = MPINoiseGenerator(comm=comm, bounds=(arena_x_bounds, arena_y_bounds),
                                                   tile_rank=comm.rank, bin_size=0.5, mask_fraction=0.99,
-                                                  seed=selectivity_seed_offset)
+                                                  seed=int(selectivity_seed_offset+module_id*1e6))
                     noise_gen_dict[module_id] = noise_gen
             else:
                 margin = round(np.mean(selectivity_config.place_module_field_widths) / 2.)
@@ -343,7 +344,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
                     noise_gen_dict[m].tile_rank = (noise_gen_dict[m].tile_rank + 1) % comm.size
             req.wait()
 
-            if (iter_count > 0 and iter_count % write_every == 0) or (debug and iter_count == 10):
+            if (iter_count > 0 and iter_count % write_every == 0) or (debug and iter_count == debug_count):
                 total_gid_count = 0
                 gid_count_dict = dict(gid_count.items())
                 req = comm.Ibarrier() 
@@ -372,7 +373,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
                     gc.collect()
 
 
-            if debug and iter_count >= 10:
+            if debug and iter_count >= debug_count:
                 break
 
 

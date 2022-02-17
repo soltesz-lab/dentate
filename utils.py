@@ -154,23 +154,21 @@ class NoiseGenerator:
         tile_idxs = tuple((x[self.tile_rank] for x in self.energy_tile_indices))
         if len(self.mypoints) > self.n_seed_points // self.n_tiles:
             mask = np.argwhere(~self.energy_mask[tuple(tile_idxs)])
-            if len(mask) > 0:
+            #logger.info(f'tile_idxs = {tile_idxs} len(mask) = {len(mask)} mask = {mask}')
+            if len(mask) == 0:
                 em = self.energy_map[tile_idxs][tuple(mask.T)]
-                free_mask_pos = np.argsort(em, axis=None)
-                for i in range(free_mask_pos.shape[0]):
-                    tile_pos = tuple(mask[free_mask_pos[i]])
-                    if tile_pos not in self.mypoints:
-                        break
-                #if self.tile_rank == 0:
-                #    logger.info(f'mask = {mask} em = {em} free_mask_pos = {free_mask_pos} tile_pos = {tile_pos}')
+                free_mask_order = np.argsort(em, axis=None)
+                prob = (em[free_mask_order[::-1]]/np.sum(em))
+                free_mask_pos = self.local_random.choice(free_mask_order, size=1, p=prob)
+                tile_pos = tuple(mask[free_mask_order[free_mask_pos]].flat)
+                #logger.info(f'free_mask_order = {free_mask_order} free_mask_pos = {free_mask_pos} tile_pos = {tile_pos}')
             else:
                 self.energy_mask[tuple(tile_idxs)] = 0
-                em = self.energy_map[tile_idxs]
-                pos = np.argsort(em, axis=None)
-                for i in range(pos.shape[0]):
-                    tile_pos = np.unravel_index(pos[i], em.shape)
-                    if tile_pos not in self.mypoints:
-                        break
+                em = self.energy_map[tile_idxs].flatten()
+                em_order = np.argsort(em, axis=None)
+                prob = (em[em_order[::-1]]/np.sum(em))
+                em_pos = self.local_random.choice(em_order, size=1, p=prob)[0]
+                tile_pos = np.unravel_index(em_order[em_pos], tile_idxs[0].shape)
             en = self.energy_map[tuple((x[tile_pos] for x in tile_idxs))]
             #if self.tile_rank == 0:
             #    logger.info(f'en = {en} min energy_map[tile_idxs] = {np.min(self.energy_map[tile_idxs])}')
