@@ -111,7 +111,7 @@ class NoiseGenerator:
         
         n_ranks = self.n_tiles_per_dim[0]
         energy_idxs_perm = np.indices(self.energy_map_shape, dtype=np.uint32)
-        for i in range(1, energy_idxs_perm.shape[0]):
+        for i in range(0, energy_idxs_perm.shape[0]):
             energy_idxs_perm[i] = self.global_random.permuted(energy_idxs_perm[i],axis=i)
         perm_order = self.global_random.permutation(range(self.n_tiles_per_dim[0]))
         energy_tile_indices = tuple(( reorder(perm_order,
@@ -154,14 +154,12 @@ class NoiseGenerator:
         tile_idxs = tuple((x[self.tile_rank] for x in self.energy_tile_indices))
         if len(self.mypoints) > self.n_seed_points // self.n_tiles:
             mask = np.argwhere(~self.energy_mask[tuple(tile_idxs)])
-            #logger.info(f'tile_idxs = {tile_idxs} len(mask) = {len(mask)} mask = {mask}')
-            if len(mask) == 0:
+            if len(mask) > 0:
                 em = self.energy_map[tile_idxs][tuple(mask.T)]
                 free_mask_order = np.argsort(em, axis=None)
                 prob = (em[free_mask_order[::-1]]/np.sum(em))
                 free_mask_pos = self.local_random.choice(free_mask_order, size=1, p=prob)
                 tile_pos = tuple(mask[free_mask_order[free_mask_pos]].flat)
-                #logger.info(f'free_mask_order = {free_mask_order} free_mask_pos = {free_mask_pos} tile_pos = {tile_pos}')
             else:
                 self.energy_mask[tuple(tile_idxs)] = 0
                 em = self.energy_map[tile_idxs].flatten()
@@ -170,8 +168,6 @@ class NoiseGenerator:
                 em_pos = self.local_random.choice(em_order, size=1, p=prob)[0]
                 tile_pos = np.unravel_index(em_order[em_pos], tile_idxs[0].shape)
             en = self.energy_map[tuple((x[tile_pos] for x in tile_idxs))]
-            #if self.tile_rank == 0:
-            #    logger.info(f'en = {en} min energy_map[tile_idxs] = {np.min(self.energy_map[tile_idxs])}')
             grid_idx = tuple(([x[tile_pos] for x in tile_idxs]))
             p = np.asarray(tuple((x[grid_idx] for x in self.energy_meshgrid))).reshape((-1, self.ndims))
         else:
