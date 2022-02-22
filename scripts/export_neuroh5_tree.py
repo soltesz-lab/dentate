@@ -144,12 +144,13 @@ def export_swc_dict(sections=[("somatic",1),("Dendrites",4),("Axon",7)]):
 @click.command()
 @click.option("--config", '-c', required=True, type=str)
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True), default='config')
+@click.option("--gid", '-g', type=int, default=0)
 @click.option("--population", '-p', required=True, type=str)
 @click.option("--input-file", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--output-file", required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
 @click.option("--dry-run",  is_flag=True)
 @click.option("--verbose", '-v', is_flag=True)
-def main(config, config_prefix, population, input_file, output_file, dry_run, verbose):
+def main(config, config_prefix, gid, population, input_file, output_file, dry_run, verbose):
     
     utils.config_logging(verbose)
     logger = utils.get_script_logger(os.path.basename(__file__))

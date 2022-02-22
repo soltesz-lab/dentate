@@ -22,7 +22,7 @@ def plotFFT(pattern, fft_vmax=1):
 
 npts = 1000
 width = 40
-gen = NoiseGenerator(n_tiles_per_dim=1, bounds=[[-100, 100],[-100, 100]], bin_size=0.1, seed=42)
+gen = NoiseGenerator(n_tiles_per_dim=1, bounds=[[-100, 100],[-100, 100]], bin_size=1.0, seed=42)
 
     
 def energy_fn(point, grid, width):
@@ -42,7 +42,7 @@ for i in range(50):
 en = gen.energy_map
 plotFFT(en)
 
-for i in range(100):
+for i in range(1000):
     p1 = gen.next()
     print(p1)
     gen.add(p1, energy_fn, energy_kwargs={'width': width})

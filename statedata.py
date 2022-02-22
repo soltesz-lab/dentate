@@ -48,7 +48,7 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', st
                 break
         if cell_index is None:
             raise RuntimeError(f'read_state: Unable to find recordings for state variable {state_variables} in '
-                               'population {pop_name} namespace {namespace_id}')
+                               f'population {pop_name} namespace {namespace_id}')
         cell_set = set(cell_index)
 
         # Limit to max_units

@@ -14,7 +14,7 @@ Cell Types:
   GC:
     template: DGC
     template file: DGC_Template_minimal.hoc
-    mechanism file: 20181205_DG_GC_excitability_mech.yaml
+    mechanism file: 20220114_DG_GC_excitability_synint_combined_gid_118936_mech.yaml
     synapses:
       correct_for_spines: True
       density: !include GC_synapse_density.yaml

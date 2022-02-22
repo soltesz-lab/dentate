@@ -2,11 +2,11 @@
   expr: a*ltp + b*(ltd + lnw)
   parameter: [ltp, ltd, lnw]
   const:
-   a: 1.0
-   b: 1.0
-- namespace: ['NS Structured Weights A', 'Normal Weights']
-  expr: c*(nsw + nw)
-  parameter: [nsw, nw]
+    a: 6.0
+    b: 1.0
+- namespace: ['Normal Weights']
+  expr: c*nw
+  parameter: [nw]
   const:
     c: 1.0
 

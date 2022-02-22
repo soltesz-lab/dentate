@@ -68,9 +68,6 @@ def init_selectivity_config(destination_gid, spatial_resolution,
 
     assert(destination_gid in input_features_attr_dict)
     this_target_selectivity_features_dict = input_features_attr_dict[destination_gid]
-    if logger is not None:
-        logger.info(f"init_selectivity_config: feature_dict for gid {destination_gid} is "
-                    f"{this_target_selectivity_features_dict}")
     this_target_selectivity_features_dict['Selectivity Type'] = np.asarray([target_selectivity_type], dtype=np.uint8)
 
     if len(coordinates) > 0:
@@ -95,9 +92,6 @@ def init_selectivity_config(destination_gid, spatial_resolution,
 
     if peak_rate is not None:
         this_target_selectivity_features_dict['Peak Rate'] = np.asarray([peak_rate]*num_fields, dtype=np.float32)
-
-    if logger is not None:
-        logger.info(f"init_selectivity_config: gid {destination_gid} has {num_fields} fields")
 
     if num_fields > 0:
         input_cell_config = stimulus.get_input_cell_config(target_selectivity_type,
@@ -246,7 +240,6 @@ def exchange_input_features(comm, requested_gids, input_features_attr_dict):
 @click.option("--max-delta-weight", type=float, default=4.)
 @click.option("--max-opt-iter", type=int, default=1000)
 @click.option("--max-weight-decay-fraction", type=float, default=1.)
-@click.option("--max-non-structured-weight-decay-fraction", type=float, default=0.95)
 @click.option("--optimize-tol", type=float, default=1e-8)
 @click.option("--peak-rate", type=float)
 @click.option("--reference-weights-are-delta", type=bool, default=False)
@@ -263,7 +256,7 @@ def exchange_input_features(comm, requested_gids, input_features_attr_dict):
 @click.option("--show-fig", is_flag=True)
 @click.option("--save-fig", type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--debug", is_flag=True)
-def main(config, coordinates, field_width, gid, input_features_path, input_features_namespaces, initial_weights_path, output_features_namespace, output_features_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, non_structured_sources, non_structured_weights_namespace, non_structured_weights_path, arena_id, field_width_scale, max_delta_weight, max_opt_iter, max_weight_decay_fraction, max_non_structured_weight_decay_fraction, optimize_tol, peak_rate, reference_weights_are_delta, arena_margin, target_amplitude, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot, show_fig, save_fig, debug):
+def main(config, coordinates, field_width, gid, input_features_path, input_features_namespaces, initial_weights_path, output_features_namespace, output_features_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, non_structured_sources, non_structured_weights_namespace, non_structured_weights_path, arena_id, field_width_scale, max_delta_weight, max_opt_iter, max_weight_decay_fraction, optimize_tol, peak_rate, reference_weights_are_delta, arena_margin, target_amplitude, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot, show_fig, save_fig, debug):
     """
 
     :param config: str (path to .yaml file)
@@ -319,7 +312,6 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
 
     LTD_output_weights_namespace = f'LTD {output_weights_namespace} {arena_id}'
     LTP_output_weights_namespace = f'LTP {output_weights_namespace} {arena_id}'
-    non_structured_output_weights_namespace = f'NS {output_weights_namespace} {arena_id}'
     this_input_features_namespaces = [f'{input_features_namespace} {arena_id}'
                                       for input_features_namespace in input_features_namespaces]
 
@@ -459,7 +451,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                         target_selectivity_features_dict,
                                                         target_selectivity_config_dict,
                                                         target_field_width_dict, logger=logger)
- 
+
         arena_x, arena_y = stimulus.get_2D_arena_spatial_mesh(arena, spatial_resolution,
                                                               margin=arena_margin_size)
 
@@ -562,7 +554,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             if reference_weights_path is not None:
                 reference_weight_dict = reference_weights_by_source_gid_dict[destination_gid]
                 
-            LTP_delta_weights_dict, LTD_delta_weights_dict, non_structured_delta_weights_dict, arena_structured_map = \
+            LTP_delta_weights_dict, LTD_delta_weights_dict, arena_structured_map = \
                synapses.generate_structured_weights(destination_gid,
                                                  target_map=target_selectivity_features_dict[destination_gid]['Arena Rate Map'],
                                                  initial_weight_dict=initial_weights_by_source_gid_dict[destination_gid],
@@ -576,7 +568,6 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                  max_delta_weight=max_delta_weight,
                                                  max_opt_iter=max_opt_iter,
                                                  max_weight_decay_fraction=max_weight_decay_fraction,
-                                                 max_non_structured_weight_decay_fraction=max_non_structured_weight_decay_fraction,
                                                  target_amplitude=target_amplitude,
                                                  arena_x=arena_x, arena_y=arena_y,
                                                  optimize_tol=optimize_tol,
@@ -607,24 +598,14 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             for source_gid in LTP_delta_weights_dict:
                  for syn_id in syn_ids_by_source_gid_dict[destination_gid][source_gid]:
                      output_syn_ids[i] = syn_id
-                     LTP_output_weights[i] = LTP_delta_weights_dict[source_gid] / max_delta_weight
+                     LTP_output_weights[i] = LTP_delta_weights_dict[source_gid]
                      LTD_output_weights[i] = LTD_delta_weights_dict[source_gid]
                      i += 1
             LTP_output_weights_dict[destination_gid] = {'syn_id': output_syn_ids, synapse_name: LTP_output_weights}
             LTD_output_weights_dict[destination_gid] = {'syn_id': output_syn_ids, synapse_name: LTD_output_weights}
 
             this_non_structured_syn_id_count = non_structured_syn_id_count[destination_gid]
-            non_structured_output_weights = np.empty(this_non_structured_syn_id_count, dtype='float32')
-            non_structured_output_syn_ids = np.empty(this_non_structured_syn_id_count, dtype='uint32')
-            this_non_structured_syn_id_count = non_structured_syn_id_count[destination_gid]
             i = 0
-            for source_gid in non_structured_delta_weights_dict:
-                 for syn_id in syn_ids_by_source_gid_dict[destination_gid][source_gid]:
-                     non_structured_output_syn_ids[i] = syn_id
-                     non_structured_output_weights[i] = non_structured_delta_weights_dict[source_gid]
-                     i += 1
-            non_structured_output_weights_dict[destination_gid] = {'syn_id': non_structured_output_syn_ids,
-                                                                   synapse_name: non_structured_output_weights}
 
             
             logger.info(f'Rank {rank}; destination: {destination}; gid {destination_gid}; '
@@ -641,10 +622,6 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                        chunk_size=chunk_size, value_chunk_size=value_chunk_size)
                 append_cell_attributes(output_weights_path, destination, LTP_output_weights_dict,
                                        namespace=LTP_output_weights_namespace, comm=env.comm, io_size=env.io_size,
-                                       chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-                append_cell_attributes(output_weights_path, destination, non_structured_output_weights_dict,
-                                       namespace=non_structured_output_weights_namespace,
-                                       comm=env.comm, io_size=env.io_size,
                                        chunk_size=chunk_size, value_chunk_size=value_chunk_size)
                 count = env.comm.reduce(len(LTP_output_weights_dict), op=MPI.SUM, root=0)
                 env.comm.barrier()
@@ -666,7 +643,6 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
 
             LTP_output_weights_dict.clear()
             LTD_output_weights_dict.clear()
-            non_structured_output_weights_dict.clear()
             output_features_dict.clear()
             gc.collect()
 
@@ -682,10 +658,6 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                chunk_size=chunk_size, value_chunk_size=value_chunk_size)
         append_cell_attributes(output_weights_path, destination, LTP_output_weights_dict,
                                namespace=LTP_output_weights_namespace, comm=env.comm, io_size=env.io_size,
-                               chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-        append_cell_attributes(output_weights_path, destination, non_structured_output_weights_dict,
-                               namespace=non_structured_output_weights_namespace,
-                               comm=env.comm, io_size=env.io_size,
                                chunk_size=chunk_size, value_chunk_size=value_chunk_size)
         count = comm.reduce(len(LTP_output_weights_dict), op=MPI.SUM, root=0)
         env.comm.barrier()

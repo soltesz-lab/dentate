@@ -44,29 +44,35 @@ comm = MPI.COMM_WORLD
 rank = comm.rank
 
 width = 40
-gen = MPINoiseGenerator(comm=comm, bounds=[[-100, 100],[-100, 100]], mask_fraction=0.99, bin_size=0.05, seed=42, n_tiles_per_rank=10)
+gen = MPINoiseGenerator(comm=comm, bounds=[[-100, 100],[-100, 100]], mask_fraction=0.99, bin_size=1.0, seed=42, n_tiles_per_rank=1)
     
 def energy_fn(point, grid, width):
 
     x0, y0 = point.T
     x, y = grid
-
+    
     fw = 2. * np.sqrt(2. * np.log(100.))
     return gauss2d(x=x, y=y, mx=x0, my=y0, sx=width / fw, sy=width / fw)
 
 
-for i in range(50):
+for i in range(10):
     p0 = gen.next()
-    logger.info(f'Rank {rank}: {p0}')
     gen.add(p0, energy_fn, energy_kwargs={'width': width})
 
 en = gen.energy_map
 if comm.rank == 0:
     plotFFT(en)
 
-for i in range(400):
+for i in range(100):
     p1 = gen.next()
-    logger.info(f'Rank {rank}: {p1}')
+    gen.add(p1, energy_fn, energy_kwargs={'width': width})
+
+en = gen.energy_map
+if comm.rank == 0:
+    plotFFT(en)
+
+for i in range(500):
+    p1 = gen.next()
     gen.add(p1, energy_fn, energy_kwargs={'width': width})
 
         

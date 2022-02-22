@@ -275,7 +275,7 @@ def make_rec(recid, population, gid, cell, sec=None, loc=None, ps=None, param='v
         else:
             origin = list(cell.soma)[0]
         h.distance(sec=origin)
-        distance = h.distance(loc, sec=sec)
+        distance = h.distance(origin(0.5), sec(loc))
         ri = h.ri(loc, sec=sec)
     else:
         raise RuntimeError('make_rec: either sec and loc or ps must be specified')

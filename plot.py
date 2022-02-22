@@ -104,7 +104,6 @@ def save_figure(file_name_prefix, fig=None, **kwargs):
     else:
         plt.savefig(fig_file_path)
 
-
 def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, edge_color=None, **kwargs):
     """ 
     Shows graph edges using Mayavi
@@ -1909,6 +1908,7 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
             
             if distance:
                 cell_state_distances = cell_state_mat[3]
+                logger.info(f'cell_state_distances = {cell_state_distances}')
                 cell_state_ri = cell_state_mat[4]
                 distance_rank = np.argsort(cell_state_distances, kind='stable')
                 distance_rank_descending = distance_rank[::-1]
@@ -5662,7 +5662,7 @@ def get_RPSD(psd2D, dTheta=30, rMin=10, rMax=100):
 
 
 
-def plot_2D_rate_map(x, y, rate_map, peak_rate=None, title=None, fft_vmax=10., density_bin_size=10., **kwargs):
+def plot_2D_rate_map(x, y, rate_map, x0=None, y0=None, peak_rate=None, title=None, fft_vmax=10., density_bin_size=10., **kwargs):
     """
 
     :param x: array
@@ -5696,6 +5696,11 @@ def plot_2D_rate_map(x, y, rate_map, peak_rate=None, title=None, fft_vmax=10., d
     ax.tick_params(labelsize=fig_options.fontSize)
     clean_axes(ax)
 
+    if x0 is not None and y0 is not None:
+        ax = fig.add_subplot(gs[0,1])
+        ax.set_title('Point Density')
+        plot_2D_point_density(np.column_stack((x0, y0)), ax=ax)
+    
     ax = fig.add_subplot(gs[1,0])
     ax.set_xlim(x_min, x_max)
     ax.set_ylim(y_min, y_max)
@@ -5707,7 +5712,10 @@ def plot_2D_rate_map(x, y, rate_map, peak_rate=None, title=None, fft_vmax=10., d
     ax.set_aspect('equal')
 
     angF, rpsd = get_RPSD(psd2D)
-    ax = fig.add_subplot(gs[:,1])
+    if x0 is not None and y0 is not None:
+        ax = fig.add_subplot(gs[1,1])
+    else:
+        ax = fig.add_subplot(gs[:,1])
     sct = ax.scatter(angF, rpsd, cmap=fig_options.colormap)
     ax.set_title('Radially Averaged Spectrogram')
 
@@ -5785,6 +5793,44 @@ def plot_2D_histogram(hist, x_edges, y_edges, norm=None, ylabel=None, xlabel=Non
         plt.show()
 
     return fig
+
+
+def plot_2D_point_density(data, width=100, height=100, ax=None, inc=0.3):
+
+    def points_image(data, height, width, inc=0.3):
+
+        xlims = (data[:,0].min(), data[:,0].max())
+        ylims = (data[:,1].min(), data[:,1].max())
+        dxl = xlims[1] - xlims[0]
+        dyl = ylims[1] - ylims[0]
+
+        img = np.zeros((height+1, width+1))
+        for i, p in enumerate(data):
+            x0 = int(round(((p[0] - xlims[0]) / dxl) * width))
+            y0 = int(round((1 - (p[1] - ylims[0]) / dyl) * height))
+            img[y0, x0] += inc
+            if img[y0, x0] > 1.0: img[y0, x0] = 1.0
+        
+        return xlims, ylims, img
+
+    if width is None:
+        width = int(round(data[:,0].max() - data[:,0].min()))
+    if height is None:
+        height = int(round(data[:,1].max() - data[:,1].min()))
+
+    xlims, ylims, img = points_image(data, height=height, width=width, inc=inc)
+    ax_extent = list(xlims)+list(ylims)
+
+    if ax is None:
+        fig, ax = plt.subplots()
+        
+    ax.imshow(img, 
+              vmin=0, vmax=1, 
+              cmap=plt.get_cmap('hot'),
+              interpolation='hermite',
+              aspect='auto',
+              extent=ax_extent)        
+
 
 def plot_network_clamp_trial(input_path, spike_namespace, intracellular_namespace, gid,
                        target_input_features_path=None, target_input_features_namespace=None,

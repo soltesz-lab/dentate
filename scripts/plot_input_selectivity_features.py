@@ -25,6 +25,24 @@ def concatenate_ndarray(a, b, datatype):
     return np.concatenate((a,b))
 mpi_op_concatenate_ndarray = MPI.Op.Create(concatenate_ndarray, commute=True)
 
+def merge_count_dict(a, b, datatype):
+    result = {}
+    for k in a:
+        result[k] = a[k]
+    for k in b:
+        result[k] = b[k] + result.get(k, 0)
+    return result
+mpi_op_merge_count_dict = MPI.Op.Create(merge_count_dict, commute=True)
+
+def merge_list_dict(a, b, datatype):
+    result = {}
+    for k in a:
+        result[k] = a[k]
+    for k in b:
+        result[k] = b[k] + result.get(k, [])
+    return result
+mpi_op_merge_list_dict = MPI.Op.Create(merge_list_dict, commute=True)
+
 
 @click.command()
 @click.option("--config", required=True, type=str)
@@ -203,9 +221,10 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
             u_distances_by_component = list()
             v_distances_by_component = list()
             rate_map_sum_by_module = defaultdict(lambda: np.zeros_like(arena_x_mesh))
+            count_by_module = defaultdict(int)
             start_time = time.time()
-            this_x0_list = []
-            this_y0_list = []
+            x0_list_by_module = defaultdict(list)
+            y0_list_by_module = defaultdict(list)
             selectivity_attr_gen = NeuroH5CellAttrGen(selectivity_path, population,
                                                       namespace=this_selectivity_namespace, comm=comm, io_size=io_size,
                                                       cache_size=cache_size)
@@ -219,8 +238,6 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
                                                selectivity_type_names=selectivity_type_names,
                                                selectivity_attr_dict=selectivity_attr_dict)
                     rate_map = input_cell_config.get_rate_map(x=arena_x_mesh, y=arena_y_mesh)
-                    this_x0_list.append(selectivity_attr_dict['X Offset'])
-                    this_y0_list.append(selectivity_attr_dict['Y Offset'])
                     u_distances_by_cell.append(u_distances_by_gid[gid])
                     v_distances_by_cell.append(v_distances_by_gid[gid])
                     this_cell_attrs, component_count, this_component_attrs = input_cell_config.gather_attributes()
@@ -241,15 +258,16 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
                                          peak_rate = env.stimulus_config['Peak Rate'][population][this_selectivity_type],
                                          title=f'{fig_title}\nModule: {this_module_id}',
                                          **fig_options())
+                    x0_list_by_module[this_module_id].append(selectivity_attr_dict['X Offset'])
+                    y0_list_by_module[this_module_id].append(selectivity_attr_dict['Y Offset'])
                     rate_map_sum_by_module[this_module_id] = np.add(rate_map, rate_map_sum_by_module[this_module_id])
+                    count_by_module[this_module_id] += 1
                 if debug and iter_count >= 10:
                     break
 
             if rank == 0:
                 logger.info(f'Done reading from {this_selectivity_namespace} namespace for population {population}...')
                 
-            x0_array = np.concatenate(this_x0_list, axis=None)
-            y0_array = np.concatenate(this_y0_list, axis=None)
 
             cell_count_hist, _, _ = np.histogram2d(u_distances_by_cell, v_distances_by_cell, bins=[u_edges, v_edges])
             component_count_hist, _, _ = np.histogram2d(u_distances_by_component, v_distances_by_component,
@@ -273,8 +291,14 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
             component_count_hist = comm.gather(component_count_hist, root=0)
             gathered_cell_attr_hist = comm.gather(gathered_cell_attr_hist, root=0)
             gathered_component_attr_hist = comm.gather(gathered_component_attr_hist, root=0)
+            x0_list_by_module = dict(x0_list_by_module)
+            y0_list_by_module = dict(y0_list_by_module)
+            x0_list_by_module = comm.reduce(x0_list_by_module, op=mpi_op_merge_list_dict, root=0)
+            y0_list_by_module = comm.reduce(y0_list_by_module, op=mpi_op_merge_list_dict, root=0)
             rate_map_sum_by_module = dict(rate_map_sum_by_module)
             rate_map_sum_by_module = comm.gather(rate_map_sum_by_module, root=0)
+            count_by_module = dict(count_by_module)
+            count_by_module = comm.reduce(count_by_module, op=mpi_op_merge_count_dict, root=0)
 
             if rank == 0:
                 gid_count = sum(gid_count)
@@ -296,10 +320,6 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
                             np.add(merged_rate_map_sum_by_module[this_module_id],
                                    each_rate_map_sum_by_module[this_module_id])
 
-                merged_x0 = comm.reduce(x0_array, root=0, op=mpi_op_concatenate_ndarray)
-                merged_y0 = comm.reduce(y0_array, root=0, op=mpi_op_concatenate_ndarray)
-
-                        
                 logger.info(f'Processing {gid_count} {population} {this_selectivity_type_name} cells '
                             f'took {time.time() - start_time:.2f} s')
 
@@ -309,10 +329,6 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
                 fig_title = f'{population} {this_selectivity_type_name} field offsets'
                 if save_fig is not None:
                         fig_options.saveFig = f'{save_fig} {fig_title}'
-
-                #title = f'{population} {this_selectivity_type_name}\nfield offsets'
-                #fig = plot_2D_spectrum(merged_x0, merged_y0, title=title, **fig_options())
-                #close_figure(fig)
                 
                 for key in merged_cell_attr_hist:
                     fig_title = f'{population} {this_selectivity_type_name} cells {key} distribution'
@@ -339,12 +355,16 @@ def main(config, config_prefix, coords_path, distances_namespace, bin_distance, 
                     close_figure(fig)
 
                 for this_module_id in merged_rate_map_sum_by_module:
+                    num_cells = count_by_module[this_module_id]
+                    x0 = np.concatenate(x0_list_by_module[this_module_id])
+                    y0 = np.concatenate(y0_list_by_module[this_module_id])
                     fig_title = f'{population} {this_selectivity_type_name} Module {this_module_id} rate map'
                     if save_fig is not None:
                         fig_options.saveFig = f'{save_fig} {fig_title}'
-                    fig = plot_2D_rate_map(x=arena_x_mesh, y=arena_y_mesh,
+                    fig = plot_2D_rate_map(x=arena_x_mesh, y=arena_y_mesh, x0=x0, y0=y0,
                                            rate_map=merged_rate_map_sum_by_module[this_module_id],
-                                           title=f'{population} {this_selectivity_type_name} rate map\nModule {this_module_id}',
+                                           title=(f'{population} {this_selectivity_type_name} rate map\n'
+                                                  f'Module {this_module_id} ({num_cells} cells)'),
                                            **fig_options())
                     close_figure(fig)
 
