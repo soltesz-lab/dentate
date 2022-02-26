@@ -2610,8 +2610,8 @@ def get_scaled_input_maps(target_amplitude, structured_weights_dict, gid):
     if non_structured_input_matrix is not None:
         scaled_initial_map += np.dot(non_structured_input_matrix, normed_non_structured_weights)
 
-    target_map_scaling_factor = target_amplitude / np.max(target_map)
-    scaled_target_map = (target_map.flat * target_map_scaling_factor) + scaled_initial_map
+    target_map_scaling_factor = target_amplitude / (np.max(target_map) if np.max(target_map) > 0. else 1.)
+    scaled_target_map = (target_map.flatten() * target_map_scaling_factor) + scaled_initial_map
 
     return {'input_matrix' : input_matrix,
             'scaled_input_matrix' : scaled_input_matrix,
@@ -2729,10 +2729,11 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
     LTP_delta_weights_dict = dict(zip(source_gid_array, output_LTP_delta_weights_array))
     LTD_delta_weights_dict = dict(zip(source_gid_array, output_LTD_delta_weights_array))
     
+    structured_activation_map = np.dot(scaled_input_matrix, structured_weights)
+    if scaled_non_structured_input_matrix is not None:
+        structured_activation_map += np.dot(scaled_non_structured_input_matrix, normed_non_structured_weights)
+
     if plot:
-        structured_activation_map = np.dot(scaled_input_matrix, structured_weights)
-        if scaled_non_structured_input_matrix is not None:
-            structured_activation_map += np.dot(scaled_non_structured_input_matrix, normed_non_structured_weights)
         lsqr_map = np.dot(scaled_input_matrix, lsqr_weights)
         if scaled_non_structured_input_matrix is not None:
             lsqr_map += np.dot(scaled_non_structured_input_matrix, normed_non_structured_weights)

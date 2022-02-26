@@ -29,11 +29,11 @@ export I_MPI_ADJUST_ALLREDUCE=2
 export I_MPI_ADJUST_BCAST=4
 export I_MPI_SHM=off
 
-# -p GC -p CA3c -p ConMC
+# -p GC -p CA3c -p ConMC -p MC -p LPP -p MPP
 ibrun python3 $HOME/model/dentate/scripts/generate_input_selectivity_features.py \
-    --config=Full_Scale_Basis.yaml -p MC -p LPP  --write-size 100000 \
+    --config=Full_Scale_Basis.yaml -p GC  --write-size 100000 \
     --config-prefix=./config --use-noise-gen \
     --coords-path=${DATA_PREFIX}/Full_Scale_Control/DG_coords_20190717_compressed.h5 \
-    --output-path=${DATA_PREFIX}/Full_Scale_Control/DG_input_features_20220215.h5 \
+    --output-path=${DATA_PREFIX}/Full_Scale_Control/DG_input_features_20220216.h5 \
     --io-size 2 \
     -v

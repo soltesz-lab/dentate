@@ -93,7 +93,7 @@ def main(config, template_path, output_path, forest_path, populations, distance_
         for gid, morph_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, comm=comm, topology=True):
             if gid is not None:
                 logger.info('Rank %i gid: %i' % (rank, gid))
-                cell = cells.make_neurotree_cell(template_class, neurotree_dict=morph_dict, gid=gid)
+                cell = cells.make_neurotree_hoc_cell(template_class, neurotree_dict=morph_dict, gid=gid)
                 secnodes_dict = morph_dict['section_topology']['nodes']
 
                 apicalidx = set(cell.apicalidx)

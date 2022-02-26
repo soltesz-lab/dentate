@@ -26,7 +26,7 @@ ibrun python3 ./scripts/measure_trees.py \
     --config=./config/Full_Scale_Basis.yaml \
     --template-path=$HOME/model/dgc/Mateos-Aparicio2014:templates \
     -i GC \
-    --forest-path=$SCRATCH/striped/dentate/Full_Scale_Control/DGC_forest_normalized_20200628_compressed.h5 \
+    --forest-path=$SCRATCH/striped2/dentate/Full_Scale_Control/DGC_forest_normalized_20200628_compressed.h5 \
     --output-path=$SCRATCH/dentate/results/measure_trees_DG_GC.h5 \
     --io-size=8 -v
 
