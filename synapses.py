@@ -2,6 +2,7 @@ import sys, collections, copy, itertools, math, pprint, uuid, time, traceback
 from functools import reduce
 from collections import defaultdict
 import numpy as np
+from scipy import signal, spatial
 from neuroh5.io import write_cell_attributes
 from dentate.nnls import nnls_gdal
 from dentate.cells import get_distance_to_node, get_donor, get_mech_rules_dict, get_param_val_by_distance, \
@@ -2612,11 +2613,15 @@ def get_structured_input_arrays(structured_weights_dict, gid):
     non_structured_weights_dict = structured_weights_dict['non_structured_weights_dict']
     syn_count_dict = structured_weights_dict['syn_count_dict']
 
+    target_peak_height = np.max(target_map)
+    target_peaks = signal.find_peaks(target_map, height=target_height).reshape((-1,1))
+    
     input_matrix = np.empty((target_map.size, len(input_rate_map_dict)),
                             dtype=np.float64)
     source_gid_array = np.empty(len(input_rate_map_dict), dtype=np.uint32)
     syn_count_array = np.empty(len(input_rate_map_dict), dtype=np.uint32)
     initial_weight_array = np.empty(len(input_rate_map_dict), dtype=np.float64)
+    input_rank = np.empty((len(target_peaks), len(input_rate_map_dict)), dtype=np.float32)
     for i, source_gid in enumerate(input_rate_map_dict):
         source_gid_array[i] = source_gid
         this_syn_count = syn_count_dict[source_gid]
@@ -2624,7 +2629,11 @@ def get_structured_input_arrays(structured_weights_dict, gid):
         input_matrix[:, i] = this_input
         syn_count_array[i] = this_syn_count
         initial_weight_array[i] = initial_weight_dict[source_gid]
+        this_input_peaks = signal.find_peaks(this_input).reshape((-1,1))
+        this_input_peak_dd = spatial.distance.cdist(target_peaks, this_input_peaks)
+        input_rank[:, i] = np.min(this_input_peak_dd, axis=1)[::-1]
 
+    input_rank_order = np.lexsort(input_rank)
     
     non_structured_input_matrix = None
     if non_structured_input_rate_map_dict is not None:
@@ -2638,12 +2647,12 @@ def get_structured_input_arrays(structured_weights_dict, gid):
             this_input = non_structured_input_rate_map_dict[source_gid].ravel() * this_syn_count
             non_structured_input_matrix[:, i] = this_input
             non_structured_weight_array[i] = non_structured_weights_dict.get(source_gid, 1.0)
-
-    np.save('initial_weight_array.npy', initial_weight_array)
-    np.save('non_structured_weight_array.npy', non_structured_weight_array)
-    np.save('input_matrix.npy', input_matrix)
-    np.save('non_structured_input_matrix.npy', non_structured_input_matrix)
-    np.save('target_map.npy', target_map)
+            
+    #np.save('initial_weight_array.npy', initial_weight_array)
+    #np.save('non_structured_weight_array.npy', non_structured_weight_array)
+    #np.save('input_matrix.npy', input_matrix)
+    #np.save('non_structured_input_matrix.npy', non_structured_input_matrix)
+    #np.save('target_map.npy', target_map)
             
     return {'target_map': target_map,
             'input_matrix': input_matrix, 
@@ -2652,7 +2661,8 @@ def get_structured_input_arrays(structured_weights_dict, gid):
             'non_structured_weight_array': non_structured_weight_array, 
             'non_structured_source_gid_array': non_structured_source_gid_array,
             'syn_count_array': syn_count_array, 
-            'source_gid_array': source_gid_array}
+            'source_gid_array': source_gid_array,
+            'input_rank_order': input_rank_order}
 
 
 def get_scaled_input_maps(target_amplitude, structured_weights_dict, gid):
@@ -2664,6 +2674,7 @@ def get_scaled_input_maps(target_amplitude, structured_weights_dict, gid):
     input_matrix = input_arrays_dict['input_matrix']
     non_structured_weight_array = input_arrays_dict['non_structured_weight_array']
     non_structured_input_matrix = np.asarray(input_arrays_dict['non_structured_input_matrix'], dtype=np.float64)
+    input_rank_order = input_arrays_dict['input_rank_order']
     
     initial_map = np.dot(input_matrix, initial_weight_array)
     if non_structured_input_matrix is not None:
@@ -2703,6 +2714,7 @@ def get_scaled_input_maps(target_amplitude, structured_weights_dict, gid):
             'initial_weights_norm': initial_weights_norm,
             'non_structured_weights_norm': non_structured_weights_norm,
             'input_matrix_norm': input_matrix_norm
+            'input_rank_order': input_rank_order
            }
     
 def get_structured_delta_weights(initial_weight_array, normed_initial_weights, 
@@ -2783,7 +2795,10 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
     scaled_non_structured_input_matrix = scaled_maps_dict.get('scaled_non_structured_input_matrix', None)
     non_structured_input_matrix = scaled_maps_dict.get('non_structured_input_matrix', None)
     normed_non_structured_weights = scaled_maps_dict.get('normed_non_structured_weights', None)
-
+    input_rank_order = scaled_maps_dict['input_rank_order']
+    inverse_input_rank_order = np.empty_like(input_rank_order)
+    inverse_input_rank_order[p] = np.arange(input_rank_order.size)
+    
     lsqr_target_map = np.clip(scaled_target_map + scaled_initial_map, 0.0, None)
     if scaled_non_structured_input_matrix is not None:
         lsqr_target_map -= np.dot(scaled_non_structured_input_matrix, normed_non_structured_weights)
@@ -2796,12 +2811,12 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
     np.fill_diagonal(D2, -1)
     k2 = 0.25
     W = np.ones((1, n_variables))
-    A = np.vstack((scaled_input_matrix, k1*D1, W))
+    A = np.vstack((scaled_input_matrix[:,input_rank_order], k1*D1, W))
     csum = np.sum(initial_weight_array)
     lsqr_target_map = np.concatenate((lsqr_target_map, np.zeros(n_variables), csum*np.ones((1,))))
     res = nnls_gdal(A, lsqr_target_map.reshape((-1,1)),
                     max_n_iter=max_opt_iter, epsilon=optimize_tol, verbose=True)
-    lsqr_weights = np.asarray(res, dtype=np.float32).reshape((res.shape[0],))
+    lsqr_weights = np.asarray(res[inverse_input_rank_order], dtype=np.float32).reshape((res.shape[0],))
     logger.info(f'gid {destination_gid}: min/max/mean/sum LSQR weights: '
                 f'{np.min(lsqr_weights)}/{np.max(lsqr_weights)}/{np.mean(lsqr_weights)}/{np.sum(lsqr_weights)} ')
     
