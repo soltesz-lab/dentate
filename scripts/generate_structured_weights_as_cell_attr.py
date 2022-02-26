@@ -104,7 +104,8 @@ def init_selectivity_config(destination_gid, spatial_resolution,
 
         target_map = np.asarray(input_cell_config.get_rate_map(arena_x, arena_y,
                                                                scale=field_width_scale),
-                                dtype=np.float32)
+                                dtype=np.float32).flatten()
+        
         this_target_selectivity_features_dict['Arena Rate Map'] = target_map
         target_selectivity_features_dict[destination_gid] = this_target_selectivity_features_dict
         target_field_width_dict[destination_gid] = input_cell_config.field_width
