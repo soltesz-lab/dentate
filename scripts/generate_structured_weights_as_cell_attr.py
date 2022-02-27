@@ -238,7 +238,6 @@ def exchange_input_features(comm, requested_gids, input_features_attr_dict):
 @click.option("--non-structured-weights-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--arena-id", '-a', type=str, default='A')
 @click.option("--field-width-scale", type=float, default=1.25)
-@click.option("--max-delta-weight", type=float, default=4.)
 @click.option("--max-opt-iter", type=int, default=1000)
 @click.option("--max-weight-decay-fraction", type=float, default=1.)
 @click.option("--optimize-tol", type=float, default=1e-8)
@@ -257,7 +256,7 @@ def exchange_input_features(comm, requested_gids, input_features_attr_dict):
 @click.option("--show-fig", is_flag=True)
 @click.option("--save-fig", type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--debug", is_flag=True)
-def main(config, coordinates, field_width, gid, input_features_path, input_features_namespaces, initial_weights_path, output_features_namespace, output_features_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, non_structured_sources, non_structured_weights_namespace, non_structured_weights_path, arena_id, field_width_scale, max_delta_weight, max_opt_iter, max_weight_decay_fraction, optimize_tol, peak_rate, reference_weights_are_delta, arena_margin, target_amplitude, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot, show_fig, save_fig, debug):
+def main(config, coordinates, field_width, gid, input_features_path, input_features_namespaces, initial_weights_path, output_features_namespace, output_features_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, non_structured_sources, non_structured_weights_namespace, non_structured_weights_path, arena_id, field_width_scale, max_opt_iter, max_weight_decay_fraction, optimize_tol, peak_rate, reference_weights_are_delta, arena_margin, target_amplitude, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot, show_fig, save_fig, debug):
     """
 
     :param config: str (path to .yaml file)
@@ -566,7 +565,6 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                  non_structured_input_rate_map_dict=non_structured_input_rate_maps_by_source_gid_dict,
                                                  non_structured_weights_dict=non_structured_weights_by_source_gid_dict[destination_gid],
                                                  syn_count_dict=syn_count_by_source_gid_dict[destination_gid],
-                                                 max_delta_weight=max_delta_weight,
                                                  max_opt_iter=max_opt_iter,
                                                  max_weight_decay_fraction=max_weight_decay_fraction,
                                                  target_amplitude=target_amplitude,

@@ -2631,8 +2631,13 @@ def get_structured_input_arrays(structured_weights_dict, gid):
         initial_weight_array[i] = initial_weight_dict[source_gid]
         this_input_max = np.max(this_input)
         this_input_norm = this_input_max if this_input_max > 0. else 1.
-        input_rank[i] = spatial.distance.cosine((this_input/this_input_norm)[target_act],
-                                                target_map_norm[target_act])
+        this_input_normed = this_input/this_input_norm
+        if np.sum(this_input_normed[target_act]) > 0.:
+            input_rank[i] = np.clip(spatial.distance.cosine(this_input_normed[target_act],
+                                                            target_map_norm[target_act]),
+                                    0., None)
+        else:
+            input_rank[0] = 0.
     input_rank[np.isnan(input_rank)] = 0.
     input_rank_order = np.argsort(input_rank)
     
@@ -2714,12 +2719,9 @@ def get_scaled_input_maps(target_amplitude, input_arrays_dict, gid):
     
 def get_structured_delta_weights(initial_weight_array, normed_initial_weights, 
                                  non_structured_weight_array, normed_non_structured_weights,
-                                 lsqr_weights, max_weight_decay_fraction, max_delta_weight):
+                                 lsqr_weights, max_weight_decay_fraction):
     
-    bounded_delta_weights = np.clip(lsqr_weights - normed_initial_weights, 
-                                    None, max_delta_weight)
     bounded_delta_weights = lsqr_weights - normed_initial_weights
-                                    #None, max_delta_weight)
                 
     structured_delta_weights_lb = np.asarray([ -(max_weight_decay_fraction * x)
                                                for x in normed_initial_weights ])
@@ -2730,7 +2732,7 @@ def get_structured_delta_weights(initial_weight_array, normed_initial_weights,
 
 
 def generate_structured_weights(destination_gid, target_map, initial_weight_dict, input_rate_map_dict, syn_count_dict,
-                                max_delta_weight=10., target_amplitude=3.,
+                                target_amplitude=3.,
                                 max_weight_decay_fraction = 1.,
                                 arena_x=None, arena_y=None,
                                 non_structured_input_rate_map_dict=None, 
@@ -2746,7 +2748,6 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
     :param initial_weight_dict: dict: {int: float}
     :param input_rate_map_dict: dict: {int: array}
     :param syn_count_dict: dict: {int: int}
-    :param max_delta_weight: float
     :param max_opt_iter: int
     :param target_amplitude: float
     :param arena_x: 2D array
@@ -2818,7 +2819,7 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
     structured_delta_weights = \
         get_structured_delta_weights(initial_weight_array, normed_initial_weights, 
                                      non_structured_weight_array, normed_non_structured_weights,
-                                     lsqr_weights, max_weight_decay_fraction, max_delta_weight)
+                                     lsqr_weights, max_weight_decay_fraction)
     
     LTP_delta_weights_array = np.maximum(structured_delta_weights, 0.)
     LTD_delta_weights_array = np.minimum(structured_delta_weights, 0.)
