@@ -2639,7 +2639,7 @@ def get_structured_input_arrays(structured_weights_dict, gid):
         else:
             input_rank[0] = 0.
     input_rank[np.isnan(input_rank)] = 0.
-    input_rank_order = np.argsort(input_rank)
+    input_rank_order = np.lexsort((syn_count_array, input_rank))
     
     non_structured_input_matrix = None
     if non_structured_input_rate_map_dict is not None:
@@ -2805,7 +2805,7 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
     k1 = 2.0
     D2 = np.diagflat(2*np.ones(n_variables-1), 1) + np.diagflat(-1*np.ones(n_variables-2), 2)
     np.fill_diagonal(D2, -1)
-    k2 = 0.1
+    k2 = 0.5
     W = np.ones((1, n_variables))
     A = np.vstack((scaled_input_matrix[:,input_rank_order], k1*D1, k2*D2, W))
     csum = np.sum(initial_weight_array)
