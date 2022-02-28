@@ -25,9 +25,8 @@ NEURON {
 	POINT_PROCESS LinExp2SynNMDA
         RANGE vshift, Kd, gamma, mg
 	RANGE tau_rise, tau_decay, e, i
-	NONSPECIFIC_CURRENT i
-
 	RANGE g, pnmda
+	NONSPECIFIC_CURRENT i
 }
 
 UNITS {
@@ -88,10 +87,11 @@ DERIVATIVE state {
 FUNCTION mgblock(v(mV)) {
 
 	: from Jahr & Stevens
-	mgblock = 1 / (1 + exp(0.062 (/mV) * -(v+vshift)) * (mg / Kd))
+	mgblock = 1 / (1 + exp(gamma * -(v+vshift)) * (mg / Kd))
 }
 
 NET_RECEIVE(weight, g_unit (uS)) {
+	INITIAL {}
 	A = A + weight*g_unit*factor
 	B = B + weight*g_unit*factor
 }
