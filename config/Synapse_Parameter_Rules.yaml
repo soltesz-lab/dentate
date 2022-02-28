@@ -76,6 +76,20 @@ LinExp2Syn:
       weight: 0
       g_unit: 1
     netcon_state: {}
+LinExp2SynNMDA:
+    mech_file: lin_exp2synNMDA.mod
+    mech_params:
+      - tau_rise
+      - tau_decay
+      - e
+      - mg
+      - Kd
+      - gamma
+      - vshift
+    netcon_params:
+      weight: 0
+      g_unit: 1
+    netcon_state: {}
 EPSC:
     mech_file: exp2EPSC.mod
     mech_params:
