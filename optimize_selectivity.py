@@ -415,7 +415,7 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
 
 
 def optimize_run(env, population, param_config_name, selectivity_config_name, init_objfun, problem_regime, nprocs_per_worker=1,
-                 n_epochs=10, n_initial=30, initial_maxiter=50, initial_method="glp", optimizer_method="nsga2",
+                 n_epochs=10, n_initial=30, initial_maxiter=50, initial_method="slh", optimizer_method="nsga2", surrogate_method='vgp',
                  population_size=200, num_generations=200, resample_fraction=None, mutation_rate=None,
                  param_type='synaptic', init_params={}, results_file=None, cooperative_init=False, 
                  spawn_startup_wait=None, verbose=False):
@@ -491,6 +491,7 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
                       'initial_maxiter': initial_maxiter,
                       'initial_method': initial_method,
                       'optimizer': optimizer_method,
+                      'surrogate_method': surrogate_method,
                       'file_path': file_path,
                       'save': True,
                       'save_eval' : 5,
@@ -545,8 +546,9 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
 @click.option("--n-epochs", type=int, default=1)
 @click.option("--n-initial", type=int, default=30)
 @click.option("--initial-maxiter", type=int, default=50)
-@click.option("--initial-method", type=str, default='glp')
+@click.option("--initial-method", type=str, default='slh')
 @click.option("--optimizer-method", type=str, default='nsga2')
+@click.option("--surrogate-method", type=str, default='vgp')
 @click.option("--population-size", type=int, default=200)
 @click.option("--num-generations", type=int, default=200)
 @click.option("--resample-fraction", type=float)
@@ -596,7 +598,7 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
 @click.option('--cooperative-init', is_flag=True, help='use a single worker to read model data then send to the remaining workers')
 @click.option("--spawn-startup-wait", type=int)
 def main(config_file, population, dt, gid, gid_selection_file, arena_id, trajectory_id, generate_weights,
-         t_max, t_min,  nprocs_per_worker, n_epochs, n_initial, initial_maxiter, initial_method, optimizer_method,
+         t_max, t_min,  nprocs_per_worker, n_epochs, n_initial, initial_maxiter, initial_method, optimizer_method, surrogate_method,
          population_size, num_generations, resample_fraction, mutation_rate,
          template_paths, dataset_prefix, config_prefix,
          param_config_name, selectivity_config_name, param_type, recording_profile, results_file, results_path, spike_events_path,
@@ -681,10 +683,10 @@ def main(config_file, population, dt, gid, gid_selection_file, arena_id, traject
         
     best = optimize_run(env, population, param_config_name, selectivity_config_name, init_objfun_name, problem_regime=problem_regime,
                         n_epochs=n_epochs, n_initial=n_initial, initial_maxiter=initial_maxiter, initial_method=initial_method, 
-                        optimizer_method=optimizer_method, population_size=population_size, num_generations=num_generations, 
-                        resample_fraction=resample_fraction, mutation_rate=mutation_rate, param_type=param_type, init_params=init_params, 
-                        results_file=results_file, nprocs_per_worker=nprocs_per_worker, cooperative_init=cooperative_init,
-                        spawn_startup_wait=spawn_startup_wait, verbose=verbose)
+                        optimizer_method=optimizer_method, surrogate_method=surrogate_method, population_size=population_size, 
+                        num_generations=num_generations, resample_fraction=resample_fraction, mutation_rate=mutation_rate, 
+                        param_type=param_type, init_params=init_params, results_file=results_file, nprocs_per_worker=nprocs_per_worker, 
+                        cooperative_init=cooperative_init, spawn_startup_wait=spawn_startup_wait, verbose=verbose)
     
     opt_param_config = optimization_params(env.netclamp_config.optimize_parameters, [population], param_config_name, param_type)
     if best is not None:
