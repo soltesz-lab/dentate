@@ -2517,7 +2517,7 @@ def normalize_tree_topology(neurotree_dict, swc_type_defs):
     """
     Given a neurotree dictionary, perform topology normalization,
     where 1) all dendritic sections have as a parent either another
-    dendritic sections, or the soma section; and 2) dendritic sections
+    dendritic section, or the soma section; and 2) dendritic sections
     connected to the first point of another dendritic section are
     instead connected to the last point of the grandparent section.
 
@@ -2669,6 +2669,124 @@ def normalize_tree_topology(neurotree_dict, swc_type_defs):
                       'y': pt_ys,
                       'z': pt_zs,
                       'radius': pt_radius,
+                      'layer': pt_layers,
+                      'parent': pt_parents,
+                      'swc_type': pt_swc_types,
+                      'sections': pt_sections,
+                      'src': sec_src,
+                      'dst': sec_dst }
+
+    return new_tree_dict
+
+
+
+def optimal_dendritic_taper(neurotree_dict, swc_type_defs):
+    """Given a neurotree dictionary, perform optimal dendritic taper 
+    which equalizes conductance at branch points using Rall's 3/2 power relationship:
+    for a parent radius r0, and daughter radii r1 and r2, 
+    r0^{3/2} = r1^{3/2} + r2^{3/2}
+
+    The ratio between r1 and r2 is defined by the lengths l1 and l2 of
+    the two daughter branches such that r1 / l1^{3/2} = r2 / l2^{3/2}
+
+    Algorithm based on description in Optimal Current Transfer in
+    Dendrites, Bird AD, Cuntz H. PLoS Comput Biol. 2016;12(5):e1004897.
+
+    :param neurotree_dict:
+    :param swc_type_defs:
+    :return: neurotree dict
+
+    """
+    import networkx as nx
+    
+    pt_xs = copy.deepcopy(neurotree_dict['x'])
+    pt_ys = copy.deepcopy(neurotree_dict['y'])
+    pt_zs = copy.deepcopy(neurotree_dict['z'])
+    pt_radius = copy.deepcopy(neurotree_dict['radius'])
+    pt_layers = copy.deepcopy(neurotree_dict['layer'])
+    pt_parents = copy.deepcopy(neurotree_dict['parent'])
+    pt_swc_types = copy.deepcopy(neurotree_dict['swc_type'])
+    pt_sections = copy.deepcopy(neurotree_dict['sections'])
+    sec_src = copy.deepcopy(neurotree_dict['src'])
+    sec_dst = copy.deepcopy(neurotree_dict['dst'])
+    dend_pts = np.argwhere(np.logical_or(pt_swc_types == swc_type_defs['apical'],
+                                         pt_swc_types == swc_type_defs['basal']))
+    section_swc_types = []
+    section_pt_dict = {}
+    pt_section_dict = {}
+    
+    xyz = np.array((pt_xs, pt_ys, pt_zs))
+
+    def euclidean_dist(i, j):
+        d = xyz[:, i] - xyz[:, j]
+        return np.sqrt(np.dot(d, d))
+
+    
+    i = 1
+    section_idx = 0
+    soma_section_idx = None
+    num_nodes = 0
+    while i < len(pt_sections):
+        num_points = pt_sections[i]
+        i += 1
+        section_pt_dict[section_idx] = []
+        if (pt_sections[i] == soma_pts[0]) and (pt_sections[i+1] == soma_pts[1]):
+            soma_section_idx = section_idx
+        for ip in range(num_points):
+            p = pt_sections[i]
+            section_pt_dict[section_idx].append(p)
+            if p not in pt_section_dict:
+                pt_section_dict[p] = section_idx
+            i += 1
+        this_section_swc_type = pt_swc_types[pt_sections[i-1]]
+        section_swc_types.append(this_section_swc_type)
+        section_idx += 1
+        num_nodes += num_points
+        
+    sec_parents_dict = {}
+    for src, dst in zip(sec_src, sec_dst):
+        sec_parents_dict[dst] = src
+        
+    node_graph = nx.DiGraph()
+    node_graph.add_nodes_from(zip(range(num_nodes), map(lambda swc_type: {'swc_type': swc_type}, pt_swc_types)))
+    
+    for section_idx in sorted(section_pt_dict.keys()):
+        section_pts = section_pt_dict[section_idx]
+        section_swc_type = section_swc_types[section_idx]
+        section_parent = sec_parents_dict.get(section_idx, None)
+        if section_parent is None:
+            raise RuntimeError(f"optimal_dendritic_taper: section {section_idx}: "
+                               f"unsupported section type {section_swc_type} without parent")
+
+        parent_node = section_pt_dict[section_parent][-1]
+        for p in section_pts:
+            g.add_edge(parent_node, p, distance=euclidean_dist(parent_node, p))
+            parent_node = p
+
+    node_graph_roots = [n for n,d in node_graph.in_degree() if d==0]
+    if len(node_graph_roots) != 1:
+        raise RuntimeError("optimal_dendritic_taper: node graph must be a rooted tree")
+    
+    new_pt_radius = np.zeros_like(pt_radius)
+    min_radius = np.min(pt_radius)
+    # The initial radius taper is defined by Eq 1 with L given by the
+    # apparent length, rL by the minimal dendritic radius anywhere on
+    # the tree and an initial estimate of the proximal radius from the
+    # measured physiological maximum. At every branch point the parent
+    # radius r0 is already defined by construction and daughter radii
+    # r1 and r2 are determined using the ‘apparent lengths' into each
+    # branch. This is continued until radii are assigned everywhere on
+    # the tree.
+    #
+    # Eq 1.: r(x) = alpha * (L - x)^2 + rL
+    #
+    
+    
+                
+    new_tree_dict = { 'x': pt_xs,
+                      'y': pt_ys,
+                      'z': pt_zs,
+                      'radius': new_pt_radius,
                       'layer': pt_layers,
                       'parent': pt_parents,
                       'swc_type': pt_swc_types,
