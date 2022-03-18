@@ -1,4 +1,5 @@
 import collections, os, sys, traceback, copy, datetime, math, pprint
+from collections import deque
 import numpy as np
 from dentate.neuron_utils import h, d_lambda, default_hoc_sec_lists, default_ordered_sec_types, freq, make_rec, \
     load_cell_template, HocCellInterface, IzhiCellAttrs, default_izhi_cell_attrs_dict, PRconfig
@@ -2517,7 +2518,7 @@ def normalize_tree_topology(neurotree_dict, swc_type_defs):
     """
     Given a neurotree dictionary, perform topology normalization,
     where 1) all dendritic sections have as a parent either another
-    dendritic sections, or the soma section; and 2) dendritic sections
+    dendritic section, or the soma section; and 2) dendritic sections
     connected to the first point of another dendritic section are
     instead connected to the last point of the grandparent section.
 
