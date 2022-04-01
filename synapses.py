@@ -2632,7 +2632,7 @@ def get_structured_input_arrays(structured_weights_dict, gid):
         this_input_max = np.max(this_input)
         this_input_norm = this_input_max if this_input_max > 0. else 1.
         this_input_normed = this_input/this_input_norm
-        if np.sum(this_input_normed[target_act]) > 0.:
+        if np.sum(this_input_normed[target_act]) > 1e-6:
             input_rank[i] = np.clip(spatial.distance.correlation(this_input_normed[target_act],
                                                                  target_map_norm[target_act]),
                                     0., None)
@@ -2838,7 +2838,11 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
     ub_LTP = np.max(LTP_delta_weights_array)
     range_LTP = ub_LTP - lb_LTP
     output_LTP_delta_weights_array = (LTP_delta_weights_array - lb_LTP) / range_LTP
-    output_LTD_delta_weights_array = LTD_delta_weights_array * initial_weights_norm
+    output_LTD_delta_weights_array = LTD_delta_weights_array * initial_weights_norm * 0.999
+    if not (np.min(output_LTD_delta_weights_array + initial_weight_array) >= 0.):
+        logger.error(f'gid {destination_gid}: '
+                     f'min(output_LTD_delta_weights_array + initial_weight_array) = '
+                     f'{np.min(output_LTD_delta_weights_array + initial_weight_array)}')
     assert(np.min(output_LTD_delta_weights_array + initial_weight_array) >= 0.)
 
     logger.info(f'gid {destination_gid}: '
