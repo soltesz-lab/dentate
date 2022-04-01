@@ -272,13 +272,13 @@ proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vsrc, vdst, vlo
                 p = vidxs.x[i]
                 if (!smembers.contains(p)) {
                     p_layer = layers.o(s).x[i]
-                    if (p_layer == 0) {
+                    if (p_layer == 1) {
                         GCLDidxs.append(s)
-                    } else if (p_layer == 1) {
-                        PDidxs.append(s)
                     } else if (p_layer == 2) {
+                        PDidxs.append(s)
+                    } else if (p_layer == 3) {
                         MDidxs.append(s)
-                    } else if (p_layer >= 3) {
+                    } else if (p_layer == 4) {
                         DDidxs.append(s)
                     }
                     smembers.append(p)
@@ -314,15 +314,15 @@ proc topol_from_python() { local i,j,p,s,dimsize localobj vidxs, vsrc, vdst, vlo
     
     if (verbose) {
 
-        printf ("GCLD compartment indices = ")
+        printf ("GCLD section indices = ")
         GCLDidxs.printf()
-        printf ("PD compartment indices = ")
+        printf ("PD section indices = ")
         PDidxs.printf()
-        printf ("MD compartment indices = ")
+        printf ("MD section indices = ")
         MDidxs.printf()
-        printf ("DD compartment indices = ")
+        printf ("DD section indices = %d", DDidxs.size())
         DDidxs.printf()
-        printf ("Total number of compartments = %d\n", nDends)
+        printf ("Total number of dendritic sections = %d\n", nDends)
     }
     
     for p = 0, vsrc.size-1 {

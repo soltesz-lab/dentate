@@ -2633,8 +2633,8 @@ def get_structured_input_arrays(structured_weights_dict, gid):
         this_input_norm = this_input_max if this_input_max > 0. else 1.
         this_input_normed = this_input/this_input_norm
         if np.sum(this_input_normed[target_act]) > 0.:
-            input_rank[i] = np.clip(spatial.distance.cosine(this_input_normed[target_act],
-                                                            target_map_norm[target_act]),
+            input_rank[i] = np.clip(spatial.distance.correlation(this_input_normed[target_act],
+                                                                 target_map_norm[target_act]),
                                     0., None)
         else:
             input_rank[0] = 0.
@@ -2794,8 +2794,9 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
     input_rank_order = scaled_maps_dict['input_rank_order']
     inverse_input_rank_order = np.empty_like(input_rank_order)
     inverse_input_rank_order[input_rank_order] = np.arange(input_rank_order.size)
-    
+
     lsqr_target_map = np.clip(scaled_target_map + scaled_initial_map, 0.0, None)
+    lsqr_target_map[lsqr_target_map > np.percentile(lsqr_target_map, 95)] = np.max(lsqr_target_map)
     if scaled_non_structured_input_matrix is not None:
         lsqr_target_map -= np.dot(scaled_non_structured_input_matrix, normed_non_structured_weights)
 

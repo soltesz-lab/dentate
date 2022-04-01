@@ -343,7 +343,7 @@ def interplocs(sec, locs, return_interpolant=False):
         xx.x[ii] = sec.x3d(ii)
         yy.x[ii] = sec.y3d(ii)
         zz.x[ii] = sec.z3d(ii)
-        dd.x[ii] = sec.diam
+        dd.x[ii] = sec.diam3d(ii)
         ll.x[ii] = sec.arc3d(ii)
         
     ## normalize length
@@ -376,7 +376,7 @@ def interplocs(sec, locs, return_interpolant=False):
     return res
 
 
-def calcRinp(cell, record_dt = 0.1, dt = 0.0125, celsius = 36., use_cvode=True):
+def run_iclamp(cell, record_dt = 0.1, dt = 0.0125, celsius = 36., prelength=1000.0, mainlength=10000.0, stimdur=500.0, stim_amp=0.0001, use_cvode=True):
 
     h.cvode.use_fast_imem(1)
     h.cvode.cache_efficient(1)
@@ -391,7 +391,7 @@ def calcRinp(cell, record_dt = 0.1, dt = 0.0125, celsius = 36., use_cvode=True):
         h.cvode.active(1)
 
     h.celsius = celsius
-    h.tstop = 10000
+    h.tstop = mainlength
 
     vec_t = h.Vector()
     vec_v = h.Vector()
@@ -400,14 +400,17 @@ def calcRinp(cell, record_dt = 0.1, dt = 0.0125, celsius = 36., use_cvode=True):
 
     # Put an IClamp at the soma
     stim = h.IClamp(0.5, sec=list(cell.soma)[0])
-    stim.delay = h.tstop / 2 # Stimulus start
-    stim.dur = 1000. # Stimulus length
-    stim.amp = 0.00005 # strength of current injection
+    stim.delay = prelength # Stimulus start
+    stim.dur = stimdur # Stimulus length
+    stim.amp = stim_amp # strength of current injection
 
     h.init()
     h.run()
 
     t = np.asarray(vec_t)
     v = np.asarray(vec_v)
+
+    t0 = prelength
+    t1 = prelength + stimdur
     
-    return (v[np.argwhere(t >= stim.delay+0.999*stim.dur)][0] - v[np.argwhere(t >= stim.delay-0.5*stim.dur)][0])/stim.amp
+    return { 't0': t0, 't1': t1, 't': t, 'v': v }
