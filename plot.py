@@ -2975,6 +2975,8 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
     if target_rate is not None :
         t = np.arange(time_range[0], time_range[1], 1.)
         target_rate_t_range = target_rate_ip(t)
+        if np.any(np.isnan(target_rate_t_range)):
+            target_rate_t_range[np.isnan(target_rate_t_range)] = 0.
         vmin, vmax = 0, np.max(target_rate_t_range)
         ax_target_rate = axes[i_ax]
         i_ax += 1

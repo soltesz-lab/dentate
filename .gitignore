@@ -65,3 +65,8 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
+# Plot files
+*.svg
+*.png
+

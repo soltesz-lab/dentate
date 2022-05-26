@@ -1,6 +1,8 @@
 import os, os.path, itertools, random, sys, uuid, pprint
 import numpy as np
 import click
+from scipy import signal
+from scipy.optimize import curve_fit
 from mpi4py import MPI  # Must come before importing NEURON
 from neuroh5.io import append_cell_attributes
 from neuron import h
@@ -8,7 +10,7 @@ from dentate import cells, synapses, utils, neuron_utils, io_utils
 from dentate.env import Env
 from dentate.synapses import get_syn_filter_dict
 from dentate.utils import Context, get_module_logger, is_interactive, config_logging
-from dentate.neuron_utils import h, configure_hoc_env, make_rec, calcRinp
+from dentate.neuron_utils import h, configure_hoc_env, make_rec, run_iclamp
 
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -118,24 +120,166 @@ def init_biophys_cell(env, pop_name, gid, load_weights=True, load_connections=Tr
     
     return cell
 
-def measure_passive (gid, pop_name, v_init, env, prelength=1000.0, mainlength=2000.0, stimdur=500.0, cell_dict={}):
+
+def measure_deflection(t, v, t0, t1, stim_amp=None):
+    """Measure voltage deflection (min or max, between start and end)."""
+
+    start_index = int(np.argwhere(t >= t0*0.999)[0])
+    end_index = int(np.argwhere(t >= t1*0.999)[0])
+
+    deflect_fn = np.argmin
+    if stim_amp is not None and (stim_amp > 0):
+        deflect_fn = np.argmax
+
+    v_window = v[start_index:end_index]
+    peak_index = deflect_fn(v_window) + start_index
+
+    return { 't_peak': t[peak_index],
+             'v_peak': v[peak_index],
+             'peak_index': peak_index,
+             't_baseline': t[start_index],
+             'v_baseline': v[start_index],
+             'baseline_index': start_index,
+             'stim_amp': stim_amp }
+
+##
+## Code based on https://www.github.com/AllenInstitute/ipfx/ipfx/subthresh_features.py
+##
+
+
+def fit_membrane_time_constant(t, v, t0, t1, rmse_max_tol = 1.0):
+    """Fit an exponential to estimate membrane time constant between start and end
+
+    Parameters
+    ----------
+    v : numpy array of voltages in mV
+    t : numpy array of times in ms
+    t0 : start of time window for exponential fit
+    t1 : end of time window for exponential fit
+    rsme_max_tol: minimal acceptable root mean square error (default 1e-4)
+
+    Returns
+    -------
+    a, inv_tau, y0 : Coefficients of equation y0 + a * exp(-inv_tau * x)
+
+    returns np.nan for values if fit fails
+    """
+
+    def exp_curve(x, a, inv_tau, y0):
+        return y0 + a * np.exp(-inv_tau * x)
+
+    start_index = int(np.argwhere(t >= t0*0.999)[0])
+    end_index = int(np.argwhere(t >= t1*0.999)[0])
+
+    p0 = (v[start_index] - v[end_index], 0.1, v[end_index])
+    t_window = (t[start_index:end_index] - t[start_index]).astype(np.float64)
+    v_window = v[start_index:end_index].astype(np.float64)
+    try:
+        popt, pcov = curve_fit(exp_curve, t_window, v_window, p0=p0)
+    except RuntimeError:
+        logging.info("Curve fit for membrane time constant failed")
+        return np.nan, np.nan, np.nan
+
+    pred = exp_curve(t_window, *popt)
+
+    rmse = np.sqrt(np.mean((pred - v_window)**2))
+
+    if rmse > rmse_max_tol:
+        logging.debug("RMSE %f for the Curve fit for membrane time constant exceeded the maximum tolerance of %f" % (rmse,rmse_max_tol))
+        return np.nan, np.nan, np.nan
+
+    return popt
+
+
+def measure_time_constant(t, v, t0, t1, stim_amp, frac=0.1, baseline_interval=100., min_snr=20.):
+    """Calculate the membrane time constant by fitting the voltage response with a
+    single exponential.
+
+    Parameters
+    ----------
+    v : numpy array of voltages in mV
+    t : numpy array of times in ms
+    t0 : start of stimulus interval in ms
+    t1 : end of stimulus interval in ms
+    stim_amp : stimulus amplitude
+    frac : fraction of peak deflection to find to determine start of fit window. (default 0.1)
+    baseline_interval : duration before `start` for baseline Vm calculation
+    min_snr : minimum signal-to-noise ratio (SNR) to allow calculation of time constant.
+        If SNR is too low, np.nan will be returned. (default 20)
+
+    Returns
+    -------
+    tau : membrane time constant in ms
+    """
+
+    if np.max(t) < t0 or np.max(t) < t1:
+        logging.debug("measure_time_constant: time series ends before t0 = {t0} or t1 = {t1}")
+        return np.nan
+
+    # Assumes this is being done on a hyperpolarizing step
+    deflection_results = measure_deflection(t, v, t0, t1, stim_amp)
+    v_peak = deflection_results['v_peak']
+    peak_index = deflection_results['peak_index']
+    v_baseline = deflection_results['v_baseline']
+    start_index = deflection_results['baseline_index']
+
+    # Check that SNR is high enough to proceed
+    signal = np.abs(v_baseline - v_peak)
+    noise_interval_start_index = int(np.argwhere(t >= (t0 - baseline_interval)*0.999)[0])
+    noise = np.std(v[noise_interval_start_index:start_index])
+    t_noise_start = t[noise_interval_start_index]
+    
+    if noise == 0: # noiseless - likely a deterministic model
+        snr = np.inf
+    else:
+        snr = signal / noise
+    if snr < min_snr:
+        logging.debug("measure_time_constant: signal-to-noise ratio too low for time constant estimate ({:g} < {:g})".format(snr, min_snr))
+        return np.nan
+
+    search_result = np.flatnonzero(v[start_index:] <= frac * (v_peak - v_baseline) + v_baseline)
+
+    if not search_result.size:
+        logger.debug("measure_time_constant: could not find interval for time constant estimate")
+        return np.nan
+    
+    fit_start_index = search_result[0] + start_index
+    fit_end_index = peak_index
+    fit_start = t[fit_start_index]
+    fit_end = t[fit_end_index]
+    
+    a, inv_tau, y0 = fit_membrane_time_constant(t, v, fit_start, fit_end)
+
+    return 1. / inv_tau
+
+
+
+def measure_passive (gid, pop_name, v_init, env, prelength=1000.0, mainlength=3000.0, stimdur=1000.0, stim_amp=-0.1, cell_dict={}):
 
 
     biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False, cell_dict=cell_dict)
     hoc_cell = biophys_cell.hoc_cell
 
-    Rin = calcRinp(hoc_cell, dt=env.dt)
+    iclamp_res = run_iclamp(hoc_cell, prelength=prelength, mainlength=mainlength, stimdur=stimdur, stim_amp=stim_amp)
 
-    # Measure membrane time constant
-    Cm = 0.
-    for sec in hoc_cell.soma:
-        for seg in sec:
-            Cm += sec(seg.x).area() * 1e-8 * sec(seg.x).cm
-        
-    tau0 = Rin * Cm * 1e3
+    t = iclamp_res['t']
+    v = iclamp_res['v']
+    t0 = iclamp_res['t0']
+    t1 = iclamp_res['t1']
     
-    results = {'Rin': np.asarray(Rin, dtype=np.float32),
-               'tau0': np.asarray(tau0, dtype=np.float32)
+    if np.max(t) < t0 or np.max(t) < t1:
+        logging.debug("measure_passive: time series ends before t0 = {t0} or t1 = {t1}")
+        return { 'Rinp': np.nan, 'tau': np.nan }
+
+    deflection_results  = measure_deflection(t, v, t0, t1, stim_amp=stim_amp)
+    v_peak = deflection_results['v_peak']
+    v_baseline = deflection_results['v_baseline']
+    
+    Rin = (v_peak - v_baseline)/stim_amp
+    tau0 = measure_time_constant(t, v, t0, t1, stim_amp)
+    
+    results = {'Rin': np.asarray([Rin], dtype=np.float32),
+               'tau0': np.asarray([tau0], dtype=np.float32)
                }
 
     logger.info(f'results = {results}')
@@ -178,7 +322,7 @@ def measure_ap (gid, pop_name, v_init, env, cell_dict={}):
 
     return results
     
-def measure_ap_rate (gid, pop_name, v_init, env, prelength=1000.0, mainlength=2000.0, stimdur=1000.0, stim_amp=0.2, minspikes=50, maxit=5, cell_dict={}):
+def measure_ap_rate (gid, pop_name, v_init, env, prelength=1000.0, mainlength=3000.0, stimdur=1000.0, stim_amp=0.2, minspikes=50, maxit=5, cell_dict={}):
 
     biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False, cell_dict=cell_dict)
 
@@ -204,6 +348,7 @@ def measure_ap_rate (gid, pop_name, v_init, env, prelength=1000.0, mainlength=20
     h.spikelog = h.Vector()
     nc = biophys_cell.spike_detector
     nc.record(h.spikelog)
+    logger.info(f"ap_rate_test: spike threshold is {nc.threshold}")
     
     h.tstop = tstop
 
@@ -212,12 +357,14 @@ def measure_ap_rate (gid, pop_name, v_init, env, prelength=1000.0, mainlength=20
     ## or up to maxit steps
     while (h.spikelog.size() < minspikes):
 
+        logger.info(f"ap_rate_test: iteration {it}")
+
         h.dt = env.dt
 
         neuron_utils.simulate(v_init, prelength, mainlength)
         
         if ((h.spikelog.size() < minspikes) & (it < maxit)):
-            logger.info("ap_rate_test: stim1.amp = %g spikelog.size = %d\n" % (stim1.amp, h.spikelog.size()))
+            logger.info(f"ap_rate_test: stim1.amp = {stim1.amp:.2f} spikelog.size = {h.spikelog.size()}")
             stim1.amp = stim1.amp + 0.1
             h.spikelog.clear()
             h.tlog.clear()
@@ -226,7 +373,7 @@ def measure_ap_rate (gid, pop_name, v_init, env, prelength=1000.0, mainlength=20
         else:
             break
 
-    logger.info("ap_rate_test: stim1.amp = %g spikelog.size = %d\n" % (stim1.amp, h.spikelog.size()))
+    logger.info(f"ap_rate_test: stim1.amp = {stim1.amp:.2f} spikelog.size = {h.spikelog.size()}")
 
     isivect = h.Vector(h.spikelog.size()-1, 0.0)
     tspike = h.spikelog.x[0]
@@ -532,17 +679,16 @@ def measure_psp (gid, pop_name, presyn_name, syn_mech_name, swc_type, env, v_ini
     vec_t = vec_t[idx][1:]
     vec_i = vec_i[idx][1:]
 
-    v_peak_index = np.argmax(np.abs(vec_v))
-    v_peak = vec_v[v_peak_index]
     i_peak_index = np.argmax(np.abs(vec_i))
     i_peak = vec_i[i_peak_index]
+    v_peak = vec_v[i_peak_index]
 
     
     
     amp_v = abs(v_peak - vec_v[0])
     amp_i = abs(i_peak - vec_i[0])
     
-    print("measure_psp: v_peak = %f (at t %f)" % (v_peak, vec_t[v_peak_index]))
+    print("measure_psp: v0 = %f v_peak = %f (at t %f)" % (vec_v[0], v_peak, vec_t[i_peak_index]))
     print("measure_psp: i_peak = %f (at t %f)" % (i_peak, vec_t[i_peak_index]))
     print("measure_psp: amp_v = %f amp_i = %f" % (amp_v, amp_i))
 

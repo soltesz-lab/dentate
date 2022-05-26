@@ -71,6 +71,7 @@ Intracellular:
       v:
         swc types:
           - soma
+          - ais
           - hillock
           - apical
           - basal
