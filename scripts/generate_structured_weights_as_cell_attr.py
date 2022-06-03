@@ -326,6 +326,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                   'X Offset', 'Y Offset']
 
     seed_offset = int(env.model_config['Random Seeds']['GC Structured Weights'])
+
     spatial_resolution = env.stimulus_config['Spatial Resolution'] # cm
 
     arena = env.stimulus_config['Arena'][arena_id]
@@ -556,25 +557,26 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                 
             LTP_delta_weights_dict, LTD_delta_weights_dict, arena_structured_map = \
                synapses.generate_structured_weights(destination_gid,
-                                                 target_map=target_selectivity_features_dict[destination_gid]['Arena Rate Map'],
-                                                 initial_weight_dict=initial_weights_by_source_gid_dict[destination_gid],
-                                                 #reference_weight_dict=reference_weight_dict,
-                                                 #reference_weights_are_delta=reference_weights_are_delta,
-                                                 #reference_weights_namespace=reference_weights_namespace,
-                                                 input_rate_map_dict=input_rate_maps_by_source_gid_dict,
-                                                 non_structured_input_rate_map_dict=non_structured_input_rate_maps_by_source_gid_dict,
-                                                 non_structured_weights_dict=non_structured_weights_by_source_gid_dict[destination_gid],
-                                                 syn_count_dict=syn_count_by_source_gid_dict[destination_gid],
-                                                 max_opt_iter=max_opt_iter,
-                                                 max_weight_decay_fraction=max_weight_decay_fraction,
-                                                 target_amplitude=target_amplitude,
-                                                 arena_x=arena_x, arena_y=arena_y,
-                                                 optimize_tol=optimize_tol,
-                                                 verbose=verbose if rank == 0 else False, 
-                                                 plot=plot, show_fig=show_fig,
-                                                 save_fig=save_fig_path,
-                                                 fig_kwargs={'gid': destination_gid,
-                                                             'field_width': target_field_width_dict[destination_gid]})
+                                                    target_map=target_selectivity_features_dict[destination_gid]['Arena Rate Map'],
+                                                    initial_weight_dict=initial_weights_by_source_gid_dict[destination_gid],
+                                                    #reference_weight_dict=reference_weight_dict,
+                                                    #reference_weights_are_delta=reference_weights_are_delta,
+                                                    #reference_weights_namespace=reference_weights_namespace,
+                                                    input_rate_map_dict=input_rate_maps_by_source_gid_dict,
+                                                    non_structured_input_rate_map_dict=non_structured_input_rate_maps_by_source_gid_dict,
+                                                    non_structured_weights_dict=non_structured_weights_by_source_gid_dict[destination_gid],
+                                                    syn_count_dict=syn_count_by_source_gid_dict[destination_gid],
+                                                    seed_offset=seed_offset,
+                                                    max_opt_iter=max_opt_iter,
+                                                    max_weight_decay_fraction=max_weight_decay_fraction,
+                                                    target_amplitude=target_amplitude,
+                                                    arena_x=arena_x, arena_y=arena_y,
+                                                    optimize_tol=optimize_tol,
+                                                    verbose=verbose if rank == 0 else False, 
+                                                    plot=plot, show_fig=show_fig,
+                                                    save_fig=save_fig_path,
+                                                    fig_kwargs={'gid': destination_gid,
+                                                                'field_width': target_field_width_dict[destination_gid]})
             input_rate_maps_by_source_gid_dict.clear()
 
             target_map_flat = target_selectivity_features_dict[destination_gid]['Arena Rate Map'].flat

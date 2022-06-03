@@ -2732,6 +2732,7 @@ def get_structured_delta_weights(initial_weight_array, normed_initial_weights,
 
 
 def generate_structured_weights(destination_gid, target_map, initial_weight_dict, input_rate_map_dict, syn_count_dict,
+                                seed_offset=0,
                                 target_amplitude=3.,
                                 max_weight_decay_fraction = 1.,
                                 arena_x=None, arena_y=None,
@@ -2768,6 +2769,10 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
 
     assert((max_weight_decay_fraction >= 0.) and (max_weight_decay_fraction <= 1.))
 
+    local_random = np.random.RandomState()
+    local_random.seed(int(seed_offset + destination_gid))
+
+    
     structured_weights_dict = { 'target_map': target_map,
                                 'initial_weight_dict': initial_weight_dict,
                                 'input_rate_map_dict': input_rate_map_dict,
@@ -2807,7 +2812,7 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
     D2 = np.diagflat(2*np.ones(n_variables-1), 1) + np.diagflat(-1*np.ones(n_variables-2), 2)
     np.fill_diagonal(D2, -1)
     k2 = 0.5
-    W = np.ones((1, n_variables))
+    W = local_random.normal(size=(1, n_variables))
     A = np.vstack((scaled_input_matrix[:,input_rank_order], k1*D1, k2*D2, W))
     csum = np.sum(initial_weight_array)
     lsqr_target_map = np.concatenate((lsqr_target_map, np.zeros(n_variables), np.zeros(n_variables), csum*np.ones((1,))))
