@@ -418,7 +418,7 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
                  n_epochs=10, n_initial=30, initial_maxiter=50, initial_method="slh", optimizer_method="nsga2", surrogate_method='vgp',
                  population_size=200, num_generations=200, resample_fraction=None, mutation_rate=None,
                  param_type='synaptic', init_params={}, results_file=None, cooperative_init=False, 
-                 spawn_startup_wait=None, verbose=False):
+                 spawn_startup_wait=None, spawn_executable=None, spawn_args=[], verbose=False):
 
     opt_param_config = optimization_params(env.netclamp_config.optimize_parameters, [population], param_config_name, param_type)
 
@@ -500,8 +500,8 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
 
     opt_results = dmosopt.run(dmosopt_params, verbose=verbose, collective_mode="sendrecv",
                               spawn_workers=True, nprocs_per_worker=nprocs_per_worker, 
-                              spawn_startup_wait=spawn_startup_wait
-                              )
+                              spawn_startup_wait=spawn_startup_wait,
+                              spawn_executable=spawn_executable, spawn_args=list(spawn_args))
     if opt_results is not None:
         if ProblemRegime[problem_regime] == ProblemRegime.every:
             gid_results_config_dict = {}
@@ -596,6 +596,8 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
               help='optional filter for state values used for state optimization')
 @click.option('--use-coreneuron', is_flag=True, help='enable use of CoreNEURON')
 @click.option('--cooperative-init', is_flag=True, help='use a single worker to read model data then send to the remaining workers')
+@click.option("--spawn-executable", type=str)
+@click.option("--spawn-args", type=str, multiple=True)
 @click.option("--spawn-startup-wait", type=int)
 def main(config_file, population, dt, gid, gid_selection_file, arena_id, trajectory_id, generate_weights,
          t_max, t_min,  nprocs_per_worker, n_epochs, n_initial, initial_maxiter, initial_method, optimizer_method, surrogate_method,
@@ -604,7 +606,7 @@ def main(config_file, population, dt, gid, gid_selection_file, arena_id, traject
          param_config_name, selectivity_config_name, param_type, recording_profile, results_file, results_path, spike_events_path,
          spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, n_trials,
          trial_regime, problem_regime, target_features_path, target_features_namespace, target_state_variable,
-         target_state_filter, use_coreneuron, cooperative_init, spawn_startup_wait):
+         target_state_filter, use_coreneuron, cooperative_init, spawn_executable, spawn_args, spawn_startup_wait):
     """
     Optimize the input stimulus selectivity of the specified cell in a network clamp configuration.
     """
@@ -686,7 +688,7 @@ def main(config_file, population, dt, gid, gid_selection_file, arena_id, traject
                         optimizer_method=optimizer_method, surrogate_method=surrogate_method, population_size=population_size, 
                         num_generations=num_generations, resample_fraction=resample_fraction, mutation_rate=mutation_rate, 
                         param_type=param_type, init_params=init_params, results_file=results_file, nprocs_per_worker=nprocs_per_worker, 
-                        cooperative_init=cooperative_init, spawn_startup_wait=spawn_startup_wait, verbose=verbose)
+                        cooperative_init=cooperative_init, spawn_executable=spawn_executable, spawn_args=spawn_args, spawn_startup_wait=spawn_startup_wait, verbose=verbose)
     
     opt_param_config = optimization_params(env.netclamp_config.optimize_parameters, [population], param_config_name, param_type)
     if best is not None:

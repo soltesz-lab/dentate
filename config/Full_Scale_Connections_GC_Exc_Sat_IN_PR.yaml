@@ -20,8 +20,8 @@ Synapses:
           e: 0
           sat: 0.9
         NMDA:
-          dur_onset: 10.5
-          tau_offset: 50.5
+          dur_onset: 10.0
+          tau_offset: 35.0
           e: 0
           weight: 1.0
     LPP:
@@ -37,8 +37,8 @@ Synapses:
           e: 0
           sat: 0.9
         NMDA:
-          dur_onset: 10.5
-          tau_offset: 50.5
+          dur_onset: 10.0
+          tau_offset: 35.0
           e: 0
           weight: 1.0
     MC:   
@@ -54,7 +54,7 @@ Synapses:
           e: 0
         NMDA:
           dur_onset: 10.5
-          tau_offset: 50.5
+          tau_offset: 35.0
           e: 0
           weight: 1.0
     ConMC:   
@@ -70,8 +70,8 @@ Synapses:
           e: 0
           sat: 0.9
         NMDA:
-          dur_onset: 10.5
-          tau_offset: 50.5
+          dur_onset: 10.0
+          tau_offset: 35.0
           e: 0
           weight: 1.0
     AAC:
@@ -85,8 +85,8 @@ Synapses:
           dur_onset: 0.5
           tau_offset: 8.0
           e: -75
-          g_unit: 0.001
-          weight: 2.125
+          g_unit: 0.0001
+          weight: 1.0
     BC:   
       type: inhibitory
       sections: [soma, apical, apical]
@@ -99,15 +99,15 @@ Synapses:
             dur_onset: 0.5
             tau_offset: 9.0
             e: -75
-            g_unit: 0.001
-            weight: 0.1
+            g_unit: 0.0001
+            weight: 1.0
         soma:
           GABA_A:
             dur_onset: 0.5
             tau_offset: 9.0
             e: -75
-            g_unit: 0.001
-            weight: 0.25
+            g_unit: 0.0001
+            weight: 1.0
     HCC:  
       type: inhibitory
       sections: [apical]
@@ -119,8 +119,8 @@ Synapses:
           dur_onset: 1.5
           tau_offset: 9.0
           e: -75
-          g_unit: 0.001
-          weight: 0.1
+          g_unit: 0.0001
+          weight: 1.0
     HC:   
       type: inhibitory
       sections: [apical, apical]
@@ -132,8 +132,8 @@ Synapses:
           dur_onset: 2.5
           tau_offset: 10.0
           e: -75
-          g_unit: 0.001
-          weight: 0.1
+          g_unit: 0.0001
+          weight: 1.0
     NGFC: 
       type: inhibitory
       sections: [apical, apical]
@@ -146,14 +146,14 @@ Synapses:
             dur_onset:  6.0
             tau_offset: 15.0
             e: -75
-            g_unit: 0.001
-            weight: 0.1
+            g_unit: 0.0001
+            weight: 1.0
           GABA_B:
             dur_onset:  10.0
             tau_offset: 50.0
             e:   -80
-            g_unit: 0.001
-            weight: 0.25
+            g_unit: 0.0001
+            weight: 1.0
     MOPP: 
       type: inhibitory
       sections: [apical, apical]
@@ -165,8 +165,8 @@ Synapses:
           dur_onset:  6.0
           tau_offset: 15.0
           e: -75
-          g_unit: 0.001
-          weight: 0.1
+          g_unit: 0.0001
+          weight: 1.0
   MC:
     GC:   
       type: excitatory
