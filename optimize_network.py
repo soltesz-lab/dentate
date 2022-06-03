@@ -58,7 +58,7 @@ def dmosopt_broker_init(broker, *args):
 @click.option("--n-initial", type=int, default=30)
 @click.option("--initial-maxiter", type=int, default=50)
 @click.option("--initial-method", type=str, default='glp')
-@click.option("--optimizer-method", type=str, default='age')
+@click.option("--optimizer-method", type=str, default='nsga2')
 @click.option("--population-size", type=int, default=100)
 @click.option("--num-generations", type=int, default=200)
 @click.option("--resample-fraction", type=float)
@@ -140,6 +140,7 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
                       'initial_maxiter': initial_maxiter,
                       'initial_method': initial_method,
                       'optimizer': optimizer_method,
+                      'surrogate_method': 'vgp',
                       'n_epochs': n_epochs,
                       'population_size': population_size,
                       'num_generations': num_generations,
