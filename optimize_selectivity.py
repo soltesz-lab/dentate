@@ -492,6 +492,7 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
                       'initial_method': initial_method,
                       'optimizer': optimizer_method,
                       'surrogate_method': surrogate_method,
+                      'termination_conditions': True,
                       'file_path': file_path,
                       'save': True,
                       'save_eval' : 5,
