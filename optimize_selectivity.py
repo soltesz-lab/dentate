@@ -273,8 +273,8 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
         trial_rate_features = [np.asarray(trial_inflds, dtype=np.float32).reshape((1, n_trials)), 
                                np.asarray(trial_outflds, dtype=np.float32).reshape((1, n_trials))]
         rate_features = [mean_peak, mean_trough, max_infld, min_infld, mean_infld, mean_outfld, ]
-        #rate_constr = [ mean_peak if max_infld > 0. else -1. ]
-        rate_constr = [ mean_peak - mean_trough if max_infld > 0. else -1. ]
+        rate_constr = [ mean_peak if max_infld > 0. else -1. ]
+        #rate_constr = [ mean_peak - mean_trough if max_infld > 0. else -1. ]
         return (np.asarray(residual_inflds), trial_rate_features, rate_features, rate_constr)
 
     
@@ -415,7 +415,7 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
 
 
 def optimize_run(env, population, param_config_name, selectivity_config_name, init_objfun, problem_regime, nprocs_per_worker=1,
-                 n_epochs=10, n_initial=30, initial_maxiter=50, initial_method="slh", optimizer_method="nsga2", surrogate_method='vgp',
+                 n_epochs=10, n_initial=30, initial_maxiter=50, initial_method="slh", optimizer_method="nsga2", surrogate_method='vgp', 
                  population_size=200, num_generations=200, resample_fraction=None, mutation_rate=None,
                  param_type='synaptic', init_params={}, results_file=None, cooperative_init=False, 
                  spawn_startup_wait=None, spawn_executable=None, spawn_args=[], verbose=False):
@@ -492,6 +492,8 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
                       'initial_method': initial_method,
                       'optimizer': optimizer_method,
                       'surrogate_method': surrogate_method,
+                      'surrogate_options': {"lengthscale_bounds": (1e-2, 1000.0),
+                                            'anisotropic': False, 'optimizer': "sceua"},
                       'termination_conditions': True,
                       'file_path': file_path,
                       'save': True,
