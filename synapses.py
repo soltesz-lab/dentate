@@ -2805,6 +2805,7 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
     if scaled_non_structured_input_matrix is not None:
         lsqr_target_map -= np.dot(scaled_non_structured_input_matrix, normed_non_structured_weights)
 
+    csum = np.sum(initial_weight_array)
     n_variables = scaled_input_matrix.shape[1]
     D1 = np.diagflat(-1*np.ones(n_variables-1), 1)
     np.fill_diagonal(D1, 1)
@@ -2812,9 +2813,8 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
     D2 = np.diagflat(2*np.ones(n_variables-1), 1) + np.diagflat(-1*np.ones(n_variables-2), 2)
     np.fill_diagonal(D2, -1)
     k2 = 0.5
-    W = local_random.normal(size=(1, n_variables))
+    W = np.sort(local_random.lognormal(size=(1, n_variables), mean=0.0, sigma=0.5))[::-1]
     A = np.vstack((scaled_input_matrix[:,input_rank_order], k1*D1, k2*D2, W))
-    csum = np.sum(initial_weight_array)
     lsqr_target_map = np.concatenate((lsqr_target_map, np.zeros(n_variables), np.zeros(n_variables), csum*np.ones((1,))))
     res = nnls_gdal(A, lsqr_target_map.reshape((-1,1)),
                     max_n_iter=max_opt_iter, epsilon=optimize_tol, verbose=verbose)

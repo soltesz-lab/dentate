@@ -87,28 +87,45 @@ proc celldef() {
 }
 
 
+func temp_adj() {local scale
+    // $1: Q10
+    return $1^((celsius-24)/10)
+}
+
+
+func fsigm() {
+    // $1: x
+    // $2: amplitude
+    // $3: center
+    // $4: slope
+    return $2-$2/(1.0+exp(($1-$3)/$4))
+}
 
 proc biophys() {
     
+    q10_cm     = 0.96
+    q10_Ra     =  0.80
+    
+    Ra_soma = 200
+    Ra_axon = 120
+    
     forsec all {
-        Ra = 110
+        cm = 1 * temp_adj(q10_cm)
         insert pas
-        g_pas = 2.5e-05
+        g_pas = 1e-04
         e_pas = -70
+        
+        Ra = Ra_soma
     }
     
     forsec apical {
-        cm = 1.6
+        cm = 1.0 * temp_adj(q10_cm)
         insert pas
-        g_pas = 4e-05
+        g_pas = 2.5e-5
         e_pas = -70
     }
     
     forsec GCLDs {
-        cm = 1
-        insert pas
-        g_pas = 2.5e-05
-        e_pas = -70
         insert Na_Aradi
         gmax_Na_Aradi = 0.018
         insert fKDR_Aradi
@@ -123,7 +140,8 @@ proc biophys() {
         insert CadepK_Aradi
         gbkbar_CadepK_Aradi = 0.0003
         gskbar_CadepK_Aradi = 0.0002
-        
+        insert K_conc
+        insert Na_conc
     }
 
   forsec PDs {
@@ -141,6 +159,8 @@ proc biophys() {
       insert CadepK_Aradi
       gbkbar_CadepK_Aradi = 0.0005
       gskbar_CadepK_Aradi = 0.0001
+      insert K_conc
+      insert Na_conc
   }
   
   forsec MDs {
@@ -158,32 +178,51 @@ proc biophys() {
       insert CadepK_Aradi
       gbkbar_CadepK_Aradi = 0.0012
       gskbar_CadepK_Aradi = 0.0
+      insert K_conc
+      insert Na_conc
   }
   
   forsec DDs {
+      insert Na_Aradi
+      gmax_Na_Aradi = 0.008
       insert fKDR_Aradi
       gmax_fKDR_Aradi = 0.001
       insert sKDR_Aradi
-      gmax_sKDR_Aradi = 0.004
+      gmax_sKDR_Aradi = 0.003
       insert Caconc_Aradi
       insert Ca_Aradi
-      gtcabar_Ca_Aradi = 0.002
-      gncabar_Ca_Aradi = 0.001
+      gtcabar_Ca_Aradi = 0.006
+      gncabar_Ca_Aradi = 0.003
       glcabar_Ca_Aradi = 0.0
       insert CadepK_Aradi
       gbkbar_CadepK_Aradi = 0.0012
       gskbar_CadepK_Aradi = 0.0
-      
+      insert K_conc
+      insert Na_conc
+  }
+  
+  forsec soma { distance(0, 0.5) }
+  forsec allaxon {
+      dist = distance(0.5)
+      Ra = (Ra_soma - fsigm(dist, Ra_soma-Ra_axon, 100, 50)) * temp_adj(q10_Ra) 
+  }
+  
+  forsec axon {
+      cm = 0.02
   }
   
   forsec allaxon {
+
       insert Na_Aradi
       gmax_Na_Aradi = 0.24
       insert fKDR_Aradi
       gmax_fKDR_Aradi = 0.028
       insert KA_Aradi
       gmax_KA_Aradi = 0.004
+      insert Na_conc
+      insert K_conc
   }
+  
   
   forsec soma {
     insert Na_Aradi
@@ -202,15 +241,12 @@ proc biophys() {
     insert CadepK_Aradi
     gbkbar_CadepK_Aradi = 0.0003
     gskbar_CadepK_Aradi = 0.0005
-    cm = 8
-    g_pas = 2.5e-4
+    insert Na_conc
+    insert K_conc
+    cm = 1
+    g_pas = 1e-5
 }
 
-
-forsec all {
-	if (ismembrane("Na_Aradi")) {ena = 45}
-	if (ismembrane("fKDR_Aradi")) {ek = -85}
-}
 
 }
 
@@ -332,11 +368,11 @@ proc topol() { local i
     topol_from_python($o1,$o2,$o3,$o4,$o5,$o6)
     
 }
-
+    
 proc shape() {
     
     shape_from_python($o1,$o2,$o3,$o4,$o5)
-    
+
 }
 
 
