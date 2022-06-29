@@ -20,7 +20,7 @@ python3 network_clamp.py go  -c Network_Clamp_GC_Exc_Sat_SLN_IN_PR_proximal_pf_g
          --coords-path ./datasets/DG_coords_20190717_compressed.h5 \
          --recording-profile 'Network clamp all synaptic' \
          --config-prefix config  \
-         --params-path results/optimize_selectivity.20220606_205901.yaml \
+         --params-path results/optimize_selectivity.20220605_152702.yaml \
          --params-id 0 \
          --results-path results/netclamp
 
