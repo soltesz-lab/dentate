@@ -274,6 +274,8 @@ Synaptic Optimization:
               weight: [0.1, 10.0]
        NGFC:
           apical:
+            GABA_A:
+              weight: [0.1, 10.0]
             GABA_B:
               weight: [0.1, 10.0]
       Weight all:
