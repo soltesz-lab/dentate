@@ -19,7 +19,6 @@ ibrun -n 1 python3 network_clamp.py go  -c Network_Clamp_GC_Exc_Sat_SLN_IN_PR_pr
          --input-features-namespaces 'Grid Selectivity' \
          --input-features-namespaces 'Constant Selectivity' \
          --arena-id A --trajectory-id Diag  --n-trials 1 \
-         --coords-path $dataset_prefix/Full_Scale_Control/DG_coords_20190717_compressed.h5 \
          --recording-profile 'Network clamp all synaptic' \
          --config-prefix config  \
          --params-path $dataset_prefix/results/optimize_selectivity.20220605_152702.yaml \
