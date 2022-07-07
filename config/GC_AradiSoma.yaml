@@ -1,0 +1,47 @@
+
+soma:
+  cable:
+    L:
+      value: 20.0   # Length of soma (um)
+    diam:
+      value: 20.0   # Diameter of soma (um)
+    Ra:
+      value: 210.0
+    cm:
+      value: 1.4
+      
+  pas:
+    g:
+      value: 4.0e-5
+    e:
+      value: -70.0
+
+  Na_Aradi:
+    gmax:
+      value: 0.018
+  fKDR_Aradi:
+    gmax:
+      value: 0.004
+  sKDR_Aradi:
+    gmax:
+      value: 0.003
+    
+  CadepK_Aradi:
+    gbkbar:
+      value: 0.0003
+    gskbar:
+      value: 0.0002
+    
+  Ca_Aradi:
+    gtcabar:
+      value: 0.0003
+    gncabar:
+      value: 0.003
+    glcabar:
+      value: 0.015
+      
+  Caconc_Aradi:
+    depth:
+      value: 0.2
+    tau:
+      value: 9.0

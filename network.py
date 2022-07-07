@@ -691,6 +691,7 @@ def make_cells(env):
 
         is_izhikevich = (template_name.lower() == 'izhikevich')
         is_PR = (template_name.lower() == 'pr_nrn')
+        is_SC = template_name.lower() == "sc_nrn"
         
         num_cells = 0
         if (pop_name in env.cell_attribute_info) and ('Trees' in env.cell_attribute_info[pop_name]):
@@ -722,6 +723,11 @@ def make_cells(env):
                     PR_cell = cells.make_PR_cell(gid=gid, pop_name=pop_name,
                                                  env=env, mech_dict=mech_dict)
                     cells.register_cell(env, pop_name, gid, PR_cell)
+                elif is_SC:
+                    SC_cell = cells.make_SC_cell(
+                        gid=gid, pop_name=pop_name, env=env, mech_dict=mech_dict
+                    )
+                    cells.register_cell(env, pop_name, gid, SC_cell)
                 else:
                     hoc_cell = cells.make_hoc_cell(env, pop_name, gid, neurotree_dict=tree)
                     if mech_dict is None:
@@ -780,6 +786,11 @@ def make_cells(env):
                     PR_cell = cells.make_PR_cell(gid=gid, pop_name=pop_name,
                                                          env=env, mech_dict=mech_dict)
                     cells.register_cell(env, pop_name, gid, PR_cell)
+                elif is_SC:
+                    SC_cell = cells.make_SC_cell(
+                        gid=gid, pop_name=pop_name, env=env, mech_dict=mech_dict
+                    )
+                    cells.register_cell(env, pop_name, gid, SC_cell)
                 else:
                     hoc_cell = cells.make_hoc_cell(env, pop_name, gid)
                     cell_x = cell_coords[x_index][0]
@@ -849,9 +860,9 @@ def make_cell_selection(env):
 
         is_izhikevich = (template_name.lower() == 'izhikevich')
         is_PR = (template_name.lower() == 'pr_nrn')
+        is_SC = template_name.lower() == "sc_nrn"
+
         num_cells = 0
-        
-            
         if (pop_name in env.cell_attribute_info) and ('Trees' in env.cell_attribute_info[pop_name]):
             if rank == 0:
                 logger.info(f"*** Reading trees for population {pop_name}")
@@ -876,6 +887,14 @@ def make_cell_selection(env):
                     PR_cell = cells.make_PR_cell(gid=gid, pop_name=pop_name,
                                                  env=env, param_dict=mech_dict)
                     cells.register_cell(env, pop_name, gid, PR_cell)
+                elif is_SC:
+                    SC_cell = cells.make_SC_cell(
+                        gid=gid,
+                        pop_name=pop_name,
+                        env=env,
+                        param_dict=mech_dict,
+                    )
+                    cells.register_cell(env, pop_name, gid, SC_cell)
                 else:
                     hoc_cell = cells.make_hoc_cell(env, pop_name, gid, neurotree_dict=tree)
                     if mech_file_path is None:
@@ -925,6 +944,14 @@ def make_cell_selection(env):
                     PR_cell = cells.make_PR_cell(gid=gid, pop_name=pop_name,
                                                  env=env, param_dict=mech_dict)
                     cells.register_cell(env, pop_name, gid, PR_cell)
+                elif is_SC:
+                    SC_cell = cells.make_SC_cell(
+                        gid=gid,
+                        pop_name=pop_name,
+                        env=env,
+                        param_dict=mech_dict,
+                    )
+                    cells.register_cell(env, pop_name, gid, SC_cell)
                 else:
                     hoc_cell = cells.make_hoc_cell(env, pop_name, gid)
 

@@ -915,6 +915,8 @@ def insert_hoc_cell_syns(env, gid, cell, syn_ids, syn_params, unique=False, inse
             cell_soma = cell.soma
             if isinstance(cell_soma, list):
                 cell_soma = cell_soma[0]
+            if isinstance(cell_soma, list):
+                cell_soma = cell_soma[0]
         if hasattr(cell, 'dend'):
             cell_dendrite = cell.dend
 

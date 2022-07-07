@@ -814,6 +814,117 @@ class IzhiCell(object):
         return self.nodes['hillock']
 
 
+class SCneuron(object):
+    """
+    Single-compartment biophysical neuron model for simulation in NEURON.
+    Conforms to the same API as BiophysCell.
+    """
+
+    def __init__(
+            self,
+            gid,
+            pop_name,
+            env,
+            mech_dict = None,
+            mech_file_path = None,
+    ):
+        """
+
+        :param gid: int
+        :param pop_name: str
+        :param env: :class:'Env'
+        :param mech_dict: dict
+        """
+        self._gid = gid
+        self._pop_name = pop_name
+        self.tree = STree2()  # Builds a simple tree to store nodes of type 'SHocNode'
+        self.count = 0  # Keep track of number of nodes
+        if env is not None:
+            for sec_type in env.SWC_Types:
+                if sec_type not in default_ordered_sec_types:
+                    raise AttributeError(
+                        "Warning! unexpected SWC Type definitions found in Env"
+                    )
+        self.nodes = {key: [] for key in default_ordered_sec_types}
+        self.mech_file_path = mech_file_path
+        self.init_mech_dict = dict(mech_dict) if mech_dict is not None else None
+        self.mech_dict = dict(mech_dict) if mech_dict is not None else None
+
+        if (mech_dict is None) and (mech_file_path is not None):
+            import_mech_dict_from_file(self, self.mech_file_path)
+        elif mech_dict is None:
+            # Allows for a cell to be created and for a new mech_dict to be constructed programmatically from scratch
+            self.init_mech_dict = dict()
+            self.mech_dict = dict()
+
+        self.random = np.random.RandomState()
+        self.random.seed(self.gid)
+        self.spike_detector = None
+        self.spike_onset_delay = 0.0
+        self.is_reduced = True
+
+        SC_nrn = h.SC_nrn()
+
+        self.hoc_cell = SC_nrn
+        soma_node = append_section(self, 'soma', sec_index=0, sec=SC_nrn.soma)
+
+        init_cable(self)
+        init_spike_detector(self, node=soma_node)
+
+    @property
+    def gid(self) -> int:
+        return self._gid
+
+    @property
+    def pop_name(self):
+        return self._pop_name
+
+    @property
+    def soma(self):
+        return self.nodes["soma"]
+
+    @property
+    def axon(self):
+        return self.nodes["axon"]
+
+    @property
+    def basal(self):
+        return self.nodes["basal"]
+
+    @property
+    def apical(self):
+        return self.nodes["apical"]
+
+    @property
+    def trunk(self):
+        return self.nodes["trunk"]
+
+    @property
+    def tuft(self):
+        return self.nodes["tuft"]
+
+    @property
+    def spine(self):
+        return self.nodes["spine_head"]
+
+    @property
+    def spine_head(self):
+        return self.nodes["spine_head"]
+
+    @property
+    def spine_neck(self):
+        return self.nodes["spine_neck"]
+
+    @property
+    def ais(self):
+        return self.nodes["ais"]
+
+    @property
+    def hillock(self):
+        return self.nodes["hillock"]
+
+    
+
 class BiophysCell(object):
     """
     A Python wrapper for neuronal cell objects specified in the NEURON language hoc.
@@ -3015,6 +3126,75 @@ def make_biophys_cell(env, pop_name, gid,
     env.biophys_cells[pop_name][gid] = cell
     return cell
 
+
+def make_SC_cell(
+    env,
+    pop_name,
+    gid,
+    mech_file_path = None,
+    mech_dict = None,
+    tree_dict = None,
+    load_synapses = False,
+    synapses_dict = None,
+    load_edges = False,
+    connection_graph = None,
+    load_weights = False,
+    weight_dict = None,
+    set_edge_delays = True,
+    bcast_template = True,
+    **kwargs,
+):
+    """
+    :param env: :class:'Env'
+    :param pop_name: str
+    :param gid: int
+    :param mech_file_path: str (path)
+    :param mech_dict: dict
+    :param synapses_dict: dict
+    :param weight_dicts: list of dict
+    :param load_synapses: bool
+    :param load_edges: bool
+    :param load_weights: bool
+    :param set_edge_delays: bool
+    :return: :class:'SCneuron'
+    """
+    load_cell_template(env, pop_name, bcast_template=bcast_template)
+
+    if mech_dict is None and mech_file_path is None:
+        raise RuntimeError(
+            "make_SC_cell: mech_dict or mech_file_path must be specified"
+        )
+
+    if mech_dict is None and mech_file_path is not None:
+        mech_dict = read_from_yaml(mech_file_path)
+
+    cell = SCneuron(gid=gid, pop_name=pop_name, env=env, mech_dict=mech_dict)
+
+    circuit_flag = (
+        load_edges
+        or load_weights
+        or load_synapses
+        or synapses_dict
+        or weight_dict
+        or connection_graph
+    )
+    if circuit_flag:
+        init_circuit_context(
+            env,
+            pop_name,
+            gid,
+            load_synapses=load_synapses,
+            synapses_dict=synapses_dict,
+            load_edges=load_edges,
+            connection_graph=connection_graph,
+            load_weights=load_weights,
+            weight_dict=weight_dict,
+            set_edge_delays=set_edge_delays,
+            **kwargs,
+        )
+
+    env.biophys_cells[pop_name][gid] = cell
+    return cell
 
 def make_PR_cell(env, pop_name, gid, mech_file_path=None, mech_dict=None,
                  tree_dict=None,  load_synapses=False, synapses_dict=None, 
