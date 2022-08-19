@@ -310,8 +310,10 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             output_file.close()
     env.comm.barrier()
 
-    LTD_output_weights_namespace = f'LTD {output_weights_namespace} {arena_id}'
-    LTP_output_weights_namespace = f'LTP {output_weights_namespace} {arena_id}'
+    LTD_weights_output_namespace = f'LTD {output_weights_namespace} {arena_id}'
+    LTP_weights_output_namespace = f'LTP {output_weights_namespace} {arena_id}'
+    source_input_rank_output_namespace = f'Input Rank {output_weights_namespace} {arena_id}'
+
     this_input_features_namespaces = [f'{input_features_namespace} {arena_id}'
                                       for input_features_namespace in input_features_namespaces]
 
@@ -418,8 +420,9 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
 
     max_iter_count = max_dst_count
     output_features_dict = {}
-    LTP_output_weights_dict = {}
-    LTD_output_weights_dict = {}
+    LTP_weights_output_dict = {}
+    LTD_weights_output_dict = {}
+    source_input_rank_output_dict = {}
     non_structured_output_weights_dict = {}
     for iter_count in range(max_iter_count):
 
@@ -554,8 +557,8 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             reference_weight_dict = None
             if reference_weights_path is not None:
                 reference_weight_dict = reference_weights_by_source_gid_dict[destination_gid]
-                
-            LTP_delta_weights_dict, LTD_delta_weights_dict, arena_structured_map = \
+
+            structured_weights_dict = \
                synapses.generate_structured_weights(destination_gid,
                                                     target_map=target_selectivity_features_dict[destination_gid]['Arena Rate Map'],
                                                     initial_weight_dict=initial_weights_by_source_gid_dict[destination_gid],
@@ -578,7 +581,13 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                     fig_kwargs={'gid': destination_gid,
                                                                 'field_width': target_field_width_dict[destination_gid]})
             input_rate_maps_by_source_gid_dict.clear()
+            LTP_delta_weights_dict = structured_weights_dict['LTP_delta_weights']
+            LTD_delta_weights_dict = structured_weights_dict['LTD_delta_weights']
+            arena_structured_map = structured_weights_dict['structured_activation_map']
+            source_input_rank_dict = structured_weights_dict['source_input_rank']
 
+            print(f"source_input_rank_dict = {source_input_rank_dict}")
+            
             target_map_flat = target_selectivity_features_dict[destination_gid]['Arena Rate Map'].flat
             arena_map_residual_mae = np.mean(np.abs(arena_structured_map - target_map_flat))
             output_features_dict[destination_gid] = \
@@ -592,18 +601,21 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             output_features_dict[destination_gid]['Rate Map Residual Mean Error'] = np.asarray([arena_map_residual_mae], dtype=np.float32)
             
             this_structured_syn_id_count = structured_syn_id_count[destination_gid]
-            output_syn_ids = np.empty(this_structured_syn_id_count, dtype='uint32')
-            LTD_output_weights = np.empty(this_structured_syn_id_count, dtype='float32')
-            LTP_output_weights = np.empty(this_structured_syn_id_count, dtype='float32')
+            output_syn_ids = np.full(this_structured_syn_id_count, -1, dtype='uint32', )
+            LTD_weights_output = np.full(this_structured_syn_id_count, np.nan, dtype='float32')
+            LTP_weights_output = np.full(this_structured_syn_id_count, np.nan, dtype='float32')
+            source_input_rank_output = np.full(this_structured_syn_id_count, np.nan, dtype='float32')
             i = 0
             for source_gid in LTP_delta_weights_dict:
                  for syn_id in syn_ids_by_source_gid_dict[destination_gid][source_gid]:
                      output_syn_ids[i] = syn_id
-                     LTP_output_weights[i] = LTP_delta_weights_dict[source_gid]
-                     LTD_output_weights[i] = LTD_delta_weights_dict[source_gid]
+                     LTP_weights_output[i] = LTP_delta_weights_dict[source_gid]
+                     LTD_weights_output[i] = LTD_delta_weights_dict[source_gid]
+                     source_input_rank_output[i] = source_input_rank_dict[source_gid]
                      i += 1
-            LTP_output_weights_dict[destination_gid] = {'syn_id': output_syn_ids, synapse_name: LTP_output_weights}
-            LTD_output_weights_dict[destination_gid] = {'syn_id': output_syn_ids, synapse_name: LTD_output_weights}
+            LTP_weights_output_dict[destination_gid] = {'syn_id': output_syn_ids, synapse_name: LTP_weights_output}
+            LTD_weights_output_dict[destination_gid] = {'syn_id': output_syn_ids, synapse_name: LTD_weights_output}
+            source_input_rank_output_dict[destination_gid]  = {'syn_id': output_syn_ids, 'rank': source_input_rank_output}
 
             this_non_structured_syn_id_count = non_structured_syn_id_count[destination_gid]
             i = 0
@@ -618,13 +630,16 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
         env.comm.barrier()
         if (write_size > 0) and (iter_count % write_size == 0):
             if not dry_run:
-                append_cell_attributes(output_weights_path, destination, LTD_output_weights_dict,
-                                       namespace=LTD_output_weights_namespace, comm=env.comm, io_size=env.io_size,
+                append_cell_attributes(output_weights_path, destination, LTD_weights_output_dict,
+                                       namespace=LTD_weights_output_namespace, comm=env.comm, io_size=env.io_size,
                                        chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-                append_cell_attributes(output_weights_path, destination, LTP_output_weights_dict,
-                                       namespace=LTP_output_weights_namespace, comm=env.comm, io_size=env.io_size,
+                append_cell_attributes(output_weights_path, destination, LTP_weights_output_dict,
+                                       namespace=LTP_weights_output_namespace, comm=env.comm, io_size=env.io_size,
                                        chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-                count = env.comm.reduce(len(LTP_output_weights_dict), op=MPI.SUM, root=0)
+                append_cell_attributes(output_weights_path, destination, source_input_rank_output_dict,
+                                       namespace=source_input_rank_output_namespace, comm=env.comm, io_size=env.io_size,
+                                       chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+                count = env.comm.reduce(len(LTP_weights_output_dict), op=MPI.SUM, root=0)
                 env.comm.barrier()
 
                 if rank == 0:
@@ -642,9 +657,10 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                         logger.info(f'Destination: {destination}; appended selectivity features for {count} cells')
                         
 
-            LTP_output_weights_dict.clear()
-            LTD_output_weights_dict.clear()
+            LTP_weights_output_dict.clear()
+            LTD_weights_output_dict.clear()
             output_features_dict.clear()
+            source_input_rank_output_dict.clear()
             gc.collect()
 
         env.comm.barrier()
@@ -654,13 +670,16 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
 
     env.comm.barrier()
     if not dry_run:
-        append_cell_attributes(output_weights_path, destination, LTD_output_weights_dict,
-                               namespace=LTD_output_weights_namespace, comm=env.comm, io_size=env.io_size,
+        append_cell_attributes(output_weights_path, destination, LTD_weights_output_dict,
+                               namespace=LTD_weights_output_namespace, comm=env.comm, io_size=env.io_size,
                                chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-        append_cell_attributes(output_weights_path, destination, LTP_output_weights_dict,
-                               namespace=LTP_output_weights_namespace, comm=env.comm, io_size=env.io_size,
+        append_cell_attributes(output_weights_path, destination, LTP_weights_output_dict,
+                               namespace=LTP_weights_output_namespace, comm=env.comm, io_size=env.io_size,
                                chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-        count = comm.reduce(len(LTP_output_weights_dict), op=MPI.SUM, root=0)
+        append_cell_attributes(output_weights_path, destination, source_input_rank_output_dict,
+                               namespace=source_input_rank_output_namespace, comm=env.comm, io_size=env.io_size,
+                               chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+        count = comm.reduce(len(LTP_weights_output_dict), op=MPI.SUM, root=0)
         env.comm.barrier()
 
         if rank == 0:

@@ -443,6 +443,8 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
         record_cell(env, pop_name, gid)
     gc.collect()
 
+    logger.info(f'network_clamp.init: gid {gid}: len(pps_dict) = {len(env.synapse_attributes.pps_dict[gid])}')
+
     if plot_cell:
         import dentate.plot
         from dentate.plot import plot_synaptic_attribute_distribution
@@ -609,7 +611,7 @@ def run_with(env, param_dict, cvode=False, pc_runworker=False):
     syn_attrs = env.synapse_attributes
     for pop_name in param_dict:
         for gid in param_dict[pop_name]:
-            stash_id = syn_attrs.stash_mech_attrs(pop_name, gid)
+            stash_id = syn_attrs.stash_syn_attrs(pop_name, gid)
             stash_id_dict[pop_name][gid] = stash_id
     update_params(env, param_dict)
 
@@ -669,7 +671,7 @@ def run_with(env, param_dict, cvode=False, pc_runworker=False):
     for pop_name in param_dict:
         for gid in param_dict[pop_name]:
             stash_id = stash_id_dict[pop_name][gid]
-            syn_attrs.restore_mech_attrs(pop_name, gid, stash_id)
+            syn_attrs.restore_syn_attrs(pop_name, gid, stash_id)
             synapses.config_biophys_cell_syns(env, gid, pop_name, insert=False)
 
     return spikedata.get_env_spike_dict(env, include_artificial=None)

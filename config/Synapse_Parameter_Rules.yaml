@@ -90,6 +90,25 @@ LinExp2SynNMDA:
       weight: 0
       g_unit: 1
     netcon_state: {}
+Exp5NMDA:
+    mech_file: SynExp5NMDA.mod
+    mech_params:
+      - gVI
+      - tauV
+      - tau1
+      - tau2_0
+      - tau3_0
+      - wtau2
+      - tau_D1
+      - a2
+      - b2
+      - a3
+      - b3
+      - K0
+      - delta
+    netcon_params:
+      weight: 0
+    netcon_state: {}
 EPSC:
     mech_file: exp2EPSC.mod
     mech_params:

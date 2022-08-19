@@ -3374,10 +3374,11 @@ def record_cell(env, pop_name, gid, recording_profile=None):
                 syn_filters = recdict.get('syn_filters', {})
                 syn_sections = recdict.get('sections', None)
                 synapses = syn_attrs.filter_synapses(gid, syn_sections=syn_sections, **syn_filters)
-                syn_names = recdict.get('syn names', syn_attrs.syn_name_index_dict.keys())
+                syn_names = recdict.get('syn names', list(syn_attrs.syn_name_index_dict.keys()))
                 for syn_id, syn in viewitems(synapses):
                     syn_swc_type_name = env.SWC_Type_index[syn.swc_type]
                     syn_section = syn.syn_section
+                    pps = None
                     for syn_name in syn_names:
                         pps = syn_attrs.get_pps(gid, syn_id, syn_name, throw_error=False)
                         if (pps is not None) and (pps not in env.recs_pps_set):
@@ -3390,6 +3391,7 @@ def record_cell(env, pop_name, gid, recording_profile=None):
                             env.recs_count += 1
                             env.recs_pps_set.add(pps)
                             recs.append(rec)
+                            break
                 
     return recs
     
