@@ -9,7 +9,7 @@ from dentate.cells import get_distance_to_node, get_donor, get_mech_rules_dict, 
     import_mech_dict_from_file, make_section_graph, custom_filter_if_terminal, \
     custom_filter_modify_slope_if_terminal, custom_filter_by_branch_order
 from dentate.neuron_utils import h, default_ordered_sec_types, mknetcon, mknetcon_vecstim, interplocs
-from dentate.utils import ExprClosure, Promise, NamedTupleWithDocstring, get_module_logger, generator_ifempty, map, range, str, \
+from dentate.utils import KDDict, ExprClosure, Promise, NamedTupleWithDocstring, get_module_logger, generator_ifempty, map, range, str, \
      viewitems, viewkeys, zip, zip_longest, partitionn, rejection_sampling
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -2542,6 +2542,16 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
         logger.debug(f'sec_graph: {list(sec_graph.edges)}')
         logger.debug(f'neurotree_dict: {neurotree_dict}')
 
+    syn_cluster_array = np.fromiter([syn_cluster_dict[syn_id] for syn_id in sorted(syn_cluster_dict)], dtype=int)
+    all_syn_ids = np.fromiter(sorted(syn_cluster_dict), dtype=int)
+    syn_cluster_ids, syn_cluster_count = np.unique(syn_cluster_array, return_counts=True)
+    syn_clusters_dict_by_cluster_id = { cluster_id: all_syn_ids[np.argwhere(syn_cluster_array == cluster_id)
+                                                                for cluster_id in syn_cluster_ids] }
+    syn_cluster_size_dict = KDDict(zip(syn_cluster_ids, syn_cluster_count))
+    
+    # TODO: modify cluster assignments when there is a mismatch between cluster size and number of synapses allowed by density and section size
+
+    
     sec_interp_loc_dict = {}
     seg_density_per_sec = {}
     r = np.random.RandomState()
@@ -2600,12 +2610,25 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                 seg_list = seg_dict[sec_index]
                 sec_seg_layers = layers[sec_index]
                 sec_seg_density = seg_density[sec_index]
-                # TODO: modify density if cannot fit all synapses from the cluster
-                syn_cluster = syn_cluster_dict[sec_index]
+                est_syn_count = 0
+                for seg, density in zip(seg_list, sec_seg_density):
+                    seg_start = seg.x - (0.5 / seg.sec.nseg)
+                    seg_end = seg.x + (0.5 / seg.sec.nseg)
+                    L = seg.sec.L
+                    L_seg_start = seg_start * L
+                    L_seg_end = seg_end * L
+                    seg_L = L_seg_end - L_seg_start
+                    est_syn_count += round(seg_L * density)
+                syn_cluster_id, _ = syn_cluster_size_dict.nearest_value(est_syn_count)
+                del(syn_cluster_size_dict[syn_cluster_id])
+                cluster_syn_ids = list(syn_clusters_dict_by_cluster_id[syn_cluster_id])
+                cluster_syn_ids_count = len(cluster_syn_ids)
                 start_seg = seg_list[0]
                 interval = 0.
                 syn_loc = 0.
                 for seg, layer, density in zip(seg_list, sec_seg_layers, sec_seg_density):
+                    if cluster_syn_ids_count == 0:
+                        break
                     seg_start = seg.x - (0.5 / seg.sec.nseg)
                     seg_end = seg.x + (0.5 / seg.sec.nseg)
                     L = seg.sec.L
@@ -2621,11 +2644,13 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                                 if (sample >= L_seg_start) and (sample < L_seg_end):
                                     break
                         interval += sample
-                        while interval < L_seg_end:
+                        while (interval < L_seg_end) and (cluster_syn_ids_count > 0):
                             if interval >= L_seg_start:
                                 syn_loc = (interval / L)
                                 assert ((syn_loc <= 1) and (syn_loc >= seg_start))
                                 if syn_loc < 1.0:
+                                    syn_index = cluster_syn_ids.pop(0)
+                                    cluster_syn_ids_count -= 1
                                     syn_cdist = math.sqrt(reduce(lambda a, b: a+b, ( interp_loc[i](syn_loc)**2 for i in range(3) )))
                                     syn_cdists.append(syn_cdist)
                                     syn_locs.append(syn_loc)
@@ -2634,10 +2659,14 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                                     syn_layers.append(layer)
                                     syn_types.append(syn_type)
                                     swc_types.append(swc_type)
-                                    syn_index += 1
                             interval += r.exponential(beta)
                     else:
                         interval = seg_end * L
+                        
+                while cluster_syn_ids_count > 0:
+                    for seg, layer in zip(seg_list, sec_seg_layers):
+                        # TODO: distribute synapses until cluster is exhausted
+                        
                 end_distance[sec_index] = (1.0 - syn_loc) * L
 
     assert (len(syn_ids) > 0)
