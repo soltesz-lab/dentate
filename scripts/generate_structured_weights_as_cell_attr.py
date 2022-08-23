@@ -114,7 +114,8 @@ def init_selectivity_config(destination_gid, spatial_resolution,
     return arena_margin_size
 
 
-def init_syn_weight_dicts(destination, non_structured_sources,
+def init_syn_weight_dicts(destination, population_defs,
+                          non_structured_sources,
                           edge_iter_dict, edge_attr_info,
                           initial_weights_by_syn_id_dict,
                           initial_weights_by_source_gid_dict,
@@ -123,6 +124,7 @@ def init_syn_weight_dicts(destination, non_structured_sources,
                           reference_weights_by_syn_id_dict,
                           reference_weights_by_source_gid_dict,
                           source_gid_set_dict,
+                          source_gid_source_index_dict,
                           syn_count_by_source_gid_dict,
                           syn_ids_by_source_gid_dict,
                           structured_syn_id_count,
@@ -135,6 +137,7 @@ def init_syn_weight_dicts(destination, non_structured_sources,
 
     for source, edge_iter in viewitems(edge_iter_dict[destination]):
 
+        source_index = population_defs[source]
         syn_counts_by_source[source] = {}
         syn_id_attr_index = edge_attr_info[destination][source]['Synapses']['syn_id']
 
@@ -172,6 +175,7 @@ def init_syn_weight_dicts(destination, non_structured_sources,
                 this_syn_count_by_source_gid_dict[this_source_gid] += 1
 
                 source_gid_set_dict[source].add(this_source_gid)
+                source_gid_source_index_dict[this_source_gid] = source_index
 
                 count += 1
 
@@ -485,6 +489,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                           logger=logger if rank == 0 else None)
 
         source_gid_set_dict = defaultdict(set)
+        source_gid_source_index_dict = defaultdict(int)
         syn_count_by_source_gid_dict = defaultdict(lambda: defaultdict(int))
         syn_ids_by_source_gid_dict = defaultdict(lambda: defaultdict(list))
         structured_syn_id_count = defaultdict(int)
@@ -496,7 +501,8 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                                       projections=projections,
                                                                       comm=env.comm, io_size=env.io_size)
 
-        syn_counts_by_source = init_syn_weight_dicts(destination, non_structured_sources,
+        syn_counts_by_source = init_syn_weight_dicts(destination, env.Populations,
+                                                     non_structured_sources,
                                                      edge_iter_dict, edge_attr_info,
                                                      initial_weights_by_syn_id_dict,
                                                      initial_weights_by_source_gid_dict,
@@ -505,6 +511,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                                                      reference_weights_by_syn_id_dict,
                                                      reference_weights_by_source_gid_dict,
                                                      source_gid_set_dict,
+                                                     source_gid_source_index_dict,
                                                      syn_count_by_source_gid_dict,
                                                      syn_ids_by_source_gid_dict,
                                                      structured_syn_id_count,
@@ -586,8 +593,6 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             arena_structured_map = structured_weights_dict['structured_activation_map']
             source_input_rank_dict = structured_weights_dict['source_input_rank']
 
-            print(f"source_input_rank_dict = {source_input_rank_dict}")
-            
             target_map_flat = target_selectivity_features_dict[destination_gid]['Arena Rate Map'].flat
             arena_map_residual_mae = np.mean(np.abs(arena_structured_map - target_map_flat))
             output_features_dict[destination_gid] = \
@@ -605,6 +610,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             LTD_weights_output = np.full(this_structured_syn_id_count, np.nan, dtype='float32')
             LTP_weights_output = np.full(this_structured_syn_id_count, np.nan, dtype='float32')
             source_input_rank_output = np.full(this_structured_syn_id_count, np.nan, dtype='float32')
+            syn_sources_output = np.full(this_structured_syn_id_count, np.nan, dtype='uint8')
             i = 0
             for source_gid in LTP_delta_weights_dict:
                  for syn_id in syn_ids_by_source_gid_dict[destination_gid][source_gid]:
@@ -612,10 +618,13 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                      LTP_weights_output[i] = LTP_delta_weights_dict[source_gid]
                      LTD_weights_output[i] = LTD_delta_weights_dict[source_gid]
                      source_input_rank_output[i] = source_input_rank_dict[source_gid]
+                     syn_sources_output[i] = source_gid_source_index_dict[source_gid]
                      i += 1
             LTP_weights_output_dict[destination_gid] = {'syn_id': output_syn_ids, synapse_name: LTP_weights_output}
             LTD_weights_output_dict[destination_gid] = {'syn_id': output_syn_ids, synapse_name: LTD_weights_output}
-            source_input_rank_output_dict[destination_gid]  = {'syn_id': output_syn_ids, 'rank': source_input_rank_output}
+            source_input_rank_output_dict[destination_gid]  = {'syn_id': output_syn_ids,
+                                                               'source': syn_sources_output,
+                                                               'rank': source_input_rank_output}
 
             this_non_structured_syn_id_count = non_structured_syn_id_count[destination_gid]
             i = 0

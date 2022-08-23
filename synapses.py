@@ -2499,8 +2499,28 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
     return (syn_dict, seg_density_per_sec)
 
 
+validation_filter_cache = {}
+
+def is_valid_synapse(swc_type, syn_type, layer, projection_synapse_config):
+    """
+    Helper function used by distribute_clustered_poisson_synapses to determine if a synapse can be placed in a particular layer.
+    """
+    cache_args = (swc_type, syn_type, layer, projection_synapse_config)
+    if cache_args in validation_filter_cache:
+        return validation_filter_cache[cache_args]
+    else:
+        result = False
+        for config_syn_type, config_syn_layers, config_syn_sections:
+            if (syn_type == config_syn_type) and (swc_type in config_syn_sections) and (layer in config_syn_layers):
+                result = True
+                break
+        validation_filter_cache[cache_args] = result
+        return result
+
+
 def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, layer_dict, sec_layer_density_dict,
-                                          neurotree_dict, cell_sec_dict, cell_secidx_dict, syn_cluster_dict):
+                                          neurotree_dict, cell_sec_dict, cell_secidx_dict, projection_synapse_dict,
+                                          syn_cluster_dict, syn_source_dict):
     """
     Computes synapse locations distributed according to a given
     per-section clustering and Poisson distribution within the
@@ -2521,6 +2541,9 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
     """
     import networkx as nx
 
+    projection_synapse_config = { item[0]: (tuple(x) if isinstance(x, set) else x for x in item[1])
+                                  for item in projection_synapse_dict.items() }
+    
     syn_ids = []
     syn_locs = []
     syn_cdists = []
@@ -2545,8 +2568,10 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
     syn_cluster_array = np.fromiter([syn_cluster_dict[syn_id] for syn_id in sorted(syn_cluster_dict)], dtype=int)
     all_syn_ids = np.fromiter(sorted(syn_cluster_dict), dtype=int)
     syn_cluster_ids, syn_cluster_count = np.unique(syn_cluster_array, return_counts=True)
-    syn_clusters_dict_by_cluster_id = { cluster_id: all_syn_ids[np.argwhere(syn_cluster_array == cluster_id)
-                                                                for cluster_id in syn_cluster_ids] }
+    syn_clusters_dict_by_cluster_id = { cluster_id: all_syn_ids[np.argwhere(syn_cluster_array == cluster_id)]
+                                        for cluster_id in syn_cluster_ids }
+    syn_sources_dict_by_cluster_id = { cluster_id: np.fromiter([syn_source_dict for syn_id in all_syn_ids[np.argwhere(syn_cluster_array == cluster_id) ]], dtype=np.uint8)
+                                       for cluster_id in syn_cluster_ids }
     syn_cluster_size_dict = KDDict(zip(syn_cluster_ids, syn_cluster_count))
     
     # TODO: modify cluster assignments when there is a mismatch between cluster size and number of synapses allowed by density and section size
@@ -2622,6 +2647,7 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                 syn_cluster_id, _ = syn_cluster_size_dict.nearest_value(est_syn_count)
                 del(syn_cluster_size_dict[syn_cluster_id])
                 cluster_syn_ids = list(syn_clusters_dict_by_cluster_id[syn_cluster_id])
+                cluster_syn_sources = list(syn_sources_dict_by_cluster_id[syn_cluster_id])
                 cluster_syn_ids_count = len(cluster_syn_ids)
                 start_seg = seg_list[0]
                 interval = 0.
@@ -2649,7 +2675,9 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                                 syn_loc = (interval / L)
                                 assert ((syn_loc <= 1) and (syn_loc >= seg_start))
                                 if syn_loc < 1.0:
-                                    syn_index = cluster_syn_ids.pop(0)
+                                    syn_entry = list_find(lambda x: is_valid_synapse(swc_type, syn_type, layer, projection_synapse_config[x]), cluster_syn_sources)
+                                    syn_index = cluster_syn_ids.pop(syn_entry)
+                                    cluster_syn_sources.pop(syn_entry)
                                     cluster_syn_ids_count -= 1
                                     syn_cdist = math.sqrt(reduce(lambda a, b: a+b, ( interp_loc[i](syn_loc)**2 for i in range(3) )))
                                     syn_cdists.append(syn_cdist)
@@ -2663,11 +2691,28 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                     else:
                         interval = seg_end * L
                         
+                end_distance[sec_index] = (1.0 - syn_loc) * L
+                
+                # If cluster has left over synapses, distribute synapses until cluster is exhausted
                 while cluster_syn_ids_count > 0:
                     for seg, layer in zip(seg_list, sec_seg_layers):
-                        # TODO: distribute synapses until cluster is exhausted
-                        
-                end_distance[sec_index] = (1.0 - syn_loc) * L
+                        syn_entry = list_find(lambda x: is_valid_synapse(swc_type, syn_type, layer, projection_synapse_config[x]), cluster_syn_sources)
+                        syn_index = cluster_syn_ids.pop(syn_entry)
+                        cluster_syn_sources.pop(syn_entry)
+                        cluster_syn_ids_count -= 1
+                        seg_start = seg.x - (0.5 / seg.sec.nseg)
+                        seg_end = seg.x + (0.5 / seg.sec.nseg)
+                        syn_loc = r.uniform(low=seg_start, low=seg_end)
+                        syn_cdist = math.sqrt(reduce(lambda a, b: a+b, ( interp_loc[i](syn_loc)**2 for i in range(3) )))
+                        syn_cdists.append(syn_cdist)
+                        syn_locs.append(syn_loc)
+                        syn_ids.append(syn_index)
+                        syn_secs.append(sec_index)
+                        syn_layers.append(layer)
+                        syn_types.append(syn_type)
+                        swc_types.append(swc_type)
+
+                
 
     assert (len(syn_ids) > 0)
     syn_dict = {'syn_ids': np.asarray(syn_ids, dtype='uint32'),
@@ -2799,12 +2844,12 @@ def get_structured_input_arrays(structured_weights_dict, gid):
     non_structured_weights_dict = structured_weights_dict['non_structured_weights_dict']
     syn_count_dict = structured_weights_dict['syn_count_dict']
     
-    input_matrix = np.empty((target_map.size, len(input_rate_map_dict)),
+    input_matrix = np.full((target_map.size, len(input_rate_map_dict)), np.nan,
                             dtype=np.float64)
-    source_gid_array = np.empty(len(input_rate_map_dict), dtype=np.uint32)
-    syn_count_array = np.empty(len(input_rate_map_dict), dtype=np.uint32)
-    initial_weight_array = np.empty(len(input_rate_map_dict), dtype=np.float64)
-    input_rank = np.empty(len(input_rate_map_dict), dtype=np.float32)
+    source_gid_array = np.full(len(input_rate_map_dict), -1, dtype=np.uint32)
+    syn_count_array = np.full(len(input_rate_map_dict), np.nan, dtype=np.uint32)
+    initial_weight_array = np.full(len(input_rate_map_dict), np.nan, dtype=np.float64)
+    input_rank = np.full(len(input_rate_map_dict), np.nan, dtype=np.float32)
     for i, source_gid in enumerate(input_rate_map_dict):
         source_gid_array[i] = source_gid
         this_syn_count = syn_count_dict[source_gid]
@@ -2820,16 +2865,17 @@ def get_structured_input_arrays(structured_weights_dict, gid):
                                                                  target_map_norm[target_act].reshape((-1,))),
                                     0., None)
         else:
-            input_rank[0] = 0.
+            input_rank[i] = 0.
     input_rank[np.isnan(input_rank)] = 0.
+
     input_rank_order = np.lexsort((syn_count_array, input_rank))
     
     non_structured_input_matrix = None
     if non_structured_input_rate_map_dict is not None:
-        non_structured_input_matrix = np.empty((target_map.size, len(non_structured_input_rate_map_dict)),
-                                    dtype=np.float32)
-        non_structured_weight_array = np.empty(len(non_structured_input_rate_map_dict), dtype=np.float32)
-        non_structured_source_gid_array = np.empty(len(non_structured_input_rate_map_dict), dtype=np.uint32)
+        non_structured_input_matrix = np.full((target_map.size, len(non_structured_input_rate_map_dict)),
+                                              np.nan, dtype=np.float32)
+        non_structured_weight_array = np.full(len(non_structured_input_rate_map_dict), np.nan, dtype=np.float32)
+        non_structured_source_gid_array = np.full(len(non_structured_input_rate_map_dict), -1, dtype=np.uint32)
         for i, source_gid in enumerate(non_structured_input_rate_map_dict):
             non_structured_source_gid_array[i] = source_gid
             this_syn_count = syn_count_dict[source_gid]
@@ -3155,7 +3201,7 @@ def plot_callback_structured_weights(**kwargs):
               frameon=False, framealpha=0.5, fontsize=8)
     
     ax = fig.add_subplot(gs[row, 1])
-    p = ax.pcolormesh(arena_x, arena_y, structured_activation_map.reshape(arena_x.shape))
+    p = ax.pcolormesh(arena_x, arena_y, structured_activation_map.reshape(arena_x.shape), shading='auto')
     ax.set_xlabel('Arena location (x)')
     ax.set_ylabel('Arena location (y)')
     ax.set_title('Structured activation map', fontsize=font_size)
@@ -3189,23 +3235,23 @@ def plot_callback_structured_weights(**kwargs):
     inner_grid = gs[row, 1].subgridspec(2, 2)
 
     ax = fig.add_subplot(inner_grid[0])
-    p = ax.pcolormesh(arena_x, arena_y, unweighted_map.reshape(arena_x.shape))
+    p = ax.pcolormesh(arena_x, arena_y, unweighted_map.reshape(arena_x.shape), shading='auto')
     ax.set_title('Unweighted', fontsize=font_size)
     fig.colorbar(p, ax=ax)
 
     ax = fig.add_subplot(inner_grid[1])
-    p = ax.pcolormesh(arena_x, arena_y, scaled_initial_map.reshape(arena_x.shape))
+    p = ax.pcolormesh(arena_x, arena_y, scaled_initial_map.reshape(arena_x.shape), shading='auto')
     ax.set_title('Scaled Initial', fontsize=font_size)
     fig.colorbar(p, ax=ax)
 
     ax = fig.add_subplot(inner_grid[2])
-    p = ax.pcolormesh(arena_x, arena_y, scaled_target_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax)
+    p = ax.pcolormesh(arena_x, arena_y, scaled_target_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax, shading='auto')
     ax.set_title('Target', fontsize=font_size)
     ax.set_ylabel('Y position [cm]')
     fig.colorbar(p, ax=ax)
 
     ax = fig.add_subplot(inner_grid[3])
-    p = ax.pcolormesh(arena_x, arena_y, lsqr_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax)
+    p = ax.pcolormesh(arena_x, arena_y, lsqr_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax, shading='auto')
     ax.set_title('NNLS', fontsize=font_size)
     ax.set_xlabel('X position [cm]')
     fig.colorbar(p, ax=ax)
