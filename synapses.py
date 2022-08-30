@@ -8,7 +8,7 @@ from dentate.nnls import nnls_gdal
 from dentate.cells import get_distance_to_node, get_donor, get_mech_rules_dict, get_param_val_by_distance, \
     import_mech_dict_from_file, make_section_graph, custom_filter_if_terminal, \
     custom_filter_modify_slope_if_terminal, custom_filter_by_branch_order
-from dentate.neuron_utils import h, default_ordered_sec_types, mknetcon, mknetcon_vecstim, interplocs
+from dentate.neuron_utils import h, default_ordered_sec_types, mknetcon, mknetcon_vecstim, interplocs, list_find
 from dentate.utils import KDDict, ExprClosure, Promise, NamedTupleWithDocstring, get_module_logger, generator_ifempty, map, range, str, \
      viewitems, viewkeys, zip, zip_longest, partitionn, rejection_sampling
 
@@ -107,7 +107,7 @@ class SynapseAttributes(object):
         self.syn_name_index_dict = {label: index for index, label in enumerate(syn_mech_names)}  # int : mech_name dict
         self.syn_id_attr_dict = defaultdict(lambda: defaultdict(lambda: None))
         self.syn_id_attr_backup_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: None)))
-        self.sec_dict = defaultdict(lambda: defaultdict(lambda: []))
+        self.sec_dict = defaultdict(lambda: defaultdict(lambda: dict()))
         self.pps_dict = defaultdict(lambda: defaultdict(lambda: SynapsePointProcess(mech={}, netcon={}, vecstim={})))
         self.presyn_names = {id: name for name, id in viewitems(env.Populations)}
         self.filter_cache = {}
@@ -175,9 +175,25 @@ class SynapseAttributes(object):
                 syn = Synapse(syn_type=syn_type, syn_layer=syn_layer, syn_section=syn_sec, syn_loc=syn_loc,
                               swc_type=swc_type, source=SynapseSource(), attr_dict=defaultdict(dict))
                 syn_dict[syn_id] = syn
-                sec_dict[syn_sec].append((syn_id, syn))
+                sec_dict[syn_sec][syn_id] = syn
 
 
+    def modify_syn_locs(self, gid, syn_ids, syn_secs, syn_locs):
+        """
+        Modifies synaptic section and location for existing synapses.
+        """
+        syn_dict = self.syn_id_attr_dict[gid]
+        sec_dict = self.sec_dict[gid]
+        for syn_id, syn_sec, syn_loc in zip(syn_ids, syn_secs, syn_locs):
+            syn = syn_dict[syn_id]
+            old_syn_sec = syn.syn_section
+            logger.info(f'modify_syn_loc: gid {gid} syn id {syn_id}: old sec = {old_syn_sec} old loc = {syn.syn_loc} new sec = {syn_sec} new loc = {syn_loc}')
+            del(sec_dict[old_syn_sec][syn_id])
+            syn = syn._replace(syn_section=syn_sec, syn_loc=syn_loc)
+            syn_dict[syn_id] = syn
+            sec_dict[syn_sec][syn_id] = syn
+
+        
     def init_edge_attrs(self, gid, presyn_name, presyn_gids, edge_syn_ids, delays=None):
         """
         Sets connection edge attributes for the specified synapse ids.
@@ -674,7 +690,7 @@ class SynapseAttributes(object):
         sec_dict = self.sec_dict[gid]
         if syn_sections is not None:
             # Fast path
-            it = itertools.chain.from_iterable([sec_dict[sec_index] for sec_index in syn_sections])
+            it = itertools.chain.from_iterable([sec_dict[sec_index].items() for sec_index in syn_sections])
             syn_dict = {k: v for (k, v) in it}
         else:
             syn_dict = self.syn_id_attr_dict[gid]
@@ -766,7 +782,7 @@ class SynapseAttributes(object):
 
     def clear(self):
         self.syn_id_attr_dict = defaultdict(lambda: defaultdict(lambda: None))
-        self.sec_dict = defaultdict(lambda: defaultdict(lambda: []))
+        self.sec_dict = defaultdict(lambda: defaultdict(lambda: dict()))
         self.pps_dict = defaultdict(lambda: defaultdict(lambda: SynapsePointProcess(mech={}, netcon={}, vecstim={})))
         self.filter_cache = {}
 
@@ -2499,28 +2515,10 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
     return (syn_dict, seg_density_per_sec)
 
 
-validation_filter_cache = {}
-
-def is_valid_synapse(swc_type, syn_type, layer, projection_synapse_config):
-    """
-    Helper function used by distribute_clustered_poisson_synapses to determine if a synapse can be placed in a particular layer.
-    """
-    cache_args = (swc_type, syn_type, layer, projection_synapse_config)
-    if cache_args in validation_filter_cache:
-        return validation_filter_cache[cache_args]
-    else:
-        result = False
-        for config_syn_type, config_syn_layers, config_syn_sections:
-            if (syn_type == config_syn_type) and (swc_type in config_syn_sections) and (layer in config_syn_layers):
-                result = True
-                break
-        validation_filter_cache[cache_args] = result
-        return result
 
 
 def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, layer_dict, sec_layer_density_dict,
-                                          neurotree_dict, cell_sec_dict, cell_secidx_dict, projection_synapse_dict,
-                                          syn_cluster_dict, syn_source_dict):
+                                          neurotree_dict, cell_sec_dict, cell_secidx_dict, syn_cluster_dict):
     """
     Computes synapse locations distributed according to a given
     per-section clustering and Poisson distribution within the
@@ -2540,9 +2538,6 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
 
     """
     import networkx as nx
-
-    projection_synapse_config = { item[0]: (tuple(x) if isinstance(x, set) else x for x in item[1])
-                                  for item in projection_synapse_dict.items() }
     
     syn_ids = []
     syn_locs = []
@@ -2564,155 +2559,160 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
     if debug_flag:
         logger.debug(f'sec_graph: {list(sec_graph.edges)}')
         logger.debug(f'neurotree_dict: {neurotree_dict}')
-
-    syn_cluster_array = np.fromiter([syn_cluster_dict[syn_id] for syn_id in sorted(syn_cluster_dict)], dtype=int)
-    all_syn_ids = np.fromiter(sorted(syn_cluster_dict), dtype=int)
-    syn_cluster_ids, syn_cluster_count = np.unique(syn_cluster_array, return_counts=True)
-    syn_clusters_dict_by_cluster_id = { cluster_id: all_syn_ids[np.argwhere(syn_cluster_array == cluster_id)]
-                                        for cluster_id in syn_cluster_ids }
-    syn_sources_dict_by_cluster_id = { cluster_id: np.fromiter([syn_source_dict for syn_id in all_syn_ids[np.argwhere(syn_cluster_array == cluster_id) ]], dtype=np.uint8)
-                                       for cluster_id in syn_cluster_ids }
-    syn_cluster_size_dict = KDDict(zip(syn_cluster_ids, syn_cluster_count))
-    
-    # TODO: modify cluster assignments when there is a mismatch between cluster size and number of synapses allowed by density and section size
-
-    
     sec_interp_loc_dict = {}
     seg_density_per_sec = {}
     r = np.random.RandomState()
     r.seed(int(density_seed))
-    for (sec_name, layer_density_dict) in viewitems(sec_layer_density_dict):
 
-        swc_type = swc_type_dict[sec_name]
-        seg_dict = {}
-        L_total = 0
+    cluster_syn_ids_count = 0
+    for _, syn_clusters in syn_cluster_dict.items():
+        for _, syn_cluster in syn_clusters.items():
+            cluster_syn_ids_count += len(syn_cluster)
 
-        (seclst, maxdist) = cell_sec_dict[sec_name]
-        secidxlst = cell_secidx_dict[sec_name]
-        for sec, idx in zip(seclst, secidxlst):
-            npts_interp = max(int(round(sec.L)), 3)
-            sec_interp_loc_dict[idx] = interplocs(sec, np.linspace(0, 1, npts_interp), return_interpolant=True)
-        sec_dict = {int(idx): sec for sec, idx in zip(seclst, secidxlst)}
-        if len(sec_dict) > 1:
-            sec_subgraph = sec_graph.subgraph(list(sec_dict.keys()))
-            if len(sec_subgraph.edges()) > 0:
-                sec_roots = [n for n, d in sec_subgraph.in_degree() if d == 0]
-                sec_edges = []
-                for sec_root in sec_roots:
-                    sec_edges.append(list(nx.dfs_edges(sec_subgraph, sec_root)))
-                    sec_edges.append([(None, sec_root)])
-                sec_edges = [val for sublist in sec_edges for val in sublist]
+    syn_cluster_dict = copy.deepcopy(dict(syn_cluster_dict))
+    
+    while cluster_syn_ids_count > 0:
+
+        for (sec_name, layer_density_dict) in viewitems(sec_layer_density_dict):
+
+            swc_type = swc_type_dict[sec_name]
+            seg_dict = {}
+            L_total = 0
+
+            (seclst, maxdist) = cell_sec_dict[sec_name]
+            secidxlst = cell_secidx_dict[sec_name]
+            for sec, idx in zip(seclst, secidxlst):
+                npts_interp = max(int(round(sec.L)), 3)
+                sec_interp_loc_dict[idx] = interplocs(sec, np.linspace(0, 1, npts_interp), return_interpolant=True)
+            sec_dict = {int(idx): sec for sec, idx in zip(seclst, secidxlst)}
+            if len(sec_dict) > 1:
+                sec_subgraph = sec_graph.subgraph(list(sec_dict.keys()))
+                if len(sec_subgraph.edges()) > 0:
+                    sec_roots = [n for n, d in sec_subgraph.in_degree() if d == 0]
+                    sec_edges = []
+                    for sec_root in sec_roots:
+                        sec_edges.append(list(nx.dfs_edges(sec_subgraph, sec_root)))
+                        sec_edges.append([(None, sec_root)])
+                    sec_edges = [val for sublist in sec_edges for val in sublist]
+                else:
+                    sec_edges = [(None, idx) for idx in list(sec_dict.keys())]
             else:
                 sec_edges = [(None, idx) for idx in list(sec_dict.keys())]
-        else:
-            sec_edges = [(None, idx) for idx in list(sec_dict.keys())]
-        for sec_index, sec in viewitems(sec_dict):
-            seg_list = []
-            if maxdist is None:
-                for seg in sec:
-                    if seg.x < 1.0 and seg.x > 0.0:
-                        seg_list.append(seg)
-            else:
-                for seg in sec:
-                    if seg.x < 1.0 and seg.x > 0.0 and ((L_total + sec.L * seg.x) <= maxdist):
-                        seg_list.append(seg)
-            seg_dict[sec_index] = seg_list
-            L_total += sec.L
-            
-        seg_density_dict, layers_dict = \
-            synapse_seg_density(syn_type_dict, layer_dict, \
-                                layer_density_dict, \
-                                seg_dict, r, \
-                                neurotree_dict=neurotree_dict)
-        seg_density_per_sec[sec_name] = seg_density_dict
-        for (syn_type_label, _) in viewitems(layer_density_dict):
-            syn_type = syn_type_dict[syn_type_label]
-            seg_density = seg_density_dict[syn_type]
-            layers = layers_dict[syn_type]
-            end_distance = {}
-            for sec_parent, sec_index in sec_edges:
-                interp_loc = sec_interp_loc_dict[sec_index]
-                seg_list = seg_dict[sec_index]
-                sec_seg_layers = layers[sec_index]
-                sec_seg_density = seg_density[sec_index]
-                est_syn_count = 0
-                for seg, density in zip(seg_list, sec_seg_density):
-                    seg_start = seg.x - (0.5 / seg.sec.nseg)
-                    seg_end = seg.x + (0.5 / seg.sec.nseg)
-                    L = seg.sec.L
-                    L_seg_start = seg_start * L
-                    L_seg_end = seg_end * L
-                    seg_L = L_seg_end - L_seg_start
-                    est_syn_count += round(seg_L * density)
-                syn_cluster_id, _ = syn_cluster_size_dict.nearest_value(est_syn_count)
-                del(syn_cluster_size_dict[syn_cluster_id])
-                cluster_syn_ids = list(syn_clusters_dict_by_cluster_id[syn_cluster_id])
-                cluster_syn_sources = list(syn_sources_dict_by_cluster_id[syn_cluster_id])
-                cluster_syn_ids_count = len(cluster_syn_ids)
-                start_seg = seg_list[0]
-                interval = 0.
-                syn_loc = 0.
-                for seg, layer, density in zip(seg_list, sec_seg_layers, sec_seg_density):
-                    if cluster_syn_ids_count == 0:
-                        break
-                    seg_start = seg.x - (0.5 / seg.sec.nseg)
-                    seg_end = seg.x + (0.5 / seg.sec.nseg)
-                    L = seg.sec.L
-                    L_seg_start = seg_start * L
-                    L_seg_end = seg_end * L
-                    if density > 0.:
-                        beta = 1. / density
-                        if interval > 0.:
-                            sample = r.exponential(beta)
-                        else:
-                            while True:
-                                sample = r.exponential(beta)
-                                if (sample >= L_seg_start) and (sample < L_seg_end):
-                                    break
-                        interval += sample
-                        while (interval < L_seg_end) and (cluster_syn_ids_count > 0):
-                            if interval >= L_seg_start:
-                                syn_loc = (interval / L)
-                                assert ((syn_loc <= 1) and (syn_loc >= seg_start))
-                                if syn_loc < 1.0:
-                                    syn_entry = list_find(lambda x: is_valid_synapse(swc_type, syn_type, layer, projection_synapse_config[x]), cluster_syn_sources)
-                                    syn_index = cluster_syn_ids.pop(syn_entry)
-                                    cluster_syn_sources.pop(syn_entry)
-                                    cluster_syn_ids_count -= 1
-                                    syn_cdist = math.sqrt(reduce(lambda a, b: a+b, ( interp_loc[i](syn_loc)**2 for i in range(3) )))
-                                    syn_cdists.append(syn_cdist)
-                                    syn_locs.append(syn_loc)
-                                    syn_ids.append(syn_index)
-                                    syn_secs.append(sec_index)
-                                    syn_layers.append(layer)
-                                    syn_types.append(syn_type)
-                                    swc_types.append(swc_type)
-                            interval += r.exponential(beta)
-                    else:
-                        interval = seg_end * L
-                        
-                end_distance[sec_index] = (1.0 - syn_loc) * L
-                
-                # If cluster has left over synapses, distribute synapses until cluster is exhausted
-                while cluster_syn_ids_count > 0:
-                    for seg, layer in zip(seg_list, sec_seg_layers):
-                        syn_entry = list_find(lambda x: is_valid_synapse(swc_type, syn_type, layer, projection_synapse_config[x]), cluster_syn_sources)
-                        syn_index = cluster_syn_ids.pop(syn_entry)
-                        cluster_syn_sources.pop(syn_entry)
-                        cluster_syn_ids_count -= 1
+            for sec_index, sec in viewitems(sec_dict):
+                seg_list = []
+                if maxdist is None:
+                    for seg in sec:
+                        if seg.x < 1.0 and seg.x > 0.0:
+                            seg_list.append(seg)
+                else:
+                    for seg in sec:
+                        if seg.x < 1.0 and seg.x > 0.0 and ((L_total + sec.L * seg.x) <= maxdist):
+                            seg_list.append(seg)
+                seg_dict[sec_index] = seg_list
+                L_total += sec.L
+
+            seg_density_dict, layers_dict = \
+                synapse_seg_density(syn_type_dict, layer_dict, \
+                                    layer_density_dict, \
+                                    seg_dict, r, \
+                                    neurotree_dict=neurotree_dict)
+            seg_density_per_sec[sec_name] = seg_density_dict
+            for (syn_type_label, _) in viewitems(layer_density_dict):
+                syn_type = syn_type_dict[syn_type_label]
+                seg_density = seg_density_dict[syn_type]
+                layers = layers_dict[syn_type]
+                end_distance = {}
+                for sec_parent, sec_index in sec_edges:
+                    interp_loc = sec_interp_loc_dict[sec_index]
+                    seg_list = seg_dict[sec_index]
+                    sec_seg_layers = layers[sec_index]
+                    sec_seg_density = seg_density[sec_index]
+                    sec_seg_layer_set = set(sec_seg_layers)
+
+                    syn_cluster_match_found = False
+                    for layer in sec_seg_layer_set:
+                        if (syn_type, swc_type, layer) in syn_cluster_dict:
+                            syn_cluster_match_found = True
+                    if not syn_cluster_match_found:
+                        continue
+
+                    est_syn_count = 0
+                    for seg, density in zip(seg_list, sec_seg_density):
                         seg_start = seg.x - (0.5 / seg.sec.nseg)
                         seg_end = seg.x + (0.5 / seg.sec.nseg)
-                        syn_loc = r.uniform(low=seg_start, low=seg_end)
-                        syn_cdist = math.sqrt(reduce(lambda a, b: a+b, ( interp_loc[i](syn_loc)**2 for i in range(3) )))
-                        syn_cdists.append(syn_cdist)
-                        syn_locs.append(syn_loc)
-                        syn_ids.append(syn_index)
-                        syn_secs.append(sec_index)
-                        syn_layers.append(layer)
-                        syn_types.append(syn_type)
-                        swc_types.append(swc_type)
+                        L = seg.sec.L
+                        L_seg_start = seg_start * L
+                        L_seg_end = seg_end * L
+                        seg_L = L_seg_end - L_seg_start
+                        est_syn_count += round(seg_L * density)
 
-                
+                    current_syn_cluster_type = None
+                    current_syn_cluster_id = None
+                    current_cluster_syn_ids = []
+
+                    start_seg = seg_list[0]
+                    interval = 0.
+                    syn_loc = 0.
+                    for seg, layer, density in zip(seg_list, sec_seg_layers, sec_seg_density):
+                        
+                        if current_syn_cluster_type != (syn_type, swc_type, layer):
+                            current_syn_cluster_type = (syn_type, swc_type, layer)
+                            if current_syn_cluster_type in syn_cluster_dict:
+                                syn_clusters = syn_cluster_dict[current_syn_cluster_type]
+                            else:
+                                break
+
+                            if len(syn_clusters) == 0:
+                                break
+                            current_syn_cluster_id = r.choice(list(syn_clusters.keys()), size=1)[0]
+                            current_cluster_syn_ids = syn_clusters[current_syn_cluster_id]
+
+                        seg_start = seg.x - (0.5 / seg.sec.nseg)
+                        seg_end = seg.x + (0.5 / seg.sec.nseg)
+                        L = seg.sec.L
+                        L_seg_start = seg_start * L
+                        L_seg_end = seg_end * L
+                        if density > 0.:
+                            beta = 1. / density
+                            if interval > 0.:
+                                sample = r.exponential(beta)
+                            else:
+                                while True:
+                                    sample = r.exponential(beta)
+                                    if (sample >= L_seg_start) and (sample < L_seg_end):
+                                        break
+                            interval += sample
+                            while (interval < L_seg_end) and (cluster_syn_ids_count > 0):
+                                if interval >= L_seg_start:
+                                    syn_loc = (interval / L)
+                                    assert ((syn_loc <= 1) and (syn_loc >= seg_start))
+                                    if syn_loc < 1.0:
+                                        while len(current_cluster_syn_ids) == 0:
+                                            syn_clusters = syn_cluster_dict[current_syn_cluster_type]
+                                            if current_syn_cluster_id is not None:
+                                                if (current_syn_cluster_id in syn_clusters) and (len(syn_clusters[current_syn_cluster_id]) == 0):
+                                                    del(syn_clusters[current_syn_cluster_id])
+                                            if len(syn_clusters) == 0:
+                                                break
+                                            current_syn_cluster_id = r.choice(list(syn_clusters.keys()), size=1)[0]
+                                            current_cluster_syn_ids = syn_clusters[current_syn_cluster_id]
+                                        if len(current_cluster_syn_ids) == 0:
+                                            break
+                                        syn_index = current_cluster_syn_ids.pop(0)
+                                        cluster_syn_ids_count -= 1
+                                        syn_cdist = math.sqrt(reduce(lambda a, b: a+b, ( interp_loc[i](syn_loc)**2 for i in range(3) )))
+                                        syn_cdists.append(syn_cdist)
+                                        syn_locs.append(syn_loc)
+                                        syn_ids.append(syn_index)
+                                        syn_secs.append(sec_index)
+                                        syn_layers.append(layer)
+                                        syn_types.append(syn_type)
+                                        swc_types.append(swc_type)
+                                interval += r.exponential(beta)
+                        else:
+                            interval = seg_end * L
+
+                    end_distance[sec_index] = (1.0 - syn_loc) * L
 
     assert (len(syn_ids) > 0)
     syn_dict = {'syn_ids': np.asarray(syn_ids, dtype='uint32'),

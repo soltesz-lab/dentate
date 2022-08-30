@@ -309,6 +309,7 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
         cell_dict = load_biophys_cell_dicts(env, pop_name, my_cell_index_set)
             
 
+    logger.info(f'cell_dict = {cell_dict}')
     ## Load cell gid and its synaptic attributes and connection data
     for gid in my_cell_index_set:
         cell = init_biophys_cell(env, pop_name, gid, cell_dict=cell_dict[gid], write_cell=write_cell)

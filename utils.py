@@ -249,9 +249,10 @@ class KDDict(MutableMapping):
 
     """
     
-    def __init__(self, key_ndims=1, value_ndims=1, *args, **kwargs):
+    def __init__(self, *args, key_ndims=1, value_ndims=1, **kwargs):
         self.store = dict()
-        self.ndims = ndims
+        self.key_ndims = key_ndims
+        self.value_ndims = value_ndims
         self.__keys = []
         self.__values = []
         self._key_tree = None
@@ -269,7 +270,7 @@ class KDDict(MutableMapping):
     def _valtransform(self, val):
         if not isinstance(val, tuple):
             val = (val,)
-        if len(val) != self.value_ndims: raise KeyError("value must be %d dimensions" % self.val_ndims)
+        if len(val) != self.value_ndims: raise KeyError("value must be %d dimensions" % self.value_ndims)
         return val
         
     def __getitem__(self, key):

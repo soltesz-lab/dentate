@@ -8,7 +8,7 @@ time constants are voltage-dependent and temperature sensitive
 Mg++ voltage dependency from Spruston95 -> Woodhull, 1973 
 
 Desensitization is introduced in this model. Actually, this model has 4 differential equations
-becasue desensitization is solved analitically. It can be reduced to 3 by solving its A state analitically.
+becasue desensitization is solved analitically. It can be reduced to 3 by solving its A state analytically.
 For more info read the original paper. 
 
 Keivan Moradi 2012
@@ -36,7 +36,7 @@ UNITS {
 
 PARAMETER {
 : Parameters Control Neurotransmitter and Voltage-dependent gating of NMDAR
-	tau1 = 1.69		(ms)	<1e-9,1e9>	: Spruston95 CA1 dend [Mg=0 v=-80 celcius=18] be careful: Mg can change these values
+	tau1 = 1.69		(ms)	<1e-9,1e9>	: Spruston95 CA1 dend [Mg=0 v=-80 celsius=18] be careful: Mg can change these values
 : parameters control exponential rise to a maximum of tau2
 	tau2_0 = 3.97	(ms)
 	a2 = 0.70		(ms)
@@ -47,17 +47,17 @@ PARAMETER {
 	tau3_0 = 41.62	(ms)
 	a3 = 34.69		(ms)
 	b3 = 0.01		(1/mV)
-	: Hestrin90 CA1 soma  [Mg=1 v=-40 celcius=30-32] the decay of the NMDA component of the EPSC recorded at temperatures above 30 degC 
+	: Hestrin90 CA1 soma  [Mg=1 v=-40 celsius=30-32] the decay of the NMDA component of the EPSC recorded at temperatures above 30 degC 
 	: the fast phase of decay, which accounted for 65%-+12% of the decay, had a time constant of 23.5-+3.8 ms, 
 	: whereas the slow component had a time constant of 123-+83 ms.
-	: wtau2= 0.78 Spruston95 CA1 dend [Mg=0 v=-80 celcius=18] percentage of contribution of tau2 in deactivation of NMDAR
+	: wtau2= 0.78 Spruston95 CA1 dend [Mg=0 v=-80 celsius=18] percentage of contribution of tau2 in deactivation of NMDAR
 	Q10_tau1 = 2.2			: Hestrin90
 	Q10_tau2 = 3.68			: Hestrin90 -> 3.5-+0.9, Korinek10 -> NR1/2B -> 3.68
 	Q10_tau3 = 2.65			: Korinek10
 	T0_tau	 = 35	(degC)	: reference temperature 
-	: Hestrin90 CA1 soma  [Mg=1 v=-40 celcius=31.5->25] The average Q10 for the rising phase was 2.2-+0.5, 
+	: Hestrin90 CA1 soma  [Mg=1 v=-40 celsius=31.5->25] The average Q10 for the rising phase was 2.2-+0.5, 
 	: and that for the major fast decaying phase was 3.5-+0.9
-	tp = 30			(ms)	: time of the peack -> when C + B - A reaches the maximum value or simply when NMDA has the peack current
+	tp = 30			(ms)	: time of the peak -> when C + B - A reaches the maximum value or simply when NMDA has the peak current
 							: tp should be recalculated when tau1 or tau2 or tau3 changes
 : Parameters control desensitization of the channel
 	: these values are from Fig.3 in Varela et al. 1997
@@ -144,13 +144,17 @@ BREAKPOINT {
 	i = g*(v - e)
 }
 
-DERIVATIVE state {
+DERIVATIVE state { LOCAL x
 	rates(v)
 	A' = -A/tau1
 	B' = -B/tau2
 	C' = -C/tau3
-	: Voltage Dapaendent Gating of NMDA needs prior binding to Glutamate Kim11
-	gVD' = ((wtau3*C + wtau2*B)/wf)*(inf-gVD)/tau
+	: Voltage Dependent Gating of NMDA needs prior binding to Glutamate Kim11
+        x = 0
+        if (wf > 0) {
+            x = ((wtau3*C + wtau2*B)/wf)
+        }
+	gVD' = x*(inf-gVD)/tau
 	: gVD' = (inf-gVD)/tau
 }
 
