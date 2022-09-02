@@ -187,7 +187,6 @@ class SynapseAttributes(object):
         for syn_id, syn_sec, syn_loc in zip(syn_ids, syn_secs, syn_locs):
             syn = syn_dict[syn_id]
             old_syn_sec = syn.syn_section
-            logger.info(f'modify_syn_loc: gid {gid} syn id {syn_id}: old sec = {old_syn_sec} old loc = {syn.syn_loc} new sec = {syn_sec} new loc = {syn_loc}')
             del(sec_dict[old_syn_sec][syn_id])
             syn = syn._replace(syn_section=syn_sec, syn_loc=syn_loc)
             syn_dict[syn_id] = syn

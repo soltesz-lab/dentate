@@ -3002,8 +3002,6 @@ def init_circuit_context(env, pop_name, gid,
         has_clusters = True
         cluster_config = synapse_config['clusters']
 
-    logger.info(f'init_circuit_context: has_clusters = {has_clusters} cluster_config = {cluster_config} cluster_dict = {cluster_dict}')
-        
     init_synapses = False
     init_weights = False
     init_clusters = False

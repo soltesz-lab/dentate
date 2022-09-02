@@ -166,7 +166,6 @@ def init_inputs_from_features(env, presyn_sources, time_range,
                               spike_train_attr_name='t', n_trials=1, seed=None):
     """Initializes presynaptic spike sources from a file with input selectivity features represented as firing rates."""
 
-    logger.info(f'init_inputs_from_features: seed = {seed}')
     populations = sorted(presyn_sources.keys())
 
     if time_range is not None:
@@ -309,7 +308,6 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
         cell_dict = load_biophys_cell_dicts(env, pop_name, my_cell_index_set)
             
 
-    logger.info(f'cell_dict = {cell_dict}')
     ## Load cell gid and its synaptic attributes and connection data
     for gid in my_cell_index_set:
         cell = init_biophys_cell(env, pop_name, gid, cell_dict=cell_dict[gid], write_cell=write_cell)
@@ -443,8 +441,6 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
         synapses.config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True, verbose=True)
         record_cell(env, pop_name, gid)
     gc.collect()
-
-    logger.info(f'network_clamp.init: gid {gid}: len(pps_dict) = {len(env.synapse_attributes.pps_dict[gid])}')
 
     if plot_cell:
         import dentate.plot

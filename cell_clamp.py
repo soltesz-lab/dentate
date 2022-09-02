@@ -297,7 +297,6 @@ def measure_passive (gid, pop_name, v_init, env, prelength=1000.0, mainlength=30
                'tau0': np.asarray([tau0], dtype=np.float32)
                }
 
-    logger.info(f'results = {results}')
     env.synapse_attributes.del_syn_id_attr_dict(gid)
     if gid in env.biophys_cells[pop_name]:
         del env.biophys_cells[pop_name][gid]
