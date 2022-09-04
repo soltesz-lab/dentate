@@ -273,9 +273,9 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
         trial_rate_features = [np.asarray(trial_inflds, dtype=np.float32).reshape((1, n_trials)), 
                                np.asarray(trial_outflds, dtype=np.float32).reshape((1, n_trials))]
         rate_features = [mean_peak, mean_trough, max_infld, min_infld, mean_infld, mean_outfld, ]
-        rate_constr = [ mean_peak if max_infld > 0. else -1. ]
+        #rate_constr = [ mean_peak if max_infld > 0. else -1. ]
         #rate_constr = [ mean_peak - mean_trough if max_infld > 0. else -1. ]
-        return (np.asarray(residual_inflds), trial_rate_features, rate_features, rate_constr)
+        return (np.asarray(residual_inflds), trial_rate_features, rate_features)
 
     
     def trial_state_residuals(gid, target_outfld, t_peak_idxs, t_trough_idxs, t_infld_idxs, t_outfld_idxs, state_values, masked_state_values):
@@ -375,7 +375,7 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
             logger.info(f'selectivity objective: max rates of gid {gid}: '
                         f'{list([np.max(rate_vector) for rate_vector in rate_vectors])}')
 
-            infld_residuals, trial_rate_features, rate_features, rate_constr = \
+            infld_residuals, trial_rate_features, rate_features = \
               trial_snr_residuals(gid, peak_idxs, trough_idxs, infld_idxs, outfld_idxs, 
                                   rate_vectors, masked_rate_vectors, target_rate_vector)
             state_residuals, state_features = trial_state_residuals(gid, state_baseline,
@@ -406,8 +406,7 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
             result[gid] = (np.asarray([ infld_objective, state_objective ], 
                                       dtype=np.float32), 
                            np.array([tuple(rate_features+state_features+[trial_obj_features]+trial_rate_features)], 
-                                    dtype=np.dtype(feature_dtypes)),
-                           np.asarray(rate_constr, dtype=np.float32))
+                                    dtype=np.dtype(feature_dtypes)))
                            
         return result
     
@@ -425,7 +424,7 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
     opt_targets = opt_param_config.opt_targets
     param_names = opt_param_config.param_names
     param_tuples = opt_param_config.param_tuples
-    
+
     hyperprm_space = { param_pattern: [param_tuple.param_range[0], param_tuple.param_range[1]]
                        for param_pattern, param_tuple in 
                            zip(param_names, param_tuples) }
@@ -469,7 +468,6 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
     feature_dtypes.append(('trial_mean_infld_rate', (np.float32, (1, n_trials))))
     feature_dtypes.append(('trial_mean_outfld_rate', (np.float32, (1, n_trials))))
 
-    constraint_names = ['positive_rate']
     dmosopt_params = {'opt_id': 'dentate.optimize_selectivity',
                       'problem_ids': problem_ids,
                       'obj_fun_init_name': init_objfun, 
@@ -481,7 +479,6 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
                       'space': hyperprm_space,
                       'objective_names': objective_names,
                       'feature_dtypes': feature_dtypes,
-                      'constraint_names': constraint_names,
                       'n_initial': n_initial,
                       'n_epochs': n_epochs,
                       'population_size': population_size,
@@ -491,9 +488,11 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
                       'initial_maxiter': initial_maxiter,
                       'initial_method': initial_method,
                       'optimizer': optimizer_method,
+                      'optimizer_options': {"sampling_method": "sobol", },
                       'surrogate_method': surrogate_method,
                       'surrogate_options': {"lengthscale_bounds": (1e-2, 1000.0),
                                             'anisotropic': False, 'optimizer': "sceua"},
+                      'feasibility_model': True,
                       'termination_conditions': True,
                       'file_path': file_path,
                       'save': True,
