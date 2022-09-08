@@ -554,27 +554,8 @@ def main(config_file, population, dt, gid, gid_selection_file, arena_id, traject
             if ProblemRegime[problem_regime] == ProblemRegime.every:
                 results_config_dict = {}
                 for gid, prms in viewitems(best):
-                    n_res = prms[0][1].shape[0]
                     prms_dict = dict(prms)
                     this_results_config_dict = {}
-                    for i in range(n_res):
-                        results_param_list = []
-                        for param_pattern, param_tuple in zip(param_names, param_tuples):
-                            results_param_list.append((param_tuple.population,
-                                                       param_tuple.source,
-                                                       param_tuple.sec_type,
-                                                       param_tuple.syn_name,
-                                                       param_tuple.param_path,
-                                                       float(prms_dict[param_pattern][i])))
-                        this_results_config_dict[i] = results_param_list
-                    results_config_dict[gid] = this_results_config_dict
-                    
-            else:
-                prms = best[0]
-                n_res = prms[0][1].shape[0]
-                prms_dict = dict(prms)
-                results_config_dict = {}
-                for i in range(n_res):
                     results_param_list = []
                     for param_pattern, param_tuple in zip(param_names, param_tuples):
                         results_param_list.append((param_tuple.population,
@@ -582,8 +563,22 @@ def main(config_file, population, dt, gid, gid_selection_file, arena_id, traject
                                                    param_tuple.sec_type,
                                                    param_tuple.syn_name,
                                                    param_tuple.param_path,
-                                                   float(prms_dict[param_pattern][i])))
-                    results_config_dict[i] = results_param_list
+                                                   float(prms_dict[param_pattern])))
+                    results_config_dict[gid] = results_param_list
+                    
+            else:
+                prms = best[0]
+                prms_dict = dict(prms)
+                results_config_dict = {}
+                results_param_list = []
+                for param_pattern, param_tuple in zip(param_names, param_tuples):
+                    results_param_list.append((param_tuple.population,
+                                               param_tuple.source,
+                                               param_tuple.sec_type,
+                                               param_tuple.syn_name,
+                                               param_tuple.param_path,
+                                               float(prms_dict[param_pattern])))
+                results_config_dict[gid] = results_param_list
 
             write_to_yaml(file_path, { population: results_config_dict } )
 
