@@ -214,9 +214,9 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
             rate_vector = rate_vectors[trial_i]
             infld_rate_vector = rate_vector[infld_idxs]
             outfld_rate_vector = None
-            if outfld_idxs is None:
+            if outfld_idxs is not None:
                 outfld_rate_vector = rate_vector[outfld_idxs]
-
+            
             mean_peak = np.mean(rate_vector[peak_idxs])
             mean_trough = np.mean(rate_vector[trough_idxs])
             min_infld = np.min(infld_rate_vector)
@@ -260,8 +260,6 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
         t_vec = np.asarray(env.t_rec.to_python(), dtype=np.float32)
         t_trial_inds = get_trial_time_indices(t_vec, n_trials, equilibration_duration)
         t_s = t_vec[t_trial_inds[0]]
-
-        
         
         result = {}
         for gid in my_cell_index_set:
@@ -286,14 +284,14 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
                 t_outfld_idxs = None
             
             rate_vectors = rates_dict[gid]
-            
+
             logger.info(f'selectivity objective: max rates of gid {gid}: '
                         f'{list([np.max(rate_vector) for rate_vector in rate_vectors])}')
 
             snrs, trial_rate_features, rate_features = \
                 trial_rate_snrs(gid, peak_idxs, trough_idxs, infld_idxs, outfld_idxs, 
                                 rate_vectors, target_rate_vector)
-            
+
             if trial_regime == 'mean':
                 snr_objective = np.mean(snrs)
             elif trial_regime == 'best':
