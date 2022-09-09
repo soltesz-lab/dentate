@@ -46,7 +46,8 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
                             input_features_path, input_features_namespaces,
                             param_type, param_config_name, selectivity_config_name, recording_profile, 
                             target_features_path, target_features_namespace,
-                            target_features_arena, target_features_trajectory,   
+                            target_features_arena, target_features_trajectory,
+                            infld_threshold,
                             use_coreneuron, cooperative_init, dt, worker, **kwargs):
     
     params = dict(locals())
@@ -74,10 +75,9 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
                                                        arena_id=arena_id)
 
 
-    logger.info(f'target_rate_vector_dict = {target_rate_vector_dict}')
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
-        target_rate_vector[np.isclose(target_rate_vector, 0., atol=1e-3, rtol=1e-3)] = 0.
-
+        target_rate_vector[np.isclose(target_rate_vector, 0., atol=1e-2, rtol=1e-2)] = 0.
+        
     trj_x, trj_y, trj_d, trj_t = stimulus.read_trajectory(input_features_path if input_features_path is not None else spike_events_path, 
                                                           target_features_arena, target_features_trajectory)
     time_range = (0., min(np.max(trj_t), t_max))
@@ -99,13 +99,13 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
         return a
         
     
-    infld_idxs_dict = { gid: np.where(target_rate_vector > 1e-4)[0] 
+    infld_idxs_dict = { gid: np.where(target_rate_vector >= infld_threshold)[0] 
                         for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
     peak_pctile_dict = { gid: np.percentile(target_rate_vector_dict[gid][infld_idxs], 80)
                          for gid, infld_idxs in viewitems(infld_idxs_dict) }
     trough_pctile_dict = { gid: np.percentile(target_rate_vector_dict[gid][infld_idxs], 20)
                            for gid, infld_idxs in viewitems(infld_idxs_dict) }
-    outfld_idxs_dict = { gid: range_inds(contiguous_ranges(target_rate_vector < 1e-4, return_indices=True))
+    outfld_idxs_dict = { gid: range_inds(contiguous_ranges(target_rate_vector < infld_threshold, return_indices=True))
                         for gid, target_rate_vector in viewitems(target_rate_vector_dict) }
 
     peak_idxs_dict = { gid: range_inds(contiguous_ranges(target_rate_vector >= peak_pctile_dict[gid], return_indices=True)) 
@@ -457,6 +457,8 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
               help='path to neuroh5 file containing target rate maps used for rate optimization')
 @click.option("--target-features-namespace", type=str, required=False, default='Input Spikes',
               help='namespace containing target rate maps used for rate optimization')
+@click.option("--infld-threshold", type=float, required=False, default=1e-2,
+              help='minimum firing rate threshold for in-field calculation')
 @click.option('--use-coreneuron', is_flag=True, help='enable use of CoreNEURON')
 @click.option('--cooperative-init', is_flag=True, help='use a single worker to read model data then send to the remaining workers')
 @click.option("--spawn-executable", type=str)
@@ -466,7 +468,7 @@ def main(config_file, population, dt, gid, gid_selection_file, arena_id, traject
          t_max, t_min,  nprocs_per_worker, template_paths, dataset_prefix, config_prefix,
          param_config_name, selectivity_config_name, param_type, recording_profile, results_file, results_path, spike_events_path,
          spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, n_iter, n_trials,
-         trial_regime, problem_regime, target_features_path, target_features_namespace, 
+         trial_regime, problem_regime, target_features_path, target_features_namespace, infld_threshold,
          use_coreneuron, cooperative_init, spawn_executable, spawn_args, spawn_startup_wait):
     """
     Optimize the input stimulus selectivity of the specified cell in a network clamp configuration.
