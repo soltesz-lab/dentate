@@ -227,9 +227,7 @@ def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, t
             if outfld_rate_vector is not None:
                 mean_outfld = np.mean(outfld_rate_vector)
 
-            if mean_peak > 1.1*target_mean_peak:
-                snr = 0.
-            elif np.isnan(mean_outfld):
+            if np.isnan(mean_outfld):
                 snr = (np.clip(mean_peak - mean_trough, 0., None) ** 2.)  / max((mean_trough - target_mean_trough) ** 2., 1.0)
             else:
                 snr = (np.clip(mean_peak - mean_trough, 0., None) ** 2.)  / (max((mean_trough - target_mean_trough) ** 2., 1.0) * max(mean_outfld, 1.0) ** 2.)
