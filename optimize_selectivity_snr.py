@@ -387,16 +387,18 @@ def init_selectivity_objfun(
             if outfld_rate_vector is not None:
                 mean_outfld = np.mean(outfld_rate_vector)
 
+
             if np.isnan(mean_outfld):
                 snr = (np.clip(mean_peak - mean_trough, 0.0, None) ** 2.0) / (
-                    max((mean_trough - target_mean_trough) ** 2.0, 1.0)
-                    * max((mean_peak - target_mean_peak) ** 2.0, 1.0)
+                    max((mean_peak - target_mean_peak) + 
+                        (mean_trough - target_mean_trough), 1.0)
                 )
             else:
                 snr = (np.clip(mean_peak - mean_trough, 0.0, None) ** 2.0) / (
-                    max((mean_trough - target_mean_trough) ** 2.0, 1.0)
-                    * max((mean_peak - target_mean_peak) ** 2.0, 1.0)
-                    * max(mean_outfld, 1.0) ** 2.0
+                    max((mean_peak - target_mean_peak) +
+                        (mean_trough - target_mean_trough) +
+                        mean_outfld ** 2.0,
+                        1.0)
                 )
 
             logger.info(
@@ -532,6 +534,7 @@ def optimize_run(
     param_type="synaptic",
     init_params={},
     results_file=None,
+    n_max_tasks=-1,
     cooperative_init=False,
     spawn_startup_wait=None,
     spawn_executable=None,
@@ -577,6 +580,8 @@ def optimize_run(
     n_trials = init_params.get("n_trials", 1)
 
     nworkers = env.comm.size - 1
+    if n_max_tasks <= 0:
+        n_max_tasks = nworkers
 
     objective_names = ["snr"]
     feature_names = [
@@ -605,7 +610,7 @@ def optimize_run(
         "objective_names": objective_names,
         "feature_dtypes": feature_dtypes,
         "n_iter": n_iter,
-        "n_max_tasks": nworkers,
+        "n_max_tasks": n_max_tasks,
         "file_path": file_path,
         "save": True,
         "save_eval": 5,
@@ -788,6 +793,13 @@ def optimize_run(
     help="number of trials for input stimulus",
 )
 @click.option(
+    "--n-max-tasks",
+    required=False,
+    type=int,
+    default=-1,
+    help="number of maximum tasks",
+)
+@click.option(
     "--trial-regime",
     required=False,
     type=str,
@@ -858,6 +870,7 @@ def main(
     input_features_namespaces,
     n_iter,
     n_trials,
+    n_max_tasks,
     trial_regime,
     problem_regime,
     target_features_path,
@@ -965,6 +978,7 @@ def main(
         init_params=init_params,
         results_file=results_file,
         nprocs_per_worker=nprocs_per_worker,
+        n_max_tasks=n_max_tasks,
         cooperative_init=cooperative_init,
         spawn_executable=spawn_executable,
         spawn_args=spawn_args,
