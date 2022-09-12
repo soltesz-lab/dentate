@@ -390,15 +390,12 @@ def init_selectivity_objfun(
 
             if np.isnan(mean_outfld):
                 snr = (np.clip(mean_peak - mean_trough, 0.0, None) ** 2.0) / (
-                    max((mean_peak - target_mean_peak) + 
-                        (mean_trough - target_mean_trough), 1.0)
+                    max(mean_peak - target_mean_peak, 1.0) ** 2.0
                 )
             else:
                 snr = (np.clip(mean_peak - mean_trough, 0.0, None) ** 2.0) / (
-                    max((mean_peak - target_mean_peak) +
-                        (mean_trough - target_mean_trough) +
-                        mean_outfld ** 2.0,
-                        1.0)
+                    max(np.abs(mean_peak - target_mean_peak) +
+                        + mean_outfld ** 2.0, 1.0)
                 )
 
             logger.info(
