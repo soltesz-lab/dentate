@@ -439,13 +439,13 @@ class QuickSim(object):
 @click.option("--pop-name", required=True, type=str, default='GC')
 @click.option("--config-file", required=True, type=str,
               default='Small_Scale_Control_tune_GC_synapses.yaml')
-@click.option("--template-paths", type=str, default='../DGC/Mateos-Aparicio2014:../dentate/templates')
+@click.option("--template-paths", type=str, default='../DGC/Mateos-Aparicio2014:templates')
 @click.option("--hoc-lib-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
-              default='../dentate')
+              default='.')
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
-              default='../dentate/datasets')
+              default='datasets')
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
-              default='../dentate/config')
+              default='config')
 @click.option("--mech-file", required=True, type=str, default='20181205_DG_GC_excitability_mech.yaml')
 @click.option("--load-edges", is_flag=True)
 @click.option("--load-weights", is_flag=True)

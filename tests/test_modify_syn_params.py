@@ -91,13 +91,13 @@ def standard_modify_syn_param_tests(cell, env, syn_name='AMPA', param_name='g_un
 @click.option("--pop-name", required=True, type=str, default='GC')
 @click.option("--config-file", required=True, type=str,
               default='Small_Scale_Control_tune_GC_synapses.yaml')
-@click.option("--template-paths", type=str, default='../../DGC/Mateos-Aparicio2014:../templates')
+@click.option("--template-paths", type=str, default='../DGC/Mateos-Aparicio2014:templates')
 @click.option("--hoc-lib-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
-              default='..')
+              default='.')
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
-              default='../datasets')
+              default='datasets')
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
-              default='../config')
+              default='config')
 @click.option("--mech-file", required=True, type=str, default='20181205_DG_GC_excitability_mech.yaml')
 @click.option("--output-dir", type=str, default='data')
 @click.option("--load-edges", is_flag=True)
