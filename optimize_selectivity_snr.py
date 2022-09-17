@@ -569,7 +569,7 @@ def main(config_file, population, dt, gid, gid_selection_file, arena_id, traject
                                                    param_tuple.syn_name,
                                                    param_tuple.param_path,
                                                    float(prms_dict[param_pattern])))
-                    results_config_dict[gid] = results_param_list
+                    results_config_dict[gid] = {0: results_param_list}
                     
             else:
                 prms = best[0]
@@ -583,7 +583,7 @@ def main(config_file, population, dt, gid, gid_selection_file, arena_id, traject
                                                param_tuple.syn_name,
                                                param_tuple.param_path,
                                                float(prms_dict[param_pattern])))
-                results_config_dict[gid] = results_param_list
+                results_config_dict[gid] = {0: results_param_list}
 
             write_to_yaml(file_path, { population: results_config_dict } )
 
