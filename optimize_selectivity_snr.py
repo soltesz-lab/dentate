@@ -362,13 +362,14 @@ def init_selectivity_objfun(
         trial_inflds = []
         trial_outflds = []
 
+        target_var = np.var(target_rate_vector)
         target_infld = target_rate_vector[infld_idxs]
         target_max_infld = np.max(target_infld)
         target_mean_peak = np.mean(target_rate_vector[peak_idxs])
         target_mean_trough = np.mean(target_rate_vector[trough_idxs])
         logger.info(
-            f"selectivity objective: target max infld/mean peak/mean trough of gid {gid}: "
-            f"{target_max_infld:.02f} {target_mean_peak:.02f} {target_mean_trough:.02f}"
+            f"selectivity objective: gid {gid}: target var/max infld/mean peak/mean trough: "
+            f"{target_var:.04f} {target_max_infld:.02f} {target_mean_peak:.02f} {target_mean_trough:.02f}"
         )
         for trial_i in range(n_trials):
 
@@ -377,7 +378,9 @@ def init_selectivity_objfun(
             outfld_rate_vector = None
             if outfld_idxs is not None:
                 outfld_rate_vector = rate_vector[outfld_idxs]
-
+            n = min(len(rate_vector), len(target_rate_vector))
+            
+            var_delta = np.var(rate_vector[:n] - target_rate_vector[:n])
             mean_peak = np.mean(rate_vector[peak_idxs])
             mean_trough = np.mean(rate_vector[trough_idxs])
             min_infld = np.min(infld_rate_vector)
@@ -387,19 +390,10 @@ def init_selectivity_objfun(
             if outfld_rate_vector is not None:
                 mean_outfld = np.mean(outfld_rate_vector)
 
-
-            if np.isnan(mean_outfld):
-                snr = (np.clip(mean_peak - mean_trough, 0.0, None) ** 2.0) / (
-                    max(mean_peak - target_mean_peak, 1.0) ** 2.0
-                )
-            else:
-                snr = (np.clip(mean_peak - mean_trough, 0.0, None) ** 2.0) / (
-                    max(np.abs(mean_peak - target_mean_peak) +
-                        + mean_outfld ** 2.0, 1.0)
-                )
+            snr = target_var / var_delta
 
             logger.info(
-                f"selectivity objective: max infld/mean infld/mean peak/trough/mean outfld/snr of gid {gid} trial {trial_i}: "
+                f"selectivity objective: gid {gid} trial {trial_i}: max infld/mean infld/mean peak/trough/mean outfld/snr: "
                 f"{max_infld:.02f} {mean_infld:.02f} {mean_peak:.02f} {mean_trough:.02f} {mean_outfld:.02f} {snr:.04f}"
             )
 
