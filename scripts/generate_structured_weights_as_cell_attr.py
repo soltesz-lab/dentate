@@ -223,6 +223,7 @@ def exchange_input_features(comm, requested_gids, input_features_attr_dict):
 @click.option("--gid", '-g', type=int, multiple=True)
 @click.option("--input-features-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--input-features-namespaces", type=str, multiple=True, default=['Place Selectivity', 'Grid Selectivity'])
+@click.option("--target-features-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--initial-weights-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--output-features-namespace", required=False, type=str)
 @click.option("--output-features-path", required=False, type=click.Path(exists=False, file_okay=True, dir_okay=False))
@@ -260,12 +261,13 @@ def exchange_input_features(comm, requested_gids, input_features_attr_dict):
 @click.option("--show-fig", is_flag=True)
 @click.option("--save-fig", type=click.Path(exists=True, file_okay=False, dir_okay=True))
 @click.option("--debug", is_flag=True)
-def main(config, coordinates, field_width, gid, input_features_path, input_features_namespaces, initial_weights_path, output_features_namespace, output_features_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, non_structured_sources, non_structured_weights_namespace, non_structured_weights_path, arena_id, field_width_scale, max_opt_iter, max_weight_decay_fraction, optimize_tol, peak_rate, reference_weights_are_delta, arena_margin, target_amplitude, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot, show_fig, save_fig, debug):
+def main(config, coordinates, field_width, gid, input_features_path, input_features_namespaces, target_features_path, initial_weights_path, output_features_namespace, output_features_path, output_weights_path, reference_weights_path, h5types_path, synapse_name, initial_weights_namespace, output_weights_namespace, reference_weights_namespace, connections_path, destination, sources, non_structured_sources, non_structured_weights_namespace, non_structured_weights_path, arena_id, field_width_scale, max_opt_iter, max_weight_decay_fraction, optimize_tol, peak_rate, reference_weights_are_delta, arena_margin, target_amplitude, io_size, chunk_size, value_chunk_size, cache_size, write_size, verbose, dry_run, plot, show_fig, save_fig, debug):
     """
 
     :param config: str (path to .yaml file)
     :param input_features_path: str (path to .h5 file)
     :param initial_weights_path: str (path to .h5 file)
+    :param target_features_path: str (path to .h5 file)
     :param initial_weights_namespace: str
     :param output_weights_namespace: str
     :param connections_path: str (path to .h5 file)
@@ -379,20 +381,29 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     for this_input_features_namespace in this_input_features_namespaces:
         feature_count = 0
         gid_count = 0
-        logger.info(f'Rank {rank}: reading {this_input_features_namespace} feature data for {len(dst_gids)} cells in population {destination}')
-        input_features_iter = scatter_read_cell_attribute_selection(input_features_path, destination, 
-                                                                    namespace=this_input_features_namespace,
-                                                                    mask=set(target_features_attr_names),
-                                                                    selection=dst_gids,
-                                                                    io_size=env.io_size, comm=env.comm)
+        logger.info(f"Rank {rank}: reading {this_input_features_namespace} feature data for {len(dst_gids)} "
+                    f"cells in population {destination}")
+        input_features_iter = None
+        if target_features_path is None:
+            input_features_iter = scatter_read_cell_attribute_selection(input_features_path, destination, 
+                                                                        namespace=this_input_features_namespace,
+                                                                        mask=set(target_features_attr_names),
+                                                                        selection=dst_gids,
+                                                                        io_size=env.io_size, comm=env.comm)
+        else:
+            input_features_iter = scatter_read_cell_attribute_selection(target_features_path, destination, 
+                                                                        namespace=this_input_features_namespace,
+                                                                        mask=set(target_features_attr_names),
+                                                                        selection=dst_gids,
+                                                                        io_size=env.io_size, comm=env.comm)
         for gid, attr_dict in input_features_iter:
             gid_count += 1
             if (len(coordinates) > 0) or (attr_dict['Num Fields'][0] > 0):
                 dst_input_features_attr_dict[gid] = attr_dict
                 feature_count += 1
 
-        logger.info(f'Rank {rank}: read {this_input_features_namespace} feature data for '
-                    f'{gid_count} / {feature_count} cells in population {destination}')
+        logger.info(f"Rank {rank}: read {this_input_features_namespace} feature data for "
+                    f"{gid_count} / {feature_count} cells in population {destination}")
         feature_count = env.comm.reduce(feature_count, op=MPI.SUM, root=0)
         env.comm.barrier()
         if rank == 0:
@@ -452,7 +463,8 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             arena_margin_size = init_selectivity_config(destination_gid, 
                                                         spatial_resolution,
                                                         arena, arena_margin, arena_margin_size,
-                                                        coordinates, field_width, field_width_scale, peak_rate,
+                                                        coordinates, field_width,
+                                                        field_width_scale, peak_rate,
                                                         target_selectivity_type,
                                                         selectivity_type_index,
                                                         dst_input_features_attr_dict, 
