@@ -1007,7 +1007,7 @@ def main(
                                 float(prms_dict[param_pattern]),
                             )
                         )
-                    results_config_dict[gid] = results_param_list
+                    results_config_dict[gid] = {0: results_param_list}
 
             else:
                 prms = best[0]
@@ -1025,7 +1025,7 @@ def main(
                             float(prms_dict[param_pattern]),
                         )
                     )
-                results_config_dict[gid] = results_param_list
+                results_config_dict[gid] = {0: results_param_list}
 
             write_to_yaml(file_path, {population: results_config_dict})
 
