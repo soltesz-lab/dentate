@@ -637,11 +637,17 @@ def get_input_cell_config(selectivity_type, selectivity_type_names, population=N
 
 def get_equilibration(env):
     if 'Equilibration Duration' in env.stimulus_config and env.stimulus_config['Equilibration Duration'] > 0.:
+        equilibrate_filter_type = env.stimulus_config.get('Equlibration Filter', 'hann')
         equilibrate_len = int(env.stimulus_config['Equilibration Duration'] /
                               env.stimulus_config['Temporal Resolution'])
-        from scipy.signal import hann
-        equilibrate_hann = hann(2 * equilibrate_len)[:equilibrate_len]
-        equilibrate = (equilibrate_hann, equilibrate_len)
+        from scipy.signal import hann, tukey
+        if equilibrate_filter_type == 'hann':
+            equilibrate_filter = hann(2 * equilibrate_len)[:equilibrate_len]
+        elif equilibrate_filter_type == 'tukey':
+            equilibrate_filter = tukey(2 * equilibrate_len)[:equilibrate_len]
+        else:
+            raise RuntimeError(f"Unknown equilibration filter type {equilibrate_filter_type}")
+        equilibrate = (equilibrate_filter, equilibrate_len)
     else:
         equilibrate = None
 
