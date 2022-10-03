@@ -319,7 +319,7 @@ class QuickSim(object):
             fig = axes.get_figure()
         for name, rec_dict in viewitems(self.recs):
             description = str(rec_dict['description'])
-            axes.plot(self.tvec, rec_dict['vec'],
+            axes.plot(self.tvec.to_python(), rec_dict['vec'].to_python(),
                       label='%s: %s(%.2f) %s' % (name, rec_dict['node'].name, rec_dict['loc'], description))
             axes.set_xlabel('Time (ms)')
             axes.set_ylabel('%s (%s)' % (rec_dict['ylabel'], rec_dict['units']))
@@ -367,7 +367,8 @@ class QuickSim(object):
             if len(self.stims) > 0:
                 target[str(simiter)].create_group('stims')
                 for name, stim_dict in viewitems(self.stims):
-                    stim = target[str(simiter)]['stims'].create_dataset(name, compression='gzip', data=stim_dict['vec'])
+                    stim = target[str(simiter)]['stims'].create_dataset(name, compression='gzip',
+                                                                        data=stim_dict['vec'].to_python())
                     cell = stim_dict['cell']
                     stim.attrs['cell'] = cell.gid
                     node = stim_dict['node']
@@ -385,7 +386,8 @@ class QuickSim(object):
                     set_h5py_attr(stim.attrs, 'description', stim_dict['description'])
             target[str(simiter)].create_group('recs')
             for name, rec_dict in viewitems(self.recs):
-                rec = target[str(simiter)]['recs'].create_dataset(name, compression='gzip', data=rec_dict['vec'])
+                rec = target[str(simiter)]['recs'].create_dataset(name, compression='gzip',
+                                                                  data=rec_dict['vec'].to_python())
                 cell = rec_dict['cell']
                 rec.attrs['cell'] = cell.gid
                 node = rec_dict['node']
