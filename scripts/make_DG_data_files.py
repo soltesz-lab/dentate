@@ -13,8 +13,8 @@ DG_populations = ["AAC", "BC", "GC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC", "M
 DG_IN_populations = ["AAC", "BC", "HC", "HCC", "IS", "MC", "MOPP", "NGFC"]
 DG_EXT_populations = ["MPP", "LPP", "CA3c", "ConMC"]
 
-DG_cells_file = "DG_Cells_Full_Scale_20220201.h5"
-DG_connections_file = "DG_Connections_Full_Scale_20220201.h5"
+DG_cells_file = "DG_Cells_Full_Scale_20221020.h5"
+DG_connections_file = "DG_Connections_Full_Scale_20221020.h5"
 
 DG_GC_coordinate_file  = "DG_coords_20190717_compressed.h5"
 DG_IN_coordinate_file  = "DG_coords_20190717_compressed.h5"

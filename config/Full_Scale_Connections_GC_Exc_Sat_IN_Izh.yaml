@@ -268,7 +268,7 @@ Synapses:
       type: inhibitory
       sections: [apical]
       layers: [Hilus]
-      proportions: [0.5]
+      proportions: [0.2]
       contacts: 3.0
       mechanisms:
         GABA_A:
@@ -277,6 +277,19 @@ Synapses:
           e: -75
           g_unit: 0.000125
           weight: 0.1
+    IS:  
+      type: inhibitory
+      sections: [apical]
+      layers: [Hilus]
+      proportions: [0.3]
+      contacts: 3.0
+      mechanisms:
+        GABA_A:
+          tau_rise: 1.5
+          tau_decay: 10.0
+          e: -75
+          g_unit: 0.001
+          weight: 0.165
   HC:
     GC:   
       type: excitatory
