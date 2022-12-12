@@ -859,7 +859,7 @@ def make_cell_selection(env):
             mech_dict = None
 
         is_izhikevich = (template_name.lower() == 'izhikevich')
-        is_PR = (template_name.lower() in ('pr_nrn', 'prs_nrn', 'prn_nrn')
+        is_PR = (template_name.lower() in ('pr_nrn', 'prh_nrn', 'prs_nrn', 'prn_nrn')
         is_SC = template_name.lower() == "sc_nrn"
 
         num_cells = 0

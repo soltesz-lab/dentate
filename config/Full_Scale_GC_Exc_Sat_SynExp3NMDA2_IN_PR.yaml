@@ -30,32 +30,38 @@ Cell Types:
       weights: !include MC_SLN_weights.yaml
       density: !include MC_synapse_density.yaml
   HC:
-    template: PR_nrn
-    mechanism file: DG_HICAP_PR_config.yaml
+    template: PRH_nrn
+    template file: PRH_nrn.hoc
+    mechanism file: DG_HIPP_PR_config.yaml
     synapses:
       density: !include HC_synapse_density.yaml
   BC:
-    template: PR_nrn
+    template: PRN_nrn
+    template file: PRN_nrn.hoc
     mechanism file: DG_BC_PR_config.yaml
     synapses:
       density: !include BC_synapse_density.yaml
   AAC:
-    template: PR_nrn
+    template: PRN_nrn
+    template file: PRN_nrn.hoc
     mechanism file: DG_AAC_PR_config.yaml
     synapses:
       density: !include AAC_synapse_density.yaml
   HCC:
     template: PR_nrn
+    template file: PR_nrn.hoc
     mechanism file: DG_HICAP_PR_config.yaml
     synapses:
       density: !include HCC_synapse_density.yaml
   NGFC:
     template: PR_nrn
+    template file: PR_nrn.hoc
     mechanism file: DG_NGFC_PR_config.yaml
     synapses:
       density: !include NGFC_synapse_density.yaml
   MOPP:
     template: PR_nrn
+    template file: PR_nrn.hoc
     mechanism file: DG_MOPP_PR_config.yaml
     synapses:
       density: !include NGFC_synapse_density.yaml

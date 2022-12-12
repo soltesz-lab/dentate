@@ -59,7 +59,7 @@ def init_biophys_cell(env, pop_name, gid, load_weights=True, load_connections=Tr
         correct_for_spines_flag = False
 
     is_izhikevich = (template_name.lower() == 'izhikevich')
-    is_PR = (template_name.lower() in ('pr_nrn', 'prs_nrn', 'prn_nrn')
+    is_PR = (template_name.lower() in ('pr_nrn', 'prh_nrn', 'prs_nrn', 'prn_nrn')
     is_SC = template_name.lower() == "sc_nrn"
         
     ## Load cell gid and its synaptic attributes and connection data
