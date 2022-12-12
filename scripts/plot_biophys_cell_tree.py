@@ -43,6 +43,8 @@ def main(config_file, population, gid, template_paths, dataset_prefix, config_pr
 
     if env.data_file_path is None:
         env.data_file_path = data_file
+        env.data_file_path = data_file
+        env.connectivity_file_path = data_file
         env.load_celltypes()
 
     ## Determine if a mechanism configuration file exists for this cell type

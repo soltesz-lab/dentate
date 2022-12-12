@@ -27,22 +27,29 @@ default_izhi_cell_attrs_dict = {
     'RTN': IzhiCellAttrs(C=0.4, k=0.25, vr=-65., vt=-45., vpeak=0., a=0.015, b=10., c=-55., d=50., celltype=7)
 }
 
-PRconfig = namedtuple('PRconfig', ['pp', 'Ltotal', 'gc',
-                                   'soma_gmax_Na', 
-                                   'soma_gmax_K',
-                                   'soma_g_pas',
-                                   'dend_gmax_Ca',
-                                   'dend_gmax_KCa',
-                                   'dend_gmax_KAHP',
-                                   'dend_g_pas',
-                                   'dend_d_Caconc',
-                                   'global_cm',
-                                   'global_diam',
-                                   'ic_constant',
-                                   'cm_ratio',
-                                   'e_pas',
-                                   'V_rest',
-                                   'V_threshold'])
+PRfields = ('pp',
+            'Ltotal',
+            'gc',
+            'soma_gmax_Na', 
+            'soma_gmax_K',
+            'soma_g_pas',
+            'dend_gmax_Ca',
+            'dend_gmax_KCa',
+            'dend_gmax_KAHP',
+            'dend_g_pas',
+            'dend_d_Caconc',
+            'dend_beta_Caconc',
+            'dend_aqs_KAHP',
+            'dend_bq_KAHP',
+            'global_cm',
+            'global_diam',
+            'ic_constant',
+            'cm_ratio',
+            'e_pas',
+            'V_rest',
+            'V_threshold')
+
+PRconfig = namedtuple('PRconfig', PRfields, defaults=(None,) * len(PRfields))
 
 HocCellInterface = namedtuple('HocCellInterface', ['sections', 'is_art', 'is_reduced', 'soma', 'hillock', 'ais', 'axon', 'basal', 'apical', 'all', 'state'])
 

@@ -1,5 +1,5 @@
 
-begintemplate PR_nrn
+begintemplate PRN_nrn
 
    public soma, dend, sections, all
    create soma, dend
@@ -68,9 +68,6 @@ proc parameters() {
         dend_g_pas = $9
         dend_gmax_Ca = $10
         dend_gmax_KCa = $11
-        dend_gmax_KAHP = $12
-        dend_aqs_KAHP = $13
-        dend_bq_KAHP = $14
         
         dend_d_Caconc = $15
         dend_beta_Caconc = $16
@@ -89,9 +86,6 @@ proc parameters() {
         dend_g_pas=0.0001
         dend_gmax_Ca = 00010e-3
         dend_gmax_KCa = 00015e-3
-        dend_gmax_KAHP = 0000.8e-3
-        dend_aqs_KAHP = 0.00002
-        dend_bq_KAHP = 0.001
         
         dend_d_Caconc = 13
         dend_beta_Caconc = 0.075
@@ -121,9 +115,6 @@ proc parameters_from_python() { localobj param_dict
     dend_g_pas = param_dict.__getitem__("dend_g_pas")
     dend_gmax_Ca = param_dict.__getitem__("dend_gmax_Ca")
     dend_gmax_KCa = param_dict.__getitem__("dend_gmax_KCa")
-    dend_gmax_KAHP = param_dict.__getitem__("dend_gmax_KAHP")
-    dend_aqs_KAHP = param_dict.__getitem__("dend_aqs_KAHP")
-    dend_bq_KAHP = param_dict.__getitem__("dend_bq_KAHP")
     dend_d_Caconc = param_dict.__getitem__("dend_d_Caconc")
     dend_beta_Caconc = param_dict.__getitem__("dend_beta_Caconc")
     
@@ -226,7 +217,6 @@ proc biophys () {
         
         insert pas
         insert Ca_PR
-        insert KAHP_PR
         insert KCa_PR
         insert Ca_conc_PR
         insert K_conc_PR
@@ -237,13 +227,9 @@ proc biophys () {
         e_pas=global_e_pas
         gmax_Ca_PR = dend_gmax_Ca
         gmax_KCa_PR = dend_gmax_KCa
-        gmax_KAHP_PR = dend_gmax_KAHP
-        aqs_KAHP_PR = dend_aqs_KAHP
-        bq_KAHP_PR = dend_bq_KAHP
-
     }
     
 
   }
 
-endtemplate PR_nrn
+endtemplate PRN_nrn

@@ -479,12 +479,18 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
 
     mech_file_path = config_prefix + '/' + mech_file
     template_name = env.celltypes[pop_name]['template']
-    if template_name.lower() == 'izhikevich':
+
+    
+    is_izhikevich = (template_name.lower() == 'izhikevich')
+    is_PR = (template_name.lower() in ('pr_nrn', 'prs_nrn', 'prn_nrn')
+    is_SC = template_name.lower() == "sc_nrn"
+
+    if is_izhikevich:
         cell = make_izhikevich_cell(env, pop_name=pop_name, gid=gid,
                                     load_synapses=True, load_connections=True,
                                     load_edges=load_edges, load_weights=load_weights,
                                     mech_file_path=mech_file_path)
-    elif template_name.lower() == 'pr_nrn':
+    elif is_PR:
         cell = make_PR_cell(env, pop_name=pop_name, gid=gid,
                             load_synapses=True, load_connections=True,
                             load_edges=load_edges, load_weights=load_weights,

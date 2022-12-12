@@ -579,7 +579,7 @@ class PRneuron(object):
     An implementation of a Pinsky-Rinzel-type reduced biophysical neuron model for simulation in NEURON.
     Conforms to the same API as BiophysCell.
     """
-    def __init__(self, gid, pop_name, env=None, cell_config=None, mech_dict=None):
+    def __init__(self, gid, pop_name, template_name="PR_nrn", env=None, cell_config=None, mech_dict=None):
         """
 
         :param gid: int
@@ -608,24 +608,28 @@ class PRneuron(object):
         if not isinstance(cell_config, PRconfig):
             raise RuntimeError('PRneuron: argument cell_attrs must be of type PRconfig')
 
-        param_dict = { 'pp': cell_config.pp,
-                       'Ltotal': cell_config.Ltotal,
-                       'gc': cell_config.gc,
-                       'soma_gmax_Na': cell_config.soma_gmax_Na,
-                       'soma_gmax_K': cell_config.soma_gmax_K,
-                       'soma_g_pas': cell_config.soma_g_pas,
-                       'dend_gmax_Ca': cell_config.dend_gmax_Ca,
-                       'dend_gmax_KCa': cell_config.dend_gmax_KCa,
-                       'dend_gmax_KAHP': cell_config.dend_gmax_KAHP,
-                       'dend_g_pas':  cell_config.dend_g_pas,
-                       'dend_d_Caconc':  cell_config.dend_d_Caconc,
-                       'cm_ratio':  cell_config.cm_ratio,
-                       'global_cm':  cell_config.global_cm,
-                       'global_diam':  cell_config.global_diam,
-                       'e_pas':  cell_config.e_pas,
-        }
+        param_dict = { k: v if v is not None for k,v in
+                       (('pp', cell_config.pp),
+                        ('Ltotal': cell_config.Ltotal),
+                        ('gc': cell_config.gc),
+                        ('soma_gmax_Na', cell_config.soma_gmax_Na),
+                        ('soma_gmax_K', cell_config.soma_gmax_K),
+                        ('soma_g_pas', cell_config.soma_g_pas),
+                        ('dend_gmax_Ca', cell_config.dend_gmax_Ca),
+                        ('dend_gmax_KCa', cell_config.dend_gmax_KCa),
+                        ('dend_gmax_KAHP', cell_config.dend_gmax_KAHP),
+                        ('dend_aqs_KAHP', cell.dend_aqs_KAHP),
+                        ('dend_bq_KAHP', cell.dend_bq_KAHP),
+                        ('dend_g_pas',  cell_config.dend_g_pas),
+                        ('dend_d_Caconc',  cell_config.dend_d_Caconc),
+                        ('cm_ratio',  cell_config.cm_ratio),
+                        ('global_cm',  cell_config.global_cm),
+                        ('global_diam',  cell_config.global_diam),
+                        ('e_pas',  cell_config.e_pas),
+                       ) }
 
-        PR_nrn = h.PR_nrn(param_dict)
+        template_class = getattr(h, template_name)
+        PR_nrn = template_class(param_dict)
         PR_nrn.soma.ic_constant = cell_config.ic_constant
 
         self.hoc_cell = PR_nrn
@@ -3269,9 +3273,10 @@ def make_PR_cell(env, pop_name, gid, mech_file_path=None, mech_dict=None,
     :param load_edges: bool
     :param load_weights: bool
     :param set_edge_delays: bool
-    :return: :class:'IzhikevichCell'
+    :return: :class:'PRneuron'
     """
     load_cell_template(env, pop_name, bcast_template=bcast_template)
+    template_name = env.celltypes[pop_name]['template']
 
     if mech_dict is None and mech_file_path is None:
         raise RuntimeError('make_PR_cell: mech_dict or mech_file_path must be specified')
@@ -3279,7 +3284,7 @@ def make_PR_cell(env, pop_name, gid, mech_file_path=None, mech_dict=None,
     if mech_dict is None and mech_file_path is not None:
         mech_dict = read_from_yaml(mech_file_path)
 
-    cell = PRneuron(gid=gid, pop_name=pop_name, env=env,
+    cell = PRneuron(gid=gid, pop_name=pop_name, env=env, template_name=template_name,
                     cell_config=PRconfig(**mech_dict['PinskyRinzel']),
                     mech_dict={ k: mech_dict[k] for k in mech_dict if k != 'PinskyRinzel' })
 

@@ -1880,7 +1880,7 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
             for (gid, cell_state_dict) in viewitems(pop_states):
                 nss = sorted(cell_state_dict.keys())
                 cell_state_x = cell_state_dict[nss[0]][time_variable]
-                cell_state_mat = np.matrix([np.mean(np.row_stack(cell_state_dict[ns][state_variable]), axis=0)
+                cell_state_mat = np.matrix([np.mean(np.row_stack(cell_state_dict[ns][state_variable]), axis=0),
                                            for ns in nss], dtype=np.float32)
                 cell_state_distances = [cell_state_dict[ns]['distance'] for ns in nss]
                 cell_state_ri = [cell_state_dict[ns]['ri'] for ns in nss]
@@ -1928,8 +1928,15 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
                 
                 cell_states = [np.asarray(cell_state_mat[1][i,:]).reshape((n,)) for i in range(m)]
                 
-                if reduce:
+                if reduce == "mean":
                     cell_state = np.mean(np.vstack(cell_states), axis=0)
+                    line, = ax.plot(st_x, cell_state)
+                    stplots.append(line)
+                    logger.info(f'plot_state: min/max/mean value is '
+                                f'{np.min(cell_state):.02f} / {np.max(cell_state):.02f} / '
+                                f'{np.mean(cell_state):.02f}')
+                elif reduce == "sum":
+                    cell_state = np.sum(np.vstack(cell_states), axis=0)
                     line, = ax.plot(st_x, cell_state)
                     stplots.append(line)
                     logger.info(f'plot_state: min/max/mean value is '
@@ -1952,8 +1959,13 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
 
                 if lowpass_plot is not None and not distance:
                     filtered_cell_states = [get_low_pass_filtered_trace(cell_state, st_x) for cell_state in cell_states]
-                    mean_filtered_cell_state = np.mean(filtered_cell_states, axis=0)
-                    ax_lowpass.plot(st_x, mean_filtered_cell_state, label=f'{pop_name} {gid} (filtered)',
+                    if reduce == "mean":
+                        reduced_filtered_cell_state = np.mean(filtered_cell_states, axis=0)
+                    elif reduce == "sum":
+                        reduced_filtered_cell_state = np.sum(filtered_cell_states, axis=0)
+                    else:
+                        reduced_filtered_cell_state = np.mean(filtered_cell_states, axis=0)
+                    ax_lowpass.plot(st_x, reduced_filtered_cell_state, label=f'{pop_name} {gid} (filtered)',
                                     linewidth=fig_options.lw, alpha=0.75)
 
                     
@@ -2938,7 +2950,7 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
             if pop_rates:
                 lgd_label = "mean firing rate: %.3g Hz" % sprate
                 at = AnchoredText(lgd_label, loc='upper right', borderpad=0.01,
-                                  prop=dict(size=fig_options.fontSizej))
+                                  prop=dict(size=fig_options.fontSize))
                 ax_spk.add_artist(at)
             i_ax += 1
 

@@ -20,7 +20,7 @@ UNITS {
 PARAMETER {
         d = .2          (um)
         ko0 = 5          (mM)         
-        ki0 = 140       (mM)         
+        ki0 = 145       (mM)         
         beta = 0.075     (/ms)
 }
 

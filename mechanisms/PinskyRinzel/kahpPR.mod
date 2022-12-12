@@ -5,7 +5,7 @@ NEURON {
 	SUFFIX KAHP_PR
 	USEION k READ ek WRITE ik
         USEION ca READ cai
-	RANGE gmax, g
+	RANGE gmax, g, bq, aqs, aqmax
 }
 
 UNITS {
@@ -17,7 +17,10 @@ UNITS {
 }
 
 PARAMETER {
-  gmax = 0 (S/cm2)
+    gmax = 0 (S/cm2)
+    bq = 0.001
+    aqs = 0.00002
+    aqmax = 0.01
 }
 
 ASSIGNED {
@@ -29,33 +32,39 @@ ASSIGNED {
 	tauq		(ms)	
         cai (mM)
         celsius (degC)
-
+        aq
 }
 
 STATE { q }
 
 INITIAL { 
-	rates(v)
-        q=qinf
+    rates(v)
+    q=qinf
 }
     
 BREAKPOINT {
-    SOLVE states METHOD derivimplicit
+    SOLVE states METHOD cnexp
     g = gmax * q
     ik = g*(v - ek)
 } 
 
 DERIVATIVE states {
    rates(v)
-   q'=(qinf-q)/tauq
+   q' = (qinf - q)/tauq
 }
 
 
 PROCEDURE rates(v (mV)) { 
-        
-    qinf = (0.7894*exp(0.0002726*cai))-(0.7292*exp(-0.01672*cai))    
-    tauq = (657.9*exp(-0.02023*cai))+(301.8*exp(-0.002381*cai))
-}
+    
+    aq  = aqs * cai
+    if (aqmax < aq) {
+        aq = aqmax
+    }
+    qinf = aq/(aq + bq)
+    tauq = 1/(aq + bq)
+    
+}    
+
 
 
 
