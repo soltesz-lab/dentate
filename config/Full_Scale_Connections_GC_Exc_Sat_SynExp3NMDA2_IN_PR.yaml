@@ -170,10 +170,7 @@ Synapses:
           g_unit: 0.0055
           sat: 0.9
         NMDA:
-          g_unit: 0.005
           weight: 1.0
-          dur_onset: 10.
-          tau_offset: 50.
     CA3c:   
       type: excitatory
       sections: [apical]
@@ -188,10 +185,7 @@ Synapses:
           g_unit: 0.0055
           sat: 0.9
         NMDA:
-          g_unit: 0.005
           weight: 1.0
-          dur_onset: 10.
-          tau_offset: 50.
     MC:   
       type: excitatory
       sections: [apical]

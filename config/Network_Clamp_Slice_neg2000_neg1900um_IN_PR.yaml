@@ -9,15 +9,15 @@ Random Seeds: !include Random.yaml
 Cell Data: dentatenet_Slice_SLN_neg2000_neg1900um_20220109_compressed.h5
 Connection Data: dentatenet_Slice_SLN_neg2000_neg1900um_20220109_compressed.h5
 #Gap Junction Data: DG_gapjunctions_20181228.h5
-Connection Generator: !include Full_Scale_Connections_GC_Aradi_IN_PR.yaml
+Connection Generator: !include Full_Scale_Connections_GC_Exc_Sat_SynExp3NMDA2_IN_PR.yaml
 Recording: !include Recording.yaml
 Stimulus: !include Input_Configuration.yaml
 ## Cell types for dentate gyrus model
 Cell Types:
   GC:
     template: DGC
-    template file: DGC_Template_Aradi.hoc
-    mechanism file: 20210420_DG_GC_null_mech.yaml
+    template file: DGC_Template_minimal.hoc
+    mechanism file: 20220513_DG_GC_excitability_synint_SynExp3NMDA2_gid_118936_mech.yaml
     synapses:
       correct_for_spines: True
       weights: !include GC_SLN_weights.yaml

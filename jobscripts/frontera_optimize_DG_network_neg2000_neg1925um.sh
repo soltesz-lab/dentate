@@ -3,10 +3,10 @@
 #SBATCH -J optimize_DG_network_neg2000_neg1925um # Job name
 #SBATCH -o ./results/optimize_DG_network_neg2000_neg1925um.o%j       # Name of stdout output file
 #SBATCH -e ./results/optimize_DG_network_neg2000_neg1925um.e%j       # Name of stderr error file
-#SBATCH -p normal      # Queue (partition) name
-#SBATCH -N 512             # Total # of nodes 
+#SBATCH -p large      # Queue (partition) name
+#SBATCH -N 1024             # Total # of nodes 
 #SBATCH --ntasks-per-node=56 # # of mpi tasks per node
-#SBATCH -t 36:00:00        # Run time (hh:mm:ss)
+#SBATCH -t 2:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
@@ -45,7 +45,7 @@ cd $SLURM_SUBMIT_DIR
 
 distribute.bash ${SCRATCH}/dentate/optimize_DG_network
 
-mpirun -rr -n 205 \
+mpirun -rr -n 408 \
     python3 optimize_network.py \
     --config-path=$DG_HOME/config/DG_optimize_network_neg2000_neg1925um.yaml \
     --optimize-file-dir=$results_path \
@@ -57,7 +57,7 @@ mpirun -rr -n 205 \
     --n-initial=300 --initial-method="slh" --num-generations=200 --population-size=300 --resample-fraction 0.8 \
     --no_cleanup \
     --arena_id=A --trajectory_id=Diag \
-    --template_paths=$MODEL_HOME/dgc/Mateos-Aparicio2014:$DG_HOME/templates \
+    --template_paths=$DG_HOME/templates \
     --dataset_prefix="$DATA_PREFIX" \
     --config_prefix=$DG_HOME/config \
     --results_path=$results_path \
