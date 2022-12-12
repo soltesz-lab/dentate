@@ -3,7 +3,7 @@
 
 NEURON {
 	SUFFIX Ca_PR
-	USEION ca READ eca WRITE ica
+	USEION ca READ cai,cao WRITE ica
 	RANGE g, gmax
 }
 
@@ -24,7 +24,6 @@ PARAMETER {
 }
     
 ASSIGNED {
-        eca     (mV)
 	v		(mV)
 	ica		(mA/cm2)
 	g		(S/cm2)
@@ -33,16 +32,40 @@ ASSIGNED {
         ar
         br
         celsius (degC)
+        cai (mM)
+        cao (mM)
 }
 
 STATE { s r }
 
 BREAKPOINT {
-    SOLVE state METHOD cnexp
+    SOLVE state METHOD derivimplicit
     g = gmax*(s^2)*r
-    ica = g*(v - eca)
+    ica = g*ghk(v, cai, cao)
 }
 
+: ghk formalism from cal.mod
+FUNCTION ghk(v(mV), ci(mM), co(mM)) (mV) {
+        LOCAL nu,f
+
+        f = KTF(celsius)/2
+        nu = v/f
+        ghk=-f*(1. - (ci/co)*exp(nu))*efun(nu)
+}
+
+FUNCTION KTF(celsius (degC)) (mV) {
+        KTF = ((36./293.15)*(celsius + 273.15))
+}
+
+
+FUNCTION efun(z) {
+	if (fabs(z) < 1e-4) {
+		efun = 1 - z/2
+	}else{
+		efun = z/(exp(z) - 1)
+	}
+}
+    
 DERIVATIVE state {	
     rates(v)
     s' = (as - s*(as + bs))
@@ -60,12 +83,11 @@ PROCEDURE rates(v (mV)) { LOCAL tcorr, xs
     
     tcorr = Q10^((celsius - 36(degC))/10 (degC))
     
-    as = tcorr*2/(1 + exp(0.09*(5 - v)))
+    as = tcorr*5/(1 + exp(0.1*(5 - v)))
     xs = -0.2*(v + 8.9)
-    bs = tcorr*0.1*xs/(1 - exp(-xs))
+    bs = tcorr*0.2*xs/(1 - exp(-xs))
     
     ar = tcorr*0.1673*exp(-0.03035*(v + 38.5))
     br = tcorr*0.5/(1 + exp(0.3*(8.9 - v)))
-
+    
 }
-

@@ -5,6 +5,8 @@ NEURON {
 	SUFFIX Na_PR
 	USEION na READ ena WRITE ina
 	RANGE gmax, g
+        GLOBAL ahk, ahs, ahd, bhk, bhs, bhd
+        GLOBAL amk, ams, amd, bmk, bms, bmd
 }
 
 UNITS {
@@ -18,7 +20,19 @@ UNITS {
 PARAMETER {
     gmax = 0 (S/cm2)
     Q10 = 3 (1)
-
+    ahs = 0.128
+    ahk = -43
+    ahd = 18
+    bhs = 4.
+    bhk = -20
+    bhd = 5
+    ams = 0.32
+    amk = -46.9
+    amd = 4
+    bms = 0.28
+    bmk = 19.9
+    bmd = 5
+    
 }
 
 ASSIGNED {
@@ -59,12 +73,12 @@ PROCEDURE rates(v (mV)) { LOCAL tcorr
     
     tcorr = Q10^((celsius - 36(degC))/10 (degC))
     
-    am=tcorr*0.32*linoid(-46.9-v, 4)
-    bm=tcorr*0.28*linoid(v+19.9, 5)
+    am=tcorr*ams*linoid(amk-v, amd)
+    bm=tcorr*bms*linoid(v+bmk, bmd)
     m_inf=am/(am + bm)
     
-    ah=tcorr*0.128*exp((-43-v)/18)
-    bh=tcorr*4./(1+exp((-20-v)/5))
+    ah=tcorr*ahs*exp((ahk-v)/ahd)
+    bh=tcorr*bhs/(1+exp((bhk-v)/bhd))
 }
 
  

@@ -1,5 +1,5 @@
 
-begintemplate PR_nrn
+begintemplate PRS_nrn
 
    public soma, dend, sections, all
    create soma, dend
@@ -69,11 +69,9 @@ proc parameters() {
         dend_gmax_Ca = $10
         dend_gmax_KCa = $11
         dend_gmax_KAHP = $12
-        dend_aqs_KAHP = $13
-        dend_bq_KAHP = $14
-        
-        dend_d_Caconc = $15
-        dend_beta_Caconc = $16
+
+        dend_d_Caconc = $13
+        dend_beta_Caconc = $14
         
     } else {
         
@@ -90,8 +88,6 @@ proc parameters() {
         dend_gmax_Ca = 00010e-3
         dend_gmax_KCa = 00015e-3
         dend_gmax_KAHP = 0000.8e-3
-        dend_aqs_KAHP = 0.00002
-        dend_bq_KAHP = 0.001
         
         dend_d_Caconc = 13
         dend_beta_Caconc = 0.075
@@ -122,8 +118,7 @@ proc parameters_from_python() { localobj param_dict
     dend_gmax_Ca = param_dict.__getitem__("dend_gmax_Ca")
     dend_gmax_KCa = param_dict.__getitem__("dend_gmax_KCa")
     dend_gmax_KAHP = param_dict.__getitem__("dend_gmax_KAHP")
-    dend_aqs_KAHP = param_dict.__getitem__("dend_aqs_KAHP")
-    dend_bq_KAHP = param_dict.__getitem__("dend_bq_KAHP")
+    
     dend_d_Caconc = param_dict.__getitem__("dend_d_Caconc")
     dend_beta_Caconc = param_dict.__getitem__("dend_beta_Caconc")
     
@@ -170,6 +165,7 @@ proc init_nseg_0() { local freq, d_lambda
     d_lambda = 0.1
     
     soma area(0.5)
+    dend area(0.5)
     forall { nseg = int((L/(d_lambda*lambda_f(freq))+0.9)/2)*2 + 1  }
 }
 
@@ -212,9 +208,11 @@ proc biophys () {
         insert constant
         insert Na_PR
         insert K_PR
-        insert Na_conc_PR
         insert K_conc_PR
+        insert Na_conc_PR
         
+        nai0_Na_conc_PR = 10
+        bhk_Na_PR = 10
         gmax_Na_PR = soma_gmax_Na
         gmax_K_PR = soma_gmax_K
         g_pas = soma_g_pas
@@ -223,10 +221,9 @@ proc biophys () {
 
     //* dend
     forsec "dend" {
-        
         insert pas
         insert Ca_PR
-        insert KAHP_PR
+        insert sAHP
         insert KCa_PR
         insert Ca_conc_PR
         insert K_conc_PR
@@ -237,13 +234,11 @@ proc biophys () {
         e_pas=global_e_pas
         gmax_Ca_PR = dend_gmax_Ca
         gmax_KCa_PR = dend_gmax_KCa
-        gmax_KAHP_PR = dend_gmax_KAHP
-        aqs_KAHP_PR = dend_aqs_KAHP
-        bq_KAHP_PR = dend_bq_KAHP
-
+        gbar_sAHP = dend_gmax_KAHP
+        
     }
     
 
   }
 
-endtemplate PR_nrn
+endtemplate PRS_nrn

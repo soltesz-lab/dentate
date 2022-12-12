@@ -58,8 +58,12 @@ def init_biophys_cell(env, pop_name, gid, load_weights=True, load_connections=Tr
     else:
         correct_for_spines_flag = False
 
+    is_izhikevich = (template_name.lower() == 'izhikevich')
+    is_PR = (template_name.lower() in ('pr_nrn', 'prs_nrn', 'prn_nrn')
+    is_SC = template_name.lower() == "sc_nrn"
+        
     ## Load cell gid and its synaptic attributes and connection data
-    if template_name.lower() == 'izhikevich':
+    if is_izhikevich:
         cell = cells.make_izhikevich_cell(env, pop_name, gid,
                                           tree_dict=cell_dict.get('morph', None),
                                           synapses_dict=cell_dict.get('synapse', None),
@@ -68,7 +72,7 @@ def init_biophys_cell(env, pop_name, gid, load_weights=True, load_connections=Tr
                                           mech_dict=mech_dict,
                                           load_synapses=True, load_weights=load_weights,
                                           load_edges=load_connections)
-    elif template_name.lower() == 'pr_nrn':
+    elif is_PR:
         cell = cells.make_PR_cell(env, pop_name, gid,
                                   tree_dict=cell_dict.get('morph', None),
                                   synapses_dict=cell_dict.get('synapse', None),
@@ -77,7 +81,7 @@ def init_biophys_cell(env, pop_name, gid, load_weights=True, load_connections=Tr
                                   mech_dict=mech_dict,
                                   load_synapses=True, load_weights=load_weights,
                                   load_edges=load_connections)
-    elif template_name.lower() == "sc_nrn":
+    elif is_SC:
         cell = cells.make_SC_cell(
             env,
             pop_name,

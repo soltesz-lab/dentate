@@ -690,7 +690,7 @@ def make_cells(env):
             mech_dict = None
 
         is_izhikevich = (template_name.lower() == 'izhikevich')
-        is_PR = (template_name.lower() == 'pr_nrn')
+        is_PR = (template_name.lower() in ('pr_nrn', 'prs_nrn', 'prn_nrn')
         is_SC = template_name.lower() == "sc_nrn"
         
         num_cells = 0
@@ -784,7 +784,7 @@ def make_cells(env):
                     cells.register_cell(env, pop_name, gid, izhikevich_cell)
                 elif is_PR:
                     PR_cell = cells.make_PR_cell(gid=gid, pop_name=pop_name,
-                                                         env=env, mech_dict=mech_dict)
+                                                 env=env, mech_dict=mech_dict)
                     cells.register_cell(env, pop_name, gid, PR_cell)
                 elif is_SC:
                     SC_cell = cells.make_SC_cell(
@@ -859,7 +859,7 @@ def make_cell_selection(env):
             mech_dict = None
 
         is_izhikevich = (template_name.lower() == 'izhikevich')
-        is_PR = (template_name.lower() == 'pr_nrn')
+        is_PR = (template_name.lower() in ('pr_nrn', 'prs_nrn', 'prn_nrn')
         is_SC = template_name.lower() == "sc_nrn"
 
         num_cells = 0

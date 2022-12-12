@@ -30,6 +30,7 @@ ASSIGNED {
 	tauc		(ms)	
         cai (mM)
         celsius (degC)
+        chid
 }
 
 STATE { c }
@@ -41,8 +42,8 @@ INITIAL {
     
 BREAKPOINT {
     SOLVE states METHOD derivimplicit
-    g = gmax * c
-    ik = g*(1.073*sin(0.003453*cai+0.08095) + 0.08408*sin(0.01634*cai-2.34) + 0.01811*sin(0.0348*cai-0.9918))*(v-ek)
+    g = gmax * c * chid
+    ik = g*(v-ek)
 } 
 
 DERIVATIVE states {
@@ -57,6 +58,7 @@ PROCEDURE rates(v (mV)) { LOCAL tcorr
 
     cinf=expit((10.1+v)/0.1016)^0.00925
     tauc=3.627*exp(0.03704*v)/tcorr
+    chid = (1.073*sin(0.003453*cai+0.08095) + 0.08408*sin(0.01634*cai-2.34) + 0.01811*sin(0.0348*cai-0.9918))
     
 }
 

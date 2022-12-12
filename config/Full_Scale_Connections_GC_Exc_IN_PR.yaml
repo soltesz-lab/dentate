@@ -1,6 +1,6 @@
 Synapse Mechanisms:
   AMPA: LinExp2Syn
-  NMDA: LinExp2SynNMDA
+  NMDA: FacilNMDA
   GABA_A: LinExp2Syn
   GABA_B: LinExp2Syn
 Synapse Parameter Rules: !include Synapse_Parameter_Rules.yaml
@@ -16,11 +16,11 @@ Synapses:
       mechanisms:
         AMPA:
           tau_rise: 0.5
-          tau_decay: 7.5
+          tau_decay: 5.5
           e: 0
         NMDA:
-          tau_rise: 10.
-          tau_decay: 50.
+          dur_onset: 10.0
+          tau_offset: 35.0
           e: 0
           weight: 1.0
     LPP:
@@ -32,11 +32,11 @@ Synapses:
       mechanisms:
         AMPA:
           tau_rise: 0.5
-          tau_decay: 7.5
+          tau_decay: 5.5
           e: 0
         NMDA:
-          tau_rise: 10.
-          tau_decay: 50.
+          dur_onset: 10.0
+          tau_offset: 35.0
           e: 0
           weight: 1.0
     MC:   
@@ -48,11 +48,11 @@ Synapses:
       mechanisms:
         AMPA:
           tau_rise: 0.5
-          tau_decay: 7.5
+          tau_decay: 5.5
           e: 0
         NMDA:
-          tau_rise: 10.
-          tau_decay: 50.
+          dur_onset: 10.5
+          tau_offset: 35.0
           e: 0
           weight: 1.0
     ConMC:   
@@ -64,11 +64,11 @@ Synapses:
       mechanisms:
         AMPA:
           tau_rise: 0.5
-          tau_decay: 7.5
+          tau_decay: 5.5
           e: 0
         NMDA:
-          tau_rise: 10.
-          tau_decay: 50.
+          dur_onset: 10.0
+          tau_offset: 35.0
           e: 0
           weight: 1.0
     AAC:
@@ -82,8 +82,8 @@ Synapses:
           tau_rise: 0.5
           tau_decay: 8.0
           e: -75
-          g_unit: 0.001
-          weight: 2.0
+          g_unit: 0.0001
+          weight: 9.0
     BC:   
       type: inhibitory
       sections: [soma, apical, apical]
@@ -96,14 +96,14 @@ Synapses:
             tau_rise: 0.5
             tau_decay: 9.0
             e: -75
-            g_unit: 0.001
+            g_unit: 0.0001
             weight: 0.1
         soma:
           GABA_A:
             tau_rise: 0.5
             tau_decay: 9.0
             e: -75
-            g_unit: 0.001
+            g_unit: 0.0001
             weight: 0.1
     HCC:  
       type: inhibitory
@@ -116,8 +116,8 @@ Synapses:
           tau_rise: 1.5
           tau_decay: 9.0
           e: -75
-          g_unit: 0.001
-          weight: 0.1
+          g_unit: 0.0001
+          weight: 1.87
     HC:   
       type: inhibitory
       sections: [apical, apical]
@@ -129,7 +129,7 @@ Synapses:
           tau_rise: 2.5
           tau_decay: 10.0
           e: -75
-          g_unit: 0.001
+          g_unit: 0.0001
           weight: 0.1
     NGFC: 
       type: inhibitory
@@ -143,14 +143,14 @@ Synapses:
             tau_rise:  6.0
             tau_decay: 15.0
             e: -75
-            g_unit: 0.001
-            weight: 0.1
+            g_unit: 0.0001
+            weight: 4.68
           GABA_B:
             tau_rise:  10.0
             tau_decay: 50.0
             e:   -80
-            g_unit: 0.001
-            weight: 0.1
+            g_unit: 0.0001
+            weight: 10.0
     MOPP: 
       type: inhibitory
       sections: [apical, apical]
@@ -162,7 +162,7 @@ Synapses:
           tau_rise:  6.0
           tau_decay: 15.0
           e: -75
-          g_unit: 0.001
+          g_unit: 0.0001
           weight: 0.1
   MC:
     GC:   
