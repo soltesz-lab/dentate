@@ -23,7 +23,7 @@ DG_EXT_coordinate_file = "DG_coords_20190717_compressed.h5"
 DG_GC_forest_file = "DGC_forest_normalized_20200628_compressed.h5"
 DG_IN_forest_file = "DG_IN_forest_20210107_compressed.h5"
 
-DG_GC_forest_syns_file = "DGC_forest_syns_20210920_compressed.h5"
+DG_GC_forest_syns_file = "DGC_forest_syns_20221020_compressed.h5"
 DG_IN_forest_syns_file = "DG_IN_forest_syns_20211026_compressed.h5"
 
 DG_GC_syn_weights_LN_file = "DG_GC_syn_weights_LN_20221209_compressed.h5"

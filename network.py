@@ -690,7 +690,7 @@ def make_cells(env):
             mech_dict = None
 
         is_izhikevich = (template_name.lower() == 'izhikevich')
-        is_PR = (template_name.lower() in ('pr_nrn', 'prs_nrn', 'prn_nrn')
+        is_PR = (template_name.lower() in ('pr_nrn', 'prh_nrn', 'prs_nrn', 'prn_nrn'))
         is_SC = template_name.lower() == "sc_nrn"
         
         num_cells = 0
@@ -859,7 +859,7 @@ def make_cell_selection(env):
             mech_dict = None
 
         is_izhikevich = (template_name.lower() == 'izhikevich')
-        is_PR = (template_name.lower() in ('pr_nrn', 'prh_nrn', 'prs_nrn', 'prn_nrn')
+        is_PR = (template_name.lower() in ('pr_nrn', 'prh_nrn', 'prs_nrn', 'prn_nrn'))
         is_SC = template_name.lower() == "sc_nrn"
 
         num_cells = 0
@@ -1237,7 +1237,9 @@ def init(env):
     """
     from neuron import h
     configure_hoc_env(env)
-    
+
+    env.pc.mpiabort_on_error(0)
+
     assert(env.data_file_path)
     assert(env.connectivity_file_path)
     rank = int(env.pc.id())

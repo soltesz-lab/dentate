@@ -482,7 +482,7 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
 
     
     is_izhikevich = (template_name.lower() == 'izhikevich')
-    is_PR = (template_name.lower() in ('pr_nrn', 'prs_nrn', 'prn_nrn')
+    is_PR = (template_name.lower() in ('pr_nrn', 'prs_nrn', 'prn_nrn'))
     is_SC = template_name.lower() == "sc_nrn"
 
     if is_izhikevich:

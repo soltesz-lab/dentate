@@ -1,0 +1,93 @@
+## Model configuration of dentate gyrus network
+Network Clamp:  !include Network_Clamp.yaml
+Model Name: dentatenet
+Dataset Name: Slice
+Definitions: !include Definitions.yaml
+Global Parameters: !include Global.yaml
+Geometry: !include Geometry.yaml
+Random Seeds: !include Random.yaml
+Cell Data: dentatenet_Slice_SLN_neg2000_neg1900um_20221210_compressed.h5
+Connection Data: dentatenet_Slice_SLN_neg2000_neg1900um_20221210_compressed.h5
+#Gap Junction Data: DG_gapjunctions_20181228.h5
+Connection Generator: !include Full_Scale_Connections_GC_Exc_Sat_SynExp3NMDA2_IN_PR.yaml
+Recording: !include Recording.yaml
+Stimulus: !include Input_Configuration.yaml
+## Cell types for dentate gyrus model
+Cell Types:
+  GC:
+    template: DGC
+    template file: DGC_Template_minimal.hoc
+    mechanism file: 20220513_DG_GC_excitability_synint_SynExp3NMDA2_gid_118936_mech.yaml
+    synapses:
+      correct_for_spines: True
+      weights: !include GC_SLN_weights.yaml
+      density: !include GC_synapse_density.yaml
+  MC:
+    template: PRS_nrn
+    template file: PRS_nrn.hoc
+    mechanism file: DG_MC_PR_config.yaml
+    synapses:
+      weights: !include MC_SLN_weights.yaml
+      density: !include MC_synapse_density.yaml
+  HC:
+    template: PRH_nrn
+    template file: PRH_nrn.hoc
+    mechanism file: DG_HIPP_PR_config.yaml
+    synapses:
+      density: !include HC_synapse_density.yaml
+  BC:
+    template: PRN_nrn
+    template file: PRN_nrn.hoc
+    mechanism file: DG_BC_PR_config.yaml
+    synapses:
+      density: !include BC_synapse_density.yaml
+  AAC:
+    template: PRN_nrn
+    template file: PRN_nrn.hoc
+    mechanism file: DG_AAC_PR_config.yaml
+    synapses:
+      density: !include AAC_synapse_density.yaml
+  HCC:
+    template: PR_nrn
+    template file: PR_nrn.hoc
+    mechanism file: DG_HICAP_PR_config.yaml
+    synapses:
+      density: !include HCC_synapse_density.yaml
+  NGFC:
+    template: PR_nrn
+    template file: PR_nrn.hoc
+    mechanism file: DG_NGFC_PR_config.yaml
+    synapses:
+      density: !include NGFC_synapse_density.yaml
+  MOPP:
+    template: PR_nrn
+    template file: PR_nrn.hoc
+    mechanism file: DG_MOPP_PR_config.yaml
+    synapses:
+      density: !include NGFC_synapse_density.yaml
+  IS:
+    template: PR_nrn
+    template file: PR_nrn.hoc
+    mechanism file: DG_IS_PR_config.yaml
+    synapses:
+      density: !include IS_synapse_density.yaml
+  MPP:
+    template: VecStim
+    spike train:
+      namespace: Input Spikes
+      attribute: Spike Train
+  LPP:
+    template: VecStim
+    spike train:
+      namespace: Input Spikes
+      attribute: Spike Train
+  CA3c:
+    template: VecStim
+    spike train:
+      namespace: Input Spikes
+      attribute: Spike Train
+  ConMC:
+    template: VecStim
+    spike train:
+      namespace: Input Spikes
+      attribute: Spike Train

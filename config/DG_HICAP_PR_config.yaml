@@ -11,7 +11,7 @@ PinskyRinzel:
   dend_g_pas: 0.0032740908209234476
   cm_ratio: 9.31640911102295
   dend_bq_KAHP: 0.001
-  dend_aqs_KAHP: 2e-05
+  dend_aqs_KAHP: 2.0e-05
   dend_d_Caconc: 13.0
   dend_beta_Caconc: 0.075
   global_diam: 10.0

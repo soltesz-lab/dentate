@@ -608,27 +608,30 @@ class PRneuron(object):
         if not isinstance(cell_config, PRconfig):
             raise RuntimeError('PRneuron: argument cell_attrs must be of type PRconfig')
 
-        param_dict = { k: v if v is not None for k,v in
+        param_dict = { k: v for k,v in
                        (('pp', cell_config.pp),
-                        ('Ltotal': cell_config.Ltotal),
-                        ('gc': cell_config.gc),
+                        ('Ltotal', cell_config.Ltotal),
+                        ('gc', cell_config.gc),
                         ('soma_gmax_Na', cell_config.soma_gmax_Na),
                         ('soma_gmax_K', cell_config.soma_gmax_K),
                         ('soma_g_pas', cell_config.soma_g_pas),
                         ('dend_gmax_Ca', cell_config.dend_gmax_Ca),
                         ('dend_gmax_KCa', cell_config.dend_gmax_KCa),
                         ('dend_gmax_KAHP', cell_config.dend_gmax_KAHP),
-                        ('dend_aqs_KAHP', cell.dend_aqs_KAHP),
-                        ('dend_bq_KAHP', cell.dend_bq_KAHP),
+                        ('dend_gmax_HCN', cell_config.dend_gmax_HCN),
+                        ('dend_aqs_KAHP', cell_config.dend_aqs_KAHP),
+                        ('dend_bq_KAHP', cell_config.dend_bq_KAHP),
                         ('dend_g_pas',  cell_config.dend_g_pas),
                         ('dend_d_Caconc',  cell_config.dend_d_Caconc),
+                        ('dend_beta_Caconc',  cell_config.dend_beta_Caconc),
                         ('cm_ratio',  cell_config.cm_ratio),
                         ('global_cm',  cell_config.global_cm),
                         ('global_diam',  cell_config.global_diam),
                         ('e_pas',  cell_config.e_pas),
-                       ) }
+                       ) if v is not None  }
 
         template_class = getattr(h, template_name)
+
         PR_nrn = template_class(param_dict)
         PR_nrn.soma.ic_constant = cell_config.ic_constant
 
