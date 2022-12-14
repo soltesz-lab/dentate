@@ -10,16 +10,18 @@
 #SBATCH -J netclamp_opt_rate_BC
 #SBATCH -o ./results/netclamp_opt_rate_BC.%j.o
 
-module load python3
 module load phdf5/1.10.4
+module load python3/3.9.2
 
 set -x
 
 export FI_MLX_ENABLE_SPAWN=yes
 
+
 export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
 export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
 export PATH=$NEURONROOT/bin:$PATH
+
 export MODEL_HOME=$HOME/model
 export DG_HOME=$MODEL_HOME/dentate
 export DATA_PREFIX=$SCRATCH/striped2/dentate
@@ -30,12 +32,12 @@ export UCX_TLS="knem,dc_x"
 
 cd $SLURM_SUBMIT_DIR
 
-mpirun -rr -n 12  python3 network_clamp.py optimize  -c Network_Clamp_GC_Exc_Sat_SLN_IN_PR.yaml \
-    -p BC -g $1 -t 9500 --n-trials 1 --trial-regime mean --use-coreneuron --dt 0.0125 \
+ibrun -n 12  python3 network_clamp.py optimize -c Network_Clamp_GC_Exc_Sat_SynExp3NMDA2_SLN_IN_PR.yaml \ 
+    -p BC -g $1 --t-max 9500 --n-trials 1 --trial-regime mean --use-coreneuron --dt 0.0125 \
     --template-paths $DG_HOME/templates \
     --dataset-prefix $SCRATCH/striped2/dentate \
     --results-path $SCRATCH/dentate/results/netclamp \
-    --input-features-path $SCRATCH/striped2/dentate/Full_Scale_Control/DG_input_features_20220131_compressed.h5 \
+    --input-features-path $SCRATCH/striped2/dentate/Full_Scale_Control/DG_input_features_20220216.h5 \
     --input-features-namespaces 'Place Selectivity' \
     --input-features-namespaces 'Grid Selectivity' \
     --input-features-namespaces 'Constant Selectivity' \

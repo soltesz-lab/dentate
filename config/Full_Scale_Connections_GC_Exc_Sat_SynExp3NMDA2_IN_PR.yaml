@@ -518,7 +518,7 @@ Synapses:
           e: 0
           sat: 0.9
           g_unit: 0.001
-          weight: 1.75
+          weight: 7.56
     MPP:
       type: excitatory
       sections: [apical]
@@ -530,7 +530,7 @@ Synapses:
           tau_offset: 3.0
           e:     0
           g_unit: 0.001
-          weight: 1.75
+          weight: 1.48
     LPP:
       type: excitatory
       sections: [apical]
@@ -542,7 +542,7 @@ Synapses:
           tau_offset: 3.0
           e:     0
           g_unit: 0.001
-          weight: 1.75
+          weight: 1.48
     CA3c:   
       type: excitatory
       sections: [basal]
@@ -555,7 +555,7 @@ Synapses:
           tau_offset: 3.6
           e: 0
           g_unit: 0.0005
-          weight: 1.75
+          weight: 7.72
           sat: 0.9
     MC:   
       type: excitatory
@@ -569,7 +569,7 @@ Synapses:
           e: 0
           sat: 0.9
           g_unit: 0.001
-          weight: 1.75
+          weight: 9.75
     ConMC:   
       type: excitatory
       sections: [apical]
@@ -582,7 +582,7 @@ Synapses:
           e: 0
           sat: 0.9
           g_unit: 0.0005
-          weight: 1.75
+          weight: 9.75
     HCC:  
       type: inhibitory
       sections: [apical]
@@ -594,7 +594,7 @@ Synapses:
           tau_offset: 4.78
           e: -75
           g_unit: 0.001
-          weight: 0.273
+          weight: 0.48
     HC:   
       type: inhibitory
       sections: [apical, apical]
@@ -606,7 +606,7 @@ Synapses:
           tau_offset: 4.43
           e: -75
           g_unit: 0.001
-          weight: 0.114
+          weight: 1.78
     NGFC: 
       type: inhibitory
       sections: [apical, apical]
@@ -618,13 +618,13 @@ Synapses:
           tau_offset: 14.0
           e:    -75
           g_unit: 0.001
-          weight: 0.273
+          weight: 1.46
         GABA_B:
           dur_onset:  50.0
           tau_offset: 200.0
           e:   -90
           g_unit: 0.001
-          weight: 1.72
+          weight: 0.16
     MOPP: 
       type: inhibitory
       sections: [apical, apical]
@@ -636,7 +636,7 @@ Synapses:
           tau_offset: 14.0
           e:    -75
           g_unit: 0.001
-          weight: 0.273
+          weight: 0.18
   HCC:
     MPP:
       type: excitatory

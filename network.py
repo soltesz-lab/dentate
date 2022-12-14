@@ -1238,7 +1238,6 @@ def init(env):
     from neuron import h
     configure_hoc_env(env)
 
-    env.pc.mpiabort_on_error(0)
 
     assert(env.data_file_path)
     assert(env.connectivity_file_path)
@@ -1329,8 +1328,8 @@ def init(env):
         ld_bal(env)
         if env.optlptbal:
             lpt_bal(env)
-        h.cvode.cache_efficient(1)
-        h.cvode.use_fast_imem(1)
+    h.cvode.cache_efficient(1)
+    h.cvode.use_fast_imem(1)
 
 
 def run(env, output=True, shutdown=True, output_syn_spike_count=False):
