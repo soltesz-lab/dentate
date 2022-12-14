@@ -925,23 +925,23 @@ Synaptic Optimization:
         GC:
           !!python/tuple [apical, soma]:
             AMPA:
-              weight: [0.1, 1.0]
+              weight: [0.1, 10.0]
         CA3c:
           !!python/tuple [apical, soma]:
             AMPA:
-              weight: [0.1, 1.0]
+              weight: [0.1, 10.0]
         MC:
           !!python/tuple [apical, soma]:
             AMPA:
-              weight: [0.1, 1.0]
+              weight: [0.1, 10.0]
         HC:
           apical:
             GABA_A:
-              weight: [0.01, 1.0]
+              weight: [0.01, 2.0]
         IS:
           !!python/tuple [apical, soma]:
             GABA_A:
-              weight: [0.01, 0.1]
+              weight: [0.01, 2.0]
       Weight inh:
         HC:
           apical:
@@ -1042,37 +1042,41 @@ Synaptic Optimization:
         !!python/tuple [MPP, LPP]:
           apical:
             AMPA:
-              weight: [0.1, 1.0]
+              weight: [0.1, 10.0]
         GC:
           !!python/tuple [apical, basal, soma]:
             AMPA:
-              weight: [0.1, 1.0]
+              weight: [0.1, 10.0]
         MC:
           !!python/tuple [apical, basal, soma]:
             AMPA:
-              weight: [0.1, 1.0]
+              weight: [0.1, 10.0]
         CA3c:
           !!python/tuple [apical, basal, soma]:
             AMPA:
-              weight: [0.1, 1.0]
-        IS:
+              weight: [0.1, 10.0]
+        BC:
           !!python/tuple [apical, basal, soma]:
             GABA_A:
-              weight: [0.01, 1.0]
+              weight: [0.01, 2.0]
         HCC:
           !!python/tuple [apical, basal]:
             GABA_A:
-              weight: [0.01, 1.0]
+              weight: [0.01, 2.0]
         NGFC:
           apical:
             GABA_A:
-              weight: [0.005, 1.0]
+              weight: [0.005, 2.0]
             GABA_B:
-              weight: [0.005, 1.0]
+              weight: [0.005, 2.0]
         MOPP:
           apical:
             GABA_A:
-              weight: [0.01, 1.0]
+              weight: [0.01, 2.0]
+        IS:
+          !!python/tuple [apical, basal, soma]:
+            GABA_A:
+              weight: [0.01, 2.0]
       Weight inh:
         IS:
           !!python/tuple [apical, basal, soma]:
@@ -1204,23 +1208,23 @@ Synaptic Optimization:
     Parameter ranges:
       Weight all:
         !!python/tuple [MPP, LPP]:
-          apical:
+          !!python/tuple [apical, basal, soma]:
             AMPA:
-              weight: [0.1, 1.0]
+              weight: [0.1, 10.0]
         HC:
           !!python/tuple [apical, basal, soma]:
             GABA_A:
-              weight: [0.01, 1.0]
+              weight: [0.01, 2.0]
         MOPP:
           !!python/tuple [apical, basal, soma]:
             GABA_A:
-              weight: [0.01, 1.0]
+              weight: [0.01, 2.0]
         NGFC:
           !!python/tuple [apical, basal, soma]:
             GABA_A:
-              weight: [0.005, 1.0]
+              weight: [0.01, 2.0]
             GABA_B:
-              weight: [0.005, 1.0]
+              weight: [0.01, 2.0]
       Weight inh:
         HC:
           !!python/tuple [apical, basal, soma]:
@@ -1349,29 +1353,29 @@ Synaptic Optimization:
         !!python/tuple [MPP, LPP]:
           apical:
             AMPA:
-              weight: [0.1, 1.0]
+              weight: [0.1, 10.0]
         MC:
           !!python/tuple [basal, soma]:
             AMPA:
-              weight: [0.1, 1.0]
+              weight: [0.1, 10.0]
         HC:
           !!python/tuple [apical, basal]:
             GABA_A:
-              weight: [0.01, 0.1]
+              weight: [0.01, 2.0]
         HCC:
-          !!python/tuple [apical, basal]:
+          !!python/tuple [soma, basal]:
             GABA_A:
-              weight: [0.01, 0.1]
+              weight: [0.01, 2.0]
         MOPP:
-          !!python/tuple [apical]:
+          apical:
             GABA_A:
-              weight: [0.01, 0.1]
+              weight: [0.01, 2.0]
         NGFC:
-          !!python/tuple [apical]:
+          apical:
             GABA_A:
-              weight: [0.005, 0.1]
+              weight: [0.01, 2.0]
             GABA_B:
-              weight: [0.005, 0.1]
+              weight: [0.01, 2.0]
       Weight inh:
         HC:
           !!python/tuple [apical, basal]:
