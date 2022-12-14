@@ -32,7 +32,7 @@ export UCX_TLS="knem,dc_x"
 
 cd $SLURM_SUBMIT_DIR
 
-ibrun -n 12  python3 network_clamp.py optimize -c Network_Clamp_GC_Exc_Sat_SynExp3NMDA2_SLN_IN_PR.yaml \ 
+ibrun -n 12  python3 network_clamp.py optimize -c Network_Clamp_GC_Exc_Sat_SynExp3NMDA2_SLN_IN_PR.yaml \
     -p BC -g $1 --t-max 9500 --n-trials 1 --trial-regime mean --use-coreneuron --dt 0.0125 \
     --template-paths $DG_HOME/templates \
     --dataset-prefix $SCRATCH/striped2/dentate \
