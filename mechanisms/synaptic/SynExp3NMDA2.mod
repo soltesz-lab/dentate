@@ -4,9 +4,6 @@ COMMENT
 This is a simple double-exponential model of an NMDAR 
 that has a slow voltage-dependent gating component in its conductance (3rd differential equations)
 
-This is a special version of the Exp3NMDA model that 
-resets itself after 590 ms from the start of simulation
-
 Mg++ voltage dependency from Spruston95 -> Woodhull, 1973
 Keivan Moradi 2011 
 

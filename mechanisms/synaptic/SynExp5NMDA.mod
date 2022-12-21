@@ -8,7 +8,7 @@ time constants are voltage-dependent and temperature sensitive
 Mg++ voltage dependency from Spruston95 -> Woodhull, 1973 
 
 Desensitization is introduced in this model. Actually, this model has 4 differential equations
-becasue desensitization is solved analitically. It can be reduced to 3 by solving its A state analytically.
+because desensitization is solved analytically. It can be reduced to 3 by solving its A state analytically.
 For more info read the original paper. 
 
 Keivan Moradi 2012
