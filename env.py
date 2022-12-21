@@ -324,6 +324,11 @@ class Env(object):
             self.forest_file_path = None
             self.gapjunctions_file_path = None
 
+        # If True, instantiate as spike source those cells that do not
+        # have data in the input data file
+        self.microcircuit_inputs = microcircuit_inputs or (self.cell_selection is not None)
+        self.microcircuit_input_sources = { pop_name: set([]) for pop_name in self.celltypes.keys() }
+
         self.node_allocation = None
         if node_rank_file and node_allocation:
             raise RuntimeError("Only one of node_rank_file and node_allocation must be specified.")
@@ -358,11 +363,6 @@ class Env(object):
                 self.projection_dict = dict(projection_dict)
                 self.logger.info('projection_dict = %s' % str(self.projection_dict))
             self.projection_dict = self.comm.bcast(self.projection_dict, root=0)
-
-        # If True, instantiate as spike source those cells that do not
-        # have data in the input data file
-        self.microcircuit_inputs = microcircuit_inputs or (self.cell_selection is not None)
-        self.microcircuit_input_sources = { pop_name: set([]) for pop_name in self.celltypes.keys() }
             
         # Configuration profile for recording intracellular quantities
         assert((recording_fraction >= 0.0) and (recording_fraction <= 1.0))
@@ -763,7 +763,7 @@ class Env(object):
                 if gid in node_rank_map:
                     if node_rank_map[gid] == rank:
                         self.node_allocation.add(gid)
-                else:
+                elif not self.microcircuit_inputs:
                     if rank == 0:
                         self.logger.warning(f'load_node_rank_map: gid {gid} assigned to '
                                             f'population {pop_name} is not present in '
