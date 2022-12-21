@@ -140,7 +140,7 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
                       'initial_maxiter': initial_maxiter,
                       'initial_method': initial_method,
                       'optimizer': optimizer_method,
-                      'surrogate_method': 'vgp',
+                      'surrogate_method': 'siv',
                       'n_epochs': n_epochs,
                       'population_size': population_size,
                       'num_generations': num_generations,
