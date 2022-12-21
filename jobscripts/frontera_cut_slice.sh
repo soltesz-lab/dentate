@@ -45,6 +45,6 @@ ibrun python3 ./scripts/cut_slice.py \
     --spike-input-path="$SCRATCH/striped2/dentate/Full_Scale_Control/DG_input_spike_trains_phasemod_20220228_compressed.h5" \
     --spike-input-namespace='Input Spikes A Diag' \
     --spike-input-attr="Spike Train" \
-    --distance-limits -2000 -1900 \
+    --distance-limits -20 20 \
     --write-selection \
     --verbose

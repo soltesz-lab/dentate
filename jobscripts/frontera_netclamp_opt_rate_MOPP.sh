@@ -35,7 +35,6 @@ ibrun -n 24  python3 network_clamp.py optimize -c Network_Clamp_GC_Exc_Sat_SynEx
     --template-paths $DG_HOME/templates \
     --dataset-prefix $SCRATCH/striped2/dentate \
     --results-path $SCRATCH/dentate/results/netclamp \
-    --results-file distgfs.network_clamp.MOPP_20221213_215951_NOS77338045.h5 \
     --input-features-path $SCRATCH/striped2/dentate/Full_Scale_Control/DG_input_features_20220216.h5 \
     --input-features-namespaces 'Place Selectivity' \
     --input-features-namespaces 'Grid Selectivity' \

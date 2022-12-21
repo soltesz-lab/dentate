@@ -71,11 +71,11 @@ apical:
         - filters:
             layers: [IML]
             syn_types: [excitatory]
-          value: 0.0001
+          value: 1.874e-5
         - filters:
             layers: [MML, OML]
             syn_types: [excitatory]
-          value: 0.000025
+          value: 0.0001
       tau1_0:
         filters:
           syn_types:

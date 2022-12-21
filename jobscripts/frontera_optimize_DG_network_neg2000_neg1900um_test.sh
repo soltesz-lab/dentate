@@ -10,7 +10,7 @@
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
-module load python3/3.8.2
+module load python3/3.9.2
 module load phdf5/1.10.4
 module load mkl/19.1.1
 
@@ -52,9 +52,9 @@ distribute.bash ${SCRATCH}/dentate/optimize_DG_network
 
 ibrun -rr -n 3 \
     python3 optimize_network.py \
-    --config-path=$DG_HOME/config/DG_optimize_network_neg2000_neg1900um.yaml \
+    --config-path=$DG_HOME/config/DG_optimize_network_neg2000_neg1900um_test.yaml \
     --optimize-file-dir=$results_path \
-    --target-features-path="$DATA_PREFIX/Full_Scale_Control/DG_input_features_20200910_compressed.h5" \
+    --target-features-path="$DATA_PREFIX/Full_Scale_Control/DG_input_features_20220216.h5" \
     --target-features-namespace="Place Selectivity" \
     --verbose \
     --nprocs-per-worker=252 \
@@ -66,7 +66,7 @@ ibrun -rr -n 3 \
     --dataset_prefix="$DATA_PREFIX" \
     --config_prefix=$DG_HOME/config \
     --results_path=$results_path \
-    --spike_input_path="$DATA_PREFIX/Slice/dentatenet_Slice_SLN_neg2000_neg1900um_20220109_compressed.h5" \
+    --spike_input_path="$DATA_PREFIX/Slice/dentatenet_Slice_SLN_neg2000_neg1900um_20221210_compressed.h5" \
     --spike_input_namespace='Input Spikes A Diag' \
     --spike_input_attr='Spike Train' \
     --max_walltime_hours=24.0 \
