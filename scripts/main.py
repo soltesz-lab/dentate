@@ -57,7 +57,7 @@ sys.excepthook = mpi_excepthook
 @click.option("--use-cell-attr-gen", is_flag=True, help='whether to use cell attribute generator for I/O operations')
 @click.option("--cell-attr-gen-cache-size", type=int, default=10,
               help='cell attribute generator cache readahead size')
-@click.option("--recording-fraction", type=float, default=0.005,
+@click.option("--recording-fraction", type=float, default=0.001,
               help='fraction of cells for intracellular recording')
 @click.option("--recording-profile", type=str, default='Network default',
               help='intracellular recording profile to use')
