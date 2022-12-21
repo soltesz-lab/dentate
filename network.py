@@ -10,7 +10,7 @@ from dentate import cells, io_utils, lfp, lpt, simtime, synapses
 from dentate.neuron_utils import h, configure_hoc_env, cx, make_rec, mkgap, load_cell_template
 from dentate.utils import compose_iter, imapreduce, get_module_logger, profile_memory, Promise
 from dentate.utils import range, str, viewitems, viewkeys, zip, zip_longest
-from neuroh5.io import bcast_graph, read_cell_attribute_selection, scatter_read_cell_attribute_selection, read_graph_selection, read_tree_selection, scatter_read_cell_attributes, scatter_read_graph, scatter_read_trees, write_cell_attributes, write_graph, NeuroH5CellAttrGen
+from neuroh5.io import bcast_graph, read_cell_attribute_selection, scatter_read_cell_attribute_selection, read_graph_selection, read_tree_selection, scatter_read_cell_attributes, scatter_read_graph, scatter_read_trees, write_cell_attributes, write_graph, NeuroH5CellAttrGen, NeuroH5TreeGen
 from mpi4py import MPI
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -55,11 +55,9 @@ def lpt_bal(env):
     src = [None] * nhosts
     src[0] = list(zip(cxvec, gidvec))
     dest = env.pc.py_alltoall(src)
-    del src
 
     if rank == 0:
         allpairs = sum(dest, [])
-        del dest
         parts = lpt.lpt(allpairs, nhosts)
         lpt.statistics(parts)
         part_rank = 0
@@ -173,9 +171,6 @@ def connect_cells(env):
                 syn_attrs_iter, syn_attrs_info = cell_attributes_dict['Synapse Attributes']
                 syn_attrs.init_syn_id_attrs_from_iter(syn_attrs_iter, attr_type='tuple', 
                                                       attr_tuple_index=syn_attrs_info, debug=(rank == 0))
-                del cell_attributes_dict
-                gc.collect()
-
         weight_attr_mask = list(syn_attrs.syn_mech_names)
         weight_attr_mask.append('syn_id')
         
@@ -233,8 +228,6 @@ def connect_cells(env):
                     expr_closure = None
                     append_weights = True
                     multiple_weights='overwrite'
-                    del weight_attr_dict[weights_namespace]
-
 
         env.edge_count[postsyn_name] = 0
         for presyn_name in presyn_names:
@@ -267,8 +260,6 @@ def connect_cells(env):
             syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, syn_edge_iter)
             if rank == 0:
                 logger.info(f'Rank {rank}: took {(time.time() - last_time):.02f} s to initialize edge attributes for projection {presyn_name} -> {postsyn_name}')
-                del graph[postsyn_name][presyn_name]
-
             
         first_gid = None
         if postsyn_name in env.biophys_cells:
@@ -422,7 +413,6 @@ def connect_cell_selection(env):
                                                                        return_type='tuple')
 
         syn_attrs.init_syn_id_attrs_from_iter(syn_attrs_iter, attr_type='tuple', attr_tuple_index=syn_attrs_info)
-        del (syn_attrs_iter)
 
         weight_attr_mask = list(syn_attrs.syn_mech_names)
         weight_attr_mask.append('syn_id')
@@ -474,8 +464,6 @@ def connect_cell_selection(env):
                                                 f'found {len(weights_values)} {syn_name} synaptic weights ({weights_namespace})')
                 multiple_weights='overwrite'
                 append_weights=True
-                del syn_weights_iter
-
                 
         (graph, a) = read_graph_selection(connectivity_file_path, selection=gid_range, \
                                           projections=[ (presyn_name, postsyn_name) for presyn_name in sorted(presyn_names) ],
@@ -494,7 +482,6 @@ def connect_cell_selection(env):
                                              edge_iter)
                 syn_attrs.init_edge_attrs_from_iter(postsyn_name, presyn_name, a, syn_edge_iter)
                 env.microcircuit_input_sources[presyn_name] = presyn_input_sources
-                del graph[postsyn_name][presyn_name]
 
 
         first_gid = None
@@ -644,10 +631,71 @@ def connect_gjs(env):
                         else:
                             num_gj_inter += 1
 
-            del graph[name[0]][name[1]]
-
         logger.info(f'*** rank {rank}: created total {num_gj} gap junctions: {num_gj_intra} intraprocessor {num_gj_inter} interprocessor')
 
+
+def make_cell_from_coordinates(env, gid, pop_name, mech_dict, 
+                               cell_x, cell_y, cell_z,
+                               is_izhikevich, is_PR, is_SC):
+    cell = None
+    if is_izhikevich:
+        cell = cells.make_izhikevich_cell(gid=gid, pop_name=pop_name,
+                                          env=env, mech_dict=mech_dict)
+        cells.register_cell(env, pop_name, gid, cell)
+    elif is_PR:
+        cell = cells.make_PR_cell(gid=gid, pop_name=pop_name,
+                                  env=env, mech_dict=mech_dict)
+        cells.register_cell(env, pop_name, gid, cell)
+    elif is_SC:
+        cell = cells.make_SC_cell(
+            gid=gid, pop_name=pop_name, env=env, mech_dict=mech_dict
+        )
+        cells.register_cell(env, pop_name, gid, cell)
+    else:
+        cell = cells.make_hoc_cell(env, pop_name, gid)
+        cell.position(cell_x, cell_y, cell_z)
+        cells.register_cell(env, pop_name, gid, cell)
+
+    return cell
+
+def make_cell_from_tree(env, gid, pop_name, mech_dict, tree_dict, mech_file_path, first_gid, is_izhikevich, is_PR, is_SC):
+
+    cell = None
+    rank = env.comm.rank
+
+    if is_izhikevich:
+        izhikevich_cell = cells.make_izhikevich_cell(gid=gid, pop_name=pop_name,
+                                                     env=env, mech_dict=mech_dict)
+        cells.register_cell(env, pop_name, gid, izhikevich_cell)
+    elif is_PR:
+        PR_cell = cells.make_PR_cell(gid=gid, pop_name=pop_name,
+                                     env=env, mech_dict=mech_dict)
+        cells.register_cell(env, pop_name, gid, PR_cell)
+    elif is_SC:
+        SC_cell = cells.make_SC_cell(
+            gid=gid, pop_name=pop_name, env=env, mech_dict=mech_dict
+        )
+        cells.register_cell(env, pop_name, gid, SC_cell)
+    else:
+        hoc_cell = cells.make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict)
+        if mech_dict is None:
+            cells.register_cell(env, pop_name, gid, hoc_cell)
+        else:
+            biophys_cell = cells.make_biophys_cell(gid=gid, pop_name=pop_name,
+                                                   hoc_cell=hoc_cell, env=env,
+                                                   tree_dict=tree_dict,
+                                                   mech_dict=mech_dict)
+            # cells.init_spike_detector(biophys_cell)
+            cells.register_cell(env, pop_name, gid, biophys_cell)
+            if rank == 0 and gid == first_gid:
+                logger.info(f'*** make_cells: population: {pop_name}; gid: {gid}; loaded biophysics from path: {mech_file_path}')
+                
+        if rank == 0 and first_gid == gid:
+            if hasattr(hoc_cell, 'all'):
+                for sec in list(hoc_cell.all):
+                    h.psection(sec=sec)
+                            
+        return cell
 
 def make_cells(env):
     """
@@ -669,9 +717,10 @@ def make_cells(env):
     if rank == 0:
         logger.info(f"Population attributes: {pprint.pformat(env.cell_attribute_info)}")
     for pop_name in pop_names:
+        req = env.comm.Ibarrier()
+
         if rank == 0:
             logger.info(f'*** Creating population {pop_name}')
-            
         
         template_name = env.celltypes[pop_name].get('template', None)
         if template_name is None:
@@ -697,124 +746,143 @@ def make_cells(env):
         if (pop_name in env.cell_attribute_info) and ('Trees' in env.cell_attribute_info[pop_name]):
             if rank == 0:
                 logger.info(f"*** Reading trees for population {pop_name}")
-
-            if env.node_allocation is None:
-                (trees, forestSize) = scatter_read_trees(data_file_path, pop_name, comm=env.comm, \
-                                                         io_size=env.io_size)
-            else:
-                (trees, forestSize) = scatter_read_trees(data_file_path, pop_name, comm=env.comm, \
-                                                         io_size=env.io_size, node_allocation=env.node_allocation)
-            if rank == 0:
-                logger.info(f"*** Done reading trees for population {pop_name}")
-
             first_gid = None
-            for i, (gid, tree) in enumerate(trees):
-                if rank == 0:
-                    logger.info(f"*** Creating {pop_name} gid {gid}")
 
-                if first_gid is None:
-                    first_gid = gid
-
-                if is_izhikevich:
-                    izhikevich_cell = cells.make_izhikevich_cell(gid=gid, pop_name=pop_name,
-                                                                 env=env, mech_dict=mech_dict)
-                    cells.register_cell(env, pop_name, gid, izhikevich_cell)
-                elif is_PR:
-                    PR_cell = cells.make_PR_cell(gid=gid, pop_name=pop_name,
-                                                 env=env, mech_dict=mech_dict)
-                    cells.register_cell(env, pop_name, gid, PR_cell)
-                elif is_SC:
-                    SC_cell = cells.make_SC_cell(
-                        gid=gid, pop_name=pop_name, env=env, mech_dict=mech_dict
-                    )
-                    cells.register_cell(env, pop_name, gid, SC_cell)
+            if env.use_cell_attr_gen:
+                if env.node_allocation is None:
+                    tree_attr_gen = NeuroH5TreeGen(data_file_path, pop_name,
+                                                   comm=env.comm, topology=True,
+                                                   io_size=env.io_size, 
+                                                   cache_size=env.cell_attr_gen_cache_size)
                 else:
-                    hoc_cell = cells.make_hoc_cell(env, pop_name, gid, neurotree_dict=tree)
-                    if mech_dict is None:
-                        cells.register_cell(env, pop_name, gid, hoc_cell)
-                    else:
-                        biophys_cell = cells.make_biophys_cell(gid=gid, pop_name=pop_name,
-                                                               hoc_cell=hoc_cell, env=env,
-                                                               tree_dict=tree,
-                                                               mech_dict=mech_dict)
-                        # cells.init_spike_detector(biophys_cell)
-                        cells.register_cell(env, pop_name, gid, biophys_cell)
-                        if rank == 0 and gid == first_gid:
-                            logger.info(f'*** make_cells: population: {pop_name}; gid: {gid}; loaded biophysics from path: {mech_file_path}')
+                    tree_attr_gen = NeuroH5TreeGen(data_file_path, pop_name,
+                                                   comm=env.comm, topology=True,
+                                                   io_size=env.io_size, 
+                                                   cache_size=env.cell_attr_gen_cache_size,
+                                                   node_allocation=env.node_allocation)
+                    
+                for iter_count, (gid, tree_dict) in enumerate(tree_attr_gen):
+                
+                    if gid is not None:
 
-                    if rank == 0 and first_gid == gid:
-                        if hasattr(hoc_cell, 'all'):
-                            for sec in list(hoc_cell.all):
-                                h.psection(sec=sec)
+                        if rank == 0:
+                            logger.info(f"*** Creating {pop_name} gid {gid}")
+                            
+                        cell = make_cell_from_tree(env, gid, pop_name, mech_dict, tree_dict, mech_file_path,
+                                                   first_gid, is_izhikevich, is_PR, is_SC)
+                        num_cells += 1
+            else:
+                if env.node_allocation is None:
+                    (trees, forestSize) = scatter_read_trees(data_file_path, pop_name, comm=env.comm, \
+                                                             io_size=env.io_size)
+                else:
+                    (trees, forestSize) = scatter_read_trees(data_file_path, pop_name, comm=env.comm, \
+                                                             io_size=env.io_size, node_allocation=env.node_allocation)
+                        
+                for i, (gid, tree) in enumerate(trees):
+                    if rank == 0:
+                        logger.info(f"*** Creating {pop_name} gid {gid}")
+                        
+                    if first_gid is None:
+                        first_gid = gid
 
-                num_cells += 1
-            del trees
+                    cell = make_cell_from_tree(env, gid,  pop_name, mech_dict, tree, mech_file_path,
+                                               first_gid, is_izhikevich, is_PR, is_SC)
+                    
+                    num_cells += 1
 
             
         elif (pop_name in env.cell_attribute_info) and ('Coordinates' in env.cell_attribute_info[pop_name]):
             if rank == 0:
                 logger.info(f"*** Reading coordinates for population {pop_name}")
 
-            if env.node_allocation is None:
-                cell_attr_dict = scatter_read_cell_attributes(data_file_path, pop_name,
-                                                              namespaces=['Coordinates'],
-                                                              comm=env.comm, io_size=env.io_size,
-                                                              return_type='tuple')
-            else:
-                cell_attr_dict = scatter_read_cell_attributes(data_file_path, pop_name,
-                                                              namespaces=['Coordinates'],
-                                                              node_allocation=env.node_allocation,
-                                                              comm=env.comm, io_size=env.io_size,
-                                                              return_type='tuple')
-            if rank == 0:
-                logger.info(f"*** Done reading coordinates for population {pop_name}")
-
-            coords_iter, coords_attr_info = cell_attr_dict['Coordinates']
-
-            x_index = coords_attr_info.get('X Coordinate', None)
-            y_index = coords_attr_info.get('Y Coordinate', None)
-            z_index = coords_attr_info.get('Z Coordinate', None)
-            for i, (gid, cell_coords) in enumerate(coords_iter):
-                if rank == 0:
-                    logger.info(f"*** Creating {pop_name} gid {gid}")
-
-                if is_izhikevich:
-                    izhikevich_cell = cells.make_izhikevich_cell(gid=gid, pop_name=pop_name,
-                                                                 env=env, mech_dict=mech_dict)
-                    cells.register_cell(env, pop_name, gid, izhikevich_cell)
-                elif is_PR:
-                    PR_cell = cells.make_PR_cell(gid=gid, pop_name=pop_name,
-                                                 env=env, mech_dict=mech_dict)
-                    cells.register_cell(env, pop_name, gid, PR_cell)
-                elif is_SC:
-                    SC_cell = cells.make_SC_cell(
-                        gid=gid, pop_name=pop_name, env=env, mech_dict=mech_dict
-                    )
-                    cells.register_cell(env, pop_name, gid, SC_cell)
+            if env.use_cell_attr_gen:
+                
+                if env.node_allocation is None:
+                    coordinates_attr_gen = NeuroH5CellAttrGen(data_file_path, pop_name,
+                                                              namespace='Coordinates',
+                                                              comm=env.comm, return_type='tuple',
+                                                              io_size=env.io_size, 
+                                                              cache_size=env.cell_attr_gen_cache_size)
                 else:
-                    hoc_cell = cells.make_hoc_cell(env, pop_name, gid)
+                    coordinates_attr_gen = NeuroH5CellAttrGen(data_file_path, pop_name,
+                                                              namespace='Coordinates',
+                                                              comm=env.comm, return_type='tuple',
+                                                              io_size=env.io_size, 
+                                                              cache_size=env.cell_attr_gen_cache_size,
+                                                              node_allocation=env.node_allocation)
+                    
+                for iter_count, (gid, gid_attr_data) in enumerate(coordinates_attr_gen):
+                
+                    if gid is not None:
+                        (attr_tuple, attr_tuple_index) = gid_attr_data
+                        x_index = attr_tuple_index.get('X Coordinate', None)
+                        y_index = attr_tuple_index.get('Y Coordinate', None)
+                        z_index = attr_tuple_index.get('Z Coordinate', None)
+
+                        cell_x = attr_tuple[x_index][0]
+                        cell_y = attr_tuple[y_index][0]
+                        cell_z = attr_tuple[z_index][0]
+
+                        if rank == 0:
+                            logger.info(f"*** Creating {pop_name} gid {gid}")
+                            
+                        cell = make_cell_from_coordinates(env, gid, pop_name, mech_dict,
+                                                          cell_x, cell_y, cell_z,
+                                                          is_izhikevich, is_PR, is_SC)
+                        num_cells += 1
+            else:
+                if env.node_allocation is None:
+                    cell_attr_dict = scatter_read_cell_attributes(data_file_path, pop_name,
+                                                                  namespaces=['Coordinates'],
+                                                                  comm=env.comm, io_size=env.io_size,
+                                                                  return_type='tuple')
+                else:
+                    cell_attr_dict = scatter_read_cell_attributes(data_file_path, pop_name,
+                                                                  namespaces=['Coordinates'],
+                                                                  node_allocation=env.node_allocation,
+                                                                  comm=env.comm, io_size=env.io_size,
+                                                                  return_type='tuple')
+                
+                coords_iter, coords_attr_info = cell_attr_dict['Coordinates']
+
+                x_index = coords_attr_info.get('X Coordinate', None)
+                y_index = coords_attr_info.get('Y Coordinate', None)
+                z_index = coords_attr_info.get('Z Coordinate', None)
+
+                for i, (gid, cell_coords) in enumerate(coords_iter):
                     cell_x = cell_coords[x_index][0]
                     cell_y = cell_coords[y_index][0]
                     cell_z = cell_coords[z_index][0]
-                    hoc_cell.position(cell_x, cell_y, cell_z)
-                    cells.register_cell(env, pop_name, gid, hoc_cell)
-                num_cells += 1
+                    if rank == 0:
+                        logger.info(f"*** Creating {pop_name} gid {gid}")
+
+                    cell = make_cell_from_coordinates(env, gid, pop_name, mech_dict,
+                                                      cell_x, cell_y, cell_z,
+                                                      is_izhikevich, is_PR, is_SC)
+                    num_cells += 1
         else:
-            raise RuntimeError(f"make_cells: unknown cell configuration type for cell type {pop_name}")
+            logger.warning(f"make_cells: unknown cell configuration type for cell type {pop_name}")
+            pass
 
         h.define_shape()
 
         recording_set = set([])
         pop_biophys_gids = list(env.biophys_cells[pop_name].keys())
+        req1 = env.comm.Ibarrier()
         pop_biophys_gids_per_rank = env.comm.gather(pop_biophys_gids, root=0)
+        req1.wait()
         if rank == 0:
             all_pop_biophys_gids = sorted([item for sublist in pop_biophys_gids_per_rank for item in sublist])
             for gid in all_pop_biophys_gids:
                 if ranstream_recording.uniform() <= env.recording_fraction:
                     recording_set.add(gid)
+
+        req1 = env.comm.Ibarrier()
         recording_set = env.comm.bcast(recording_set, root=0)
+        req1.wait()
         env.recording_sets[pop_name] = recording_set
-        del pop_biophys_gids_per_rank
+        req.wait()
         logger.info(f"*** Rank {rank}: Created {num_cells} cells from population {pop_name}")
 
     # if node rank map has not been created yet, create it now
@@ -1428,8 +1496,6 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
     if rank == 0 and output:
         io_utils.lfpout(env, env.results_file_path)
         
-    if shutdown:
-        del env.cells
 
     comptime = env.pc.step_time()
     cwtime = comptime + env.pc.step_wait()
