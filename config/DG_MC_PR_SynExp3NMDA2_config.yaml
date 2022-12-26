@@ -24,7 +24,7 @@ apical:
       gVI:
         - filters:
             syn_types: [excitatory]
-          value: 5.34e-5
+          value: 0.0001
       tau1_0:
         filters:
           syn_types:
