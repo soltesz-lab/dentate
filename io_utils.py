@@ -621,16 +621,16 @@ def write_connection_selection(env, write_selection_file_path, populations=None,
             
             for input_rank_dict in input_rank_dicts:
 
-                input_rank_namespace = weight_dict['namespace']
+                input_rank_namespace = input_rank_dict['namespace']
 
                 if rank == 0:
                     logger.info(f'*** Reading synaptic input rank of population {postsyn_name} '
                                 f'from namespace {input_rank_namespace}')
 
                 cell_attr_iter = scatter_read_cell_attribute_selection(forest_file_path, postsyn_name,
-                                                                         namespace=input_rank_namespace, 
-                                                                         selection=gid_range,
-                                                                         comm=env.comm, io_size=env.io_size)
+                                                                       namespace=input_rank_namespace, 
+                                                                       selection=gid_range,
+                                                                       comm=env.comm, io_size=env.io_size)
 
                 input_rank_attributes_output_dict = dict(list(cell_attr_iter))
                 write_cell_attributes(write_selection_file_path, postsyn_name,
