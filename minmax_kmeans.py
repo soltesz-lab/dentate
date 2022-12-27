@@ -1,5 +1,4 @@
-#!/usr/bin/env python3.5
-# coding: utf-8
+
 # Implementation of KMeans clustering with minimum cluster size constraint (Bradley et al., 2000).
 # Based on code from https://github.com/Behrouz-Babaki/MinSizeKmeans
 

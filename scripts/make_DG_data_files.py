@@ -123,10 +123,12 @@ forest_syns_files = {
 
 syn_weight_files = {
      'GC': { 
-             "LTP Structured Weights A": DG_GC_syn_weights_S_file,
-             "LTD Structured Weights A": DG_GC_syn_weights_S_file,
-             "Log-Normal Weights": DG_GC_syn_weights_LN_file ,
-             "Normal Weights": DG_GC_syn_weights_LN_file,
+         "LTP Structured Weights A": DG_GC_syn_weights_S_file,
+         "LTD Structured Weights A": DG_GC_syn_weights_S_file,
+         "Input Rank Structured Weights A": DG_GC_syn_weights_S_file,
+         "Log-Normal Weights": DG_GC_syn_weights_LN_file ,
+         "Normal Weights": DG_GC_syn_weights_LN_file,
+         
      },
 
      'MC': { 

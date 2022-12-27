@@ -22,6 +22,8 @@ Cell Types:
       correct_for_spines: True
       weights: !include GC_SLN_weights.yaml
       density: !include GC_synapse_density.yaml
+      input rank:
+        - namespace: "Input Rank Structured Weights A"
   MC:
     template: PRS_nrn
     template file: PRS_nrn.hoc
