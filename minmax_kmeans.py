@@ -66,8 +66,8 @@ class subproblem(object):
         self.model += pulp.lpSum(self.b[j] for j in range(self.k)) == self.n - (self.k * self.min_size)
 
 
-    def solve(self):
-        self.status = self.model.solve()
+    def solve(self, solver=None):
+        self.status = self.model.solve(solver=solver)
         clusters = None
         if self.status == 1:
             clusters= [-1 for i in range(self.n)]
@@ -104,7 +104,7 @@ def compute_centers(clusters, dataset):
             centers[j][i] = centers[j][i]/float(counts[j])
     return clusters, centers
 
-def minsize_kmeans(dataset, k, max_n_iter=5, min_size=0, max_size=None):
+def minsize_kmeans(dataset, k, max_n_iter=5, min_size=0, max_size=None, time_limit=600, verbose=True):
     n = len(dataset)
     if max_size == None:
         max_size = n
@@ -114,9 +114,10 @@ def minsize_kmeans(dataset, k, max_n_iter=5, min_size=0, max_size=None):
 
     it = 0
     converged = False
+    solver = pulp.apis.PULP_CBC_CMD(msg=verbose, timeLimit=time_limit)
     while not converged and (it < max_n_iter):
         m = subproblem(centers, dataset, min_size, max_size)
-        clusters_ = m.solve()
+        clusters_ = m.solve(solver=solver)
         if not clusters_:
             return None, None
         clusters_, centers = compute_centers(clusters_, dataset)

@@ -125,7 +125,8 @@ def main(config, config_prefix, template_path, output_path, forest_path, structu
                                 'soma': cell.somaidx, 
                                 'ais': cell.aisidx, 
                                 'hillock': cell.hilidx}
-            cell_dicts[this_gid] = { 'cell': cell, 
+            cell_dicts[this_gid] = { 'cell': cell,
+                                     'morph_dict': morph_dict,
                                      'sec_dict': cell_sec_dict, 
                                      'secidx_dict': cell_secidx_dict}
 
@@ -166,6 +167,7 @@ def main(config, config_prefix, template_path, output_path, forest_path, structu
 
         env.comm.barrier()
 
+        count = 0
         cell_syn_clusters = {}
         for gid in gids:
             if rank == 0:
@@ -180,7 +182,7 @@ def main(config, config_prefix, template_path, output_path, forest_path, structu
             syn_ranks_array = np.fromiter([syn_attrs_dict[syn_id][0] for syn_id in syn_ids], dtype=np.float32).reshape((-1,1))
             syn_sec_ids, syn_sec_counts = np.unique(syn_secs_array, return_counts=True)
             max_size=np.mean(syn_sec_counts)
-            clusters, centers = minmax_kmeans.minsize_kmeans(syn_ranks_array, k, 1, max_size=max_size)
+            clusters, centers = minmax_kmeans.minsize_kmeans(syn_ranks_array, k, 1, max_size=max_size, verbose=verbose)
             if rank == 0:
                 logger.info(f"Rank {rank}: synapse clusters for gid {gid}: {np.unique(clusters, return_counts=True)}; "
                             f"cluster centers: {np.sort(np.concatenate(centers))}")
@@ -188,18 +190,22 @@ def main(config, config_prefix, template_path, output_path, forest_path, structu
                         f'{num_syns} synapse locations for {population} gid {gid}')
             cell_syn_clusters[gid] = zip(syn_ids, clusters)
 
+            count += 1
+            if debug and count == 2:
+                break
+
         env.comm.barrier()
 
         count = 0
         gid_count = 0
         gid_synapse_dict = {}
-        for gid in gids:
+        for this_gid in gids:
             local_time = time.time()
 
-            random_seed = env.model_config['Random Seeds']['Synapse Locations'] + gid
+            random_seed = env.model_config['Random Seeds']['Synapse Locations'] + this_gid
 
-            syn_attrs_dict = cell_dicts[gid]['syn_attrs']
-            syn_clusters = cell_syn_clusters[gid]
+            syn_attrs_dict = cell_dicts[this_gid]['syn_attrs']
+            syn_clusters = cell_syn_clusters[this_gid]
             syn_cluster_dict = {syn_id: cluster_id for syn_id, cluster_id in syn_clusters}
             syn_cluster_attrs_dict = defaultdict(lambda: defaultdict(list))
             num_syns = len(syn_cluster_dict)
@@ -207,15 +213,21 @@ def main(config, config_prefix, template_path, output_path, forest_path, structu
             for syn_id, cluster_id in syn_cluster_dict.items():
                 (_, _, syn_type, swc_type, layer, _) = syn_attrs_dict[syn_id]
                 syn_cluster_attrs_dict[(syn_type, swc_type, layer)][cluster_id].append(syn_id)
-        
+
+            cell_sec_dict = cell_dicts[this_gid]['sec_dict']
+            cell_secidx_dict = cell_dicts[this_gid]['secidx_dict']
+            cell_morph_dict = cell_dicts[this_gid]['morph_dict']
+            
             syn_dict, seg_density_per_sec = synapses.distribute_clustered_poisson_synapses(random_seed, env.Synapse_Types,
                                                                                            env.SWC_Types, env.layers,
-                                                                                           density_config_dict, morph_dict,
+                                                                                           density_config_dict, cell_morph_dict,
                                                                                            cell_sec_dict, cell_secidx_dict,
                                                                                            syn_cluster_attrs_dict)
-            
+
+            gid_synapse_dict[this_gid] = syn_dict
+                
             logger.info(f'Rank {rank} took {time.time() - local_time:.01f} s to compute {num_syns} '
-                        f'clustered synapse locations for {population} gid: {gid}')
+                        f'clustered synapse locations for {population} gid: {this_gid}')
             gid_count += 1
 
             
@@ -226,7 +238,7 @@ def main(config, config_prefix, template_path, output_path, forest_path, structu
                 gid_synapse_dict = {}
 
             count += 1
-            if debug and count == 5:
+            if debug and count == 2:
                 break
 
         if not dry_run:

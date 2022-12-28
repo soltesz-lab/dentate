@@ -2551,6 +2551,7 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
 
     debug_flag = False
     secnodes_dict = neurotree_dict['section_topology']['nodes']
+
     for sec, secnodes in viewitems(secnodes_dict):
         if len(secnodes) < 2:
             debug_flag = True
