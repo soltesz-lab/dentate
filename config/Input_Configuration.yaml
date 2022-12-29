@@ -1,7 +1,7 @@
 Number Modules: 10
 Spatial Resolution: 3.0  # cm
 Temporal Resolution: 1.0  # ms
-Equilibration Duration: 250. # ms
+Equilibration Duration: 500. # ms
 Equilibration Filter: "tukey"
 
 # Variances expressed as floor widths of a normal distribution

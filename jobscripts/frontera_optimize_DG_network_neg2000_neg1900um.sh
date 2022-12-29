@@ -50,7 +50,7 @@ cd $SLURM_SUBMIT_DIR
 
 distribute.bash ${SCRATCH}/dentate/optimize_DG_network
 
-ibrun -rr -n 113 \
+mpirun -rr -n 113 \
     python3 optimize_network.py \
     --config-path=$DG_HOME/config/DG_optimize_network_neg2000_neg1900um.yaml \
     --optimize-file-dir=$results_path \

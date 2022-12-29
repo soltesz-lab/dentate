@@ -1100,7 +1100,8 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
         distgfs_params['broker_module_name'] = 'dentate.optimization'
 
     opt_results = distgfs.run(distgfs_params, verbose=verbose, collective_mode="sendrecv",
-                               spawn_workers=True, nprocs_per_worker=nprocs_per_worker)
+                              spawn_workers=True, sequential_spawn=True,
+                              nprocs_per_worker=nprocs_per_worker)
     if opt_results is not None:
         if ProblemRegime[problem_regime] == ProblemRegime.every:
             gid_results_config_dict = {}

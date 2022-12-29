@@ -2,9 +2,9 @@
   expr: a*ltp + (ltd + lnw)
   parameter: [ltp, ltd, lnw]
   const:
-   a: 9.36
+   a: 10.0
 - namespace: ['Normal Weights']
   expr: c*nw
   parameter: [nw]
   const:
-    c: 0.15
+    c: 0.1

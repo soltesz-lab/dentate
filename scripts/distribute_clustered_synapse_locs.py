@@ -8,7 +8,6 @@ from dentate import cells, neuron_utils, synapses, utils
 from dentate.env import Env
 from dentate.neuron_utils import configure_hoc_env
 from dentate.cells import load_cell_template
-from dentate.utils import viewitems
 from dentate import minmax_kmeans
 from neuroh5.io import scatter_read_trees, scatter_read_cell_attributes, append_cell_attributes, read_population_ranges
 import h5py
@@ -73,7 +72,7 @@ def main(config, config_prefix, template_path, output_path, forest_path, structu
     configure_hoc_env(env)
     
     if io_size == -1:
-        io_size = comm.size
+        io_size = env.comm.size
 
     if output_path is None:
         output_path = forest_path
@@ -86,11 +85,11 @@ def main(config, config_prefix, template_path, output_path, forest_path, structu
                 input_file.copy('/H5Types',output_file)
                 input_file.close()
                 output_file.close()
-        comm.barrier()
+        env.comm.barrier()
 
     input_rank_namespace = f"Input Rank Structured Weights {arena_id}"
         
-    (pop_ranges, _) = read_population_ranges(forest_path, comm=comm)
+    (pop_ranges, _) = read_population_ranges(forest_path, comm=env.comm)
 
     for population in populations:
         start_time = time.time()
@@ -110,7 +109,7 @@ def main(config, config_prefix, template_path, output_path, forest_path, structu
 
         cell_dicts = {}
 
-        trees, _ = scatter_read_trees(forest_path, population, topology=True, io_size=io_size)
+        trees, _ = scatter_read_trees(forest_path, population, topology=True, comm=env.comm, io_size=io_size)
         for this_gid, this_morph_dict in trees:
             morph_dict = this_morph_dict
             cell = cells.make_neurotree_hoc_cell(template_class, neurotree_dict=morph_dict, gid=this_gid)
@@ -135,7 +134,7 @@ def main(config, config_prefix, template_path, output_path, forest_path, structu
         syn_attrs = None
         syn_attrs_dict = scatter_read_cell_attributes(forest_path, population,
                                                       namespaces=["Synapse Attributes"],
-                                                      io_size=io_size)
+                                                      comm=env.comm, io_size=io_size)
         for this_gid, this_syn_attrs in syn_attrs_dict["Synapse Attributes"]:
             cell_dicts[this_gid]['syn_attrs'] = this_syn_attrs
 
@@ -144,7 +143,7 @@ def main(config, config_prefix, template_path, output_path, forest_path, structu
         gids = []
         input_rank_attr_dict = scatter_read_cell_attributes(structured_weights_path, population,
                                                             namespaces=[input_rank_namespace],
-                                                            io_size=io_size)
+                                                            comm=env.comm, io_size=io_size)
         
         for this_gid, this_syn_rank_attrs in input_rank_attr_dict[input_rank_namespace]:
 
@@ -163,18 +162,26 @@ def main(config, config_prefix, template_path, output_path, forest_path, structu
             cell_dicts[this_gid]['syn_attrs'] = syn_attrs_dict
             gids.append(this_gid)
 
-        gids = set(gids)
+        num_gids = len(gids)
+        max_n_gids = env.comm.allreduce(num_gids, op=MPI.MAX)
 
         env.comm.barrier()
 
-        count = 0
         cell_syn_clusters = {}
-        for gid in gids:
+        for i in range(max_n_gids):
+
+            this_gid = None
+            if i < num_gids:
+                this_gid = gids[i]
+
+            if this_gid is None:
+                continue
+
             if rank == 0:
-                logger.info(f'Creating synapse clusters for gid {gid}...')
+                logger.info(f'Creating synapse clusters for gid {this_gid}...')
             local_time = time.time()
-            cell_secidx_dict = cell_dicts[gid]['secidx_dict']
-            syn_attrs_dict = cell_dicts[gid]['syn_attrs']
+            cell_secidx_dict = cell_dicts[this_gid]['secidx_dict']
+            syn_attrs_dict = cell_dicts[this_gid]['syn_attrs']
             k = len(cell_secidx_dict['apical'].as_numpy())
             syn_ids = list(syn_attrs_dict.keys())
             num_syns = len(syn_ids)
@@ -184,72 +191,81 @@ def main(config, config_prefix, template_path, output_path, forest_path, structu
             max_size=np.mean(syn_sec_counts)
             clusters, centers = minmax_kmeans.minsize_kmeans(syn_ranks_array, k, 1, max_size=max_size, verbose=verbose)
             if rank == 0:
-                logger.info(f"Rank {rank}: synapse clusters for gid {gid}: {np.unique(clusters, return_counts=True)}; "
+                logger.info(f"Rank {rank}: synapse clusters for gid {this_gid}: {np.unique(clusters, return_counts=True)}; "
                             f"cluster centers: {np.sort(np.concatenate(centers))}")
             logger.info(f'Rank {rank} took {time.time() - local_time:.01f} s to compute clustering for '
-                        f'{num_syns} synapse locations for {population} gid {gid}')
-            cell_syn_clusters[gid] = zip(syn_ids, clusters)
+                        f'{num_syns} synapse locations for {population} gid {this_gid}')
+            cell_syn_clusters[this_gid] = zip(syn_ids, clusters)
 
-            count += 1
-            if debug and count == 2:
+            if debug and i == 2:
                 break
 
         env.comm.barrier()
 
-        count = 0
         gid_count = 0
         gid_synapse_dict = {}
-        for this_gid in gids:
-            local_time = time.time()
+        for i in range(max_n_gids):
 
-            random_seed = env.model_config['Random Seeds']['Synapse Locations'] + this_gid
+            this_gid = None
+            if i < num_gids:
+                this_gid = gids[i]
 
-            syn_attrs_dict = cell_dicts[this_gid]['syn_attrs']
-            syn_clusters = cell_syn_clusters[this_gid]
-            syn_cluster_dict = {syn_id: cluster_id for syn_id, cluster_id in syn_clusters}
-            syn_cluster_attrs_dict = defaultdict(lambda: defaultdict(list))
-            num_syns = len(syn_cluster_dict)
-            # Separate out clusters into syn_type, swc_type, layer
-            for syn_id, cluster_id in syn_cluster_dict.items():
-                (_, _, syn_type, swc_type, layer, _) = syn_attrs_dict[syn_id]
-                syn_cluster_attrs_dict[(syn_type, swc_type, layer)][cluster_id].append(syn_id)
+            if this_gid is not None:
 
-            cell_sec_dict = cell_dicts[this_gid]['sec_dict']
-            cell_secidx_dict = cell_dicts[this_gid]['secidx_dict']
-            cell_morph_dict = cell_dicts[this_gid]['morph_dict']
+                logger.info(f'Rank {rank}: distributing clustered synapses for gid {this_gid}... ')
             
-            syn_dict, seg_density_per_sec = synapses.distribute_clustered_poisson_synapses(random_seed, env.Synapse_Types,
-                                                                                           env.SWC_Types, env.layers,
-                                                                                           density_config_dict, cell_morph_dict,
-                                                                                           cell_sec_dict, cell_secidx_dict,
-                                                                                           syn_cluster_attrs_dict)
+                local_time = time.time()
 
-            assert(len(syn_dict['syn_ids']) == num_syns)
-            gid_synapse_dict[this_gid] = syn_dict
+                random_seed = env.model_config['Random Seeds']['Synapse Locations'] + this_gid
+
                 
-            logger.info(f'Rank {rank} took {time.time() - local_time:.01f} s to compute {num_syns} '
-                        f'clustered synapse locations for {population} gid: {this_gid}')
-            gid_count += 1
+                syn_attrs_dict = cell_dicts[this_gid]['syn_attrs']
+                syn_clusters = cell_syn_clusters[this_gid]
+                syn_cluster_dict = {syn_id: cluster_id for syn_id, cluster_id in syn_clusters}
+                syn_cluster_attrs_dict = defaultdict(lambda: defaultdict(list))
+                num_syns = len(syn_cluster_dict)
+                # Separate out clusters into syn_type, swc_type, layer
+                for syn_id, cluster_id in syn_cluster_dict.items():
+                    (_, _, syn_type, swc_type, layer, _) = syn_attrs_dict[syn_id]
+                    syn_cluster_attrs_dict[(syn_type, swc_type, layer)][cluster_id].append(syn_id)
 
+                cell_sec_dict = cell_dicts[this_gid]['sec_dict']
+                cell_secidx_dict = cell_dicts[this_gid]['secidx_dict']
+                cell_morph_dict = cell_dicts[this_gid]['morph_dict']
             
-            if (not dry_run) and (write_size > 0) and (gid_count % write_size == 0):
+                syn_dict, seg_density_per_sec = synapses.distribute_clustered_poisson_synapses(random_seed, env.Synapse_Types,
+                                                                                               env.SWC_Types, env.layers,
+                                                                                               density_config_dict, cell_morph_dict,
+                                                                                               cell_sec_dict, cell_secidx_dict,
+                                                                                               syn_cluster_attrs_dict)
+
+                assert(len(syn_dict['syn_ids']) == num_syns)
+                gid_synapse_dict[this_gid] = syn_dict
+                
+                logger.info(f'Rank {rank} took {time.time() - local_time:.01f} s to compute {num_syns} '
+                            f'clustered synapse locations for {population} gid: {this_gid}')
+
+                gid_count += 1
+            
+            if (not dry_run) and (write_size > 0) and (i % write_size == 0):
                 append_cell_attributes(output_path, population, gid_synapse_dict,
-                                       namespace='Synapse Attributes', comm=comm, io_size=io_size, 
+                                       namespace='Synapse Attributes', comm=env.comm, io_size=io_size, 
                                        chunk_size=chunk_size, value_chunk_size=value_chunk_size)
                 gid_synapse_dict = {}
 
-            count += 1
-            if debug and count == 2:
+            if debug and i == 2:
                 break
 
+
+        env.comm.barrier()
         if not dry_run:
             append_cell_attributes(output_path, population, gid_synapse_dict,
-                                   namespace='Synapse Attributes', comm=comm, io_size=io_size, 
+                                   namespace='Synapse Attributes', comm=env.comm, io_size=io_size, 
                                    chunk_size=chunk_size, value_chunk_size=value_chunk_size)
 
         global_count = env.comm.reduce(gid_count, op=MPI.SUM, root=0)
         if rank == 0:
-            logger.info(f"target: {population}, {comm.size} ranks took {time.time() - start_time:.01f} s "
+            logger.info(f"target: {population}, {env.comm.size} ranks took {time.time() - start_time:.01f} s "
                         f"to compute clustered synapse locations for {global_count} cells")
 
         env.comm.barrier()
