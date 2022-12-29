@@ -224,6 +224,7 @@ def main(config, config_prefix, template_path, output_path, forest_path, structu
                                                                                            cell_sec_dict, cell_secidx_dict,
                                                                                            syn_cluster_attrs_dict)
 
+            assert(len(syn_dict['syn_ids']) == num_syns)
             gid_synapse_dict[this_gid] = syn_dict
                 
             logger.info(f'Rank {rank} took {time.time() - local_time:.01f} s to compute {num_syns} '

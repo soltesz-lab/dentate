@@ -2458,7 +2458,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
             syn_type = syn_type_dict[syn_type_label]
             seg_density = seg_density_dict[syn_type]
             layers = layers_dict[syn_type]
-            end_distance = {}
+
             for sec_parent, sec_index in sec_edges:
                 interp_loc = sec_interp_loc_dict[sec_index]
                 seg_list = seg_dict[sec_index]
@@ -2500,7 +2500,6 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
                             interval += r.exponential(beta)
                     else:
                         interval = seg_end * L
-                end_distance[sec_index] = (1.0 - syn_loc) * L
 
     assert (len(syn_ids) > 0)
     syn_dict = {'syn_ids': np.asarray(syn_ids, dtype='uint32'),
@@ -2654,16 +2653,18 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                     interval = 0.
                     syn_loc = 0.
                     for seg, layer, density in zip(seg_list, sec_seg_layers, sec_seg_density):
+
+                        if not density > 0.:
+                            continue
                         
                         if current_syn_cluster_type != (syn_type, swc_type, layer):
                             current_syn_cluster_type = (syn_type, swc_type, layer)
                             if current_syn_cluster_type in syn_cluster_dict:
                                 syn_clusters = syn_cluster_dict[current_syn_cluster_type]
                             else:
-                                break
-
+                                continue
                             if len(syn_clusters) == 0:
-                                break
+                                continue
                             current_syn_cluster_id = r.choice(list(syn_clusters.keys()), size=1)[0]
                             current_cluster_syn_ids = syn_clusters[current_syn_cluster_id]
 
@@ -2672,45 +2673,41 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                         L = seg.sec.L
                         L_seg_start = seg_start * L
                         L_seg_end = seg_end * L
-                        if density > 0.:
-                            beta = 1. / density
-                            if interval > 0.:
-                                sample = r.exponential(beta)
-                            else:
-                                while True:
-                                    sample = r.exponential(beta)
-                                    if (sample >= L_seg_start) and (sample < L_seg_end):
+
+                        beta = 1. / density
+                        while True:
+                            sample = r.exponential(beta)
+                            if sample < (L_seg_end - L_seg_start):
+                                break
+                        interval = L_seg_start + sample
+                        while interval < L_seg_end:
+                            syn_loc = (interval / L)
+                            assert ((syn_loc <= 1) and (syn_loc >= seg_start))
+                            if syn_loc < 1.0:
+                                while len(current_cluster_syn_ids) == 0:
+                                    if current_syn_cluster_type not in syn_cluster_dict:
                                         break
-                            interval += sample
-                            while (interval < L_seg_end) and (cluster_syn_ids_count > 0):
-                                if interval >= L_seg_start:
-                                    syn_loc = (interval / L)
-                                    assert ((syn_loc <= 1) and (syn_loc >= seg_start))
-                                    if syn_loc < 1.0:
-                                        while len(current_cluster_syn_ids) == 0:
-                                            syn_clusters = syn_cluster_dict[current_syn_cluster_type]
-                                            if current_syn_cluster_id is not None:
-                                                if (current_syn_cluster_id in syn_clusters) and (len(syn_clusters[current_syn_cluster_id]) == 0):
-                                                    del(syn_clusters[current_syn_cluster_id])
-                                            if len(syn_clusters) == 0:
-                                                break
-                                            current_syn_cluster_id = r.choice(list(syn_clusters.keys()), size=1)[0]
-                                            current_cluster_syn_ids = syn_clusters[current_syn_cluster_id]
-                                        if len(current_cluster_syn_ids) == 0:
-                                            break
-                                        syn_index = current_cluster_syn_ids.pop(0)
-                                        cluster_syn_ids_count -= 1
-                                        syn_cdist = math.sqrt(reduce(lambda a, b: a+b, ( interp_loc[i](syn_loc)**2 for i in range(3) )))
-                                        syn_cdists.append(syn_cdist)
-                                        syn_locs.append(syn_loc)
-                                        syn_ids.append(syn_index)
-                                        syn_secs.append(sec_index)
-                                        syn_layers.append(layer)
-                                        syn_types.append(syn_type)
-                                        swc_types.append(swc_type)
-                                interval += r.exponential(beta)
-                        else:
-                            interval = seg_end * L
+                                    syn_clusters = syn_cluster_dict[current_syn_cluster_type]
+                                    if current_syn_cluster_id is not None:
+                                        if (current_syn_cluster_id in syn_clusters) and (len(syn_clusters[current_syn_cluster_id]) == 0):
+                                            del(syn_clusters[current_syn_cluster_id])
+                                    if len(syn_clusters) == 0:
+                                        break
+                                    current_syn_cluster_id = r.choice(list(syn_clusters.keys()), size=1)[0]
+                                    current_cluster_syn_ids = syn_clusters[current_syn_cluster_id]
+                                if len(current_cluster_syn_ids) == 0:
+                                    break
+                                syn_index = current_cluster_syn_ids.pop(0)
+                                cluster_syn_ids_count -= 1
+                                syn_cdist = math.sqrt(reduce(lambda a, b: a+b, ( interp_loc[i](syn_loc)**2 for i in range(3) )))
+                                syn_cdists.append(syn_cdist)
+                                syn_locs.append(syn_loc)
+                                syn_ids.append(syn_index)
+                                syn_secs.append(sec_index)
+                                syn_layers.append(layer)
+                                syn_types.append(syn_type)
+                                swc_types.append(swc_type)
+                            interval += r.exponential(beta)
 
                     end_distance[sec_index] = (1.0 - syn_loc) * L
 
