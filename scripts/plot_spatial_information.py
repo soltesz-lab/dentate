@@ -57,9 +57,17 @@ def main(config, config_prefix, spike_events_path, spike_events_namespace, spike
     """
     utils.config_logging(verbose)
 
+    if t_max is None:
+        time_range = None
+    else:
+        if t_min is None:
+            time_range = [0.0, t_max]
+        else:
+            time_range = [t_min, t_max]
+
     plot.plot_spatial_information(spike_events_path, spike_events_namespace, trajectory_path, arena_id, trajectory_id,
                                   populations=populations, include_artificial=include_artificial, position_bin_size=bin_size,
-                                  spike_train_attr_name=spike_train_attr_name, time_range=[t_min, t_max],
+                                  spike_train_attr_name=spike_train_attr_name, time_range=time_range,
                                   fontSize=font_size, verbose=verbose, output_file_path=output_file_path,
                                   saveFig=save_fig, figFormat=fig_format, figSize=fig_size)
 

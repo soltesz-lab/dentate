@@ -1880,8 +1880,8 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
             for (gid, cell_state_dict) in viewitems(pop_states):
                 nss = sorted(cell_state_dict.keys())
                 cell_state_x = cell_state_dict[nss[0]][time_variable]
-                cell_state_mat = np.matrix([np.mean(np.row_stack(cell_state_dict[ns][state_variable]), axis=0),
-                                           for ns in nss], dtype=np.float32)
+                cell_state_mat = np.matrix([np.mean(np.row_stack(cell_state_dict[ns][state_variable]), axis=0)
+                                            for ns in nss], dtype=np.float32)
                 cell_state_distances = [cell_state_dict[ns]['distance'] for ns in nss]
                 cell_state_ri = [cell_state_dict[ns]['ri'] for ns in nss]
                 cell_state_labels = [f'{ns} {state_variable}' for ns in nss]
@@ -3937,8 +3937,9 @@ def plot_spatial_information(spike_input_path, spike_namespace_id, trajectory_pa
     if populations is None:
         populations = list(population_names)
 
-    this_spike_namespace = '%s %s %s' % (spike_namespace_id, arena_id, trajectory_id)
+    this_spike_namespace = spike_namespace_id
 
+    
     spkdata = spikedata.read_spike_events(spike_input_path, populations, this_spike_namespace, include_artificial=include_artificial,
                                           spike_train_attr_name=spike_train_attr_name, time_range=time_range)
 
@@ -3982,6 +3983,8 @@ def plot_spatial_information(spike_input_path, spike_namespace_id, trajectory_pa
         MI_array = np.asarray(MI_lst, dtype=np.float32)
         del MI_lst
 
+        logger.info(f"Mean MI is {np.mean(MI_array)}")
+        
         label = str(subset) + ' (%i active; mean MI %.2f bits)' % (len(pop_active_cells[subset]), np.mean(MI_array))
         plt.subplot(len(spkpoplst), 1, iplot + 1)
         plt.title(label, fontsize=fig_options.fontSize)
