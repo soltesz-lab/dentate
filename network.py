@@ -199,9 +199,17 @@ def connect_cells(env):
                                                                  node_allocation=env.node_allocation,
                                                                  return_type='tuple')
 
+            cluster_attrs_iter, cluster_attrs_index = cluster_attr_dict[cluster_namespace]
 
-            for gid, cell_cluster_attr_dict in cluster_attr_dict[cluster_namespace]:
-                syn_attrs.modify_syn_locs(gid, **cell_cluster_attr_dict)
+            syn_ids_ind = cluster_attrs_index.get('syn_ids', None)
+            syn_locs_ind = cluster_attrs_index.get('syn_locs', None)
+            syn_secs_ind = cluster_attrs_index.get('syn_secs', None)
+
+            for gid, cell_cluster_attrs in cluster_attrs_iter:
+                syn_ids = cell_cluster_attrs[syn_ids_ind]
+                syn_locs = cell_cluster_attrs[syn_locs_ind]
+                syn_secs = cell_cluster_attrs[syn_secs_ind]
+                syn_attrs.modify_syn_locs(gid, syn_ids=syn_ids, syn_locs=syn_locs, syn_secs=syn_secs)
 
 
         weight_attr_mask = list(syn_attrs.syn_mech_names)
