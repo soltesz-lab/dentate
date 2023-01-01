@@ -108,6 +108,12 @@ def connect_cells(env):
         if 'weights' in synapse_config:
             has_weights = True
             weight_dicts = synapse_config['weights']
+        
+        has_clusters = False
+        cluster_config = None
+        if 'clusters' in synapse_config:
+            has_clusters = True
+            cluster_config = synapse_config['clusters']
 
         if rank == 0:
             logger.info(f'*** Reading synaptic attributes of population {postsyn_name}')
@@ -171,6 +177,33 @@ def connect_cells(env):
                 syn_attrs_iter, syn_attrs_info = cell_attributes_dict['Synapse Attributes']
                 syn_attrs.init_syn_id_attrs_from_iter(syn_attrs_iter, attr_type='tuple', 
                                                       attr_tuple_index=syn_attrs_info, debug=(rank == 0))
+
+        cluster_dicts = {}
+        if has_clusters:
+
+            cluster_namespace = cluster_config['namespace']
+            cluster_namespaces = [cluster_namespace]
+            cluster_attr_mask = set(['syn_ids', 'syn_locs', 'syn_secs'])
+
+            if env.node_allocation is None:
+                cluster_attr_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
+                                                                 namespaces=cluter_namespaces, 
+                                                                 mask=cluster_attr_mask,
+                                                                 comm=env.comm, io_size=env.io_size,
+                                                                 return_type='tuple')
+            else:
+                cluster_attr_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
+                                                                 namespaces=cluster_namespaces, 
+                                                                 mask=cluster_attr_mask,
+                                                                 comm=env.comm, io_size=env.io_size,
+                                                                 node_allocation=env.node_allocation,
+                                                                 return_type='tuple')
+
+
+            for gid, cell_cluster_attr_dict in cluster_attr_dict[cluster_namespace]:
+                syn_attrs.modify_syn_locs(gid, **cell_cluster_attr_dict)
+
+
         weight_attr_mask = list(syn_attrs.syn_mech_names)
         weight_attr_mask.append('syn_id')
         
@@ -228,6 +261,8 @@ def connect_cells(env):
                     expr_closure = None
                     append_weights = True
                     multiple_weights='overwrite'
+
+
 
         env.edge_count[postsyn_name] = 0
         for presyn_name in presyn_names:
