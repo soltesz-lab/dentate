@@ -104,7 +104,7 @@ def compute_centers(clusters, dataset):
             centers[j][i] = centers[j][i]/float(counts[j])
     return clusters, centers
 
-def minsize_kmeans(dataset, k, max_n_iter=5, min_size=0, max_size=None, time_limit=600, verbose=True):
+def minsize_kmeans(dataset, k, max_n_iter=5, min_size=0, max_size=None, time_limit=900, verbose=True):
     n = len(dataset)
     if max_size == None:
         max_size = n
