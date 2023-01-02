@@ -315,11 +315,11 @@ Synaptic Optimization:
        MOPP:
           apical:
             GABA_A:
-              weight: [0.1, 20.0]
+              weight: [0.1, 10.0]
        HCC:
           apical:
             GABA_A:
-              weight: [0.1, 20.0]
+              weight: [0.1, 10.0]
        BC:
           !!python/tuple [soma, apical]:
             GABA_A:
