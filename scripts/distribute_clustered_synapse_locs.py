@@ -42,7 +42,7 @@ mpi_op_merge_dict = MPI.Op.Create(merge_dict, commute=True)
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
-@click.option("--write-size", type=int, default=1)
+@click.option("--write-size", type=int, default=0)
 @click.option("--attr-gen-cache-size", type=int, default=10)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
@@ -240,6 +240,9 @@ def main(config, config_prefix, template_path, output_path, forest_path, structu
             syn_sec_ids, syn_sec_counts = np.unique(syn_secs_array, return_counts=True)
             max_size=np.mean(syn_sec_counts)
             clusters, centers = minmax_kmeans.minsize_kmeans(syn_ranks_array, k, 1, max_size=max_size, verbose=verbose)
+            if clusters is None:
+                continue
+
             if rank == 0:
                 logger.info(f"Rank {rank}: synapse clusters for gid {this_gid}: {np.unique(clusters, return_counts=True)}; "
                             f"cluster centers: {np.sort(np.concatenate(centers))}")
@@ -247,7 +250,7 @@ def main(config, config_prefix, template_path, output_path, forest_path, structu
                         f'{num_syns} synapse locations for {population} gid {this_gid}')
             cell_syn_clusters[this_gid] = zip(syn_ids, clusters)
 
-            if debug and i == 2:
+            if debug and i >= 2:
                 break
 
         env.comm.barrier()
@@ -270,6 +273,9 @@ def main(config, config_prefix, template_path, output_path, forest_path, structu
 
                 
                 syn_attrs_dict = cell_dicts[this_gid]['syn_attrs']
+                if this_gid not in cell_syn_clusters:
+                    continue
+
                 syn_clusters = cell_syn_clusters[this_gid]
                 syn_cluster_dict = {syn_id: cluster_id for syn_id, cluster_id in syn_clusters}
                 syn_cluster_attrs_dict = defaultdict(lambda: defaultdict(list))
