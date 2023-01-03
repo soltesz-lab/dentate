@@ -2,8 +2,8 @@
 
 NEURON {
 	SUFFIX Ca_conc_PR
-	USEION ca READ ica, cao WRITE eca, cai
-	RANGE cai0, cai, eca, d
+	USEION ca READ ica WRITE cai
+	RANGE cai0, cai, d, beta, irest
 }
 
 UNITS {
@@ -17,6 +17,7 @@ UNITS {
 
 PARAMETER {
 	cai0 = 1e-5 	(mM)
+	:cao0 = 10.0 	(mM)
         d = 13 (mM)
         beta = 0.075       (/ms)
 }
@@ -24,28 +25,32 @@ PARAMETER {
 ASSIGNED {
 	v			(mV)
 	ica			(mA/cm2)
-	eca			(mV)
-	cao			(mM)
+	irest  (mA/cm2)
         celsius (degC)
     }
 
 STATE {
 	cai (mM) <1e-5>
+        :cao (mM)
     }
     
-BREAKPOINT {
-        SOLVE state METHOD derivimplicit
+BREAKPOINT { 
+    SOLVE state METHOD derivimplicit
 }
 
-DERIVATIVE state {
-	cai' = -d*10*ica - beta*(cai - cai0)
+DERIVATIVE state { LOCAL channel_flow
+    
+    channel_flow = -d*10*(ica - irest)
+    if (channel_flow < 0) {
+        channel_flow = 0
+    }
+    cai' = channel_flow - beta*(cai - cai0)
+    :cao' = -channel_flow - beta*(cao - cao0)
 }
+
 
 INITIAL {
     cai = cai0
-    eca = ktf() * log(cao/(cai + 1e-8))
-    }
-    
-FUNCTION ktf() (mV) {
-        ktf = (1000)*R*(celsius +273.15)/(2*F)
+    irest = ica
+    :cao = cao0
 }

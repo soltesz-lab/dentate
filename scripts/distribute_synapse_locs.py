@@ -1,6 +1,5 @@
 import os, sys, gc, logging, string, time, itertools
 from mpi4py import MPI
-from neuroh5.io import NeuroH5TreeGen, append_cell_attributes, read_population_ranges
 import click
 from collections import defaultdict
 import numpy as np
@@ -9,7 +8,8 @@ from dentate import cells, neuron_utils, synapses, utils
 from dentate.env import Env
 from dentate.neuron_utils import configure_hoc_env
 from dentate.cells import load_cell_template
-from dentate.utils import *
+from dentate.utils import viewitems
+from neuroh5.io import NeuroH5TreeGen, append_cell_attributes, read_population_ranges
 import h5py
 
 sys_excepthook = sys.excepthook

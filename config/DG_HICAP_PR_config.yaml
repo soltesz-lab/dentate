@@ -1,20 +1,23 @@
 PinskyRinzel:
-  pp: 0.51878905
-  Ltotal: 31.967188
-  gc: 82.90774
-  soma_gmax_Na: 0.28539532
-  soma_gmax_K: 0.37392452
-  soma_g_pas: 2.3354687e-05
-  dend_gmax_Ca: 0.03519767
-  dend_gmax_KCa: 0.29721245
-  dend_gmax_KAHP: 0.0032440515
-  dend_g_pas: 1.8817187e-05
-  dend_d_Caconc: 14.328125
-  cm_ratio: 22.15875
-  ic_constant: -0.00708523
-  global_diam:  10.0
-  global_cm:  1.0
-  e_pas: -66
+  pp: 0.7856749892234802
+  Ltotal: 14.101363182067871
+  gc: 20.320955276489258
+  soma_gmax_Na: 0.39597681164741516
+  soma_gmax_K: 0.19430649280548096
+  soma_g_pas: 0.0020959090907126665
+  dend_gmax_Ca: 0.14414532482624054
+  dend_gmax_KCa: 0.49631819128990173
+  dend_gmax_KAHP: 0.37368807196617126
+  dend_g_pas: 0.0032740908209234476
+  cm_ratio: 9.31640911102295
+  dend_bq_KAHP: 0.001
+  dend_aqs_KAHP: 2.0e-05
+  dend_d_Caconc: 13.0
+  dend_beta_Caconc: 0.075
+  global_diam: 10.0
+  global_cm: 3.0
+  e_pas: -66.0
+  ic_constant: -0.0025891932
   V_rest: -66.0
-  V_threshold: -43.0
+  V_threshold: -40.0
   

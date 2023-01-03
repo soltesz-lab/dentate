@@ -579,7 +579,7 @@ class PRneuron(object):
     An implementation of a Pinsky-Rinzel-type reduced biophysical neuron model for simulation in NEURON.
     Conforms to the same API as BiophysCell.
     """
-    def __init__(self, gid, pop_name, env=None, cell_config=None, mech_dict=None):
+    def __init__(self, gid, pop_name, template_name="PR_nrn", env=None, cell_config=None, mech_dict=None):
         """
 
         :param gid: int
@@ -608,24 +608,31 @@ class PRneuron(object):
         if not isinstance(cell_config, PRconfig):
             raise RuntimeError('PRneuron: argument cell_attrs must be of type PRconfig')
 
-        param_dict = { 'pp': cell_config.pp,
-                       'Ltotal': cell_config.Ltotal,
-                       'gc': cell_config.gc,
-                       'soma_gmax_Na': cell_config.soma_gmax_Na,
-                       'soma_gmax_K': cell_config.soma_gmax_K,
-                       'soma_g_pas': cell_config.soma_g_pas,
-                       'dend_gmax_Ca': cell_config.dend_gmax_Ca,
-                       'dend_gmax_KCa': cell_config.dend_gmax_KCa,
-                       'dend_gmax_KAHP': cell_config.dend_gmax_KAHP,
-                       'dend_g_pas':  cell_config.dend_g_pas,
-                       'dend_d_Caconc':  cell_config.dend_d_Caconc,
-                       'cm_ratio':  cell_config.cm_ratio,
-                       'global_cm':  cell_config.global_cm,
-                       'global_diam':  cell_config.global_diam,
-                       'e_pas':  cell_config.e_pas,
-        }
+        param_dict = { k: v for k,v in
+                       (('pp', cell_config.pp),
+                        ('Ltotal', cell_config.Ltotal),
+                        ('gc', cell_config.gc),
+                        ('soma_gmax_Na', cell_config.soma_gmax_Na),
+                        ('soma_gmax_K', cell_config.soma_gmax_K),
+                        ('soma_g_pas', cell_config.soma_g_pas),
+                        ('dend_gmax_Ca', cell_config.dend_gmax_Ca),
+                        ('dend_gmax_KCa', cell_config.dend_gmax_KCa),
+                        ('dend_gmax_KAHP', cell_config.dend_gmax_KAHP),
+                        ('dend_gmax_HCN', cell_config.dend_gmax_HCN),
+                        ('dend_aqs_KAHP', cell_config.dend_aqs_KAHP),
+                        ('dend_bq_KAHP', cell_config.dend_bq_KAHP),
+                        ('dend_g_pas',  cell_config.dend_g_pas),
+                        ('dend_d_Caconc',  cell_config.dend_d_Caconc),
+                        ('dend_beta_Caconc',  cell_config.dend_beta_Caconc),
+                        ('cm_ratio',  cell_config.cm_ratio),
+                        ('global_cm',  cell_config.global_cm),
+                        ('global_diam',  cell_config.global_diam),
+                        ('e_pas',  cell_config.e_pas),
+                       ) if v is not None  }
 
-        PR_nrn = h.PR_nrn(param_dict)
+        template_class = getattr(h, template_name)
+
+        PR_nrn = template_class(param_dict)
         PR_nrn.soma.ic_constant = cell_config.ic_constant
 
         self.hoc_cell = PR_nrn
@@ -2896,12 +2903,19 @@ def load_biophys_cell_dicts(env, pop_name, gid_set, load_connections=True, valid
     if 'weights' in synapse_config:
         has_weights = True
         weights_config = synapse_config['weights']
+        
+    has_clusters = False
+    cluster_config = None
+    if 'clusters' in synapse_config:
+        has_clusters = True
+        cluster_config = synapse_config['clusters']
 
     ## Loads cell morphological data, synaptic attributes and connection data
 
     tree_dicts = {}
     synapses_dicts = {}
     weight_dicts = {}
+    cluster_dicts = {}
     connection_graphs = { gid: { pop_name: {} } for gid in gid_set }
     graph_attr_info = None
     
@@ -2921,6 +2935,15 @@ def load_biophys_cell_dicts(env, pop_name, gid_set, load_connections=True, valid
         for gid, attr_dict in synapses_iter:
             synapses_dicts[gid] = attr_dict
 
+        if has_clusters:
+            cluster_namespace = cluster_config['namespace']
+            cluster_iter = read_cell_attribute_selection(env.data_file_path, pop_name,
+                                                         gid_list, cluster_namespace,
+                                                         mask=set(['syn_ids', 'syn_locs', 'syn_secs']),
+                                                         comm=env.comm)
+            for gid, attr_dict in cluster_iter:
+                cluster_dicts[gid] = { cluster_namespace: attr_dict }
+            
         if has_weights:
             for config in weights_config:
                 weights_namespaces = config['namespace']
@@ -2951,11 +2974,13 @@ def load_biophys_cell_dicts(env, pop_name, gid_set, load_connections=True, valid
         
         if load_connections:
             synapses_dict = synapses_dicts[gid]
+            cluster_dict = cluster_dicts.get(gid, None)
             weight_dict = weight_dicts.get(gid, None)
             connection_graph = connection_graphs[gid]
             this_cell_dict['synapse'] = synapses_dict
             this_cell_dict['connectivity'] = connection_graph, graph_attr_info
             this_cell_dict['weight'] = weight_dict
+            this_cell_dict['cluster'] = cluster_dict
         cell_dicts[gid] = this_cell_dict
         
     
@@ -2965,6 +2990,7 @@ def load_biophys_cell_dicts(env, pop_name, gid_set, load_connections=True, valid
 def init_circuit_context(env, pop_name, gid,
                          load_edges=False, connection_graph=None,
                          load_weights=False, weight_dict=None,
+                         load_clusters=False, cluster_dict=None,
                          load_synapses=False, synapses_dict=None,
                          set_edge_delays=True, **kwargs):
     
@@ -2976,9 +3002,16 @@ def init_circuit_context(env, pop_name, gid,
     if 'weights' in synapse_config:
         has_weights = True
         weight_config = synapse_config['weights']
+        
+    has_clusters = False
+    cluster_config = None
+    if 'clusters' in synapse_config:
+        has_clusters = True
+        cluster_config = synapse_config['clusters']
 
     init_synapses = False
     init_weights = False
+    init_clusters = False
     init_edges = False
     if load_edges or (connection_graph is not None):
         init_synapses=True
@@ -2986,6 +3019,9 @@ def init_circuit_context(env, pop_name, gid,
     if has_weights and (load_weights or (weight_dict is not None)):
         init_synapses=True
         init_weights=True
+    if has_clusters and (load_clusters or (cluster_dict is not None)):
+        init_synapses=True
+        init_clusters=True
     if load_synapses or (synapses_dict is not None):
         init_synapses=True
 
@@ -3003,6 +3039,31 @@ def init_circuit_context(env, pop_name, gid,
         else:
             raise RuntimeError("init_circuit_context: invalid synapses parameters")
             
+    if init_clusters and has_clusters:
+
+        cluster_namespace = cluster_config['namespace']
+
+        if cluster_dict is not None:
+            if cluster_namespace in cluster_dict:
+                cell_cluster_dict = cluster_dict[cluster_namespace] 
+                syn_attrs.modify_syn_locs(gid, **cell_cluster_dict)
+
+        elif load_clusters:
+            if (env.data_file_path is None):
+                raise RuntimeError('init_circuit_context: load_=True but data file path is not specified ')
+                
+            cell_clusters_iter = read_cell_attribute_selection(env.data_file_path, pop_name, 
+                                                               selection=[gid], 
+                                                               namespace=cluster_namespace,
+                                                               mask=set(['syn_ids', 'syn_locs', 'syn_secs']),
+                                                               comm=env.comm)
+            for cell_clusters_gid, cell_cluster_dict in cell_clusters_iter:
+                assert(cell_clusters_gid == gid)
+                syn_attrs.modify_syn_locs(gid, **cell_cluster_dict)
+                
+        else:
+            raise RuntimeError("init_circuit_context: unable to get cluster information")
+                    
 
     if init_weights and has_weights:
 
@@ -3088,6 +3149,7 @@ def make_biophys_cell(env, pop_name, gid,
                       load_synapses=False, synapses_dict=None, 
                       load_edges=False, connection_graph=None,
                       load_weights=False, weight_dict=None, 
+                      load_clusters=False, cluster_dict=None, 
                       set_edge_delays=True, bcast_template=True,
                       validate_tree=True,
                       **kwargs):
@@ -3121,6 +3183,7 @@ def make_biophys_cell(env, pop_name, gid,
                              load_synapses=load_synapses, synapses_dict=synapses_dict,
                              load_edges=load_edges, connection_graph=connection_graph,
                              load_weights=load_weights, weight_dict=weight_dict, 
+                             load_clusters=load_clusters, cluster_dict=cluster_dict, 
                              set_edge_delays=set_edge_delays, **kwargs)
     
     env.biophys_cells[pop_name][gid] = cell
@@ -3213,9 +3276,10 @@ def make_PR_cell(env, pop_name, gid, mech_file_path=None, mech_dict=None,
     :param load_edges: bool
     :param load_weights: bool
     :param set_edge_delays: bool
-    :return: :class:'IzhikevichCell'
+    :return: :class:'PRneuron'
     """
     load_cell_template(env, pop_name, bcast_template=bcast_template)
+    template_name = env.celltypes[pop_name]['template']
 
     if mech_dict is None and mech_file_path is None:
         raise RuntimeError('make_PR_cell: mech_dict or mech_file_path must be specified')
@@ -3223,7 +3287,7 @@ def make_PR_cell(env, pop_name, gid, mech_file_path=None, mech_dict=None,
     if mech_dict is None and mech_file_path is not None:
         mech_dict = read_from_yaml(mech_file_path)
 
-    cell = PRneuron(gid=gid, pop_name=pop_name, env=env,
+    cell = PRneuron(gid=gid, pop_name=pop_name, env=env, template_name=template_name,
                     cell_config=PRconfig(**mech_dict['PinskyRinzel']),
                     mech_dict={ k: mech_dict[k] for k in mech_dict if k != 'PinskyRinzel' })
 
@@ -3374,10 +3438,11 @@ def record_cell(env, pop_name, gid, recording_profile=None):
                 syn_filters = recdict.get('syn_filters', {})
                 syn_sections = recdict.get('sections', None)
                 synapses = syn_attrs.filter_synapses(gid, syn_sections=syn_sections, **syn_filters)
-                syn_names = recdict.get('syn names', syn_attrs.syn_name_index_dict.keys())
+                syn_names = recdict.get('syn names', list(syn_attrs.syn_name_index_dict.keys()))
                 for syn_id, syn in viewitems(synapses):
                     syn_swc_type_name = env.SWC_Type_index[syn.swc_type]
                     syn_section = syn.syn_section
+                    pps = None
                     for syn_name in syn_names:
                         pps = syn_attrs.get_pps(gid, syn_id, syn_name, throw_error=False)
                         if (pps is not None) and (pps not in env.recs_pps_set):
@@ -3390,6 +3455,7 @@ def record_cell(env, pop_name, gid, recording_profile=None):
                             env.recs_count += 1
                             env.recs_pps_set.add(pps)
                             recs.append(rec)
+                            break
                 
     return recs
     

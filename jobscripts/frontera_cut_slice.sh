@@ -10,12 +10,12 @@
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
-module load python3
+module load python3/3.9.2
 module load phdf5
 
 set -x
 
-export NEURONROOT=$HOME/bin/nrnpython3_intel19
+export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
 export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
 export PATH=$NEURONROOT/bin:$PATH
 
@@ -37,13 +37,12 @@ mkdir -p $results_path
 
 ibrun python3 ./scripts/cut_slice.py \
     --arena-id=A --trajectory-id=Diag \
-    --config=Full_Scale_GC_Aradi_SLN_IN_PR.yaml \
+    --config=Full_Scale_GC_Exc_Sat_SynExp3NMDA2_IN_PR.yaml \
     --config-prefix=./config \
     --dataset-prefix="$SCRATCH/striped2/dentate" \
     --output-path=$results_path \
-    --io-size=24 \
-    --spike-input-path="$SCRATCH/striped2/dentate/Full_Scale_Control/DG_input_spike_trains_phasemod_20220109_compressed.h\
-5" \
+    --io-size=36 \
+    --spike-input-path="$SCRATCH/striped2/dentate/Full_Scale_Control/DG_input_spike_trains_phasemod_20220228_compressed.h5" \
     --spike-input-namespace='Input Spikes A Diag' \
     --spike-input-attr="Spike Train" \
     --distance-limits -2000 -1900 \

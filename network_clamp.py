@@ -166,7 +166,6 @@ def init_inputs_from_features(env, presyn_sources, time_range,
                               spike_train_attr_name='t', n_trials=1, seed=None):
     """Initializes presynaptic spike sources from a file with input selectivity features represented as firing rates."""
 
-    logger.info(f'init_inputs_from_features: seed = {seed}')
     populations = sorted(presyn_sources.keys())
 
     if time_range is not None:
@@ -609,7 +608,7 @@ def run_with(env, param_dict, cvode=False, pc_runworker=False):
     syn_attrs = env.synapse_attributes
     for pop_name in param_dict:
         for gid in param_dict[pop_name]:
-            stash_id = syn_attrs.stash_mech_attrs(pop_name, gid)
+            stash_id = syn_attrs.stash_syn_attrs(pop_name, gid)
             stash_id_dict[pop_name][gid] = stash_id
     update_params(env, param_dict)
 
@@ -669,7 +668,7 @@ def run_with(env, param_dict, cvode=False, pc_runworker=False):
     for pop_name in param_dict:
         for gid in param_dict[pop_name]:
             stash_id = stash_id_dict[pop_name][gid]
-            syn_attrs.restore_mech_attrs(pop_name, gid, stash_id)
+            syn_attrs.restore_syn_attrs(pop_name, gid, stash_id)
             synapses.config_biophys_cell_syns(env, gid, pop_name, insert=False)
 
     return spikedata.get_env_spike_dict(env, include_artificial=None)
@@ -1101,7 +1100,8 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
         distgfs_params['broker_module_name'] = 'dentate.optimization'
 
     opt_results = distgfs.run(distgfs_params, verbose=verbose, collective_mode="sendrecv",
-                               spawn_workers=True, nprocs_per_worker=nprocs_per_worker)
+                              spawn_workers=True, sequential_spawn=True,
+                              nprocs_per_worker=nprocs_per_worker)
     if opt_results is not None:
         if ProblemRegime[problem_regime] == ProblemRegime.every:
             gid_results_config_dict = {}

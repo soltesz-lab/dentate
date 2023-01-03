@@ -11,14 +11,13 @@
 #SBATCH --mail-type=BEGIN
 #
 
-module load intel/18.0.5
-module load gcc/9.1.0
+module load python3/3.9.2
 module load phdf5/1.10.4
 
 
-export NEURONROOT=$SCRATCH/bin/nrnpython3_gcc9
-export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/gcc9:$PYTHONPATH
-export PATH=$NEURONROOT/x86_64/bin:$PATH
+export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
+export PATH=$NEURONROOT/bin:$PATH
 
 set -x
 
@@ -32,8 +31,8 @@ export I_MPI_ADJUST_ALLGATHER=4
 ibrun python3 ./scripts/generate_distance_connections.py \
     --config-prefix=./config \
     --config=Full_Scale_Basis.yaml \
-    --forest-path=$DATA_PREFIX/Full_Scale_Control/DG_IN_forest_syns_20211026.h5 \
-    --connectivity-path=$DATA_PREFIX/Full_Scale_Control/DG_IN_connections_20211116.h5 \
+    --forest-path=$DATA_PREFIX/Full_Scale_Control/DG_IN_forest_syns_20211026_compressed.h5 \
+    --connectivity-path=$DATA_PREFIX/Full_Scale_Control/DG_IN_connections_20221210.h5 \
     --connectivity-namespace=Connections \
     --coords-path=$DATA_PREFIX/Full_Scale_Control/DG_coords_20190717_compressed.h5 \
     --coords-namespace=Coordinates \

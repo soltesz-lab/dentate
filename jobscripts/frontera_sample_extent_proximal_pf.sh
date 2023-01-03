@@ -10,8 +10,8 @@
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
-module load python3
-module load phdf5
+module load phdf5/1.10.4
+module load python3/3.9.2
 
 set -x
 
@@ -28,12 +28,12 @@ cd $SLURM_SUBMIT_DIR
 
 ibrun -np 16  python3 ./scripts/sample_extent.py \
     --arena-id='A' --trajectory-id=Diag \
-    --config=Full_Scale_GC_Aradi_SLN_IN_PR.yaml \
+    --config=Full_Scale_GC_Exc_Sat_SynExp3NMDA2_IN_PR.yaml \
     --config-prefix=./config \
     --dataset-prefix="$DATA_PREFIX" \
     --output-path=$results_path \
-    --input-features-path="$DATA_PREFIX/Full_Scale_Control/DG_input_features_20220131_compressed.h5" \
-    --spike-input-path="$DATA_PREFIX/Full_Scale_Control/DG_input_spike_trains_phasemod_20220201_compressed.h5"  \
+    --input-features-path="$DATA_PREFIX/Full_Scale_Control/DG_input_features_20220216.h5" \
+    --spike-input-path="$DATA_PREFIX/Full_Scale_Control/DG_input_spike_trains_phasemod_20220228_compressed.h5"  \
     --spike-input-namespace='Input Spikes A Diag' \
     --output-path=${results_path} \
     --bin-sample-proximal-pf \

@@ -576,6 +576,12 @@ def write_connection_selection(env, write_selection_file_path, populations=None,
         if 'weights' in synapse_config:
             has_weights = True
             weight_dicts = synapse_config['weights']
+            
+        input_rank_dicts = []
+        has_input_rank = False
+        if 'input rank' in synapse_config:
+            has_input_rank = True
+            input_rank_dicts = synapse_config['input rank']
 
         if rank == 0:
             logger.info('*** Reading synaptic attributes for population %s' % (postsyn_name))
@@ -610,6 +616,28 @@ def write_connection_selection(env, write_selection_file_path, populations=None,
                                           namespace=weights_namespace, **write_kwds)
                     del weight_attributes_output_dict
                     del syn_weights_iter
+
+        if has_input_rank:
+            
+            for input_rank_dict in input_rank_dicts:
+
+                input_rank_namespace = input_rank_dict['namespace']
+
+                if rank == 0:
+                    logger.info(f'*** Reading synaptic input rank of population {postsyn_name} '
+                                f'from namespace {input_rank_namespace}')
+
+                cell_attr_iter = scatter_read_cell_attribute_selection(forest_file_path, postsyn_name,
+                                                                       namespace=input_rank_namespace, 
+                                                                       selection=gid_range,
+                                                                       comm=env.comm, io_size=env.io_size)
+
+                input_rank_attributes_output_dict = dict(list(cell_attr_iter))
+                write_cell_attributes(write_selection_file_path, postsyn_name,
+                                      input_rank_attributes_output_dict, 
+                                      namespace=input_rank_namespace, **write_kwds)
+                del input_rank_attributes_output_dict
+                del cell_attr_iter
 
                 
         logger.info('*** Rank %i: reading connectivity selection from file %s for postsynaptic population: %s: selection: %s' % (rank, connectivity_file_path, postsyn_name, str(gid_range)))

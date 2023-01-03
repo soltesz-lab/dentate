@@ -47,7 +47,7 @@ def debug_callback(context):
 def merge_dict(d1, d2, datatype):
     dd = {}
     for d in (d1, d2):
-        dd.update(d1)
+        dd.update(d)
     return dd
 
 def merge_count_dict(d1, d2, datatype):

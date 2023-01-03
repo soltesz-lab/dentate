@@ -8,8 +8,8 @@ from dentate.nnls import nnls_gdal
 from dentate.cells import get_distance_to_node, get_donor, get_mech_rules_dict, get_param_val_by_distance, \
     import_mech_dict_from_file, make_section_graph, custom_filter_if_terminal, \
     custom_filter_modify_slope_if_terminal, custom_filter_by_branch_order
-from dentate.neuron_utils import h, default_ordered_sec_types, mknetcon, mknetcon_vecstim, interplocs
-from dentate.utils import ExprClosure, Promise, NamedTupleWithDocstring, get_module_logger, generator_ifempty, map, range, str, \
+from dentate.neuron_utils import h, default_ordered_sec_types, mknetcon, mknetcon_vecstim, interplocs, list_find
+from dentate.utils import KDDict, ExprClosure, Promise, NamedTupleWithDocstring, get_module_logger, generator_ifempty, map, range, str, \
      viewitems, viewkeys, zip, zip_longest, partitionn, rejection_sampling
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -107,7 +107,7 @@ class SynapseAttributes(object):
         self.syn_name_index_dict = {label: index for index, label in enumerate(syn_mech_names)}  # int : mech_name dict
         self.syn_id_attr_dict = defaultdict(lambda: defaultdict(lambda: None))
         self.syn_id_attr_backup_dict = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: None)))
-        self.sec_dict = defaultdict(lambda: defaultdict(lambda: []))
+        self.sec_dict = defaultdict(lambda: defaultdict(lambda: dict()))
         self.pps_dict = defaultdict(lambda: defaultdict(lambda: SynapsePointProcess(mech={}, netcon={}, vecstim={})))
         self.presyn_names = {id: name for name, id in viewitems(env.Populations)}
         self.filter_cache = {}
@@ -175,9 +175,24 @@ class SynapseAttributes(object):
                 syn = Synapse(syn_type=syn_type, syn_layer=syn_layer, syn_section=syn_sec, syn_loc=syn_loc,
                               swc_type=swc_type, source=SynapseSource(), attr_dict=defaultdict(dict))
                 syn_dict[syn_id] = syn
-                sec_dict[syn_sec].append((syn_id, syn))
+                sec_dict[syn_sec][syn_id] = syn
 
 
+    def modify_syn_locs(self, gid, syn_ids, syn_secs, syn_locs):
+        """
+        Modifies synaptic section and location for existing synapses.
+        """
+        syn_dict = self.syn_id_attr_dict[gid]
+        sec_dict = self.sec_dict[gid]
+        for syn_id, syn_sec, syn_loc in zip(syn_ids, syn_secs, syn_locs):
+            syn = syn_dict[syn_id]
+            old_syn_sec = syn.syn_section
+            del(sec_dict[old_syn_sec][syn_id])
+            syn = syn._replace(syn_section=syn_sec, syn_loc=syn_loc)
+            syn_dict[syn_id] = syn
+            sec_dict[syn_sec][syn_id] = syn
+
+        
     def init_edge_attrs(self, gid, presyn_name, presyn_gids, edge_syn_ids, delays=None):
         """
         Sets connection edge attributes for the specified synapse ids.
@@ -468,14 +483,13 @@ class SynapseAttributes(object):
         """
         self.add_mech_attrs_from_iter(gid, syn_name, iter({syn_id: params}), multiple='error', append=append)
 
-    def stash_mech_attrs(self, pop_name, gid):
+    def stash_syn_attrs(self, pop_name, gid):
         """
-        Preserves mechanism attributes for the given cell id. 
+        Preserves synaptic attributes for the given cell id. 
 
         :param pop_name: population name
         :param gid: cell id
         :param syn_id: synapse id
-        :param syn_name: synapse mechanism name
         """
         rules = self.syn_param_rules
         syn_id_dict = self.syn_id_attr_dict[gid]
@@ -484,14 +498,13 @@ class SynapseAttributes(object):
         syn_id_backup_dict[stash_id] = copy.deepcopy(syn_id_dict)
         return stash_id
 
-    def restore_mech_attrs(self, pop_name, gid, stash_id):
+    def restore_syn_attrs(self, pop_name, gid, stash_id):
         """
-        Restored mechanism attributes for the given cell id. 
+        Restores synaptic attributes for the given cell id. 
 
         :param pop_name: population name
         :param gid: cell id
         :param syn_id: synapse id
-        :param syn_name: synapse mechanism name
         """
         rules = self.syn_param_rules
         syn_id_backup_dict = self.syn_id_attr_backup_dict[gid][stash_id]
@@ -676,7 +689,7 @@ class SynapseAttributes(object):
         sec_dict = self.sec_dict[gid]
         if syn_sections is not None:
             # Fast path
-            it = itertools.chain.from_iterable([sec_dict[sec_index] for sec_index in syn_sections])
+            it = itertools.chain.from_iterable([sec_dict[sec_index].items() for sec_index in syn_sections])
             syn_dict = {k: v for (k, v) in it}
         else:
             syn_dict = self.syn_id_attr_dict[gid]
@@ -768,7 +781,7 @@ class SynapseAttributes(object):
 
     def clear(self):
         self.syn_id_attr_dict = defaultdict(lambda: defaultdict(lambda: None))
-        self.sec_dict = defaultdict(lambda: defaultdict(lambda: []))
+        self.sec_dict = defaultdict(lambda: defaultdict(lambda: dict()))
         self.pps_dict = defaultdict(lambda: defaultdict(lambda: SynapsePointProcess(mech={}, netcon={}, vecstim={})))
         self.filter_cache = {}
 
@@ -859,6 +872,7 @@ class PlasticityTransform:
         lsqr_weights = np.asarray(res, dtype=np.float32).reshape((res.shape[0],))
         self.w = lsqr_weights
         return self.w
+
     
 def insert_hoc_cell_syns(env, gid, cell, syn_ids, syn_params, unique=False, insert_netcons=False,
                          insert_vecstims=False):
@@ -2444,7 +2458,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
             syn_type = syn_type_dict[syn_type_label]
             seg_density = seg_density_dict[syn_type]
             layers = layers_dict[syn_type]
-            end_distance = {}
+
             for sec_parent, sec_index in sec_edges:
                 interp_loc = sec_interp_loc_dict[sec_index]
                 seg_list = seg_dict[sec_index]
@@ -2486,7 +2500,216 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
                             interval += r.exponential(beta)
                     else:
                         interval = seg_end * L
-                end_distance[sec_index] = (1.0 - syn_loc) * L
+
+    assert (len(syn_ids) > 0)
+    syn_dict = {'syn_ids': np.asarray(syn_ids, dtype='uint32'),
+                'syn_locs': np.asarray(syn_locs, dtype='float32'),
+                'syn_cdists': np.asarray(syn_cdists, dtype='float32'),
+                'syn_secs': np.asarray(syn_secs, dtype='uint32'),
+                'syn_layers': np.asarray(syn_layers, dtype='int8'),
+                'syn_types': np.asarray(syn_types, dtype='uint8'),
+                'swc_types': np.asarray(swc_types, dtype='uint8')}
+
+    return (syn_dict, seg_density_per_sec)
+
+
+
+
+def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, layer_dict, sec_layer_density_dict,
+                                          neurotree_dict, cell_sec_dict, cell_secidx_dict, syn_cluster_dict):
+    """
+    Computes synapse locations distributed according to a given
+    per-section clustering and Poisson distribution within the
+    section.
+
+    :param cluster_dict:
+    :param density_seed:
+    :param syn_type_dict:
+    :param swc_type_dict:
+    :param layer_dict:
+    :param sec_layer_density_dict:
+    :param neurotree_dict:
+    :param cell_sec_dict:
+    :param cell_secidx_dict:
+    :param verbose:
+    :return:
+
+    """
+    import networkx as nx
+    
+    syn_ids = []
+    syn_locs = []
+    syn_cdists = []
+    syn_secs = []
+    syn_layers = []
+    syn_types = []
+    swc_types = []
+    syn_index = 0
+
+    sec_graph = make_section_graph(neurotree_dict)
+
+    debug_flag = False
+    secnodes_dict = neurotree_dict['section_topology']['nodes']
+
+    for sec, secnodes in viewitems(secnodes_dict):
+        if len(secnodes) < 2:
+            debug_flag = True
+
+    if debug_flag:
+        logger.debug(f'sec_graph: {list(sec_graph.edges)}')
+        logger.debug(f'neurotree_dict: {neurotree_dict}')
+    sec_interp_loc_dict = {}
+    seg_density_per_sec = {}
+    r = np.random.RandomState()
+    r.seed(int(density_seed))
+
+    cluster_syn_ids_count = 0
+    for _, syn_clusters in syn_cluster_dict.items():
+        for _, syn_cluster in syn_clusters.items():
+            cluster_syn_ids_count += len(syn_cluster)
+
+    syn_cluster_dict = copy.deepcopy(dict(syn_cluster_dict))
+    
+    while cluster_syn_ids_count > 0:
+
+        for (sec_name, layer_density_dict) in viewitems(sec_layer_density_dict):
+
+            swc_type = swc_type_dict[sec_name]
+            seg_dict = {}
+            L_total = 0
+
+            (seclst, maxdist) = cell_sec_dict[sec_name]
+            secidxlst = cell_secidx_dict[sec_name]
+            for sec, idx in zip(seclst, secidxlst):
+                npts_interp = max(int(round(sec.L)), 3)
+                sec_interp_loc_dict[idx] = interplocs(sec, np.linspace(0, 1, npts_interp), return_interpolant=True)
+            sec_dict = {int(idx): sec for sec, idx in zip(seclst, secidxlst)}
+            if len(sec_dict) > 1:
+                sec_subgraph = sec_graph.subgraph(list(sec_dict.keys()))
+                if len(sec_subgraph.edges()) > 0:
+                    sec_roots = [n for n, d in sec_subgraph.in_degree() if d == 0]
+                    sec_edges = []
+                    for sec_root in sec_roots:
+                        sec_edges.append(list(nx.dfs_edges(sec_subgraph, sec_root)))
+                        sec_edges.append([(None, sec_root)])
+                    sec_edges = [val for sublist in sec_edges for val in sublist]
+                else:
+                    sec_edges = [(None, idx) for idx in list(sec_dict.keys())]
+            else:
+                sec_edges = [(None, idx) for idx in list(sec_dict.keys())]
+            for sec_index, sec in viewitems(sec_dict):
+                seg_list = []
+                if maxdist is None:
+                    for seg in sec:
+                        if seg.x < 1.0 and seg.x > 0.0:
+                            seg_list.append(seg)
+                else:
+                    for seg in sec:
+                        if seg.x < 1.0 and seg.x > 0.0 and ((L_total + sec.L * seg.x) <= maxdist):
+                            seg_list.append(seg)
+                seg_dict[sec_index] = seg_list
+                L_total += sec.L
+
+            seg_density_dict, layers_dict = \
+                synapse_seg_density(syn_type_dict, layer_dict, \
+                                    layer_density_dict, \
+                                    seg_dict, r, \
+                                    neurotree_dict=neurotree_dict)
+            seg_density_per_sec[sec_name] = seg_density_dict
+            for (syn_type_label, _) in viewitems(layer_density_dict):
+                syn_type = syn_type_dict[syn_type_label]
+                seg_density = seg_density_dict[syn_type]
+                layers = layers_dict[syn_type]
+                end_distance = {}
+                for sec_parent, sec_index in sec_edges:
+                    interp_loc = sec_interp_loc_dict[sec_index]
+                    seg_list = seg_dict[sec_index]
+                    sec_seg_layers = layers[sec_index]
+                    sec_seg_density = seg_density[sec_index]
+                    sec_seg_layer_set = set(sec_seg_layers)
+
+                    syn_cluster_match_found = False
+                    for layer in sec_seg_layer_set:
+                        if (syn_type, swc_type, layer) in syn_cluster_dict:
+                            syn_cluster_match_found = True
+                    if not syn_cluster_match_found:
+                        continue
+
+                    est_syn_count = 0
+                    for seg, density in zip(seg_list, sec_seg_density):
+                        seg_start = seg.x - (0.5 / seg.sec.nseg)
+                        seg_end = seg.x + (0.5 / seg.sec.nseg)
+                        L = seg.sec.L
+                        L_seg_start = seg_start * L
+                        L_seg_end = seg_end * L
+                        seg_L = L_seg_end - L_seg_start
+                        est_syn_count += round(seg_L * density)
+
+                    current_syn_cluster_type = None
+                    current_syn_cluster_id = None
+                    current_cluster_syn_ids = []
+
+                    start_seg = seg_list[0]
+                    interval = 0.
+                    syn_loc = 0.
+                    for seg, layer, density in zip(seg_list, sec_seg_layers, sec_seg_density):
+
+                        if not density > 0.:
+                            continue
+                        
+                        if current_syn_cluster_type != (syn_type, swc_type, layer):
+                            current_syn_cluster_type = (syn_type, swc_type, layer)
+                            if current_syn_cluster_type in syn_cluster_dict:
+                                syn_clusters = syn_cluster_dict[current_syn_cluster_type]
+                            else:
+                                continue
+                            if len(syn_clusters) == 0:
+                                continue
+                            current_syn_cluster_id = r.choice(list(syn_clusters.keys()), size=1)[0]
+                            current_cluster_syn_ids = syn_clusters[current_syn_cluster_id]
+
+                        seg_start = seg.x - (0.5 / seg.sec.nseg)
+                        seg_end = seg.x + (0.5 / seg.sec.nseg)
+                        L = seg.sec.L
+                        L_seg_start = seg_start * L
+                        L_seg_end = seg_end * L
+
+                        beta = 1. / density
+                        while True:
+                            sample = r.exponential(beta)
+                            if sample < (L_seg_end - L_seg_start):
+                                break
+                        interval = L_seg_start + sample
+                        while interval < L_seg_end:
+                            syn_loc = (interval / L)
+                            assert ((syn_loc <= 1) and (syn_loc >= seg_start))
+                            if syn_loc < 1.0:
+                                while len(current_cluster_syn_ids) == 0:
+                                    if current_syn_cluster_type not in syn_cluster_dict:
+                                        break
+                                    syn_clusters = syn_cluster_dict[current_syn_cluster_type]
+                                    if current_syn_cluster_id is not None:
+                                        if (current_syn_cluster_id in syn_clusters) and (len(syn_clusters[current_syn_cluster_id]) == 0):
+                                            del(syn_clusters[current_syn_cluster_id])
+                                    if len(syn_clusters) == 0:
+                                        break
+                                    current_syn_cluster_id = r.choice(list(syn_clusters.keys()), size=1)[0]
+                                    current_cluster_syn_ids = syn_clusters[current_syn_cluster_id]
+                                if len(current_cluster_syn_ids) == 0:
+                                    break
+                                syn_index = current_cluster_syn_ids.pop(0)
+                                cluster_syn_ids_count -= 1
+                                syn_cdist = math.sqrt(reduce(lambda a, b: a+b, ( interp_loc[i](syn_loc)**2 for i in range(3) )))
+                                syn_cdists.append(syn_cdist)
+                                syn_locs.append(syn_loc)
+                                syn_ids.append(syn_index)
+                                syn_secs.append(sec_index)
+                                syn_layers.append(layer)
+                                syn_types.append(syn_type)
+                                swc_types.append(swc_type)
+                            interval += r.exponential(beta)
+
+                    end_distance[sec_index] = (1.0 - syn_loc) * L
 
     assert (len(syn_ids) > 0)
     syn_dict = {'syn_ids': np.asarray(syn_ids, dtype='uint32'),
@@ -2618,12 +2841,12 @@ def get_structured_input_arrays(structured_weights_dict, gid):
     non_structured_weights_dict = structured_weights_dict['non_structured_weights_dict']
     syn_count_dict = structured_weights_dict['syn_count_dict']
     
-    input_matrix = np.empty((target_map.size, len(input_rate_map_dict)),
+    input_matrix = np.full((target_map.size, len(input_rate_map_dict)), np.nan,
                             dtype=np.float64)
-    source_gid_array = np.empty(len(input_rate_map_dict), dtype=np.uint32)
-    syn_count_array = np.empty(len(input_rate_map_dict), dtype=np.uint32)
-    initial_weight_array = np.empty(len(input_rate_map_dict), dtype=np.float64)
-    input_rank = np.empty(len(input_rate_map_dict), dtype=np.float32)
+    source_gid_array = np.full(len(input_rate_map_dict), -1, dtype=np.uint32)
+    syn_count_array = np.full(len(input_rate_map_dict), np.nan, dtype=np.uint32)
+    initial_weight_array = np.full(len(input_rate_map_dict), np.nan, dtype=np.float64)
+    input_rank = np.full(len(input_rate_map_dict), np.nan, dtype=np.float32)
     for i, source_gid in enumerate(input_rate_map_dict):
         source_gid_array[i] = source_gid
         this_syn_count = syn_count_dict[source_gid]
@@ -2635,20 +2858,21 @@ def get_structured_input_arrays(structured_weights_dict, gid):
         this_input_norm = this_input_max if this_input_max > 0. else 1.
         this_input_normed = this_input/this_input_norm
         if np.sum(this_input_normed[target_act]) > 1e-6:
-            input_rank[i] = np.clip(spatial.distance.correlation(this_input_normed[target_act],
-                                                                 target_map_norm[target_act]),
+            input_rank[i] = np.clip(spatial.distance.correlation(this_input_normed[target_act].reshape((-1,)),
+                                                                 target_map_norm[target_act].reshape((-1,))),
                                     0., None)
         else:
-            input_rank[0] = 0.
+            input_rank[i] = 0.
     input_rank[np.isnan(input_rank)] = 0.
+
     input_rank_order = np.lexsort((syn_count_array, input_rank))
     
     non_structured_input_matrix = None
     if non_structured_input_rate_map_dict is not None:
-        non_structured_input_matrix = np.empty((target_map.size, len(non_structured_input_rate_map_dict)),
-                                    dtype=np.float32)
-        non_structured_weight_array = np.empty(len(non_structured_input_rate_map_dict), dtype=np.float32)
-        non_structured_source_gid_array = np.empty(len(non_structured_input_rate_map_dict), dtype=np.uint32)
+        non_structured_input_matrix = np.full((target_map.size, len(non_structured_input_rate_map_dict)),
+                                              np.nan, dtype=np.float32)
+        non_structured_weight_array = np.full(len(non_structured_input_rate_map_dict), np.nan, dtype=np.float32)
+        non_structured_source_gid_array = np.full(len(non_structured_input_rate_map_dict), -1, dtype=np.uint32)
         for i, source_gid in enumerate(non_structured_input_rate_map_dict):
             non_structured_source_gid_array[i] = source_gid
             this_syn_count = syn_count_dict[source_gid]
@@ -2665,6 +2889,7 @@ def get_structured_input_arrays(structured_weights_dict, gid):
             'non_structured_source_gid_array': non_structured_source_gid_array,
             'syn_count_array': syn_count_array, 
             'source_gid_array': source_gid_array,
+            'input_rank': input_rank,
             'input_rank_order': input_rank_order}
 
 
@@ -2677,6 +2902,7 @@ def get_scaled_input_maps(target_amplitude, input_arrays_dict, gid):
     non_structured_weight_array = input_arrays_dict['non_structured_weight_array']
     non_structured_input_matrix = np.asarray(input_arrays_dict['non_structured_input_matrix'], dtype=np.float64)
     input_rank_order = input_arrays_dict['input_rank_order']
+    input_rank = input_arrays_dict['input_rank']
     
     initial_map = np.dot(input_matrix, initial_weight_array)
     if non_structured_input_matrix is not None:
@@ -2716,7 +2942,8 @@ def get_scaled_input_maps(target_amplitude, input_arrays_dict, gid):
             'initial_weights_norm': initial_weights_norm,
             'non_structured_weights_norm': non_structured_weights_norm,
             'input_matrix_norm': input_matrix_norm,
-            'input_rank_order': input_rank_order
+            'input_rank_order': input_rank_order,
+            'input_rank': input_rank
            }
     
 def get_structured_delta_weights(initial_weight_array, normed_initial_weights, 
@@ -2799,6 +3026,7 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
     non_structured_input_matrix = scaled_maps_dict.get('non_structured_input_matrix', None)
     normed_non_structured_weights = scaled_maps_dict.get('normed_non_structured_weights', None)
     input_rank_order = scaled_maps_dict['input_rank_order']
+    input_rank = scaled_maps_dict['input_rank']
     inverse_input_rank_order = np.empty_like(input_rank_order)
     inverse_input_rank_order[input_rank_order] = np.arange(input_rank_order.size)
 
@@ -2860,6 +3088,7 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
 
     LTP_delta_weights_dict = dict(zip(source_gid_array, output_LTP_delta_weights_array))
     LTD_delta_weights_dict = dict(zip(source_gid_array, output_LTD_delta_weights_array))
+    input_rank_dict = dict(zip(source_gid_array, input_rank))
     
     structured_activation_map = np.dot(scaled_input_matrix, structured_weights)
     if scaled_non_structured_input_matrix is not None:
@@ -2892,7 +3121,10 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
                                          show_fig=show_fig, save_fig=save_fig,
                                          **fig_kwargs)
 
-    return LTP_delta_weights_dict, LTD_delta_weights_dict, structured_activation_map
+    return {'LTP_delta_weights': LTP_delta_weights_dict,
+            'LTD_delta_weights': LTD_delta_weights_dict,
+            'structured_activation_map': structured_activation_map,
+            'source_input_rank': input_rank_dict}
 
 
 def plot_callback_structured_weights(**kwargs):
@@ -2966,7 +3198,7 @@ def plot_callback_structured_weights(**kwargs):
               frameon=False, framealpha=0.5, fontsize=8)
     
     ax = fig.add_subplot(gs[row, 1])
-    p = ax.pcolormesh(arena_x, arena_y, structured_activation_map.reshape(arena_x.shape))
+    p = ax.pcolormesh(arena_x, arena_y, structured_activation_map.reshape(arena_x.shape), shading='auto')
     ax.set_xlabel('Arena location (x)')
     ax.set_ylabel('Arena location (y)')
     ax.set_title('Structured activation map', fontsize=font_size)
@@ -3000,23 +3232,23 @@ def plot_callback_structured_weights(**kwargs):
     inner_grid = gs[row, 1].subgridspec(2, 2)
 
     ax = fig.add_subplot(inner_grid[0])
-    p = ax.pcolormesh(arena_x, arena_y, unweighted_map.reshape(arena_x.shape))
+    p = ax.pcolormesh(arena_x, arena_y, unweighted_map.reshape(arena_x.shape), shading='auto')
     ax.set_title('Unweighted', fontsize=font_size)
     fig.colorbar(p, ax=ax)
 
     ax = fig.add_subplot(inner_grid[1])
-    p = ax.pcolormesh(arena_x, arena_y, scaled_initial_map.reshape(arena_x.shape))
+    p = ax.pcolormesh(arena_x, arena_y, scaled_initial_map.reshape(arena_x.shape), shading='auto')
     ax.set_title('Scaled Initial', fontsize=font_size)
     fig.colorbar(p, ax=ax)
 
     ax = fig.add_subplot(inner_grid[2])
-    p = ax.pcolormesh(arena_x, arena_y, scaled_target_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax)
+    p = ax.pcolormesh(arena_x, arena_y, scaled_target_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax, shading='auto')
     ax.set_title('Target', fontsize=font_size)
     ax.set_ylabel('Y position [cm]')
     fig.colorbar(p, ax=ax)
 
     ax = fig.add_subplot(inner_grid[3])
-    p = ax.pcolormesh(arena_x, arena_y, lsqr_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax)
+    p = ax.pcolormesh(arena_x, arena_y, lsqr_map.reshape(arena_x.shape), vmin=vmin, vmax=vmax, shading='auto')
     ax.set_title('NNLS', fontsize=font_size)
     ax.set_xlabel('X position [cm]')
     fig.colorbar(p, ax=ax)
@@ -3030,3 +3262,12 @@ def plot_callback_structured_weights(**kwargs):
         plt.show()
 
     return fig
+
+
+
+    
+    
+    
+
+
+    

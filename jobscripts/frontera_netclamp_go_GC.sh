@@ -11,8 +11,8 @@
 #SBATCH --mail-type=all    # Send email at begin and end of job
 #SBATCH -A BIR20001
 
-module load python3
 module load phdf5/1.10.4
+module load python3/3.9.2
 
 set -x
 
@@ -43,14 +43,15 @@ export DATA_PREFIX=$SCRATCH/striped2/dentate
 gid=184775    
 gid=184609
 gid=253724
+gid=837308
 
-mpirun -n 1 python3 network_clamp.py go \
-    --config-file Network_Clamp_GC_Exc_Sat_SLN_IN_PR.yaml \
+ibrun -n 1 python3 network_clamp.py go \
+    --config-file Network_Clamp_Slice_neg2000_neg1900um_SynExp3NMDA2_IN_PR.yaml  \
     --template-paths=templates \
     -p GC -g $gid -t 9500 --dt 0.01 --use-coreneuron \
     --dataset-prefix $DATA_PREFIX \
     --config-prefix config \
-    --input-features-path $DATA_PREFIX/Full_Scale_Control/DG_input_features_20220131_compressed.h5 \
+    --input-features-path "$DATA_PREFIX/Slice/dentatenet_Slice_SLN_neg2000_neg1900um_20221210_compressed.h5" \
     --input-features-namespaces 'Place Selectivity' \
     --input-features-namespaces 'Grid Selectivity' \
     --input-features-namespaces 'Constant Selectivity' \

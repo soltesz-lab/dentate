@@ -240,7 +240,89 @@ class MPINoiseGenerator(NoiseGenerator):
         return global_num_points
     
         
+
+class KDDict(MutableMapping):
+
+    """Dictionary with nearest-neighbor lookup for keys and values.
+    Based on code from 
+    https://stackoverflow.com/questions/29094458/find-integer-nearest-neighbour-in-a-dict
+
+    """
     
+    def __init__(self, *args, key_ndims=1, value_ndims=1, **kwargs):
+        self.store = dict()
+        self.key_ndims = key_ndims
+        self.value_ndims = value_ndims
+        self.__keys = []
+        self.__values = []
+        self._key_tree = None
+        self._value_tree = None
+        self.__stale = False
+        self.update(dict(*args, **kwargs))
+
+    # Enforce dimensionality
+    def _keytransform(self, key):
+        if not isinstance(key, tuple):
+            key = (key,)
+        if len(key) != self.key_ndims: raise KeyError("key must be %d dimensions" % self.key_ndims)
+        return key
+    
+    def _valtransform(self, val):
+        if not isinstance(val, tuple):
+            val = (val,)
+        if len(val) != self.value_ndims: raise KeyError("value must be %d dimensions" % self.value_ndims)
+        return val
+        
+    def __getitem__(self, key):
+        key = self._keytransform(key)
+        if key in self.store:
+            return self.store[key]
+        else:
+            return __missing__(self, key)
+        
+    def __setitem__(self, key, val):
+        key = self._keytransform(key)
+        val = self._valtransform(val)
+        self.store[key] = val
+        self.__keys.append(key)
+        self.__values.append(val)
+        self.__stale = True
+
+    def __delitem__(self, key):
+        key = self._keytransform(key)
+        key_index = self.__keys.index(key)
+        del(self.__keys[key_index])
+        del(self.__values[key_index])
+        del(self.store[key])
+        self.__stale = True
+
+    def build_tree(self):
+        self._key_tree = cKDTree(self.__keys)
+        self._value_tree = cKDTree(self.__values)
+        self.__stale = False
+
+    def nearest_key(self, key):
+        if not isinstance(key, tuple): key = (key,)
+        if self.__stale: self.build_tree()
+        _, idx = self._key_tree.query(key, 1)
+        return self.__keys[idx], self.__values[idx]
+
+    def nearest_value(self, value):
+        if not isinstance(value, tuple): value = (value,)
+        if self.__stale: self.build_tree()
+        _, idx = self._value_tree.query(value, 1)
+        return self.__keys[idx], self.__values[idx]
+
+    def __missing__(self, key):
+        key = self._keytransform(key)
+        return self[self.nearest_key(key)[0]]
+
+    def __iter__(self):
+        return iter(self.store)
+    
+    def __len__(self):
+        return len(self.store)
+
 
 """UnionFind.py
 

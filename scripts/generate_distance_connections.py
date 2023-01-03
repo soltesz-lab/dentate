@@ -5,7 +5,6 @@
 import gc, logging, os, os.path, sys
 import click
 from mpi4py import MPI
-import h5py
 import numpy as np
 import dentate
 import dentate.utils as utils
@@ -14,6 +13,7 @@ from dentate.env import Env
 from dentate.geometry import make_distance_interpolant, measure_distances
 from dentate.neuron_utils import configure_hoc_env
 from neuroh5.io import read_cell_attributes, read_population_names, read_population_ranges
+import h5py
 
 sys_excepthook = sys.excepthook
 def mpi_excepthook(type, value, traceback):

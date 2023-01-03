@@ -140,7 +140,7 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
                       'initial_maxiter': initial_maxiter,
                       'initial_method': initial_method,
                       'optimizer': optimizer_method,
-                      'surrogate_method': 'vgp',
+                      'surrogate_method': 'siv',
                       'n_epochs': n_epochs,
                       'population_size': population_size,
                       'num_generations': num_generations,
@@ -156,7 +156,7 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
     #dmosopt_params['broker_fun_name'] = 'dmosopt_broker_init'
     #dmosopt_params['broker_module_name'] = 'dentate.optimize_network'
 
-    best = dmosopt.run(dmosopt_params, spawn_workers=True, sequential_spawn=False,
+    best = dmosopt.run(dmosopt_params, spawn_workers=True, sequential_spawn=True,
                        spawn_startup_wait=spawn_startup_wait,
                        nprocs_per_worker=nprocs_per_worker,
                        collective_mode=collective_mode,

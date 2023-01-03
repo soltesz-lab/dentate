@@ -60,6 +60,7 @@ proc parameters() {
 	global_cm = $4 
 	global_diam = $5
         
+        global_e_pas = -60
         soma_g_pas=$6
         soma_gmax_Na = $7
         soma_gmax_K = $8
@@ -68,8 +69,11 @@ proc parameters() {
         dend_gmax_Ca = $10
         dend_gmax_KCa = $11
         dend_gmax_KAHP = $12
+        dend_aqs_KAHP = $13
+        dend_bq_KAHP = $14
         
-        dend_d_Caconc = $13
+        dend_d_Caconc = $15
+        dend_beta_Caconc = $16
         
     } else {
         
@@ -77,6 +81,7 @@ proc parameters() {
         Ltotal = 400/PI // total length of compartments
         gc=10.5 // mS/cm2; Ra in ohm-cm
         
+        global_e_pas = -60
         soma_g_pas=0.0001
         soma_gmax_Na = 00030e-3
         soma_gmax_K = 00015e-3
@@ -85,8 +90,11 @@ proc parameters() {
         dend_gmax_Ca = 00010e-3
         dend_gmax_KCa = 00015e-3
         dend_gmax_KAHP = 0000.8e-3
+        dend_aqs_KAHP = 0.00002
+        dend_bq_KAHP = 0.001
         
         dend_d_Caconc = 13
+        dend_beta_Caconc = 0.075
         
 	cm = 3
     }
@@ -105,7 +113,8 @@ proc parameters_from_python() { localobj param_dict
     global_cm = param_dict.__getitem__("global_cm")
     cm_ratio = param_dict.get("cm_ratio", 1.)
     
-    soma_g_pas= param_dict.__getitem__("soma_g_pas")
+    global_e_pas = param_dict.get("e_pas", -60)
+    soma_g_pas = param_dict.__getitem__("soma_g_pas")
     soma_gmax_Na = param_dict.__getitem__("soma_gmax_Na")
     soma_gmax_K = param_dict.__getitem__("soma_gmax_K")
     
@@ -113,7 +122,10 @@ proc parameters_from_python() { localobj param_dict
     dend_gmax_Ca = param_dict.__getitem__("dend_gmax_Ca")
     dend_gmax_KCa = param_dict.__getitem__("dend_gmax_KCa")
     dend_gmax_KAHP = param_dict.__getitem__("dend_gmax_KAHP")
+    dend_aqs_KAHP = param_dict.__getitem__("dend_aqs_KAHP")
+    dend_bq_KAHP = param_dict.__getitem__("dend_bq_KAHP")
     dend_d_Caconc = param_dict.__getitem__("dend_d_Caconc")
+    dend_beta_Caconc = param_dict.__getitem__("dend_beta_Caconc")
     
 }
 
@@ -187,10 +199,9 @@ proc biophys () {
     //* Electrical parameters
     
     forall Ra=1
-    // adjust Ra to get the desired longitudinal resistance
-    global_Ra = (1e-6/(gc/pp * (area(0.5)*1e-8) * 1e-3))/(2*ri(0.5))
     
-    forall { Ra=global_Ra  cm=global_cm }
+    // adjust Ra to get the desired longitudinal resistance
+    forall { Ra=(1e-6/(gc/pp * (area(0.5)*1e-8) * 1e-3))/(2*ri(0.5)) cm=global_cm }
     
     
     forsec "soma" {
@@ -207,11 +218,12 @@ proc biophys () {
         gmax_Na_PR = soma_gmax_Na
         gmax_K_PR = soma_gmax_K
         g_pas = soma_g_pas
-        e_pas = -60.
+        e_pas = global_e_pas
       }
 
     //* dend
     forsec "dend" {
+        
         insert pas
         insert Ca_PR
         insert KAHP_PR
@@ -219,12 +231,15 @@ proc biophys () {
         insert Ca_conc_PR
         insert K_conc_PR
         
-        d_Caconc_PR = dend_d_Caconc
+        d_Ca_conc_PR = dend_d_Caconc
+        beta_Ca_conc_PR = dend_beta_Caconc
         g_pas=dend_g_pas
-        e_pas=-60.
+        e_pas=global_e_pas
         gmax_Ca_PR = dend_gmax_Ca
         gmax_KCa_PR = dend_gmax_KCa
         gmax_KAHP_PR = dend_gmax_KAHP
+        aqs_KAHP_PR = dend_aqs_KAHP
+        bq_KAHP_PR = dend_bq_KAHP
 
     }
     

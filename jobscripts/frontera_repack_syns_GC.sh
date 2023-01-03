@@ -3,10 +3,10 @@
 #SBATCH -J repack_syns_GC        # Job name
 #SBATCH -o ./results/repack_syns_GC.o%j       # Name of stdout output file
 #SBATCH -e ./results/repack_syns_GC.e%j       # Name of stderr error file
-#SBATCH -p development      # Queue (partition) name
+#SBATCH -p small      # Queue (partition) name
 #SBATCH -N 1             # Total # of nodes 
 #SBATCH -n 56            # Total # of mpi tasks
-#SBATCH -t 02:00:00        # Run time (hh:mm:ss)
+#SBATCH -t 04:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
@@ -16,8 +16,8 @@ module load phdf5
 set -x
 
 export prefix=$SCRATCH/striped2/dentate/Full_Scale_Control
-export input=$prefix/DGC_forest_syns_20210920.h5
-export output=$prefix/DGC_forest_syns_20210920_compressed.h5
+export input=$prefix/DGC_forest_syns_20221020.h5
+export output=$prefix/DGC_forest_syns_20221020_compressed.h5
 
 export H5TOOLS_BUFSIZE=$(( 64 * 1024 * 1024 * 1024))
 
