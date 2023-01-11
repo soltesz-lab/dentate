@@ -3913,7 +3913,7 @@ def plot_spike_distribution_per_time (input_path, namespace_id, config_path=None
 
 def plot_spatial_information(spike_input_path, spike_namespace_id, trajectory_path, arena_id, trajectory_id,
                              populations=None, include_artificial=True, position_bin_size=5.0, spike_train_attr_name='t', time_range=None,
-                             alpha_fill=0.2, output_file_path=None, plot_dir_path=None, **kwargs):
+                             threshold=None, alpha_fill=0.2, output_file_path=None, plot_dir_path=None, **kwargs):
     """
     Plots distributions of spatial information per cell. Returns figure handle.
 
@@ -3981,7 +3981,7 @@ def plot_spatial_information(spike_input_path, spike_namespace_id, trajectory_pa
         spkinds = spkindlst[iplot]
         spkdict = spikedata.make_spike_dict(spkinds, spkts)
         MI_dict = spikedata.spatial_information(subset, trajectory, spkdict, time_range, position_bin_size,
-                                                arena_id=arena_id, trajectory_id=trajectory_id,
+                                                threshold=threshold, arena_id=arena_id, trajectory_id=trajectory_id,
                                                 output_file_path=output_file_path, **kwargs)
 
         MI_lst = []

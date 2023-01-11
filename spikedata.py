@@ -353,7 +353,7 @@ def spike_density_estimate(population, spkdict, time_bins, arena_id=None, trajec
 
 
 
-def spatial_information(population, trajectory, spkdict, time_range, position_bin_size, arena_id=None,
+def spatial_information(population, trajectory, spkdict, time_range, position_bin_size, threshold=None, arena_id=None,
                         trajectory_id=None, output_file_path=None, information_attr_name='Mutual Information',
                         progress=False, **kwargs):
     """
@@ -406,19 +406,22 @@ def spatial_information(population, trajectory, spkdict, time_range, position_bi
 
     MI_dict = {}
     for ind, valdict in viewitems(rate_bin_dict):
-        MI = 0.
+
         x = valdict['time']
         rates = valdict['rate']
         R = np.mean(rates)
+        if (threshold is None) or (threshold <= R):
+        
+            MI = 0.
 
-        if R > 0.:
-            for ibin in range(1, len(position_bins) + 1):
-                p_i = d_bin_probs[ibin]
-                R_i = rates[ibin - 1]
-                if R_i > 0.:
-                    MI += p_i * (R_i / R) * math.log((R_i / R), 2)
+            if R > 0.:
+                for ibin in range(1, len(position_bins) + 1):
+                    p_i = d_bin_probs[ibin]
+                    R_i = rates[ibin - 1]
+                    if R_i > 0.:
+                        MI += p_i * (R_i / R) * math.log((R_i / R), 2)
 
-        MI_dict[ind] = MI
+            MI_dict[ind] = MI
 
     if output_file_path is not None:
         if arena_id is None or trajectory_id is None:
