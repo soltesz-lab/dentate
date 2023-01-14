@@ -607,8 +607,6 @@ def connect_gjs(env):
     rank = int(env.pc.id())
     nhosts = int(env.pc.nhost())
 
-    dataset_path = os.path.join(env.dataset_prefix, env.datasetName)
-
     gapjunctions = env.gapjunctions
     gapjunctions_file_path = env.gapjunctions_file_path
 
