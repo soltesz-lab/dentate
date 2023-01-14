@@ -20,7 +20,7 @@ context = Context()
 
 
 
-def init_biophys_cell(env, pop_name, gid, load_weights=True, load_connections=True, register_cell=True, write_cell=False, validate_tree=True, cell_dict={}):
+def init_biophys_cell(env, pop_name, gid, load_synapses=True, load_weights=True, load_connections=True, register_cell=True, write_cell=False, validate_tree=True, cell_dict={}):
     """
     Instantiates a BiophysCell instance and all its synapses.
 
@@ -70,7 +70,8 @@ def init_biophys_cell(env, pop_name, gid, load_weights=True, load_connections=Tr
                                           connection_graph=cell_dict.get('connectivity', None),
                                           weight_dict=cell_dict.get('weight', None),
                                           mech_dict=mech_dict,
-                                          load_synapses=True, load_weights=load_weights,
+                                          load_synapses=load_synapses,
+                                          load_weights=load_weights,
                                           load_edges=load_connections)
     elif is_PR:
         cell = cells.make_PR_cell(env, pop_name, gid,
@@ -79,7 +80,8 @@ def init_biophys_cell(env, pop_name, gid, load_weights=True, load_connections=Tr
                                   connection_graph=cell_dict.get('connectivity', None),
                                   weight_dict=cell_dict.get('weight', None),
                                   mech_dict=mech_dict,
-                                  load_synapses=True, load_weights=load_weights,
+                                  load_synapses=load_synapses,
+                                  load_weights=load_weights,
                                   load_edges=load_connections)
     elif is_SC:
         cell = cells.make_SC_cell(
@@ -91,7 +93,7 @@ def init_biophys_cell(env, pop_name, gid, load_weights=True, load_connections=Tr
             connection_graph=cell_dict.get("connectivity", None),
             weight_dict=cell_dict.get("weight", None),
             mech_dict=mech_dict,
-            load_synapses=True,
+            load_synapses=load_synapses,
             load_weights=load_weights,
             load_edges=load_connections,
         )
@@ -103,7 +105,8 @@ def init_biophys_cell(env, pop_name, gid, load_weights=True, load_connections=Tr
                                        weight_dict=cell_dict.get('weight', None),
                                        cluster_dict=cell_dict.get('cluster', None),
                                        mech_dict=mech_dict, 
-                                       load_synapses=True, load_weights=load_weights,
+                                       load_synapses=load_synapses,
+                                       load_weights=load_weights,
                                        load_edges=load_connections,
                                        validate_tree=validate_tree)
         
@@ -499,43 +502,61 @@ def measure_fi (gid, pop_name, v_init, env, cell_dict={}):
     return results
 
 
-def measure_gap_junction_coupling (gid, population, v_init, env):
+def measure_gap_junction_coupling (gid, population, v_init, env, weight=5.4e-4, cell_dict={}):
     
-    h('objref gjlist, cells, Vlog1, Vlog2')
+    h('objref cells')
 
     pc = env.pc
     h.cells  = h.List()
-    h.gjlist = h.List()
-
-    biophys_cell1 = init_biophys_cell(env, population, gid, register_cell=False, cell_dict=cell_dict)
-    hoc_cell1 = biophys_cell1.hoc_cell
     
-    cell1 = cells.make_neurotree_hoc_cell (template_class, neurotree_dict=tree)
-    cell2 = cells.make_neurotree_hoc_cell (template_class, neurotree_dict=tree)
+    cell_dict = cells.load_biophys_cell_dicts(env, population, set([gid]))
+    
+    biophys_cell1 = init_biophys_cell(env, population, gid, register_cell=False,
+                                      load_synapses=False, load_connections=False,
+                                      cell_dict=cell_dict)
+    cell1 = biophys_cell1.hoc_cell
+
+    biophys_cell2 = init_biophys_cell(env, population, gid+1, register_cell=False,
+                                      load_synapses=False, load_connections=False,
+                                      cell_dict=cell_dict)
+    cell2 = biophys_cell2.hoc_cell
 
     h.cells.append(cell1)
     h.cells.append(cell2)
 
+    is_reduced = False
+    if hasattr(cell1, 'is_reduced'):
+        is_reduced = cell1.is_reduced
+
     ggid        = 20000000
-    source      = 10422930
-    destination = 10422670
-    weight      = 5.4e-4
-    srcsec   = int(cell1.somaidx.x[0])
-    dstsec   = int(cell2.somaidx.x[0])
+    source      = gid
+    destination = gid+1
+    weight      = weight
+    srcsec      = 0
+    dstsec      = 0
+    if hasattr(cell1, "apicalidx"):
+        srcsec      = int(cell1.apicalidx.x[0])
+        dstsec      = int(cell2.apicalidx.x[0])
 
     stimdur     = 500
     tstop       = 2000
     
     pc.set_gid2node(source, int(pc.id()))
-    nc = cell1.connect2target(h.nil)
+    nc = cells.connect2target(biophys_cell1, cell1.soma)
     pc.cell(source, nc, 1)
-    soma1 = list(cell1.soma)[0]
+    if is_reduced:
+        soma1 = cell1.soma
+    else:
+        soma1 = list(cell1.soma)[0]
 
     pc.set_gid2node(destination, int(pc.id()))
-    nc = cell2.connect2target(h.nil)
+    nc = cells.connect2target(biophys_cell2, cell2.soma)
     pc.cell(destination, nc, 1)
-    soma2 = list(cell2.soma)[0]
-
+    if is_reduced:
+        soma2 = cell2.soma
+    else:
+        soma2 = list(cell2.soma)[0]
+    
     stim1 = h.IClamp(soma1(0.5))
     stim1.delay = 250
     stim1.dur = stimdur
@@ -546,17 +567,16 @@ def measure_gap_junction_coupling (gid, population, v_init, env):
     stim2.dur = stimdur
     stim2.amp = -0.1
 
-    log_size = old_div(tstop,h.dt) + 1
+    log_size = (tstop // h.dt) + 1
     
-    h.tlog = h.Vector(log_size,0)
-    h.tlog.record (h._ref_t)
+    tlog = h.Vector(log_size,0)
+    tlog.record (h._ref_t)
 
-    h.Vlog1 = h.Vector(log_size)
-    h.Vlog1.record (soma1(0.5)._ref_v)
+    Vlog1 = h.Vector(log_size)
+    Vlog1.record (soma1(0.5)._ref_v)
 
-    h.Vlog2 = h.Vector(log_size)
-    h.Vlog2.record (soma2(0.5)._ref_v)
-
+    Vlog2 = h.Vector(log_size)
+    Vlog2.record (soma2(0.5)._ref_v)
 
     gjpos = 0.5
     neuron_utils.mkgap(env, cell1, source, gjpos, srcsec, ggid, ggid+1, weight)
@@ -571,8 +591,24 @@ def measure_gap_junction_coupling (gid, population, v_init, env):
 
     h.tstop = tstop
     pc.psolve(h.tstop)
+
+    t = np.asarray(tlog, dtype=np.float32)
+    stim_inds = np.argwhere(np.logical_and(t >= 250., t <= stimdur))
+    V_1 = np.asarray(Vlog1, dtype=np.float32)[stim_inds]
+    V_2 = np.asarray(Vlog2, dtype=np.float32)[stim_inds]
+
+    dV_1 = np.abs(np.max(V_1) - np.min(V_1))
+    dV_2 = np.abs(np.max(V_2) - np.min(V_2))
+
+    
+    CC = dV_2 / dV_1
+    logger.info(f"gap junction coupling coefficient: {CC:.04f}")
+    
+    return { "CC": np.asarray([CC], dtype=np.float32) }
+    
     
 
+    
     
 def measure_psc (gid, pop_name, presyn_name, env, v_init, v_holding, load_weights=False, cell_dict={}):
 
@@ -787,7 +823,7 @@ def main(config_file, config_prefix, erev, population, presyn_name, gid, load_we
     if 'fi' in measurements:
         attr_dict[gid].update(measure_fi(gid, population, v_init, env))
     if 'gap' in measurements:
-        measure_gap_junction_coupling(gid, population, v_init, env)
+        attr_dict[gid].update(measure_gap_junction_coupling(gid, population, v_init, env))
     if 'psp' in measurements:
         assert(presyn_name is not None)
         assert(syn_mech_name is not None)

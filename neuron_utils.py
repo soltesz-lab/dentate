@@ -129,8 +129,33 @@ def mkgap(env, cell, gid, secpos, secidx, sgid, dgid, w):
     :return:
     """
 
-    sec = list(cell.sections)[secidx]
+    is_reduced = False
+    if hasattr(cell, 'is_reduced'):
+        is_reduced = cell.is_reduced
+
+    cell_soma = None
+    cell_dendrite = None
+    if is_reduced:
+        if hasattr(cell, 'soma'):
+            cell_soma = cell.soma
+            if isinstance(cell_soma, list):
+                cell_soma = cell_soma[0]
+            if isinstance(cell_soma, list):
+                cell_soma = cell_soma[0]
+        if hasattr(cell, 'dend'):
+            cell_dendrite = cell.dend
+
+    sec = None
+    if is_reduced:
+        if cell_dendrite is not None:
+            sec = cell_dendrite
+        else:
+            sec = cell_soma
+    else:
+        sec = list(cell.sections)[secidx]
+
     seg = sec(secpos)
+        
     gj = h.ggap(seg)
     gj.g = w
 
