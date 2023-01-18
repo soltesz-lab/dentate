@@ -3050,7 +3050,7 @@ def init_circuit_context(env, pop_name, gid,
 
         elif load_clusters:
             if (env.data_file_path is None):
-                raise RuntimeError('init_circuit_context: load_=True but data file path is not specified ')
+                raise RuntimeError('init_circuit_context: load_clusters=True but data file path is not specified ')
                 
             cell_clusters_iter = read_cell_attribute_selection(env.data_file_path, pop_name, 
                                                                selection=[gid], 
