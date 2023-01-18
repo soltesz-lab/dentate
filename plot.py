@@ -2540,24 +2540,29 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
 
     
     
-def update_spatial_rasters(frame, scts, timebins, data, distances_U_dict, distances_V_dict, lgd):
+def update_spatial_rasters(frame, scts, timebins, n_trials, data, distances_U_dict, distances_V_dict, lgd):
+    N = len(timebins)
     if frame > 0:
-        t0 = timebins[frame]
-        t1 = timebins[frame+1]
+        t0 = timebins[frame % N]
+        t1 = timebins[(frame+1) % N]
+        trial = frame // N
         for p, (pop_name, spkinds, spkts) in enumerate(data):
             distances_U = distances_U_dict[pop_name]
             distances_V = distances_V_dict[pop_name]
-            rinds = np.where(np.logical_and(spkts >= t0, spkts <= t1))
-            cinds = spkinds[rinds]
+            rinds = np.where(np.logical_and(spkts[trial] >= t0, spkts[trial] <= t1))
+            cinds = spkinds[trial][rinds]
             x = np.asarray([distances_U[ind] for ind in cinds])
             y = np.asarray([distances_V[ind] for ind in cinds])
             scts[p].set_data(x, y)
             scts[p].set_label(pop_name)
-            scts[-1].set_text('t = %f ms' % t1)
+            if n_trials > 1:
+                scts[-1].set_text(f'trial {trial}; t = {t1:.02f} ms')
+            else:
+                scts[-1].set_text(f't = {t1:.02f} ms')
     return scts
 
 
-def init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distances_U_dict, distances_V_dict, lgd, marker, pop_colors, **kwargs):
+def init_spatial_rasters(ax, timebins, n_trials, data, range_U_dict, range_V_dict, distances_U_dict, distances_V_dict, lgd, marker, pop_colors, **kwargs):
 
     fig_options = copy.copy(default_fig_options)
     fig_options.update(kwargs)
@@ -2572,8 +2577,8 @@ def init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distanc
     for (pop_name, spkinds, spkts) in data:
         distances_U = distances_U_dict[pop_name]
         distances_V = distances_V_dict[pop_name]
-        rinds = np.where(np.logical_and(spkts >= t0, spkts <= t1))
-        cinds = spkinds[rinds]
+        rinds = np.where(np.logical_and(spkts[0] >= t0, spkts[0] <= t1))
+        cinds = spkinds[0][rinds]
         x = np.asarray([distances_U[ind] for ind in cinds])
         y = np.asarray([distances_V[ind] for ind in cinds])
         #scts.append(ax.scatter(x, y, linewidths=options.lw, marker=marker, c=pop_colors[pop_name], alpha=0.5, label=pop_name))
@@ -2663,6 +2668,7 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
     spkdata = spikedata.read_spike_events (input_path, include, namespace_id, spike_train_attr_name=time_variable,
                                            time_range=time_range, include_artificial=include_artificial)
 
+    n_trials         = spkdata['n_trials']
     spkpoplst        = spkdata['spkpoplst']
     spkindlst        = spkdata['spkindlst']
     spktlst          = spkdata['spktlst']
@@ -2670,7 +2676,8 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
     pop_active_cells = spkdata['pop_active_cells']
     tmin             = spkdata['tmin']
     tmax             = spkdata['tmax']
-    
+
+
     time_range = [tmin, tmax]
     
     pop_colors = { pop_name: dflt_colors[ipop%len(dflt_colors)] for ipop, pop_name in enumerate(spkpoplst) }
@@ -2683,12 +2690,15 @@ def plot_spatial_spike_raster (input_path, namespace_id, coords_path, distances_
     lgd = lambda objs: plt.legend(objs, legend_labels, fontsize=fig_options.fontSize, scatterpoints=1, markerscale=2., \
                                     loc='upper right', bbox_to_anchor=(0.95, 0.95))
     
-    timebins = np.linspace(tmin, tmax, ((tmax-tmin) / time_step))
+    timebins = np.linspace(tmin, tmax, int(((tmax-tmin) / time_step)))
     
     data = list(zip (spkpoplst, spkindlst, spktlst))
-    scts = init_spatial_rasters(ax, timebins, data, range_U_dict, range_V_dict, distance_U_dict, distance_V_dict, lgd, marker, pop_colors)
-    ani = FuncAnimation(fig, func=update_spatial_rasters, frames=list(range(0, len(timebins)-1)), \
-                        blit=True, repeat=False, init_func=lambda: scts, fargs=(scts, timebins, data, distance_U_dict, distance_V_dict, lgd))
+    scts = init_spatial_rasters(ax, timebins, n_trials, data, range_U_dict, range_V_dict,
+                                distance_U_dict, distance_V_dict, lgd, marker, pop_colors)
+    ani = FuncAnimation(fig, func=update_spatial_rasters,
+                        frames=list(range(0, len(timebins)*n_trials-1)),
+                        blit=True, repeat=False,
+                        init_func=lambda: scts, fargs=(scts, timebins, n_trials, data, distance_U_dict, distance_V_dict, lgd))
     spatial_raster_aniplots.append(ani)
 
     # show fig 

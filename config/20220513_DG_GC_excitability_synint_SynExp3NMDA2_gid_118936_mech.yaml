@@ -71,11 +71,11 @@ apical:
         - filters:
             layers: [IML]
             syn_types: [excitatory]
-          value: 1.874e-5
+          value: 8.502902612167373e-05 # GC_20220926/optimize_selectivity.20220928_025352.yaml
         - filters:
             layers: [MML, OML]
             syn_types: [excitatory]
-          value: 0.0001
+          value: 3.767942163406331e-05 # GC_20220926/optimize_selectivity.20220928_025352.yaml
       tau1_0:
         filters:
           syn_types:
