@@ -13,9 +13,14 @@ from collections import defaultdict, namedtuple
 import dentate
 from dentate import synapses, spikedata, stimulus, utils
 from dentate.env import Env
-from dentate.utils import viewitems
+from dentate.utils import viewitems, get_module_logger
 from enum import Enum, IntEnum, unique
 from mpi4py import MPI
+
+
+# This logger will inherit its settings from the root logger, created in dentate.env
+logger = get_module_logger(__name__)
+
 
 SynParam = namedtuple('SynParam',
                       ['population',
@@ -386,6 +391,20 @@ def opt_reduce_mean(xs):
                 vs[k].append(v)
     return { k: np.mean(vs[k]) for k in ks }
 
+def opt_reduce_mean_features(xs, index):
+    ks = index
+    vs = []
+    fs = []
+    ax = {}
+    for x in xs:
+        ax.update(x[0])
+    for k in index:
+        v = ax[k][0]
+        f = ax[k][1]
+        vs.append(v)
+        fs.append(f)
+    return { 0: ( np.mean(vs), np.vstack(fs) ) }
+
 def opt_reduce_max(xs):
     ks = list(xs[0].keys())
     vs = { k: [] for k in ks }
@@ -397,25 +416,19 @@ def opt_reduce_max(xs):
     return { k: np.max(vs[k]) for k in ks }
 
 
-def opt_eval_fun(problem_regime, cell_index_set, eval_problem_fun):    
+def opt_eval_fun(problem_regime, cell_index_set, eval_problem_fun, feature_dtypes=None):
 
     problem_regime = ProblemRegime[problem_regime]
     def f(pp, **kwargs):
         if problem_regime == ProblemRegime.every:
             results_dict = eval_problem_fun(pp, **kwargs)
-            result = results_dict
-        elif problem_regime == ProblemRegime.mean:
+        elif problem_regime == ProblemRegime.mean or problem_regime == ProblemRegime.max:
             mpp = { gid: pp for gid in cell_index_set }
             results_dict = eval_problem_fun(mpp, **kwargs)
-            result = np.mean([ v for k,v in viewitems(results_dict) ])
-        elif problem_regime == ProblemRegime.max:
-            mpp = { gid: pp for gid in cell_index_set }
-            results_dict = eval_problem_fun(mpp, **kwargs)
-            result = np.max([ v for k,v in viewitems(results_dict) ])
         else:
             raise RuntimeError("opt_eval_fun: unknown problem regime %s" % str(problem_regime))
 
-        return result
+        return results_dict
 
     return f
 

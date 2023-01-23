@@ -4,13 +4,12 @@ Routines for selectivity optimization via Network Clamp.
 import os, sys, copy, uuid, pprint, time, gc
 from enum import Enum, IntEnum, unique
 from collections import defaultdict, namedtuple
-from neuroh5.io import read_cell_attribute_info
+from neuron import h
 from mpi4py import MPI
 import numpy as np
 import click
 from dentate import io_utils, spikedata, synapses, stimulus, cell_clamp, optimization
 from dentate.cells import (
-    h,
     make_input_cell,
     register_cell,
     record_cell,
@@ -19,7 +18,7 @@ from dentate.cells import (
     load_biophys_cell_dicts,
 )
 from dentate.env import Env
-from dentate.neuron_utils import h, configure_hoc_env
+from dentate.neuron_utils import configure_hoc_env
 from dentate.utils import (
     is_interactive,
     is_iterable,
@@ -53,6 +52,7 @@ from dentate.optimization import (
     selectivity_optimization_params,
     opt_eval_fun,
 )
+from neuroh5.io import read_cell_attribute_info
 import distgfs
 
 logger = get_module_logger(__name__)
@@ -76,6 +76,8 @@ def mpi_excepthook(type, value, traceback):
 sys_excepthook = sys.excepthook
 sys.excepthook = mpi_excepthook
 
+def init_controller():
+    h.nrnmpi_init(0)
 
 def init_selectivity_objfun(
     config_file,
@@ -109,15 +111,18 @@ def init_selectivity_objfun(
     infld_threshold,
     use_coreneuron,
     cooperative_init,
+    nprocs_per_worker,
     dt,
     worker,
     **kwargs,
 ):
 
     params = dict(locals())
+    params["comm"] = worker.merged_comm
+
     env = Env(**params)
     env.results_file_path = None
-    configure_hoc_env(env, bcast_template=True)
+    configure_hoc_env(env, group=worker.worker_id, bcast_template=True)
 
     my_cell_index_set = init(
         env,
@@ -286,9 +291,16 @@ def init_selectivity_objfun(
         "mean_infld_rate",
         "mean_outfld_rate",
     ]
-    feature_dtypes = [(feature_name, np.float32) for feature_name in feature_names]
-    feature_dtypes.append(("trial_mean_infld_rate", (np.float32, (1, n_trials))))
-    feature_dtypes.append(("trial_mean_outfld_rate", (np.float32, (1, n_trials))))
+
+    if problem_regime == ProblemRegime.every:
+        feature_dtypes = [(feature_name, np.float32) for feature_name in feature_names]
+        feature_dtypes.append(("trial_mean_infld_rate", (np.float32, (1, n_trials))))
+        feature_dtypes.append(("trial_mean_outfld_rate", (np.float32, (1, n_trials))))
+    else:
+        n_problems = len(cell_index_set)
+        feature_dtypes = [(feature_name, (np.float32, (n_problems, 1))) for feature_name in feature_names]
+        feature_dtypes.append(("trial_mean_infld_rate", (np.float32, (n_problems, n_trials))))
+        feature_dtypes.append(("trial_mean_outfld_rate", (np.float32, (n_problems, n_trials))))
 
     def from_param_dict(params_dict):
         result = []
@@ -510,7 +522,7 @@ def init_selectivity_objfun(
 
         return result
 
-    return opt_eval_fun(problem_regime, my_cell_index_set, eval_problem)
+    return opt_eval_fun(problem_regime, my_cell_index_set, eval_problem, feature_dtypes)
 
 
 def optimize_run(
@@ -527,6 +539,7 @@ def optimize_run(
     results_file=None,
     n_max_tasks=-1,
     cooperative_init=False,
+    spawn_workers=False,
     spawn_startup_wait=None,
     spawn_executable=None,
     spawn_args=[],
@@ -558,13 +571,20 @@ def optimize_run(
         file_path = "%s/%s" % (env.results_path, results_file)
     problem_ids = None
     reduce_fun_name = None
+    reduce_fun_args = {}
     if ProblemRegime[problem_regime] == ProblemRegime.every:
-        reduce_fun_name = "opt_reduce_every"
+        reduce_fun_name = "opt_reduce_every_features"
         problem_ids = init_params.get("cell_index_set", None)
     elif ProblemRegime[problem_regime] == ProblemRegime.mean:
-        reduce_fun_name = "opt_reduce_mean"
+        reduce_fun_name = "opt_reduce_mean_features"
+        cell_index_set = init_params.get("cell_index_set", None)
+        assert(cell_index_set is not None)
+        reduce_fun_args = { "index": cell_index_set }
     elif ProblemRegime[problem_regime] == ProblemRegime.max:
-        reduce_fun_name = "opt_reduce_max"
+        reduce_fun_name = "opt_reduce_max_features"
+        cell_index_set = init_params.get("cell_index_set", None)
+        assert(cell_index_set is not None)
+        reduce_fun_args = { "index": cell_index_set }
     else:
         raise RuntimeError(f"optimize_run: unknown problem regime {problem_regime}")
 
@@ -594,8 +614,11 @@ def optimize_run(
         "obj_fun_init_name": init_objfun,
         "obj_fun_init_module": "dentate.optimize_selectivity_snr",
         "obj_fun_init_args": init_params,
+        "controller_init_fun_module": "dentate.optimize_selectivity_snr",
+        "controller_init_fun_name": "init_controller",
         "reduce_fun_name": reduce_fun_name,
         "reduce_fun_module": "dentate.optimization",
+        "reduce_fun_args": reduce_fun_args,
         "problem_parameters": {},
         "space": hyperprm_space,
         "objective_names": objective_names,
@@ -611,8 +634,8 @@ def optimize_run(
         distgfs_params,
         verbose=verbose,
         collective_mode="sendrecv",
-        spawn_workers=True,
         nprocs_per_worker=nprocs_per_worker,
+        spawn_workers=spawn_workers,
         spawn_startup_wait=spawn_startup_wait,
         spawn_executable=spawn_executable,
         spawn_args=list(spawn_args),
@@ -830,9 +853,11 @@ def optimize_run(
     is_flag=True,
     help="use a single worker to read model data then send to the remaining workers",
 )
+@click.option("--spawn-workers", is_flag=True)
 @click.option("--spawn-executable", type=str)
 @click.option("--spawn-args", type=str, multiple=True)
 @click.option("--spawn-startup-wait", type=int)
+@click.option("--verbose", is_flag=True)
 def main(
     config_file,
     population,
@@ -869,9 +894,11 @@ def main(
     infld_threshold,
     use_coreneuron,
     cooperative_init,
+    spawn_workers,
     spawn_executable,
     spawn_args,
     spawn_startup_wait,
+    verbose,
 ):
     """
     Optimize the input stimulus selectivity of the specified cell in a network clamp configuration.
@@ -890,10 +917,9 @@ def main(
     comm.barrier()
 
     np.seterr(all="raise")
-    verbose = True
     cache_queries = True
 
-    config_logging(verbose)
+    config_logging(verbose or (rank == 0))
 
     cell_index_set = set([])
     if gid_selection_file is not None:
@@ -971,10 +997,11 @@ def main(
         nprocs_per_worker=nprocs_per_worker,
         n_max_tasks=n_max_tasks,
         cooperative_init=cooperative_init,
+        spawn_workers=spawn_workers,
         spawn_executable=spawn_executable,
         spawn_args=spawn_args,
         spawn_startup_wait=spawn_startup_wait,
-        verbose=verbose,
+        verbose=verbose or (rank == 0),
     )
 
     opt_param_config = optimization_params(

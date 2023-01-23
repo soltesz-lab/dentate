@@ -207,11 +207,13 @@ def find_template(env, template_name, path=['templates'], template_file=None, bc
                         f'file {template_file}; path is {path}')
 
 
-def configure_hoc_env(env, bcast_template=False):
+def configure_hoc_env(env, bcast_template=False, group=None):
     """
 
     :param env: :class:'Env'
     """
+    if group is not None:
+        h.nrnmpi_init(group)
     h.load_file("stdrun.hoc")
     h.load_file("loadbal.hoc")
     for template_dir in env.template_paths:
