@@ -3,22 +3,24 @@
 #SBATCH -J optimize_DG_network_neg2000_neg1900um # Job name
 #SBATCH -o ./results/optimize_DG_network_neg2000_neg1900um.o%j       # Name of stdout output file
 #SBATCH -e ./results/optimize_DG_network_neg2000_neg1900um.e%j       # Name of stderr error file
-#SBATCH -p large      # Queue (partition) name
-#SBATCH -N 1024             # Total # of nodes 
+#SBATCH -p normal      # Queue (partition) name
+#SBATCH -N 512             # Total # of nodes 
 #SBATCH --ntasks-per-node=56 # # of mpi tasks per node
-#SBATCH -t 1:00:00        # Run time (hh:mm:ss)
+#SBATCH -t 24:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
+module load mkl/19.1.1
 module load python3/3.9.2
 module load phdf5/1.10.4
-module load mkl/19.1.1
+module load impi/18.0.5
 
 set -x
 
-export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
+export TF_CPP_MIN_LOG_LEVEL=2
+
+export NEURONROOT=$SCRATCH/bin/nrnpython3_intel18
 export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
-export LD_PRELOAD=$MKLROOT/lib/intel64_lin/libmkl_core.so:$MKLROOT/lib/intel64_lin/libmkl_sequential.so
 
 export DATA_PREFIX="/tmp/optimize_DG_network"
 export CDTools=/home1/apps/CDTools/1.2
@@ -50,16 +52,16 @@ cd $SLURM_SUBMIT_DIR
 
 distribute.bash ${SCRATCH}/dentate/optimize_DG_network
 
-mpirun -rr -n 113 \
+ibrun -np 128 -rr \
     python3 optimize_network.py \
     --config-path=$DG_HOME/config/DG_optimize_network_neg2000_neg1900um.yaml \
     --optimize-file-dir=$results_path \
     --target-features-path="$DATA_PREFIX/Full_Scale_Control/DG_input_features_20220216.h5" \
     --target-features-namespace="Place Selectivity" \
     --verbose \
-    --nprocs-per-worker=252 \
+    --nprocs-per-worker=223 \
     --n-epochs=1 \
-    --n-initial=100 --initial-method="slh" --num-generations=400 --population-size=112 --resample-fraction 1.0 \
+    --n-initial=100 --initial-method="slh" --num-generations=400 --population-size=127 --resample-fraction 1.0 \
     --no_cleanup \
     --arena_id=A --trajectory_id=Diag \
     --template_paths=$DG_HOME/templates \
@@ -71,7 +73,7 @@ mpirun -rr -n 113 \
     --spike_input_attr='Spike Train' \
     --max_walltime_hours=4.0 \
     --io_size=1 \
-    --use-cell-attr-gen \
+    --use_cell_attr_gen \
     --microcircuit_inputs \
     --verbose
 

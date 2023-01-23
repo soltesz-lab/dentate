@@ -71,15 +71,30 @@ def main(config, template_path, types_path, forest_path, connectivity_path, conn
     if rank == 0:
         logger.info('Reading population coordinates...')
 
-    soma_distances = {}
+    color = 0
+    if rank == 0:
+         color = 1
+    comm0 = comm.Split(color, 0)
+
+    soma_coords = {}
     for population in populations:
-        coords_iter = bcast_cell_attributes(coords_path, population, 0, namespace=coords_namespace)
+        if rank == 0:
+            logger.info(f'Reading {population} coordinates...')
+            coords_iter = read_cell_attributes(coords_path, population, comm=comm0,
+                                               mask=set(['X Coordinate', 'Y Coordinate', 'Z Coordinate']),
+                                               namespace=coords_namespace)
 
-        soma_coords[population] = { k: (v['X Coordinate'][0], v['Y Coordinate'][0], v['Z Coordinate'][0]) for (k,v) in coords_iter }
+            soma_coords[population] = { k: (float(v['X Coordinate'][0]), 
+                                            float(v['Y Coordinate'][0]), 
+                                            float(v['Z Coordinate'][0])) for (k,v) in coords_iter }
 
-        gc.collect()
+    comm.barrier()
+    comm0.Free()
 
-    generate_gj_connections(env, forest_path, soma_coords, gj_config, gj_seed, connectivity_namespace, connectivity_path,
+    soma_coords = comm.bcast(soma_coords, root=0)
+
+    generate_gj_connections(env, forest_path, soma_coords, gj_config, gj_seed, 
+                            connectivity_namespace, connectivity_path,
                             io_size, chunk_size, value_chunk_size, cache_size,
                             dry_run=dry_run)
 

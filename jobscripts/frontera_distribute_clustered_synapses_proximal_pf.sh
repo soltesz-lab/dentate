@@ -29,7 +29,7 @@ ibrun python3  ./scripts/distribute_clustered_synapse_locs.py \
     --template-path=./templates \
     --arena-id A \
     -i GC \
-    --forest-path=$DATA_PREFIX/Slice/dentatenet_Slice_SLN_proximal_pf_20221216.h5 \
-    --output-path=$DATA_PREFIX/Slice/dentatenet_Slice_SLN_proximal_pf_20221216.h5 \
+    --forest-path=$DATA_PREFIX/Slice/dentatenet_Slice_SLN_neg2000_neg1900um_20221210_compressed.h5 \
+    --output-path=$DATA_PREFIX/Slice/dentatenet_Slice_SLN_neg2000_neg1900um_20221210_compressed.h5 \
     --dry-run \
     --io-size=16 -v

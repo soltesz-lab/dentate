@@ -29,7 +29,7 @@ mkdir -p $results_path
 
 ibrun -n 1 python3 ./scripts/sample_cells.py \
     --arena-id=A --trajectory-id=Diag \
-    --config=Full_Scale_GC_Exc_Sat_SynExp3NMDA2_IN_PR.yaml \
+    --config=Full_Scale_GC_Exc_Sat_SynExp3NMDA2_CLS_IN_PR.yaml \
     --config-prefix=./config \
     --dataset-prefix="$SCRATCH/striped2/dentate" \
     --output-path=$results_path \
@@ -39,6 +39,6 @@ ibrun -n 1 python3 ./scripts/sample_cells.py \
     --input-features-namespaces 'Place Selectivity' \
     --input-features-namespaces 'Grid Selectivity' \
     --input-features-namespaces 'Constant Selectivity' \
-    --selection-path=gid_313514.dat \
+    --selection-path=gid_NGFC.dat \
     --verbose
 

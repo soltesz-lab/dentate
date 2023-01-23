@@ -4,24 +4,24 @@
 #SBATCH -o ./results/optimize_DG_network_neg2000_neg1900um_test.o%j       # Name of stdout output file
 #SBATCH -e ./results/optimize_DG_network_neg2000_neg1900um_test.e%j       # Name of stderr error file
 #SBATCH -p development      # Queue (partition) name
-#SBATCH -N 9             # Total # of nodes 
+#SBATCH -N 40             # Total # of nodes 
 #SBATCH --ntasks-per-node=56 # # of mpi tasks per node
-#SBATCH -t 1:30:00        # Run time (hh:mm:ss)
+#SBATCH -t 0:30:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
+module load mkl/19.1.1
 module load python3/3.9.2
 module load phdf5/1.10.4
-module load mkl/19.1.1
+module load impi/18.0.5
 
 set -x
 
-export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
+export NEURONROOT=$SCRATCH/bin/nrnpython3_intel18
 export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
-export LD_PRELOAD=$MKLROOT/lib/intel64_lin/libmkl_core.so:$MKLROOT/lib/intel64_lin/libmkl_sequential.so
 
 export DATA_PREFIX="/tmp/optimize_DG_network"
-export CDTools=/home1/apps/CDTools/1.1
+export CDTools=/home1/apps/CDTools/1.2
 
 export PATH=${CDTools}/bin:$NEURONROOT/bin:$PATH
 export MODEL_HOME=$HOME/model
@@ -37,7 +37,7 @@ export I_MPI_ADJUST_ALLTOALLV=2
 export I_MPI_ADJUST_ALLREDUCE=4
 
 export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=off
-export I_MPI_HYDRA_BRANCH_COUNT=0
+export I_MPI_HYDRA_BRANCH_COUNT=1000
 export UCX_TLS="knem,dc_x"
 export MY_MPIRUN_OPTIONS="-rr"
 
@@ -50,14 +50,14 @@ cd $SLURM_SUBMIT_DIR
 
 distribute.bash ${SCRATCH}/dentate/optimize_DG_network
 
-ibrun -rr -n 3 \
+ibrun -np 10 -rr \
     python3 optimize_network.py \
     --config-path=$DG_HOME/config/DG_optimize_network_neg2000_neg1900um_test.yaml \
     --optimize-file-dir=$results_path \
     --target-features-path="$DATA_PREFIX/Full_Scale_Control/DG_input_features_20220216.h5" \
     --target-features-namespace="Place Selectivity" \
     --verbose \
-    --nprocs-per-worker=252 \
+    --nprocs-per-worker=223 \
     --n-epochs=1 \
     --n-initial=100 --initial-method="slh" --num-generations=400 --population-size=200 --resample-fraction 1.0 \
     --no_cleanup \
@@ -71,7 +71,8 @@ ibrun -rr -n 3 \
     --spike_input_attr='Spike Train' \
     --max_walltime_hours=24.0 \
     --io_size=1 \
-    --use-cell-attr-gen \
+    --use_cell_attr_gen \
     --microcircuit_inputs \
+    --spawn_startup_wait 10 \
     --verbose
 

@@ -27,19 +27,16 @@ Cell Types:
   HC:
     template: Cell
     template file: neuroh5_cell_template.hoc
-    mechanism file: DG_HICAP_PR_config.yaml
     synapses:
       density: !include HC_synapse_density.yaml
   BC:
     template: Cell
     template file: neuroh5_cell_template.hoc
-    mechanism file: DG_BC_PR_config.yaml
     synapses:
       density: !include BC_synapse_density.yaml
   AAC:
     template: Cell
     template file: neuroh5_cell_template.hoc
-    mechanism file: DG_AAC_PR_config.yaml
     synapses:
       density: !include AAC_synapse_density.yaml
   HCC:

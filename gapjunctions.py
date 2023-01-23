@@ -112,6 +112,7 @@ def choose_gj_locations(ranstream_gj, cell_a, cell_b):
 
 def generate_gap_junctions(connection_prob, coupling_coeffs, coupling_params, ranstream_gj, gids_a, gids_b, gj_probs,
                            gj_distances, cell_dict_a, cell_dict_b, gj_dict):
+
     k = int(round(connection_prob * len(gj_distances)))
     selected = ranstream_gj.choice(np.arange(0, len(gj_distances)), size=k, replace=False, p=gj_probs)
     count = len(selected)
@@ -202,7 +203,7 @@ def generate_gj_connections(env, forest_path, soma_coords_dict,
 
     for (i, (pp, gj_config)) in enumerate(sorted(viewitems(gj_config_dict))):
         if rank == 0:
-            logger.info('Generating gap junction connections between populations %s and %s...' % pp)
+            logger.info(f"Generating gap junction connections between populations {pp[0]} and {pp[1]}...")
 
         ranstream_gj.seed(gj_seed + i)
 
@@ -271,7 +272,7 @@ def generate_gj_connections(env, forest_path, soma_coords_dict,
         cell_dict_a = {}
         selection_a = set(gids_a)
         if rank == 0:
-            logger.info('Reading tree selection of population %s (%d cells)...' % (pp[0], len(selection_a)))
+            logger.info(f"Reading tree selection of population {pp[0]} ({len(selection_a)} cells)...")
         (tree_iter_a, _) = read_tree_selection(forest_path, population_a, list(selection_a))
         for (gid, tree_dict) in tree_iter_a:
             cell_dict_a[gid] = cells.make_neurotree_hoc_cell(template_class_a, neurotree_dict=tree_dict, gid=gid)
@@ -279,13 +280,14 @@ def generate_gj_connections(env, forest_path, soma_coords_dict,
         cell_dict_b = {}
         selection_b = set(gids_b)
         if rank == 0:
-            logger.info('Reading tree selection of population %s (%d cells)...' % (pp[1], len(selection_b)))
+            logger.info(f"Reading tree selection of population {pp[1]} ({len(selection_b)} cells)...")
+
         (tree_iter_b, _) = read_tree_selection(forest_path, population_b, list(selection_b))
         for (gid, tree_dict) in tree_iter_b:
             cell_dict_b[gid] = cells.make_neurotree_hoc_cell(template_class_b, neurotree_dict=tree_dict, gid=gid)
 
         if rank == 0:
-            logger.info('Generating gap junction pairs between populations %s and %s...' % pp)
+            logger.info(f"Generating gap junction pairs between populations {pp[0]} and {pp[1]}...")
 
         gj_dict = {}
         count = generate_gap_junctions(connection_prob, coupling_coeffs, coupling_params,
