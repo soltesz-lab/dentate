@@ -85,6 +85,9 @@ def init_controller(subworld_size, use_coreneuron):
     h.pc = h.ParallelContext()
     h.pc.subworlds(subworld_size)
     if use_coreneuron:
+        from neuron import coreneuron
+        coreneuron.enable = True
+        coreneuron.verbose = 0
         h.cvode.cache_efficient(1)
         h.finitialize(-65)
         h.pc.set_maxstep(10)
@@ -938,7 +941,7 @@ def main(
     np.seterr(all="raise")
     cache_queries = True
 
-    config_logging(verbose or (rank == 0))
+    config_logging(verbose or (rank == size-1))
 
     cell_index_set = set([])
     if gid_selection_file is not None:
