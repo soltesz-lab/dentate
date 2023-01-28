@@ -207,13 +207,12 @@ def find_template(env, template_name, path=['templates'], template_file=None, bc
                         f'file {template_file}; path is {path}')
 
 
-def configure_hoc_env(env, bcast_template=False, group=None):
+def configure_hoc_env(env, bcast_template=False, subworld_size=None):
     """
 
     :param env: :class:'Env'
     """
-    if group is not None:
-        h.nrnmpi_init(group)
+    h.nrnmpi_init()
     h.load_file("stdrun.hoc")
     h.load_file("loadbal.hoc")
     for template_dir in env.template_paths:
@@ -232,6 +231,8 @@ def configure_hoc_env(env, bcast_template=False, group=None):
         coreneuron.enable = True
         coreneuron.verbose = 1 if env.verbose else 0
     h.pc = h.ParallelContext()
+    if subworld_size is not None:
+        h.pc.subworlds(subworld_size)
     h.pc.gid_clear()
     env.pc = h.pc
     h.dt = env.dt

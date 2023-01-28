@@ -2,6 +2,8 @@
 Routines for selectivity optimization via Network Clamp.
 """
 import os, sys, copy, uuid, pprint, time, gc
+os.environ["DISTWQ_CONTROLLER_RANK"] = "-1"
+
 from enum import Enum, IntEnum, unique
 from collections import defaultdict, namedtuple
 from neuron import h
@@ -76,8 +78,17 @@ def mpi_excepthook(type, value, traceback):
 sys_excepthook = sys.excepthook
 sys.excepthook = mpi_excepthook
 
-def init_controller():
-    h.nrnmpi_init(0)
+def init_controller(subworld_size, use_coreneuron):
+    h.nrnmpi_init()
+    h('objref pc, cvode')
+    h.cvode = h.CVode()
+    h.pc = h.ParallelContext()
+    h.pc.subworlds(subworld_size)
+    if use_coreneuron:
+        h.cvode.cache_efficient(1)
+        h.finitialize(-65)
+        h.pc.set_maxstep(10)
+        h.pc.psolve(0.1)
 
 def init_selectivity_objfun(
     config_file,
@@ -122,7 +133,12 @@ def init_selectivity_objfun(
 
     env = Env(**params)
     env.results_file_path = None
-    configure_hoc_env(env, group=worker.worker_id, bcast_template=True)
+    configure_hoc_env(env, subworld_size=nprocs_per_worker, bcast_template=True)
+    if use_coreneuron:
+        h.cvode.cache_efficient(1)
+        h.finitialize(-65)
+        h.pc.set_maxstep(10)
+        h.pc.psolve(0.1)
 
     my_cell_index_set = init(
         env,
@@ -533,6 +549,7 @@ def optimize_run(
     init_objfun,
     problem_regime,
     nprocs_per_worker=1,
+    use_coreneuron=False,
     n_iter=10,
     param_type="synaptic",
     init_params={},
@@ -616,6 +633,8 @@ def optimize_run(
         "obj_fun_init_args": init_params,
         "controller_init_fun_module": "dentate.optimize_selectivity_snr",
         "controller_init_fun_name": "init_controller",
+        "controller_init_fun_args": {"subworld_size": nprocs_per_worker,
+                                     "use_coreneuron": use_coreneuron},
         "reduce_fun_name": reduce_fun_name,
         "reduce_fun_module": "dentate.optimization",
         "reduce_fun_args": reduce_fun_args,
@@ -995,6 +1014,7 @@ def main(
         init_params=init_params,
         results_file=results_file,
         nprocs_per_worker=nprocs_per_worker,
+        use_coreneuron=use_coreneuron,
         n_max_tasks=n_max_tasks,
         cooperative_init=cooperative_init,
         spawn_workers=spawn_workers,
