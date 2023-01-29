@@ -624,9 +624,15 @@ def optimize_run(
         "mean_outfld_rate",
     ]
 
-    feature_dtypes = [(feature_name, np.float32) for feature_name in feature_names]
-    feature_dtypes.append(("trial_mean_infld_rate", (np.float32, (1, n_trials))))
-    feature_dtypes.append(("trial_mean_outfld_rate", (np.float32, (1, n_trials))))
+    if problem_regime == ProblemRegime.every:
+        feature_dtypes = [(feature_name, np.float32) for feature_name in feature_names]
+        feature_dtypes.append(("trial_mean_infld_rate", (np.float32, (1, n_trials))))
+        feature_dtypes.append(("trial_mean_outfld_rate", (np.float32, (1, n_trials))))
+    else:
+        n_problems = len(cell_index_set)
+        feature_dtypes = [(feature_name, (np.float32, (n_problems, 1))) for feature_name in feature_names]
+        feature_dtypes.append(("trial_mean_infld_rate", (np.float32, (n_problems, n_trials))))
+        feature_dtypes.append(("trial_mean_outfld_rate", (np.float32, (n_problems, n_trials))))
 
     distgfs_params = {
         "opt_id": "dentate.optimize_selectivity",
@@ -1024,7 +1030,7 @@ def main(
         spawn_executable=spawn_executable,
         spawn_args=spawn_args,
         spawn_startup_wait=spawn_startup_wait,
-        verbose=verbose or (rank == 0),
+        verbose=verbose or (rank == size-1),
     )
 
     opt_param_config = optimization_params(
