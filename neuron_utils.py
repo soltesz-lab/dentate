@@ -229,7 +229,7 @@ def configure_hoc_env(env, bcast_template=False, subworld_size=None):
     if env.use_coreneuron:
         from neuron import coreneuron
         coreneuron.enable = True
-        coreneuron.verbose = 1 if env.verbose else 0
+        coreneuron.verbose = 1 #if env.verbose else 0
     h.pc = h.ParallelContext()
     if subworld_size is not None:
         h.pc.subworlds(subworld_size)
