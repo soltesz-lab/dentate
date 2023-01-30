@@ -360,9 +360,10 @@ def opt_reduce_every(xs):
 def opt_reduce_every_features(items):
     result = {}
     features = {}
-    for yd, fd in items:
-        for k in yd:
-            result[k] = (yd[k], fd[k])
+    for xd in items:
+        for k in xd:
+            yd, fd = xd[k]
+            result[k] = (yd, fd)
     return result
 
 def opt_reduce_every_features_constraints(items):
