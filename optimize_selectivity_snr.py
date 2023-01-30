@@ -590,19 +590,18 @@ def optimize_run(
     else:
         file_path = "%s/%s" % (env.results_path, results_file)
     problem_ids = None
+    cell_index_set = init_params.get("cell_index_set", None)
     reduce_fun_name = None
     reduce_fun_args = {}
     if ProblemRegime[problem_regime] == ProblemRegime.every:
         reduce_fun_name = "opt_reduce_every_features"
-        problem_ids = init_params.get("cell_index_set", None)
+        problem_ids = cell_index_set
     elif ProblemRegime[problem_regime] == ProblemRegime.mean:
         reduce_fun_name = "opt_reduce_mean_features"
-        cell_index_set = init_params.get("cell_index_set", None)
         assert(cell_index_set is not None)
         reduce_fun_args = { "index": cell_index_set }
     elif ProblemRegime[problem_regime] == ProblemRegime.max:
         reduce_fun_name = "opt_reduce_max_features"
-        cell_index_set = init_params.get("cell_index_set", None)
         assert(cell_index_set is not None)
         reduce_fun_args = { "index": cell_index_set }
     else:
