@@ -231,6 +231,7 @@ def configure_hoc_env(env, bcast_template=False, subworld_size=None):
         coreneuron.enable = True
         coreneuron.verbose = 1 #if env.verbose else 0
     h.pc = h.ParallelContext()
+    logger.info(f"Rank {env.comm.rank}: configure_hoc_env: subworld_size = {subworld_size}")
     if subworld_size is not None:
         h.pc.subworlds(subworld_size)
     h.pc.gid_clear()

@@ -913,6 +913,7 @@ def make_cells(env):
         req1 = env.comm.Ibarrier()
         pop_biophys_gids_per_rank = env.comm.gather(pop_biophys_gids, root=0)
         req1.wait()
+        logger.info(f"Rank {rank}: env.comm.rank = {env.comm.rank}")
         if rank == 0:
             all_pop_biophys_gids = sorted([item for sublist in pop_biophys_gids_per_rank for item in sublist])
             for gid in all_pop_biophys_gids:
@@ -1337,7 +1338,7 @@ def init_input_cells(env):
     gc.collect()
                     
 
-def init(env):
+def init(env, subworld_size=None):
     """
     Initializes the network by calling make_cells, init_input_cells, connect_cells, connect_gjs.
     If env.optldbal or env.optlptbal are specified, performs load balancing.
@@ -1345,8 +1346,7 @@ def init(env):
     :param env: an instance of the `dentate.Env` class
     """
     from neuron import h
-    configure_hoc_env(env)
-
+    configure_hoc_env(env, subworld_size=subworld_size)
 
     assert(env.data_file_path)
     assert(env.connectivity_file_path)

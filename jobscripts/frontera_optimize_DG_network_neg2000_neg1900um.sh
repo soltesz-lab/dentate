@@ -13,13 +13,12 @@
 module load mkl/19.1.1
 module load python3/3.9.2
 module load phdf5/1.10.4
-module load impi/18.0.5
 
 set -x
 
 export TF_CPP_MIN_LOG_LEVEL=2
 
-export NEURONROOT=$SCRATCH/bin/nrnpython3_intel18
+export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
 export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
 
 export DATA_PREFIX="/tmp/optimize_DG_network"
@@ -38,10 +37,7 @@ export I_MPI_ADJUST_ALLTOALL=4
 export I_MPI_ADJUST_ALLTOALLV=2
 export I_MPI_ADJUST_ALLREDUCE=4
 
-export I_MPI_JOB_RESPECT_PROCESS_PLACEMENT=off
-export I_MPI_HYDRA_BRANCH_COUNT=0
 export UCX_TLS="knem,dc_x"
-export MY_MPIRUN_OPTIONS="-rr"
 
 results_path=$SCRATCH/dentate/results/optimize_DG_network
 export results_path
@@ -52,7 +48,7 @@ cd $SLURM_SUBMIT_DIR
 
 distribute.bash ${SCRATCH}/dentate/optimize_DG_network
 
-ibrun -np 128 -rr \
+ibrun -np 28545 \
     python3 optimize_network.py \
     --config-path=$DG_HOME/config/DG_optimize_network_neg2000_neg1900um.yaml \
     --optimize-file-dir=$results_path \

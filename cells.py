@@ -3359,7 +3359,7 @@ def register_cell(env, pop_name, gid, cell):
     :param gid: gid
     :param cell: cell instance
     """
-    rank = env.comm.rank
+    rank = env.pc.id()
     env.gidset.add(gid)
     env.pc.set_gid2node(gid, rank)
     hoc_cell = getattr(cell, 'hoc_cell', cell)

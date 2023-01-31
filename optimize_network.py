@@ -4,10 +4,13 @@ Dentate Gyrus model optimization script for optimization with dmosopt
 """
 
 import os, sys, logging, datetime, gc
+os.environ["DISTWQ_CONTROLLER_RANK"] = "-1"
+
 from functools import partial
 import click
 import numpy as np
 from collections import defaultdict, namedtuple
+from neuron import h
 import dentate
 from dentate import network, network_clamp, synapses, spikedata, stimulus, utils, optimization
 from dentate.env import Env
@@ -39,8 +42,20 @@ sys_excepthook = sys.excepthook
 sys.excepthook = mpi_excepthook
 
 
-def dmosopt_broker_init(broker, *args):
-    broker.group_comm.barrier()
+def init_controller(subworld_size, use_coreneuron):
+    h.nrnmpi_init()
+    h('objref pc, cvode')
+    h.cvode = h.CVode()
+    h.pc = h.ParallelContext()
+    h.pc.subworlds(subworld_size)
+    if use_coreneuron:
+        from neuron import coreneuron
+        coreneuron.enable = True
+        coreneuron.verbose = 0
+        h.cvode.cache_efficient(1)
+        h.finitialize(-65)
+        h.pc.set_maxstep(10)
+        h.pc.psolve(0.05)
 
 @click.command(context_settings=dict(
     ignore_unknown_options=True,
@@ -65,8 +80,9 @@ def dmosopt_broker_init(broker, *args):
 @click.option("--mutation-rate", type=float)
 @click.option("--collective-mode", type=str, default='gather')
 @click.option("--spawn-startup-wait", type=int, default=3)
+@click.option("--spawn-workers", is_flag=True)
 @click.option("--verbose", '-v', is_flag=True)
-def main(config_path, target_features_path, target_features_namespace, optimize_file_dir, optimize_file_name, nprocs_per_worker, n_epochs, n_initial, initial_maxiter, initial_method, optimizer_method, population_size, num_generations, resample_fraction, mutation_rate, collective_mode, spawn_startup_wait, verbose):
+def main(config_path, target_features_path, target_features_namespace, optimize_file_dir, optimize_file_name, nprocs_per_worker, n_epochs, n_initial, initial_maxiter, initial_method, optimizer_method, population_size, num_generations, resample_fraction, mutation_rate, collective_mode, spawn_startup_wait, spawn_workers, verbose):
 
     network_args = click.get_current_context().args
     network_config = {}
@@ -85,6 +101,7 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
         optimize_file_name=f"dmosopt.optimize_network_{run_ts}.h5"
     operational_config = read_from_yaml(config_path)
     operational_config['run_ts'] = run_ts
+    operational_config['nprocs_per_worker'] = nprocs_per_worker
     if target_features_path is not None:
         operational_config['target_features_path'] = target_features_path
     if target_features_namespace is not None:
@@ -128,6 +145,10 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
                       'obj_fun_init_name': init_objfun, 
                       'obj_fun_init_module': 'dentate.optimize_network',
                       'obj_fun_init_args': init_params,
+                      'controller_init_fun_module': "dentate.optimize_network",
+                      'controller_init_fun_name': "init_controller",
+                      'controller_init_fun_args': {"subworld_size": nprocs_per_worker,
+                                                   "use_coreneuron": network_config.get("use_coreneuron", False)},
                       'reduce_fun_name': 'compute_objectives',
                       'reduce_fun_module': 'dentate.optimize_network',
                       'reduce_fun_args': (operational_config, opt_targets),
@@ -152,11 +173,9 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
                       'save': True,
                       'save_eval': 5
                       }
-    
-    #dmosopt_params['broker_fun_name'] = 'dmosopt_broker_init'
-    #dmosopt_params['broker_module_name'] = 'dentate.optimize_network'
 
-    best = dmosopt.run(dmosopt_params, spawn_workers=True, sequential_spawn=False,
+    best = dmosopt.run(dmosopt_params, 
+                       spawn_workers=spawn_workers, 
                        spawn_startup_wait=spawn_startup_wait,
                        nprocs_per_worker=nprocs_per_worker,
                        collective_mode=collective_mode,
@@ -189,9 +208,13 @@ def init_network_objfun(operational_config, opt_targets, param_names, param_tupl
     kwargs['results_file_id'] = 'DG_optimize_network_%d_%s' % \
                                 (worker.worker_id, operational_config['run_ts'])
 
+    nprocs_per_worker = operational_config["nprocs_per_worker"]
     logger = utils.get_script_logger(os.path.basename(__file__))
-    env = init_network(comm=MPI.COMM_WORLD, kwargs=kwargs)
-    gc.collect()
+    env = init_network(comm=worker.merged_comm, subworld_size=nprocs_per_worker, kwargs=kwargs)
+    if kwargs.get("use_coreneuron", False):
+        h.cvode.cache_efficient(1)
+        h.pc.set_maxstep(10)
+        h.pc.psolve(0.05)
 
     t_start = 50.
     t_stop = env.tstop
@@ -222,10 +245,10 @@ def init_network_objfun(operational_config, opt_targets, param_names, param_tupl
                    target_trj_rate_map_dict, from_param_dict, t_start, t_stop, target_populations)
 
     
-def init_network(comm, kwargs):
+def init_network(comm, subworld_size, kwargs):
     np.seterr(all='raise')
     env = Env(comm=comm, **kwargs)
-    network.init(env)
+    network.init(env, subworld_size=subworld_size)
     return env
 
 
