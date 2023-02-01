@@ -1,0 +1,54 @@
+PinskyRinzel:
+  Ltotal: 11.725961685180664
+  pp: 0.6440384387969971
+  gc: 3.6560559272766113
+  soma_gmax_Na: 0.6067621111869812
+  soma_gmax_K: 0.7168795466423035
+  soma_g_pas: 0.00048749998677521944
+  dend_gmax_Ca: 0.6963749527931213
+  dend_gmax_KCa: 0.3426346182823181
+  dend_gmax_KAHP: 0.6631442308425903
+  dend_aqs_KAHP: 2e-05
+  dend_bq_KAHP: 0.001
+  dend_g_pas: 0.0012098076986148953
+  dend_beta_Caconc: 0.1946544200181961
+  dend_d_Caconc: 8.480026245117188
+  cm_ratio: 21.963520050048828
+  global_diam: 10.0
+  global_cm: 3.0
+  e_pas: -77.0
+  ic_constant: 0.0030013763
+  V_threshold: -40.0
+  V_rest: -77.0
+apical:
+  synapses:
+    NMDA:
+      gVI:
+        - filters:
+            layers: [IML]
+            syn_types: [excitatory]
+          value: 8.502902612167373e-05 # GC_20220926/optimize_selectivity.20220928_025352.yaml
+        - filters:
+            layers: [MML, OML]
+            syn_types: [excitatory]
+          value: 3.767942163406331e-05 # GC_20220926/optimize_selectivity.20220928_025352.yaml
+      tau1_0:
+        filters:
+          syn_types:
+          - excitatory
+        value: 3.531
+      tau2_0:
+        filters:
+          syn_types:
+          - excitatory
+        value: 462.39
+      a1:
+        filters:
+          syn_types:
+          - excitatory
+        value: 1.5
+      a2:
+        filters:
+          syn_types:
+          - excitatory
+        value: 28.0
