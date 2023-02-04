@@ -183,8 +183,8 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
     
     if best is not None:
         if optimize_file_dir is not None:
-            results_file_id = 'DG_optimize_network_%s' % run_ts
-            yaml_file_path = '%s/optimize_network.%s.yaml' % (optimize_file_dir, str(results_file_id))
+            results_file_id = f'DG_optimize_network_{run_ts}'
+            yaml_file_path = f'{optimize_file_dir}/optimize_network.{results_file_id}.yaml'
             prms = best[0]
             prms_dict = dict(prms)
             n_res = prms[0][1].shape[0]
@@ -205,9 +205,7 @@ def init_network_objfun(operational_config, opt_targets, param_names, param_tupl
     target_populations = operational_config['target_populations']
     target_features_path = operational_config['target_features_path']
     target_features_namespace = operational_config['target_features_namespace']
-    kwargs['results_file_id'] = 'DG_optimize_network_%d_%s' % \
-                                (worker.worker_id, operational_config['run_ts'])
-
+    kwargs['results_file_id'] = f"DG_optimize_network_{worker.worker_id}_{operational_config['run_ts']}"
     nprocs_per_worker = operational_config["nprocs_per_worker"]
     logger = utils.get_script_logger(os.path.basename(__file__))
     env = init_network(comm=worker.merged_comm, subworld_size=nprocs_per_worker, kwargs=kwargs)
@@ -224,7 +222,7 @@ def init_network_objfun(operational_config, opt_targets, param_names, param_tupl
     target_features_arena = env.arena_id
     target_features_trajectory = env.trajectory_id
     for pop_name in target_populations:
-        if ('%s target rate dist residual' % pop_name) not in objective_names:
+        if f'{pop_name} snr' not in objective_names:
             continue
         my_cell_index_set = set(env.biophys_cells[pop_name].keys())
         trj_rate_maps = {}
@@ -276,7 +274,7 @@ def compute_objectives(local_features, operational_config, opt_targets):
         pop_features_dicts = [ features_dict[0][pop_name] for features_dict in local_features ]
 
         sum_mean_rate = 0.
-        sum_target_rate_dist_residual = 0.
+        sum_target_snr = 0.
         n_total = 0
         n_active = 0
         n_target_rate_map = 0
@@ -286,15 +284,15 @@ def compute_objectives(local_features, operational_config, opt_targets):
             n_total_local = pop_feature_dict['n_total']
             n_target_rate_map_local = pop_feature_dict['n_target_rate_map']
             sum_mean_rate_local = pop_feature_dict['sum_mean_rate']
-            sum_target_rate_dist_residual_local = pop_feature_dict['sum_target_rate_dist_residual']
+            sum_snr_local = pop_feature_dict['sum_snr']
 
             n_total += n_total_local
             n_active += n_active_local
             n_target_rate_map += n_target_rate_map_local
             sum_mean_rate += sum_mean_rate_local
 
-            if sum_target_rate_dist_residual_local is not None:
-                sum_target_rate_dist_residual += sum_target_rate_dist_residual_local
+            if sum_snr_local is not None:
+                sum_snr += sum_snr_local
 
         if n_active > 0:
             mean_rate = sum_mean_rate / n_active
@@ -307,17 +305,17 @@ def compute_objectives(local_features, operational_config, opt_targets):
         else:
             fraction_active = 0.
 
-        mean_target_rate_dist_residual = None
+        mean_snr = None
         if n_target_rate_map > 0:
-            mean_target_rate_dist_residual = sum_target_rate_dist_residual / n_target_rate_map
+            mean_snr = sum_snr / n_target_rate_map
 
         logger.info(f'population {pop_name}: n_active = {n_active} n_total = {n_total} mean rate = {mean_rate}')
-        logger.info(f'population {pop_name}: n_target_rate_map = {n_target_rate_map} target_rate_dist_residual: sum = {sum_target_rate_dist_residual} mean = {mean_target_rate_dist_residual}')
+        logger.info(f'population {pop_name}: n_target_rate_map = {n_target_rate_map} target_snr: sum = {sum_snr} mean = {mean_snr}')
 
-        all_features_dict['%s fraction active' % pop_name] = fraction_active
-        all_features_dict['%s firing rate' % pop_name] = mean_rate
-        if mean_target_rate_dist_residual is not None:
-            all_features_dict['%s target rate dist residual' % pop_name] = mean_target_rate_dist_residual
+        all_features_dict[f'{pop_name} fraction active'] = fraction_active
+        all_features_dict[f'{pop_name} firing rate'] = mean_rate
+        if mean_snr is not None:
+            all_features_dict[f'{pop_name} snr'] = mean_snr
 
         rate_constr = mean_rate if mean_rate > 0. else -1. 
         constraints.append(rate_constr)

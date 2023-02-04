@@ -286,27 +286,29 @@ def network_features(env, target_trj_rate_map_dict, t_start, t_stop, target_popu
         n_total = len(env.cells[pop_name]) - len(env.artificial_cells[pop_name])
 
         n_target_rate_map = 0
-        sum_target_rate_dist_residual = None
+        sum_snr = None
         if has_target_trj_rate_map:
             pop_target_trj_rate_map_dict = target_trj_rate_map_dict[pop_name]
             n_target_rate_map = len(pop_target_trj_rate_map_dict)
-            target_rate_dist_residuals = []
+            snrs = []
             for gid in pop_target_trj_rate_map_dict:
                 target_trj_rate_map = pop_target_trj_rate_map_dict[gid]
                 rate_map_len = len(target_trj_rate_map)
+                target_var = np.var(target_trj_rate_map)
                 if gid in spike_density_dict:
-                    residual = np.abs(np.sum(target_trj_rate_map - spike_density_dict[gid]['rate'][:rate_map_len]))
+                    var_delta = np.var(spike_density_dict[gid]['rate'][:rate_map_len] - target_trj_rate_map)
                 else:
-                    residual = np.abs(np.sum(target_trj_rate_map))
-                target_rate_dist_residuals.append(residual)
-            sum_target_rate_dist_residual = np.sum(target_rate_dist_residuals)
+                    var_delta = target_var
+                snr = target_var / var_delta
+                snrs.append(snr)
+            sum_snr = np.sum(snrs)
     
         pop_features_dict = {}
         pop_features_dict['n_total'] = n_total
         pop_features_dict['n_active'] = n_active
         pop_features_dict['n_target_rate_map'] = n_target_rate_map
         pop_features_dict['sum_mean_rate'] = sum_mean_rate
-        pop_features_dict['sum_target_rate_dist_residual'] = sum_target_rate_dist_residual
+        pop_features_dict['sum_snr'] = sum_target_snr
 
         features_dict[pop_name] = pop_features_dict
 
