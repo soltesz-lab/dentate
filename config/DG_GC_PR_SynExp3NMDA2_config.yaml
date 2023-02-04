@@ -22,6 +22,11 @@ PinskyRinzel:
   V_rest: -77.0
 apical:
   synapses:
+    AMPA:
+      g_unit:
+      - filters:
+          syn_types: [excitatory]
+        value: 0.001
     NMDA:
       gVI:
         - filters:
