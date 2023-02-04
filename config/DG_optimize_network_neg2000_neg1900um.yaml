@@ -1,9 +1,9 @@
 param_config_name: "Weight exc inh microcircuit SynExp3NMDA2"
 objective_names:
-- GC target rate dist residual
+- GC snr
 - GC firing rate
 - GC fraction active
-- MC target rate dist residual
+- MC snr
 - MC firing rate
 - MC fraction active
 - AAC firing rate

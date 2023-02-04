@@ -8,7 +8,7 @@ PinskyRinzel:
   dend_gmax_Ca: 0.6963749527931213
   dend_gmax_KCa: 0.3426346182823181
   dend_gmax_KAHP: 0.6631442308425903
-  dend_aqs_KAHP: 2e-05
+  dend_aqs_KAHP: 2.0e-05
   dend_bq_KAHP: 0.001
   dend_g_pas: 0.0012098076986148953
   dend_beta_Caconc: 0.1946544200181961

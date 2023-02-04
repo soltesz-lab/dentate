@@ -274,7 +274,7 @@ def compute_objectives(local_features, operational_config, opt_targets):
         pop_features_dicts = [ features_dict[0][pop_name] for features_dict in local_features ]
 
         sum_mean_rate = 0.
-        sum_target_snr = 0.
+        sum_snr = 0.
         n_total = 0
         n_active = 0
         n_target_rate_map = 0
@@ -310,7 +310,7 @@ def compute_objectives(local_features, operational_config, opt_targets):
             mean_snr = sum_snr / n_target_rate_map
 
         logger.info(f'population {pop_name}: n_active = {n_active} n_total = {n_total} mean rate = {mean_rate}')
-        logger.info(f'population {pop_name}: n_target_rate_map = {n_target_rate_map} target_snr: sum = {sum_snr} mean = {mean_snr}')
+        logger.info(f'population {pop_name}: n_target_rate_map = {n_target_rate_map} snr: sum = {sum_snr} mean = {mean_snr}')
 
         all_features_dict[f'{pop_name} fraction active'] = fraction_active
         all_features_dict[f'{pop_name} firing rate'] = mean_rate
@@ -333,7 +333,7 @@ def compute_objectives(local_features, operational_config, opt_targets):
             objective = (feature_val - target_vals[key])**2
             logger.info(f'objective {key}: {objective} target: {target_vals[key]} feature: {feature_val}')
         else:
-            objective = feature_val
+            objective = -feature_val
             logger.info(f'objective {key}: {objective} feature: {feature_val}')
         objectives.append(objective)
         features.append(feature_val)
