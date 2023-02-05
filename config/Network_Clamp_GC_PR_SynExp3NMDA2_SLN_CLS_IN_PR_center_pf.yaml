@@ -22,7 +22,8 @@ Cell Types:
       weights: !include GC_SLN_weights.yaml
       clusters: !include GC_SLN_clusters.yaml
   MC:
-    template: PR_nrn
+    template: PRS_nrn
+    template file: PRS_nrn.hoc
     mechanism file: DG_MC_PR_config.yaml
     synapses:
       weights: !include MC_SLN_weights.yaml
