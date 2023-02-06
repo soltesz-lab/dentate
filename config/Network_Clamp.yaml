@@ -288,6 +288,52 @@ Synaptic Optimization:
               weight: [0.1, 4.0]
             GABA_B:
               weight: [0.1, 4.0]
+      Weight selectivity facilNMDA:
+       !!python/tuple [MPP, LPP]:
+          apical:
+            AMPA:
+              weight: 
+                a: [1.0, 10.0]
+                b: [0.5, 5.0]
+            NMDA:
+              g_unit: [0.00001, 0.0005]
+       !!python/tuple [MC, ConMC]:
+          apical:
+            AMPA:
+              weight: 
+                c: [0.1, 10.0]
+            NMDA:
+              g_unit: [0.00001, 0.0005]
+       AAC:
+          ais:
+            GABA_A:
+              weight: [0.1, 4.0]
+       NGFC:
+          apical:
+            GABA_A:
+              weight: [0.1, 4.0]
+       MOPP:
+          apical:
+            GABA_A:
+              weight: [0.1, 4.0]
+       HCC:
+          apical:
+            GABA_A:
+              weight: [0.1, 4.0]
+       BC:
+          !!python/tuple [soma, apical]:
+            GABA_A:
+              weight: [0.1, 4.0]
+       HC:
+          apical:
+            GABA_A:
+              weight: [0.1, 4.0]
+       NGFC:
+          apical:
+            GABA_A:
+              weight: [0.1, 4.0]
+            GABA_B:
+              weight: [0.1, 4.0]
       Weight selectivity SynExp3NMDA2:
        !!python/tuple [MPP, LPP]:
           apical:

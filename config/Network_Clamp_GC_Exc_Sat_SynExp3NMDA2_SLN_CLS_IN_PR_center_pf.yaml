@@ -24,8 +24,9 @@ Cell Types:
       clusters: !include GC_SLN_clusters.yaml
       density: !include GC_synapse_density.yaml
   MC:
-    template: PR_nrn
-    mechanism file: DG_MC_PR_config.yaml
+    template: PRS_nrn
+    template file: PRS_nrn.hoc
+    mechanism file: DG_MC_PR_SynExp3NMDA2_config.yaml
     synapses:
       weights: !include MC_SLN_weights.yaml
       density: !include MC_synapse_density.yaml
