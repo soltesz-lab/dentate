@@ -394,7 +394,7 @@ def opt_reduce_mean(xs):
                 vs[k].append(v)
     return { k: np.mean(vs[k]) for k in ks }
 
-def opt_reduce_mean_features(xs, index):
+def opt_reduce_mean_features(xs, index, feature_dtypes):
     ks = index
     vs = []
     fs = []
@@ -406,7 +406,11 @@ def opt_reduce_mean_features(xs, index):
         f = ax[k][1]
         vs.append(v)
         fs.append(f)
-    return { 0: ( np.mean(vs), np.vstack(fs) ) }
+    cval = np.concatenate(fs)
+    fval = np.empty((1,), dtype=feature_dtypes)
+    for fld in fs[0].dtype.fields:
+        fval[fld] = cval[fld].reshape((-1,1))
+    return { 0: ( np.mean(vs), fval ) }
 
 def opt_reduce_max(xs):
     ks = list(xs[0].keys())

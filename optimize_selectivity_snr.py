@@ -317,9 +317,9 @@ def init_selectivity_objfun(
         feature_dtypes.append(("trial_mean_outfld_rate", (np.float32, (1, n_trials))))
     else:
         n_problems = len(cell_index_set)
-        feature_dtypes = [(feature_name, (np.float32, (n_problems, 1))) for feature_name in feature_names]
-        feature_dtypes.append(("trial_mean_infld_rate", (np.float32, (n_problems, n_trials))))
-        feature_dtypes.append(("trial_mean_outfld_rate", (np.float32, (n_problems, n_trials))))
+        feature_dtypes = [(feature_name, (np.float32, (1,))) for feature_name in feature_names]
+        feature_dtypes.append(("trial_mean_infld_rate", (np.float32, (1, n_trials))))
+        feature_dtypes.append(("trial_mean_outfld_rate", (np.float32, (1, n_trials))))
 
     def from_param_dict(params_dict):
         result = []
@@ -566,6 +566,16 @@ def optimize_run(
     verbose=False,
 ):
 
+    objective_names = ["snr"]
+    feature_names = [
+        "mean_peak_rate",
+        "mean_trough_rate",
+        "max_infld_rate",
+        "min_infld_rate",
+        "mean_infld_rate",
+        "mean_outfld_rate",
+    ]
+
     opt_param_config = optimization_params(
         env.netclamp_config.optimize_parameters,
         [population],
@@ -591,37 +601,8 @@ def optimize_run(
         file_path = "%s/%s" % (env.results_path, results_file)
     problem_ids = None
     cell_index_set = init_params.get("cell_index_set", None)
-    reduce_fun_name = None
-    reduce_fun_args = {}
-    if ProblemRegime[problem_regime] == ProblemRegime.every:
-        reduce_fun_name = "opt_reduce_every_features"
-        problem_ids = cell_index_set
-    elif ProblemRegime[problem_regime] == ProblemRegime.mean:
-        reduce_fun_name = "opt_reduce_mean_features"
-        assert(cell_index_set is not None)
-        reduce_fun_args = { "index": cell_index_set }
-    elif ProblemRegime[problem_regime] == ProblemRegime.max:
-        reduce_fun_name = "opt_reduce_max_features"
-        assert(cell_index_set is not None)
-        reduce_fun_args = { "index": cell_index_set }
-    else:
-        raise RuntimeError(f"optimize_run: unknown problem regime {problem_regime}")
-
     n_trials = init_params.get("n_trials", 1)
 
-    nworkers = env.comm.size - 1
-    if n_max_tasks <= 0:
-        n_max_tasks = nworkers
-
-    objective_names = ["snr"]
-    feature_names = [
-        "mean_peak_rate",
-        "mean_trough_rate",
-        "max_infld_rate",
-        "min_infld_rate",
-        "mean_infld_rate",
-        "mean_outfld_rate",
-    ]
 
     if problem_regime == ProblemRegime.every:
         feature_dtypes = [(feature_name, np.float32) for feature_name in feature_names]
@@ -632,6 +613,29 @@ def optimize_run(
         feature_dtypes = [(feature_name, (np.float32, (n_problems, 1))) for feature_name in feature_names]
         feature_dtypes.append(("trial_mean_infld_rate", (np.float32, (n_problems, n_trials))))
         feature_dtypes.append(("trial_mean_outfld_rate", (np.float32, (n_problems, n_trials))))
+
+    
+    reduce_fun_name = None
+    reduce_fun_args = {}
+    if ProblemRegime[problem_regime] == ProblemRegime.every:
+        reduce_fun_name = "opt_reduce_every_features"
+        problem_ids = cell_index_set
+    elif ProblemRegime[problem_regime] == ProblemRegime.mean:
+        reduce_fun_name = "opt_reduce_mean_features"
+        assert(cell_index_set is not None)
+        reduce_fun_args = { "index": cell_index_set,
+                            "feature_dtypes": feature_dtypes, }
+    elif ProblemRegime[problem_regime] == ProblemRegime.max:
+        reduce_fun_name = "opt_reduce_max_features"
+        assert(cell_index_set is not None)
+        reduce_fun_args = { "index": cell_index_set,
+                            "feature_dtypes": feature_dtypes, }
+    else:
+        raise RuntimeError(f"optimize_run: unknown problem regime {problem_regime}")
+
+    nworkers = env.comm.size - 1
+    if n_max_tasks <= 0:
+        n_max_tasks = nworkers
 
     distgfs_params = {
         "opt_id": "dentate.optimize_selectivity",
