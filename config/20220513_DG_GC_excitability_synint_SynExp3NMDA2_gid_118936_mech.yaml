@@ -85,7 +85,7 @@ apical:
         filters:
           syn_types:
           - excitatory
-        value: 462.39
+        value: 220.0
       a1:
         filters:
           syn_types:
@@ -96,6 +96,11 @@ apical:
           syn_types:
           - excitatory
         value: 28.0
+      tau_D:
+        filters:
+          syn_types:
+          - excitatory
+        value: 150.0
 
 axon:
   DGC_KM:
