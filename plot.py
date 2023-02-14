@@ -2459,7 +2459,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
             ax2.set_xlim(time_range)
         elif spike_hist == 'subplot':
             ax2=axes[-1]
-            ax2.bar (sphist_x_res, sphist_y_res, linewidth=1.0)
+            ax2.fill_between (sphist_x_res, sphist_y_res, linewidth=0.0, alpha=0.5)
             ax2.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
             ax2.set_ylabel('Spikes', fontsize=fig_options.fontSize)
             ax2.set_xlim(time_range)
@@ -2500,14 +2500,15 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
                 continue
 
             if pop_rates:
-                label = '%.02f%%\n%.2g Hz' % (info[0], info[1])
+                label = f'{info[0]:.02f}%\n{info[1]:.2g} Hz'
             else:
-                label = '%.02f%%\n' % (info[0])
+                label = f'{info[0]:.02f}%\n'
 
             maxN = max(pop_active_cells[pop_name])
             minN = min(pop_active_cells[pop_name])
-            loc = pop_start_inds[pop_name] + 0.5 * (maxN - minN)
-            a.set_yticks([loc, loc])
+            loc1 = pop_start_inds[pop_name] + 0.495 * (maxN - minN)
+            loc2 = pop_start_inds[pop_name] + 0.5 * (maxN - minN)
+            a.set_yticks([loc1, loc2])
             a.set_yticklabels([pop_name, label])
             yticklabels = a.get_yticklabels()
             # Create offset transform in x direction
@@ -2515,7 +2516,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
             offset = mpl.transforms.ScaledTranslation(dx, dy, fig.dpi_scale_trans)
             # apply offset transform to labels.
             yticklabels[0].set_transform(yticklabels[0].get_transform() + offset)
-            dx = -80/72.; dy = 0/72. 
+            dx = -60/72.; dy = 0/72. 
             offset = mpl.transforms.ScaledTranslation(dx, dy, fig.dpi_scale_trans)
             yticklabels[1].set_ha('left')    
             yticklabels[1].set_transform(yticklabels[1].get_transform() + offset)
