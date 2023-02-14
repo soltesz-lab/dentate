@@ -361,7 +361,6 @@ def opt_reduce_every(xs):
 
 def opt_reduce_every_features(items):
     result = {}
-    features = {}
     for xd in items:
         for k in xd:
             yd, fd = xd[k]

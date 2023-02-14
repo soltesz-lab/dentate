@@ -311,15 +311,9 @@ def init_selectivity_objfun(
         "mean_outfld_rate",
     ]
 
-    if problem_regime == ProblemRegime.every:
-        feature_dtypes = [(feature_name, np.float32) for feature_name in feature_names]
-        feature_dtypes.append(("trial_mean_infld_rate", (np.float32, (1, n_trials))))
-        feature_dtypes.append(("trial_mean_outfld_rate", (np.float32, (1, n_trials))))
-    else:
-        n_problems = len(cell_index_set)
-        feature_dtypes = [(feature_name, (np.float32, (1,))) for feature_name in feature_names]
-        feature_dtypes.append(("trial_mean_infld_rate", (np.float32, (1, n_trials))))
-        feature_dtypes.append(("trial_mean_outfld_rate", (np.float32, (1, n_trials))))
+    feature_dtypes = [(feature_name, (np.float32, (1, 1))) for feature_name in feature_names]
+    feature_dtypes.append(("trial_mean_infld_rate", (np.float32, (1, n_trials))))
+    feature_dtypes.append(("trial_mean_outfld_rate", (np.float32, (1, n_trials))))
 
     def from_param_dict(params_dict):
         result = []
@@ -437,12 +431,12 @@ def init_selectivity_objfun(
             np.asarray(trial_outflds, dtype=np.float32).reshape((1, n_trials)),
         ]
         rate_features = [
-            mean_peak,
-            mean_trough,
-            max_infld,
-            min_infld,
-            mean_infld,
-            mean_outfld,
+            [mean_peak],
+            [mean_trough],
+            [max_infld],
+            [min_infld],
+            [mean_infld],
+            [mean_outfld],
         ]
         # rate_constr = [ mean_peak if max_infld > 0. else -1. ]
         # rate_constr = [ mean_peak - mean_trough if max_infld > 0. else -1. ]
@@ -603,16 +597,14 @@ def optimize_run(
     cell_index_set = init_params.get("cell_index_set", None)
     n_trials = init_params.get("n_trials", 1)
 
-
+    n_problems = 1
     if problem_regime == ProblemRegime.every:
-        feature_dtypes = [(feature_name, np.float32) for feature_name in feature_names]
-        feature_dtypes.append(("trial_mean_infld_rate", (np.float32, (1, n_trials))))
-        feature_dtypes.append(("trial_mean_outfld_rate", (np.float32, (1, n_trials))))
+        n_problems = 1
     else:
         n_problems = len(cell_index_set)
-        feature_dtypes = [(feature_name, (np.float32, (n_problems, 1))) for feature_name in feature_names]
-        feature_dtypes.append(("trial_mean_infld_rate", (np.float32, (n_problems, n_trials))))
-        feature_dtypes.append(("trial_mean_outfld_rate", (np.float32, (n_problems, n_trials))))
+    feature_dtypes = [(feature_name, (np.float32, (n_problems, 1))) for feature_name in feature_names]
+    feature_dtypes.append(("trial_mean_infld_rate", (np.float32, (n_problems, n_trials))))
+    feature_dtypes.append(("trial_mean_outfld_rate", (np.float32, (n_problems, n_trials))))
 
     
     reduce_fun_name = None
