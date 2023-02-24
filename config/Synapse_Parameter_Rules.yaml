@@ -169,7 +169,8 @@ Exp3NMDA2fd:
       - b2
       - tauV
       - K0
-      - delta
+      - delta_D
+      - delta_F
       - tau_D1
       - tau_F
     netcon_params:
