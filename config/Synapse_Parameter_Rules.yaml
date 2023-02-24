@@ -170,13 +170,15 @@ Exp3NMDA2fd:
       - tauV
       - K0
       - delta
-      - tau_D
+      - tau_D1
+      - tau_F
     netcon_params:
       weight: 0
     netcon_state:
       wf: 1
-      d1: 2
-      t0: 3
+      f:  2
+      d1: 3
+      t0: 4
 EPSC:
     mech_file: exp2EPSC.mod
     mech_params:
