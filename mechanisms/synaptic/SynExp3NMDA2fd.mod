@@ -48,7 +48,7 @@ NEURON {
 	POINT_PROCESS Exp3NMDA2fd
 	NONSPECIFIC_CURRENT i
 	RANGE  tau1_0, a1, tau2_0, a2, tauV, e, i, gVI, st_gVD, v0_gVD, Mg, K0, delta
-        RANGE tau_D, delta_D
+        RANGE tau_D1, delta_D1, tau_F, delta_F
 	GLOBAL inf, tau1, tau2
 	THREADSAFE
 }
@@ -67,10 +67,13 @@ UNITS {
 PARAMETER {
     : Parameters Control Neurotransmitter and Voltage-dependent gating of NMDAR
     
-    : short term depression parameters
-    tau_D = 20 (ms)
-    delta_D = 0.67
+    : short term facilitation parameters
+    tau_F = 50 (ms) < 1e-9, 1e9 >
+    delta_F = 0.9 (1) < 0, 1e9 >
     
+    : short term depression parameters
+    tau_D1 = 200 (ms)
+    delta_D1 = 0.67
     
     : parameters control exponential decay of tau1
     tau1_0 = 2.2340 (ms)
@@ -163,17 +166,20 @@ DERIVATIVE state { LOCAL x
 	gVD' = B*(inf-gVD)/tau
     }
     
-    NET_RECEIVE(weight, wf, d1, t0 (ms)) { LOCAL d
+    NET_RECEIVE(weight, wf, f, d1, t0 (ms)) { LOCAL d
         INITIAL {
             d1 = 1
+            f  = 1
         }
-        d1 = 1 - (1 - d1)*exp(-(t-t0)/tau_D)
+        d1 = 1 - (1 - d1)*exp(-(t - t0)/tau_D1)
+        f = 1 + (f - 1)*exp(-(t - t0)/tau_F)
         t0 = t
-        
-        wf  = weight*factor*d1
+
+        wf  = weight*factor*d1*f
 	A = A + wf
 	B = B + wf
-        d1 = d1 * delta_D
+        d1 = d1 * delta_D1
+        f  = delta_F + f
 }
 
 FUNCTION Mgblock(v(mV)) {

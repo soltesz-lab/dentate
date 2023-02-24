@@ -22,6 +22,7 @@ script_name = os.path.basename(__file__)
 @click.option("--data-file", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False),
               help='input data file (overrides file provided in configuration)')
 @click.option("--load-synapses", "-s", type=bool, default=False, is_flag=True)
+@click.option("--load-clusters", type=bool, default=False, is_flag=True)
 @click.option("--syn-sources", multiple=True, type=str, help='synapse filter for source populations')
 @click.option("--syn-source-threshold", type=float, help='only show synapses for sources in top n percentile')
 @click.option("--syn-types", multiple=True, type=str, help='synapse filter for synapse types')
@@ -29,7 +30,7 @@ script_name = os.path.basename(__file__)
 @click.option("--bgcolor", type=(float,float,float), default=(0.,0.,0.))
 @click.option("--colormap", type=str, default='coolwarm')
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(config_file, population, gid, template_paths, dataset_prefix, config_prefix, data_file, load_synapses, syn_types, syn_sources, syn_source_threshold, font_size, bgcolor, colormap, verbose):
+def main(config_file, population, gid, template_paths, dataset_prefix, config_prefix, data_file, load_synapses, load_clusters, syn_types, syn_sources, syn_source_threshold, font_size, bgcolor, colormap, verbose):
 
     utils.config_logging(verbose)
     logger = utils.get_script_logger(script_name)
@@ -67,6 +68,7 @@ def main(config_file, population, gid, template_paths, dataset_prefix, config_pr
                                      load_synapses=load_synapses,
                                      load_weights=load_weights, 
                                      load_edges=load_synapses,
+                                     load_clusters=load_synapses and load_clusters,
                                      mech_file_path=mech_file_path)
     
     init_biophysics(biophys_cell, reset_cable=True, 

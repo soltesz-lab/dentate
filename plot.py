@@ -1155,8 +1155,8 @@ def plot_biophys_cell_tree (env, biophys_cell, node_filters={'swc_types': ['apic
     #edges = nx.minimum_spanning_tree(morph_graph).edges(data=True)
     edges = morph_graph.edges(data=True)
     start_idx, end_idx, _ = np.array(list(edges)).T
-    start_idx = start_idx.astype(np.int)
-    end_idx   = end_idx.astype(np.int)
+    start_idx = start_idx.astype(int)
+    end_idx   = end_idx.astype(int)
     #edge_scalars = layers[start_idx]
     
     logger.info('plotting tree %i' % biophys_cell.gid)
@@ -1313,8 +1313,8 @@ def plot_cell_trees_in_volume(population, forest_path, config, line_width=1., sa
         # nx.mst returns an edge generator
         edges = nx.minimum_spanning_tree(g).edges(data=True)
         start_idx, end_idx, _ = np.array(list(edges)).T
-        start_idx = start_idx.astype(np.int)
-        end_idx   = end_idx.astype(np.int)
+        start_idx = start_idx.astype(int)
+        end_idx   = end_idx.astype(int)
         if color_edge_scalars:
             edge_scalars = z[start_idx]
             edge_color = None
@@ -2270,8 +2270,8 @@ def plot_intracellular_state_in_tree (gid, population, forest_path, state_input_
     # nx.mst returns an edge generator
     edges = nx.minimum_spanning_tree(g).edges(data=True)
     start_idx, end_idx, _ = np.array(list(edges)).T
-    start_idx = start_idx.astype(np.int)
-    end_idx   = end_idx.astype(np.int)
+    start_idx = start_idx.astype(int)
+    end_idx   = end_idx.astype(int)
     
     edge_scalars = np.asarray([sec_state_dict.get(sec_idxs[s], 0.0) for s in start_idx])
     edge_scalars_max = np.max(np.abs(edge_scalars))
@@ -5669,7 +5669,7 @@ def get_RPSD(psd2D, dTheta=30, rMin=10, rMax=100):
     theta = np.rad2deg(np.arctan2(-(Y-hc), (X-wc)))
     theta = np.mod(theta + dTheta/2 + 360, 360)
     theta = dTheta * (theta//dTheta)
-    theta = theta.astype(np.int)
+    theta = theta.astype(int)
     
     # mask below rMin and above rMax by setting to -100
     R     = np.hypot(-(Y-hc), (X-wc))

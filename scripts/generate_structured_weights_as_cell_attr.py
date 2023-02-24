@@ -616,13 +616,13 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                              'X Offset',
                              'Y Offset',]}
             output_features_dict[destination_gid]['Rate Map Residual Mean Error'] = np.asarray([arena_map_residual_mae], dtype=np.float32)
-            
+
             this_structured_syn_id_count = structured_syn_id_count[destination_gid]
             output_syn_ids = np.full(this_structured_syn_id_count, -1, dtype='uint32', )
             LTD_weights_output = np.full(this_structured_syn_id_count, np.nan, dtype='float32')
             LTP_weights_output = np.full(this_structured_syn_id_count, np.nan, dtype='float32')
             source_input_rank_output = np.full(this_structured_syn_id_count, np.nan, dtype='float32')
-            syn_sources_output = np.full(this_structured_syn_id_count, np.nan, dtype='uint8')
+            syn_sources_output = np.zeros(this_structured_syn_id_count, dtype='uint8')
             i = 0
             for source_gid in LTP_delta_weights_dict:
                  for syn_id in syn_ids_by_source_gid_dict[destination_gid][source_gid]:
