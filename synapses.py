@@ -1467,7 +1467,7 @@ def validate_syn_mech_param(env, syn_name, param_name):
 
 
 def modify_syn_param(cell, env, sec_type, syn_name, param_name=None, value=None, origin=None, slope=None, tau=None,
-                     xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None, custom=None,
+                     xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None, decay=None, custom=None,
                      append=False, filters=None, origin_filters=None, update_targets=False, verbose=False):
     """Modifies a cell's mechanism dictionary to specify attributes of a
     synaptic mechanism by sec_type. This method is meant to be called
@@ -1521,7 +1521,7 @@ def modify_syn_param(cell, env, sec_type, syn_name, param_name=None, value=None,
             raise ValueError(f'modify_syn_mech_param: mechanism: {syn_name}; parameter: {param_name}; sec_type: {sec_type} cannot inherit from '
                              f'origin: {origin} without origin_filters')
     rules = get_mech_rules_dict(cell, value=value, origin=origin, slope=slope, tau=tau, xhalf=xhalf, min=min, max=max,
-                                min_loc=min_loc, max_loc=max_loc, outside=outside, custom=custom)
+                                min_loc=min_loc, max_loc=max_loc, outside=outside, decay=decay, custom=custom)
     if filters is not None:
         syn_filters = get_syn_filter_dict(env, filters)
         rules['filters'] = syn_filters
@@ -1627,7 +1627,7 @@ def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name,
     is_reduced = False
     if hasattr(cell, 'is_reduced'):
         is_reduced = cell.is_reduced
-
+        
     if is_reduced:
         synapse_filters['swc_types'] = [env.SWC_Types[sec_type]]
         apply_syn_mech_rules(cell, env, syn_name, param_name, new_rules, 
@@ -1686,6 +1686,7 @@ def apply_syn_mech_rules(cell, env, syn_name, param_name, rules, node=None, syn_
         target_distance = min(syn_distances)
         syn_ids = list(filtered_syns.keys())
 
+            
     if 'origin' in rules and donor is None:
         if node is None:
             donor = None
@@ -1792,7 +1793,7 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline,
     :param verbose: bool
     """
     syn_attrs = env.synapse_attributes
-    if not ('min_loc' in rules or 'max_loc' in rules or 'slope' in rules):
+    if not ('min_loc' in rules or 'max_loc' in rules or 'slope' in rules or 'decay' in rules):
         for syn_id in syn_ids:
             syn_attrs.modify_mech_attrs(cell.pop_name, cell.gid, syn_id, syn_name, 
                                         {param_name: baseline})
@@ -1808,6 +1809,7 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline,
         tau = rules['tau'] if 'tau' in rules else None
         xhalf = rules['xhalf'] if 'xhalf' in rules else None
         outside = rules['outside'] if 'outside' in rules else None
+        decay = rules.get('decay', None)
 
         gid = cell.gid
         syn_attrs = env.synapse_attributes
@@ -1818,7 +1820,7 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline,
             syn_loc = syn.syn_loc
             distance = get_distance_to_node(cell, donor, node, syn_loc)
             value = get_param_val_by_distance(distance, baseline, slope, min_distance, max_distance,
-                                              min_val, max_val, tau, xhalf, outside)
+                                              min_val, max_val, tau, xhalf, outside, decay)
                 
             if value is not None:
                 syn_attrs.modify_mech_attrs(cell.pop_name, cell.gid, syn_id, syn_name, 
@@ -2516,7 +2518,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
 
 
 def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, layer_dict, sec_layer_density_dict,
-                                          neurotree_dict, cell_sec_dict, cell_secidx_dict, syn_cluster_dict):
+                                          neurotree_dict, cell_sec_dict, cell_secidx_dict, syn_cluster_dict, cluster_syn_count_max=30):
     """
     Computes synapse locations distributed according to a given
     per-section clustering and Poisson distribution within the
@@ -2569,6 +2571,7 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
             cluster_syn_ids_count += len(syn_cluster)
 
     syn_cluster_dict = copy.deepcopy(dict(syn_cluster_dict))
+    sec_syn_count = defaultdict(int)
     
     while cluster_syn_ids_count > 0:
 
@@ -2597,6 +2600,7 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                     sec_edges = [(None, idx) for idx in list(sec_dict.keys())]
             else:
                 sec_edges = [(None, idx) for idx in list(sec_dict.keys())]
+            sec_edges = sorted(sec_edges, key=lambda x: sec_syn_count[x[1]])
             for sec_index, sec in viewitems(sec_dict):
                 seg_list = []
                 if maxdist is None:
@@ -2648,7 +2652,8 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                     current_syn_cluster_type = None
                     current_syn_cluster_id = None
                     current_cluster_syn_ids = []
-
+                    current_cluster_syn_count = 0
+                    
                     start_seg = seg_list[0]
                     interval = 0.
                     syn_loc = 0.
@@ -2667,6 +2672,7 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                                 continue
                             current_syn_cluster_id = r.choice(list(syn_clusters.keys()), size=1)[0]
                             current_cluster_syn_ids = syn_clusters[current_syn_cluster_id]
+                            current_cluster_syn_count = 0
 
                         seg_start = seg.x - (0.5 / seg.sec.nseg)
                         seg_end = seg.x + (0.5 / seg.sec.nseg)
@@ -2684,21 +2690,24 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                             syn_loc = (interval / L)
                             assert ((syn_loc <= 1) and (syn_loc >= seg_start))
                             if syn_loc < 1.0:
-                                while len(current_cluster_syn_ids) == 0:
-                                    if current_syn_cluster_type not in syn_cluster_dict:
-                                        break
-                                    syn_clusters = syn_cluster_dict[current_syn_cluster_type]
-                                    if current_syn_cluster_id is not None:
-                                        if (current_syn_cluster_id in syn_clusters) and (len(syn_clusters[current_syn_cluster_id]) == 0):
-                                            del(syn_clusters[current_syn_cluster_id])
-                                    if len(syn_clusters) == 0:
-                                        break
-                                    current_syn_cluster_id = r.choice(list(syn_clusters.keys()), size=1)[0]
-                                    current_cluster_syn_ids = syn_clusters[current_syn_cluster_id]
+                                if len(current_cluster_syn_ids) == 0 or (current_cluster_syn_count > cluster_syn_count_max):
+                                    while len(current_cluster_syn_ids) == 0:
+                                        if current_syn_cluster_type not in syn_cluster_dict:
+                                            break
+                                        syn_clusters = syn_cluster_dict[current_syn_cluster_type]
+                                        if current_syn_cluster_id is not None:
+                                            if (current_syn_cluster_id in syn_clusters) and (len(syn_clusters[current_syn_cluster_id]) == 0):
+                                                del(syn_clusters[current_syn_cluster_id])
+                                        if len(syn_clusters) == 0:
+                                            break
+                                        current_syn_cluster_id = r.choice(list(syn_clusters.keys()), size=1)[0]
+                                        current_cluster_syn_ids = syn_clusters[current_syn_cluster_id]
+                                        current_cluster_syn_count = 0
                                 if len(current_cluster_syn_ids) == 0:
                                     break
                                 syn_index = current_cluster_syn_ids.pop(0)
                                 cluster_syn_ids_count -= 1
+                                current_cluster_syn_count += 1
                                 syn_cdist = math.sqrt(reduce(lambda a, b: a+b, ( interp_loc[i](syn_loc)**2 for i in range(3) )))
                                 syn_cdists.append(syn_cdist)
                                 syn_locs.append(syn_loc)
@@ -2707,6 +2716,7 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                                 syn_layers.append(layer)
                                 syn_types.append(syn_type)
                                 swc_types.append(swc_type)
+                                sec_syn_count[sec_index] += 1
                             interval += r.exponential(beta)
 
                     end_distance[sec_index] = (1.0 - syn_loc) * L
