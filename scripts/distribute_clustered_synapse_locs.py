@@ -1,4 +1,4 @@
-import os, sys, gc, logging, string, time, itertools
+import os, sys, gc, logging, string, time, math, itertools, pprint
 from mpi4py import MPI
 import click
 from collections import defaultdict
@@ -142,8 +142,6 @@ def main(config, config_prefix, template_path, output_path, forest_path, structu
         env.node_allocation = node_allocation
 
         env.comm.barrier()
-        if rank == 0:
-            logger.info("done reading trees")
 
 
         syn_ids_ind = None
@@ -232,14 +230,15 @@ def main(config, config_prefix, template_path, output_path, forest_path, structu
             local_time = time.time()
             cell_secidx_dict = cell_dicts[this_gid]['secidx_dict']
             syn_attrs_dict = cell_dicts[this_gid]['syn_attrs']
-            k = len(cell_secidx_dict['apical'].as_numpy())
             syn_ids = list(syn_attrs_dict.keys())
             num_syns = len(syn_ids)
             syn_secs_array = np.fromiter([syn_attrs_dict[syn_id][5] for syn_id in syn_ids], dtype=int)
             syn_ranks_array = np.fromiter([syn_attrs_dict[syn_id][0] for syn_id in syn_ids], dtype=np.float32).reshape((-1,1))
             syn_sec_ids, syn_sec_counts = np.unique(syn_secs_array, return_counts=True)
-            max_size=np.mean(syn_sec_counts)
-            clusters, centers = minmax_kmeans.minsize_kmeans(syn_ranks_array, k, 1, max_size=max_size, verbose=verbose)
+            mean_syn_sec_count = np.mean(syn_sec_counts)
+            cluster_max_size=mean_syn_sec_count
+            k = int(len(cell_secidx_dict['apical'].as_numpy()))
+            clusters, centers = minmax_kmeans.minsize_kmeans(syn_ranks_array, k, 1, max_size=cluster_max_size, verbose=verbose)
             if clusters is None:
                 continue
 
@@ -273,6 +272,16 @@ def main(config, config_prefix, template_path, output_path, forest_path, structu
 
                 
                 syn_attrs_dict = cell_dicts[this_gid]['syn_attrs']
+
+                if debug:
+                    syn_secs = []
+                    for syn_id in syn_attrs_dict:
+                        (_, _, syn_type, swc_type, layer, syn_sec) = syn_attrs_dict[syn_id]
+                        syn_secs.append(syn_sec)
+                        
+                    logger.info(f"Unclustered synapse sections: {pprint.pformat(np.unique(syn_secs, return_counts=True))}")
+                
+                
                 if this_gid not in cell_syn_clusters:
                     continue
 
@@ -296,6 +305,8 @@ def main(config, config_prefix, template_path, output_path, forest_path, structu
                                                                                                syn_cluster_attrs_dict)
 
                 assert(len(syn_dict['syn_ids']) == num_syns)
+                if debug:
+                    logger.info(f"Clustered synapse sections: {pprint.pformat(np.unique(syn_dict['syn_secs'], return_counts=True))}")
                 gid_synapse_dict[this_gid] = syn_dict
                 
                 logger.info(f'Rank {rank} took {time.time() - local_time:.01f} s to compute {num_syns} '
