@@ -1897,7 +1897,7 @@ def get_mech_rules_dict(cell, **rules):
     """
     rules_dict = {name: rules[name] for name in
                   (name for name in ['value', 'origin', 'slope', 'tau', 'xhalf', 'min', 'max', 'min_loc', 'max_loc',
-                                     'outside', 'custom'] if name in rules and rules[name] is not None)}
+                                     'outside', 'decay', 'custom'] if name in rules and rules[name] is not None)}
     if 'origin' in rules_dict:
         origin_type = rules_dict['origin']
         valid_sec_types = [sec_type for sec_type in cell.nodes if len(cell.nodes[sec_type]) > 0]
@@ -2137,7 +2137,7 @@ def set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor=Non
     :param rules: dict
     :param donor: :class:'SHocNode' or None
     """
-    if not ('min_loc' in rules or 'max_loc' in rules or 'slope' in rules):
+    if not ('min_loc' in rules or 'max_loc' in rules or 'slope' in rules or 'decay' in rules):
         if mech_name == 'ions':
             setattr(node.sec, param_name, baseline)
         else:
@@ -2159,6 +2159,7 @@ def set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor=Non
         tau = rules.get('tau', None)
         xhalf = rules.get('xhalf', None)
         outside = rules.get('outside', None)
+        decay = rules.get('decay', None)
 
         # No need to insert the mechanism into the section if no segment matches location constraints
         min_seg_distance = get_distance_to_node(cell, donor, node, 0.5 / node.sec.nseg)
@@ -2173,7 +2174,7 @@ def set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor=Non
             for seg in node.sec:
                 distance = get_distance_to_node(cell, donor, node, seg.x)
                 value = get_param_val_by_distance(distance, baseline, slope, min_distance, max_distance, min_val,
-                                                  max_val, tau, xhalf, outside)
+                                                  max_val, tau, xhalf, outside, decay)
                 if value is not None:
                     if mech_name == 'ions':
                         setattr(seg, param_name, value)
@@ -2182,7 +2183,7 @@ def set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor=Non
 
 
 def get_param_val_by_distance(distance, baseline, slope, min_distance, max_distance=None, min_val=None, max_val=None,
-                              tau=None, xhalf=None, outside=None):
+                              tau=None, xhalf=None, outside=None, decay=None):
     """
     By default, if only some segments or synapses in a section meet the location constraints, the parameter inherits the
     mechanism's default value. if another value is desired, it can be specified via an 'outside' key in the mechanism
@@ -2211,6 +2212,12 @@ def get_param_val_by_distance(distance, baseline, slope, min_distance, max_dista
                     value = offset + slope * np.exp(distance / tau)
             else:  # linear gradient
                 value = baseline + slope * distance
+            if min_val is not None and value < min_val:
+                value = min_val
+            elif max_val is not None and value > max_val:
+                value = max_val
+        elif decay is not None: # exponential decay
+            value = baseline * (1 - decay)**distance
             if min_val is not None and value < min_val:
                 value = min_val
             elif max_val is not None and value > max_val:
@@ -3055,7 +3062,7 @@ def init_circuit_context(env, pop_name, gid,
             cell_clusters_iter = read_cell_attribute_selection(env.data_file_path, pop_name, 
                                                                selection=[gid], 
                                                                namespace=cluster_namespace,
-                                                               mask=set(['syn_ids', 'syn_locs', 'syn_secs']),
+                                                               mask=set(['syn_ids', 'syn_secs', 'syn_locs']),
                                                                comm=env.comm)
             for cell_clusters_gid, cell_cluster_dict in cell_clusters_iter:
                 assert(cell_clusters_gid == gid)
@@ -3173,7 +3180,7 @@ def make_biophys_cell(env, pop_name, gid,
         tree_attr_iter, _ = read_tree_selection(env.data_file_path, pop_name, [gid], comm=env.comm, 
                                                 topology=True, validate=validate_tree)
         _, tree_dict = next(tree_attr_iter)
-        
+
     hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict)
     cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env,
                        mech_file_path=mech_file_path, mech_dict=mech_dict)
