@@ -256,6 +256,7 @@ def main(config, config_prefix, template_path, output_path, forest_path, structu
 
         gid_count = 0
         gid_synapse_dict = {}
+        gid_cluster_dict = {}
         for i in range(max_n_gids):
 
             this_gid = None
@@ -308,6 +309,13 @@ def main(config, config_prefix, template_path, output_path, forest_path, structu
                 if debug:
                     logger.info(f"Clustered synapse sections: {pprint.pformat(np.unique(syn_dict['syn_secs'], return_counts=True))}")
                 gid_synapse_dict[this_gid] = syn_dict
+                syn_ids = []
+                cluster_ids = []
+                for syn_id, cluster_id in syn_clusters:
+                    syn_ids.append(syn_id)
+                    cluster_ids.append(cluster_id)
+                gid_cluster_dict[this_gid] = { 'syn_id': np.asarray(syn_ids, dtype=np.uint32),
+                                               'cluster_id': np.asarray(syn_ids, dtype=np.uint16) }
                 
                 logger.info(f'Rank {rank} took {time.time() - local_time:.01f} s to compute {num_syns} '
                             f'clustered synapse locations for {population} gid: {this_gid}')
@@ -316,11 +324,17 @@ def main(config, config_prefix, template_path, output_path, forest_path, structu
             
             if (not dry_run) and (write_size > 0) and (i % write_size == 0):
                 append_cell_attributes(output_path, population, gid_synapse_dict,
+                                       namespace=f'Clustered Synapse Attributes {arena_id}', 
+                                       comm=env.comm, io_size=io_size, 
+                                       chunk_size=chunk_size, 
+                                       value_chunk_size=value_chunk_size)
+                append_cell_attributes(output_path, population, gid_cluster_dict,
                                        namespace=f'Synapse Clusters {arena_id}', 
                                        comm=env.comm, io_size=io_size, 
                                        chunk_size=chunk_size, 
                                        value_chunk_size=value_chunk_size)
                 gid_synapse_dict = {}
+                gid_cluster_dict = {}
 
             if debug and i == 2:
                 break
@@ -329,6 +343,11 @@ def main(config, config_prefix, template_path, output_path, forest_path, structu
         env.comm.barrier()
         if not dry_run:
             append_cell_attributes(output_path, population, gid_synapse_dict,
+                                   namespace=f'Clustered Synapse Attributes {arena_id}', 
+                                   comm=env.comm, io_size=io_size, 
+                                   chunk_size=chunk_size, 
+                                   value_chunk_size=value_chunk_size)
+            append_cell_attributes(output_path, population, gid_cluster_dict,
                                    namespace=f'Synapse Clusters {arena_id}', 
                                    comm=env.comm, io_size=io_size, 
                                    chunk_size=chunk_size, 

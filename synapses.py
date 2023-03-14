@@ -2579,6 +2579,7 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
 
             swc_type = swc_type_dict[sec_name]
             seg_dict = {}
+            seg_syn_count_dict = {}
             L_total = 0
 
             (seclst, maxdist) = cell_sec_dict[sec_name]
@@ -2612,6 +2613,7 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                         if seg.x < 1.0 and seg.x > 0.0 and ((L_total + sec.L * seg.x) <= maxdist):
                             seg_list.append(seg)
                 seg_dict[sec_index] = seg_list
+                seg_syn_count_dict[sec_index] = np.zeros((len(seg_list),))
                 L_total += sec.L
 
             seg_density_dict, layers_dict = \
@@ -2628,6 +2630,7 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                 for sec_parent, sec_index in sec_edges:
                     interp_loc = sec_interp_loc_dict[sec_index]
                     seg_list = seg_dict[sec_index]
+                    seg_syn_count = seg_syn_count_dict[sec_index]
                     sec_seg_layers = layers[sec_index]
                     sec_seg_density = seg_density[sec_index]
                     sec_seg_layer_set = set(sec_seg_layers)
@@ -2639,26 +2642,20 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                     if not syn_cluster_match_found:
                         continue
 
-                    est_syn_count = 0
-                    for seg, density in zip(seg_list, sec_seg_density):
-                        seg_start = seg.x - (0.5 / seg.sec.nseg)
-                        seg_end = seg.x + (0.5 / seg.sec.nseg)
-                        L = seg.sec.L
-                        L_seg_start = seg_start * L
-                        L_seg_end = seg_end * L
-                        seg_L = L_seg_end - L_seg_start
-                        est_syn_count += round(seg_L * density)
-
                     current_syn_cluster_type = None
                     current_syn_cluster_id = None
                     current_cluster_syn_ids = []
                     current_cluster_syn_count = 0
-                    
-                    start_seg = seg_list[0]
+
                     interval = 0.
                     syn_loc = 0.
-                    for seg, layer, density in zip(seg_list, sec_seg_layers, sec_seg_density):
+                    seg_order = np.argsort(seg_syn_count, kind='stable')
+                    for seg_index in seg_order:
 
+                        seg = seg_list[seg_index]
+                        layer = sec_seg_layers[seg_index]
+                        density = sec_seg_density[seg_index]
+                        
                         if not density > 0.:
                             continue
                         
@@ -2717,6 +2714,7 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                                 syn_types.append(syn_type)
                                 swc_types.append(swc_type)
                                 sec_syn_count[sec_index] += 1
+                                seg_syn_count[seg_index] += 1
                             interval += r.exponential(beta)
 
                     end_distance[sec_index] = (1.0 - syn_loc) * L
