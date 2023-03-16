@@ -1200,7 +1200,7 @@ def plot_biophys_cell_tree (env, biophys_cell, node_filters={'swc_types': ['apic
     logger.info('plotting %i synapses' % len(syns_dict))
     for sec_id, syn_xyz in viewitems(syn_xyz_sec_dict):
         syn_sources = syn_src_sec_dict[sec_id]
-        mlab.points3d(syn_xyz[:,0], syn_xyz[:,1], syn_xyz[:,2], syn_sources, scale_mode='vector',scale_factor=10.0)
+        mlab.points3d(syn_xyz[:,0], syn_xyz[:,1], syn_xyz[:,2], syn_sources, scale_mode='vector',scale_factor=4.0)
         
     mlab.gcf().scene.x_plus_view()
     mlab.show()

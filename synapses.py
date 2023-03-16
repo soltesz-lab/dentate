@@ -2518,7 +2518,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
 
 
 def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, layer_dict, sec_layer_density_dict,
-                                          neurotree_dict, cell_sec_dict, cell_secidx_dict, syn_cluster_dict, cluster_syn_count_max=30):
+                                          neurotree_dict, cell_sec_dict, cell_secidx_dict, syn_cluster_dict, cluster_syn_count_max=50):
     """
     Computes synapse locations distributed according to a given
     per-section clustering and Poisson distribution within the
@@ -2592,16 +2592,13 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                 sec_subgraph = sec_graph.subgraph(list(sec_dict.keys()))
                 if len(sec_subgraph.edges()) > 0:
                     sec_roots = [n for n, d in sec_subgraph.in_degree() if d == 0]
-                    sec_edges = []
-                    for sec_root in sec_roots:
-                        sec_edges.append(list(nx.dfs_edges(sec_subgraph, sec_root)))
-                        sec_edges.append([(None, sec_root)])
-                    sec_edges = [val for sublist in sec_edges for val in sublist]
+                    sec_bfs_layers = list(nx.bfs_layers(sec_subgraph, sec_roots))
+                    sec_order = [val for sublist in sec_bfs_layers for val in sublist]
                 else:
-                    sec_edges = [(None, idx) for idx in list(sec_dict.keys())]
+                    sec_order = [idx for idx in list(sec_dict.keys())]
             else:
-                sec_edges = [(None, idx) for idx in list(sec_dict.keys())]
-            sec_edges = sorted(sec_edges, key=lambda x: sec_syn_count[x[1]])
+                sec_order = [idx for idx in list(sec_dict.keys())]
+            sec_order = sorted(sec_order, key=lambda x: sec_syn_count[x])
             for sec_index, sec in viewitems(sec_dict):
                 seg_list = []
                 if maxdist is None:
@@ -2627,7 +2624,7 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                 seg_density = seg_density_dict[syn_type]
                 layers = layers_dict[syn_type]
                 end_distance = {}
-                for sec_parent, sec_index in sec_edges:
+                for sec_index in sec_order:
                     interp_loc = sec_interp_loc_dict[sec_index]
                     seg_list = seg_dict[sec_index]
                     seg_syn_count = seg_syn_count_dict[sec_index]
@@ -2682,8 +2679,8 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                             sample = r.exponential(beta)
                             if sample < (L_seg_end - L_seg_start):
                                 break
-                        interval = L_seg_start + sample
-                        while interval < L_seg_end:
+                        interval = L_seg_end - sample
+                        while interval > L_seg_start:
                             syn_loc = (interval / L)
                             assert ((syn_loc <= 1) and (syn_loc >= seg_start))
                             if syn_loc < 1.0:
@@ -2715,7 +2712,7 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                                 swc_types.append(swc_type)
                                 sec_syn_count[sec_index] += 1
                                 seg_syn_count[seg_index] += 1
-                            interval += r.exponential(beta)
+                            interval -= r.exponential(beta)
 
                     end_distance[sec_index] = (1.0 - syn_loc) * L
 

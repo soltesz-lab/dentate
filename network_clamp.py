@@ -459,19 +459,19 @@ def init(env, pop_name, cell_index_set, arena_id=None, trajectory_id=None, n_tri
                                                      output_dir=env.results_path)
         
         
-    if env.verbose:
-        for gid in my_cell_index_set:
-            if is_cell_registered(env, gid):
-                cell = env.pc.gid2cell(gid)
-                origin = list(cell.soma)[0]
-                total_L = 0
-                for sec in list(cell.hoc_cell.all if hasattr(cell, 'hoc_cell') else cell.all):
-                    distance = h.distance(origin(0.5), sec(1))
-                    total_L += sec.L
-                    logger.info(f"Section {sec} distance to soma: {distance:.02f}")
-                    h.psection(sec=sec)
-                logger.info(f"gid {gid} total dendritic length: {total_L:.02f} um")
-            break
+    # if env.verbose:
+    #     for gid in my_cell_index_set:
+    #         if is_cell_registered(env, gid):
+    #             cell = env.pc.gid2cell(gid)
+    #             origin = list(cell.soma)[0]
+    #             total_L = 0
+    #             for sec in list(cell.hoc_cell.all if hasattr(cell, 'hoc_cell') else cell.all):
+    #                 distance = h.distance(origin(0.5), sec(1))
+    #                 total_L += sec.L
+    #                 logger.info(f"Section {sec} distance to soma: {distance:.02f}")
+    #                 h.psection(sec=sec)
+    #             logger.info(f"gid {gid} total dendritic length: {total_L:.02f} um")
+    #         break
         
     mindelay = env.pc.set_maxstep(10)
 
