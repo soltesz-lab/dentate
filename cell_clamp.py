@@ -135,7 +135,7 @@ def init_biophys_cell(env, pop_name, gid, load_synapses=True, load_weights=True,
 
     
     if write_cell:
-        write_selection_file_path =  "%s/%s_%d.h5" % (env.results_path, env.modelName, gid)
+        write_selection_file_path =  os.path.join(env.results_path, f"{env.modelName}_{gid}.h5")
         if rank == 0:
             io_utils.mkout(env, write_selection_file_path)
         env.comm.barrier()

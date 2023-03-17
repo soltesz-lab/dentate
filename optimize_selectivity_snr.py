@@ -587,11 +587,11 @@ def optimize_run(
 
     if results_file is None:
         if env.results_path is not None:
-            file_path = f"{env.results_path}/distgfs.optimize_selectivity.{env.results_file_id}.h5"
+            file_path = os.path.join(env.results_path, f"distgfs.optimize_selectivity.{env.results_file_id}.h5")
         else:
             file_path = f"distgfs.optimize_selectivity.{env.results_file_id}.h5"
     else:
-        file_path = "%s/%s" % (env.results_path, results_file)
+        file_path = os.path.join(env.results_path, results_file)
     problem_ids = None
     cell_index_set = init_params.get("cell_index_set", None)
     n_trials = init_params.get("n_trials", 1)
@@ -1034,7 +1034,7 @@ def main(
     if best is not None:
         if results_path is not None:
             run_ts = time.strftime("%Y%m%d_%H%M%S")
-            file_path = f"{results_path}/optimize_selectivity.{run_ts}.yaml"
+            file_path = os.path.join(results_path, "optimize_selectivity.{run_ts}.yaml")
             param_names = opt_param_config.param_names
             param_tuples = opt_param_config.param_tuples
 

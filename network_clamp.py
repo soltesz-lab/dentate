@@ -1057,11 +1057,11 @@ def optimize_run(env, pop_name, param_config_name, init_objfun, problem_regime, 
 
     if results_file is None:
         if env.results_path is not None:
-            file_path = f'{env.results_path}/distgfs.network_clamp.{env.results_file_id}.h5'
+            file_path = os.path.join(env.results_path, f"distgfs.network_clamp.{env.results_file_id}.h5")
         else:
             file_path = f'distgfs.network_clamp.{env.results_file_id}.h5'
     else:
-        file_path = f'{env.results_path}/{results_file}'
+        file_path = os.path.join(env.results_path, results_file)
     problem_ids = None
     reduce_fun_name = None
     if ProblemRegime[problem_regime] == ProblemRegime.every:
@@ -1189,7 +1189,7 @@ def dist_run(init_params, cell_index_set, results_file_id=None, pop_param_tuple_
     env.clear()
 
     env.results_file_id = results_file_id
-    env.results_file_path = f'{env.results_path}/{env.modelName}_results_{env.results_file_id}.h5'
+    env.results_file_path = os.path.join(env.results_path, f"{env.modelName}_results_{env.results_file_id}.h5")
     
     population = init_params['population']
     arena_id = init_params['arena_id']
@@ -1498,7 +1498,7 @@ def go(config, population, dt, gids, gid_selection_file, arena_id, trajectory_id
             for this_params_path, pop_params_tuple_dict in zip(params_path, pop_params_tuple_dicts):
                 params_basename = os.path.splitext(os.path.basename(this_params_path))[0]
                 env.results_file_id = f'{results_file_id}_{params_basename}'
-                env.results_file_path = f'{env.results_path}/{env.modelName}_results_{env.results_file_id}.h5'
+                env.results_file_path = os.path.join(env.results_path, "{env.modelName}_results_{env.results_file_id}.h5")
                 run_with(env, pop_params_tuple_dict)
                 write_output(env)
                 write_params(env, pop_params_tuple_dict)
@@ -1686,7 +1686,7 @@ def optimize(config, population, dt, gids, gid_selection_file, arena_id, traject
                                         cooperative_init=cooperative_init, verbose=verbose)
     if results_config_dict is not None:
         if results_path is not None:
-            file_path = f'{results_path}/network_clamp.optimize.{results_file_id}.yaml'
+            file_path = os.path.join(results_path, "network_clamp.optimize.{results_file_id}.yaml")
             write_to_yaml(file_path, results_config_dict)
     comm.barrier()
 
