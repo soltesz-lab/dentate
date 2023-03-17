@@ -215,21 +215,23 @@ class Env(object):
         self.cache_queries = cache_queries
 
         self.config_prefix = config_prefix
-        if config_file is not None:
+        self.model_config = {}
+        if isinstance(config, str):
             if config_prefix is not None:
-                config_file_path = self.config_prefix + '/' + config_file
+                config_file_path = os.path.join(self.config_prefix, config)
             else:
-                config_file_path = config_file
-            self.model_config = None
+                config_file_path = config
             if rank == 0:
                 if not os.path.isfile(config_file_path):
-                    raise RuntimeError("configuration file %s was not found" % config_file_path)
+                    raise RuntimeError(f"configuration file {config_file_path} was not found")
                 with open(config_file_path) as fp:
                     self.model_config = yaml.load(fp, IncludeLoader)
-            self.model_config = self.comm.bcast(self.model_config, root=0)
+        elif isinstance(config, dict):
+            self.model_config.update(config)
         else:
-            raise RuntimeError("missing configuration file")
-
+            raise RuntimeError("missing configuration specification")
+        self.model_config = self.comm.bcast(self.model_config, root=0)
+        
         if 'Definitions' in self.model_config:
             self.parse_definitions()
             self.SWC_Type_index = dict([(item[1], item[0]) for item in viewitems(self.SWC_Types)])
@@ -256,13 +258,13 @@ class Env(object):
             self.datasetName = self.model_config['Dataset Name']
 
         if rank == 0:
-            self.logger.info('env.dataset_prefix = %s' % str(self.dataset_prefix))
+            self.logger.info(f"env.dataset_prefix = {self.dataset_prefix}")
 
         # Cell selection for simulations of subsets of the network
         self.cell_selection = None
         self.cell_selection_path = cell_selection_path
         if rank == 0:
-            self.logger.info('env.cell_selection_path = %s' % str(self.cell_selection_path))
+            self.logger.info(f"env.cell_selection_path = {self.cell_selection_path}")
             if cell_selection_path is not None:
                 with open(cell_selection_path) as fp:
                     self.cell_selection = yaml.load(fp, IncludeLoader)
@@ -276,23 +278,23 @@ class Env(object):
         self.spike_input_attribute_info = None
         if self.spike_input_path is not None:
             if rank == 0:
-                self.logger.info('env.spike_input_path = %s' % str(self.spike_input_path))
+                self.logger.info(f"env.spike_input_path = {self.spike_input_path}")
                 self.spike_input_attribute_info = \
                      read_cell_attribute_info(self.spike_input_path, sorted(self.Populations.keys()), comm=comm0)
-                self.logger.info('env.spike_input_attribute_info = %s' % str(self.spike_input_attribute_info))
+                self.logger.info(f"env.spike_input_attribute_info = {self.spike_input_attribute_info}")
             self.comm.barrier()
             self.spike_input_attribute_info = self.comm.bcast(self.spike_input_attribute_info, root=0)
 
         if results_path:
             if self.results_file_id is None:
-                self.results_file_path = "%s/%s_results.h5" % (self.results_path, self.modelName)
+                self.results_file_path = os.path.join(self.results_path, f"{self.modelName}_results.h5")
             else:
-                self.results_file_path = "%s/%s_results_%s.h5" % (self.results_path, self.modelName, self.results_file_id)
+                self.results_file_path = os.path.join(self.results_path, f"{self.modelName}_results_{self.results_file_id}.h5")
         else:
             if self.results_file_id is None:
-                self.results_file_path = "%s_results.h5" % (self.modelName)
+                self.results_file_path = f"{self.modelName}_results.h5"
             else:
-                self.results_file_path = "%s_results_%s.h5" % (self.modelName, self.results_file_id)
+                self.results_file_path = f"{self.modelName}_results_{self.results_file_id}.h5"
             
         if 'Connection Generator' in self.model_config:
             self.parse_connection_config()
@@ -356,12 +358,12 @@ class Env(object):
         if self.dataset_prefix is not None:
             if rank == 0:
                 projection_dict = defaultdict(list)
-                self.logger.info('env.connectivity_file_path = %s' % str(self.connectivity_file_path))
+                self.logger.info(f"env.connectivity_file_path = {self.connectivity_file_path}")
                 if self.connectivity_file_path is not None:
                     for (src, dst) in read_projection_names(self.connectivity_file_path, comm=comm0):
                         projection_dict[dst].append(src)
                 self.projection_dict = dict(projection_dict)
-                self.logger.info('projection_dict = %s' % str(self.projection_dict))
+                self.logger.info(f"projection_dict = {self.projection_dict}")
             self.projection_dict = self.comm.bcast(self.projection_dict, root=0)
             
         # Configuration profile for recording intracellular quantities
@@ -392,10 +394,10 @@ class Env(object):
         if 'Recording' in self.model_config:
             for label, config in viewitems(self.model_config['Recording']['LFP']):
                 self.LFP_config[label] = {'position': tuple(config['position']),
-                                         'maxEDist': config['maxEDist'],
-                                         'fraction': config['fraction'],
-                                         'rho': config['rho'],
-                                         'dt': config['dt']}
+                                          'maxEDist': config['maxEDist'],
+                                          'fraction': config['fraction'],
+                                          'rho': config['rho'],
+                                          'dt': config['dt']}
 
 
         self.t_vec = None
@@ -565,7 +567,7 @@ class Env(object):
                         mech_params1[k] = ExprClosure(parameters=[v['parameter']], expr=v['expr'],
                                                       consts=v.get('const', None), formals=['x'])
                     else:
-                        raise RuntimeError('parse_syn_mechparams: unknown parameter type %s' % str(v))
+                        raise RuntimeError(f"parse_syn_mechparams: unknown parameter type {v}")
                 else:
                     mech_params1[k] = v
             res[mech_name] = mech_params1
@@ -656,8 +658,7 @@ class Env(object):
                 try:
                     assert (np.isclose(v, 1.0))
                 except Exception as e:
-                    self.logger.error('Connection configuration: probabilities for %s do not sum to 1: %s = %f' %
-                                      (key_postsyn, str(k), v))
+                    self.logger.error(f"Connection configuration: probabilities for {key_postsyn} do not sum to 1: {k} = {v:.04f}")
                     raise e
 
         self.connection_config = connection_dict
@@ -792,7 +793,7 @@ class Env(object):
         comm0 = self.comm.Split(color, 0)
 
         if rank == 0:
-            self.logger.info('env.data_file_path = %s' % str(self.data_file_path))
+            self.logger.info(f"env.data_file_path = {self.data_file_path}")
 
         self.cell_attribute_info = None
         population_ranges = None
@@ -803,9 +804,9 @@ class Env(object):
             (population_ranges, _) = read_population_ranges(self.data_file_path, comm0)
             type_names = sorted(population_ranges.keys())
             self.cell_attribute_info = read_cell_attribute_info(self.data_file_path, population_names, comm=comm0)
-            self.logger.info('population_names = %s' % str(population_names))
-            self.logger.info('population_ranges = %s' % str(population_ranges))
-            self.logger.info('attribute info: %s' % str(self.cell_attribute_info))
+            self.logger.info(f"population_names = {population_names}")
+            self.logger.info(f"population_ranges = {population_ranges}")
+            self.logger.info(f"attribute info: {self.cell_attribute_info}")
         population_ranges = self.comm.bcast(population_ranges, root=0)
         population_names = self.comm.bcast(population_names, root=0)
         type_names = self.comm.bcast(type_names, root=0)
@@ -820,7 +821,7 @@ class Env(object):
                 celltypes[k]['start'] = population_ranges[k][0]
                 celltypes[k]['num'] = population_ranges[k][1]
                 if 'mechanism file' in celltypes[k]:
-                    celltypes[k]['mech_file_path'] = '%s/%s' % (self.config_prefix, celltypes[k]['mechanism file'])
+                    celltypes[k]['mech_file_path'] = os.path.join(self.config_prefix, celltypes[k]['mechanism file'])
                     mech_dict = None
                     if rank == 0:
                         mech_dict = read_from_yaml(celltypes[k]['mech_file_path'])

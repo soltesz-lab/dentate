@@ -34,7 +34,7 @@ def init_biophys_cell(env, pop_name, gid, load_synapses=True, load_weights=True,
     :param cell_dict: dict
 
     Environment can be instantiated as:
-    env = Env(config_file, template_paths, dataset_prefix, config_prefix)
+    env = Env(config, template_paths, dataset_prefix, config_prefix)
     :param template_paths: str; colon-separated list of paths to directories containing hoc cell templates
     :param dataset_prefix: str; path to directory containing required neuroh5 data files
     :param config_prefix: str; path to directory containing network and cell mechanism config files
@@ -764,7 +764,7 @@ def measure_psp (gid, pop_name, presyn_name, syn_mech_name, swc_type, env, v_ini
     
 
 @click.command()
-@click.option("--config-file", '-c', required=True, type=str, help='model configuration file name')
+@click.option("--config", '-c', required=True, type=str, help='model configuration file name')
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='config',
               help='path to directory containing network and cell mechanism config files')
@@ -795,7 +795,7 @@ def measure_psp (gid, pop_name, presyn_name, syn_mech_name, swc_type, env, v_ini
 @click.option("--use-cvode", is_flag=True)
 @click.option("--verbose", '-v', is_flag=True)
 
-def main(config_file, config_prefix, erev, population, presyn_name, gid, load_weights, measurements, template_paths, dataset_prefix, results_path, results_file_id, results_namespace_id, syn_mech_name, syn_weight, syn_count, syn_layer, swc_type, stim_amp, v_init, dt, use_cvode, verbose):
+def main(config, config_prefix, erev, population, presyn_name, gid, load_weights, measurements, template_paths, dataset_prefix, results_path, results_file_id, results_namespace_id, syn_mech_name, syn_weight, syn_count, syn_layer, swc_type, stim_amp, v_init, dt, use_cvode, verbose):
 
     config_logging(verbose)
         

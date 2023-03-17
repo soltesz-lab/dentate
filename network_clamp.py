@@ -682,7 +682,7 @@ def run_with(env, param_dict, cvode=False, pc_runworker=False):
 
 
 
-def init_state_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, coords_path, distances_namespace, phase_mod, n_trials, trial_regime, problem_regime, param_type, param_config_name, recording_profile, state_variable, state_filter, target_value, use_coreneuron, cooperative_init, dt, worker,  **kwargs):
+def init_state_objfun(config, population, cell_index_set, arena_id, trajectory_id, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, coords_path, distances_namespace, phase_mod, n_trials, trial_regime, problem_regime, param_type, param_config_name, recording_profile, state_variable, state_filter, target_value, use_coreneuron, cooperative_init, dt, worker,  **kwargs):
 
     params = dict(locals())
     env = Env(**params)
@@ -765,7 +765,7 @@ def init_state_objfun(config_file, population, cell_index_set, arena_id, traject
     return opt_eval_fun(problem_regime, my_cell_index_set, eval_problem)
 
 
-def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, n_trials, trial_regime, problem_regime, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, coords_path, distances_namespace, phase_mod, input_features_path, input_features_namespaces, param_type, param_config_name, recording_profile, target_rate, use_coreneuron, cooperative_init, dt, worker, **kwargs):
+def init_rate_objfun(config, population, cell_index_set, arena_id, trajectory_id, n_trials, trial_regime, problem_regime, generate_weights, t_max, t_min, opt_iter, template_paths, dataset_prefix, config_prefix, results_path, spike_events_path, spike_events_namespace, spike_events_t, coords_path, distances_namespace, phase_mod, input_features_path, input_features_namespaces, param_type, param_config_name, recording_profile, target_rate, use_coreneuron, cooperative_init, dt, worker, **kwargs):
 
 
     params = dict(locals())
@@ -918,7 +918,7 @@ def init_rate_objfun(config_file, population, cell_index_set, arena_id, trajecto
 
 
 
-def init_rate_dist_objfun(config_file, population, cell_index_set, arena_id, trajectory_id, 
+def init_rate_dist_objfun(config, population, cell_index_set, arena_id, trajectory_id, 
                           n_trials, trial_regime, problem_regime,
                           generate_weights, t_max, t_min,
                           opt_iter, template_paths, dataset_prefix, config_prefix, results_path,
@@ -1279,7 +1279,7 @@ def cli():
 
 
 @click.command()
-@click.option("--config-file", '-c', required=True, type=str, help='model configuration file name')
+@click.option("--config", '-c', required=True, type=str, help='model configuration file name')
 @click.option("--population", '-p', required=True, type=str, default='GC', help='target population')
 @click.option("--gid", '-g', required=True, type=int, default=0, help='target cell gid')
 @click.option("--arena-id", '-a', required=False, type=str, help='arena id for input stimulus')
@@ -1309,7 +1309,7 @@ def cli():
 @click.option('--profile-memory', is_flag=True, help='calculate and print heap usage after the simulation is complete')
 @click.option('--recording-profile', type=str, default='Network clamp default', help='recording profile to use')
 
-def show(config_file, population, gid, arena_id, trajectory_id, template_paths, dataset_prefix, config_prefix, results_path,
+def show(config, population, gid, arena_id, trajectory_id, template_paths, dataset_prefix, config_prefix, results_path,
          spike_events_path, spike_events_namespace, spike_events_t, input_features_path, input_features_namespaces, use_coreneuron, plot_cell, write_cell, profile_memory, recording_profile):
     """
     Show configuration for the specified cell.
@@ -1346,7 +1346,7 @@ def show(config_file, population, gid, arena_id, trajectory_id, template_paths, 
     comm.barrier()
 
 @click.command()
-@click.option("--config-file", '-c', required=True, type=str, help='model configuration file name')
+@click.option("--config", '-c', required=True, type=str, help='model configuration file name')
 @click.option("--population", '-p', required=True, type=str, default='GC', help='target population')
 @click.option("--dt", required=False, type=float, help='simulation time step')
 @click.option("--gids", '-g', type=int, multiple=True, help='target cell gid')
@@ -1398,7 +1398,7 @@ def show(config_file, population, gid, arena_id, trajectory_id, template_paths, 
 @click.option('--recording-profile', type=str, default='Network clamp default', help='recording profile to use')
 @click.option("--input-seed", type=int, help='seed for generation of spike trains')
 
-def go(config_file, population, dt, gids, gid_selection_file, arena_id, trajectory_id, generate_weights, t_max, t_min,
+def go(config, population, dt, gids, gid_selection_file, arena_id, trajectory_id, generate_weights, t_max, t_min,
        template_paths, dataset_prefix, config_prefix,
        spike_events_path, spike_events_namespace, spike_events_t,
        coords_path, distances_namespace, phase_mod,
@@ -1510,7 +1510,7 @@ def go(config_file, population, dt, gids, gid_selection_file, arena_id, trajecto
 
 
 @click.command()
-@click.option("--config-file", '-c', required=True, type=str, help='model configuration file name')
+@click.option("--config", '-c', required=True, type=str, help='model configuration file name')
 @click.option("--population", '-p', required=True, type=str, default='GC', help='target population')
 @click.option("--dt",  type=float, help='simulation time step')
 @click.option("--gids", '-g', type=int, multiple=True, help='target cell gid')
@@ -1572,7 +1572,7 @@ def go(config_file, population, dt, gids, gid_selection_file, arena_id, trajecto
 @click.option('--use-coreneuron', is_flag=True, help='enable use of CoreNEURON')
 @click.option('--cooperative-init', is_flag=True, help='use a single worker to read model data then send to the remaining workers')
 @click.argument('target')# help='rate, rate_dist, state'
-def optimize(config_file, population, dt, gids, gid_selection_file, arena_id, trajectory_id, 
+def optimize(config, population, dt, gids, gid_selection_file, arena_id, trajectory_id, 
              generate_weights, t_max, t_min, 
              nprocs_per_worker, opt_epsilon, opt_seed, opt_iter, 
              template_paths, dataset_prefix, config_prefix,

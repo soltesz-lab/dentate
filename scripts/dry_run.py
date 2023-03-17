@@ -35,7 +35,7 @@ sys.excepthook = mpi_excepthook
 @click.command()
 @click.option("--cell-selection-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False),
               help='name of file specifying subset of cells gids to be instantiated')
-@click.option("--config-file", required=True, type=str, help='model configuration file name')
+@click.option("--config", required=True, type=str, help='model configuration file name')
 @click.option("--template-paths", type=str, default='templates',
               help='colon-separated list of paths to directories containing hoc cell templates')
 @click.option("--hoc-lib-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
@@ -68,13 +68,13 @@ sys.excepthook = mpi_excepthook
               help='delete from memory the synapse attributes metadata after specifying connections')
 @click.option('--verbose', '-v', is_flag=True, help='print verbose diagnostic messages while constructing the network')
 @click.option('--run-test', is_flag=True, help='whether to actually execute simulation after building network')
-def main(cell_selection_path, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix,
+def main(cell_selection_path, config, template_paths, hoc_lib_path, dataset_prefix, config_prefix,
          results_path, results_id, node_rank_file, io_size, tstop, v_init,
          stimulus_onset, max_walltime_hours, results_write_time, spike_input_path, spike_input_namespace,
          dt, ldbal, lptbal, cleanup, verbose, run_test):
     """
     :param cell_selection_path: str; name of file specifying subset of cells gids to be instantiated
-    :param config_file: str; model configuration file name
+    :param config: str; model configuration file name
     :param template_paths: str; colon-separated list of paths to directories containing hoc cell templates
     :param hoc_lib_path: str; path to directory containing required hoc libraries
     :param dataset_prefix: str; path to directory containing required neuroh5 data files

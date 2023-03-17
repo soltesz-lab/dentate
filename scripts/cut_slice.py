@@ -51,7 +51,7 @@ def main(arena_id, config, config_prefix, dataset_prefix, distances_namespace, d
     if io_size == -1:
         io_size = comm.size
 
-    env = Env(comm=comm, config_file=config, 
+    env = Env(comm=comm, config=config, 
               config_prefix=config_prefix, dataset_prefix=dataset_prefix, 
               results_path=output_path, spike_input_path=spike_input_path, 
               spike_input_namespace=spike_input_namespace, spike_input_attr=spike_input_attr,

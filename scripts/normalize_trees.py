@@ -50,9 +50,9 @@ def main(config, config_prefix, population, forest_path, template_path, output_p
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
-        logger.info('%i ranks have been allocated' % comm.size)
+        logger.info(f"{comm.size} ranks have been allocated")
 
-    env = Env(comm=comm, config_file=config, config_prefix=config_prefix, template_paths=template_path)
+    env = Env(comm=comm, config=config, config_prefix=config_prefix, template_paths=template_path)
 
     if rank==0:
         if not os.path.isfile(output_path):
@@ -73,7 +73,7 @@ def main(config, config_prefix, population, forest_path, template_path, output_p
     new_trees_dict = {}
     for gid, tree_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, comm=comm, topology=False):
         if gid is not None:
-            logger.info("Rank %d received gid %d" % (rank, gid))
+            logger.info(f"Rank {rank} received gid {gid}")
             new_tree_dict = cells.normalize_tree_topology(tree_dict, env.SWC_Types)
             
             new_trees_dict[gid] = new_tree_dict
@@ -83,7 +83,7 @@ def main(config, config_prefix, population, forest_path, template_path, output_p
 
     comm.barrier()
     if (not dry_run) and (rank == 0):
-        logger.info('Appended normalized trees to %s' % output_path)
+        logger.info(f"Appended normalized trees to {output_path}")
 
 
 if __name__ == '__main__':

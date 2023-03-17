@@ -56,7 +56,7 @@ def main(config, config_prefix, include, forest_path, connectivity_path, connect
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
-    env = Env(comm=comm, config_file=config, config_prefix=config_prefix)
+    env = Env(comm=comm, config=config, config_prefix=config_prefix)
     configure_hoc_env(env)
 
     connection_config = env.connection_config

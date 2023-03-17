@@ -10,7 +10,7 @@ from dentate.env import Env
 @click.option('--gap-junctions', is_flag=True)
 def main(config, output_path, gap_junctions):
 
-    env = Env(config_file=config)
+    env = Env(config=config)
     io_utils.make_h5types(env, output_path, gap_junctions=gap_junctions)
 
 

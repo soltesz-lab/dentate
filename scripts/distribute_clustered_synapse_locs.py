@@ -75,7 +75,7 @@ def main(config, config_prefix, template_path, output_path, forest_path, structu
     if structured_weights_path is None:
         structured_weights_path = forest_path
         
-    env = Env(comm=comm, config_file=config, config_prefix=config_prefix, template_paths=template_path)
+    env = Env(comm=comm, config=config, config_prefix=config_prefix, template_paths=template_path)
 
     configure_hoc_env(env)
     

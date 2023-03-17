@@ -2897,7 +2897,7 @@ def load_biophys_cell_dicts(env, pop_name, gid_set, load_connections=True, valid
     :param validate_tree: bool
 
     Environment can be instantiated as:
-    env = Env(config_file, template_paths, dataset_prefix, config_prefix)
+    env = Env(config, template_paths, dataset_prefix, config_prefix)
     :param template_paths: str; colon-separated list of paths to directories containing hoc cell templates
     :param dataset_prefix: str; path to directory containing required neuroh5 data files
     :param config_prefix: str; path to directory containing network and cell mechanism config files

@@ -94,7 +94,7 @@ def init_controller(subworld_size, use_coreneuron):
         h.pc.psolve(0.1)
 
 def init_selectivity_objfun(
-    config_file,
+    config,
     population,
     cell_index_set,
     arena_id,
@@ -117,7 +117,6 @@ def init_selectivity_objfun(
     param_type,
     param_config_name,
     selectivity_config_name,
-    recording_profile,
     target_features_path,
     target_features_namespace,
     target_features_arena,
@@ -702,7 +701,7 @@ def optimize_run(
 
 @click.command()
 @click.option(
-    "--config-file", "-c", required=True, type=str, help="model configuration file name"
+    "--config", "-c", required=True, type=str, help="model configuration file name"
 )
 @click.option(
     "--population",
@@ -771,7 +770,6 @@ def optimize_run(
     default="synaptic",
     help="parameter type to use for optimization (synaptic)",
 )
-@click.option("--recording-profile", type=str, help="recording profile to use")
 @click.option(
     "--results-file", required=False, type=str, help="optimization results file"
 )
@@ -882,7 +880,7 @@ def optimize_run(
 @click.option("--spawn-startup-wait", type=int)
 @click.option("--verbose", is_flag=True)
 def main(
-    config_file,
+    config,
     population,
     dt,
     gid,
@@ -899,7 +897,6 @@ def main(
     param_config_name,
     selectivity_config_name,
     param_type,
-    recording_profile,
     results_file,
     results_path,
     spike_events_path,
