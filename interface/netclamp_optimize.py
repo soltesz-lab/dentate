@@ -1,22 +1,36 @@
+import os
 from dataclasses import dataclass
 from typing import Tuple, Optional, Union, List, Dict
 
 from machinable import Experiment
 from machinable.config import Field
 
-from dentate import network_clamp
+from dentate import network_clamp, utils
 from dentate.interface.config import Schema
+
+from mpi4py import MPI
+
+def mpi_excepthook(type, value, traceback):
+    sys_excepthook(type, value, traceback)
+    sys.stderr.flush()
+    sys.stdout.flush()
+    if MPI.COMM_WORLD.size > 1:
+        MPI.COMM_WORLD.Abort(1)
+
+
+sys_excepthook = sys.excepthook
+sys.excepthook = mpi_excepthook
 
 
 class NetClampOptimize(Experiment):
     @dataclass
     class Config:
         schema: Schema = Field(default_factory=Schema)
-        population: str = "PYR"
+        population: str = "GC"
         dt: Optional[float] = None
         gids: List[int] = Field(default_factory=[])
         gid_selection_file: Optional[str] = None
-        area_id: Optional[str] = None
+        arena_id: Optional[str] = None
         stimulus_id: Optional[str] = None
         generate_weights: set[str] = set()
         t_max: Optional[float] = 150.0
@@ -27,6 +41,7 @@ class NetClampOptimize(Experiment):
         opt_iter: int = 10
         templates: str = "templates"
         dataset_path: Optional[str] = None
+        model_config_file: Optional[str] = None
         param_config_name: Optional[str] = None
         param_type: str = "synaptic"
         spike_events_path: Optional[str] = None
@@ -51,10 +66,20 @@ class NetClampOptimize(Experiment):
         target: str = "rate"
 
     def on_execute(self):
+
+        comm = self.config.comm
+        model_configuration = None
+        if (comm is None) or ((comm is not None) and (comm.rank == 0)):
+            model_configuration = utils.read_from_yaml(self.config.model_config_file,
+                                                       include_loader=utils.IncludeLoader)
+        if comm is not None:
+            model_configuration = comm.bcast(model_configuration, root=0)
+
+        schema = self.config.schema
+        
         network_clamp.optimize(
-            config_file=self.config.schema,
+            config={**schema, **model_configuration},
             config_prefix=None,
-            population=self.config.population,
             dt=self.config.dt,
             gids=self.config.gids,
             gid_selection_file=self.config.gid_selection_file,
@@ -63,7 +88,7 @@ class NetClampOptimize(Experiment):
             generate_weights=self.config.generate_weights,
             t_max=self.config.t_max,
             t_min=self.config.t_min,
-            nprocs_per_worker=self.config.nprocs_per_worker_,
+            nprocs_per_worker=self.config.nprocs_per_worker,
             opt_epsilon=self.config.opt_epsilon,
             opt_seed=self.config.opt_seed,
             opt_iter=self.config.opt_iter,
@@ -93,3 +118,9 @@ class NetClampOptimize(Experiment):
             cooperative_init=self.config.cooperative_init,
             target=self.config.target,
         )
+
+    def on_write_meta_data(self) -> Optional[bool]:
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+        return rank == 0
+        

@@ -1,0 +1,25 @@
+
+config: Network_Clamp_GC_Exc_Sat_SynExp3NMDA2_SLN_IN_PR.yaml
+population: BC
+gid: {{gid}}
+t_max: 9500
+n_trials: 1
+trial_regime: mean
+use_coreneuron: True
+dt: 0.0125
+templates: templates
+dataset_prefix: {{DATA_PREFIX}}/dentate
+results_path: {{RESULTS_PREFIX}}/netclamp
+coords_path: "{{DATA_PREFIX}}/dentate/Full_Scale_Control/DG_coords_20190717_compressed.h5"
+input_features_path: {{DATA_PREFIX}}/dentate/Full_Scale_Control/DG_input_features_20220216.h5
+input_features_namespaces:
+  - 'Place Selectivity'
+  - 'Grid Selectivity'
+  - 'Constant Selectivity'
+arena_id: A
+trajectory_id: Diag
+phase_mod: True
+opt_iter: 2000
+opt_epsilon: 0.5
+param_config_name: "Weight exc inh netclamp"
+  
