@@ -3,6 +3,7 @@ from fractions import Fraction
 import pprint, string, sys, time, click
 from builtins import input, map, next, object, range, str, zip
 from collections import MutableMapping, Iterable, defaultdict, namedtuple
+from envsubst import envsubst
 import numpy as np
 from numpy.lib.stride_tricks import as_strided
 import scipy
@@ -709,6 +710,19 @@ def read_from_yaml(file_path, include_loader=None):
         return data
     else:
         raise IOError('read_from_yaml: invalid file_path: %s' % file_path)
+
+
+def yaml_envsubst(full, val=None, initial=True):
+    val = val or full if initial else val
+    if isinstance(val, dict):
+        for k, v in val.items():
+            val[k] = yaml_envsubst(full, v, False)
+    elif isinstance(val, list):
+        for idx, i in enumerate(val):
+            val[idx] = yaml_envsubst(full, i, False)
+    elif isinstance(val, str):
+        val = envsubst(val.format(**full))
+    return val    
 
 
 def print_param_dict_like_yaml(param_dict, digits=6):

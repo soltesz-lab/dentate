@@ -52,7 +52,7 @@ class Env(object):
     Network model configuration.
     """
 
-    def __init__(self, comm=None, config_file=None, template_paths="templates", hoc_lib_path=None,
+    def __init__(self, comm=None, config=None, template_paths="templates", hoc_lib_path=None,
                  dataset_prefix=None, config_prefix=None,
                  results_path=None, results_file_id=None, results_namespace_id=None, 
                  node_rank_file=None, node_allocation=None, 
@@ -67,7 +67,7 @@ class Env(object):
                  transfer_debug=False, verbose=False, **kwargs):
         """
         :param comm: :class:'MPI.COMM_WORLD'
-        :param config_file: str; model configuration file name
+        :param config: str or dict; model configuration file name or dictionary
         :param template_paths: str; colon-separated list of paths to directories containing hoc cell templates
         :param hoc_lib_path: str; path to directory containing required hoc libraries
         :param dataset_prefix: str; path to directory containing required neuroh5 data files
