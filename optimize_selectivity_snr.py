@@ -734,6 +734,7 @@ def main(
     param_config_name,
     selectivity_config_name,
     param_type,
+    param_results_file,
     results_file,
     results_path,
     spike_events_path,
@@ -868,7 +869,9 @@ def main(
     if results_dict is not None:
         if results_path is not None:
             run_ts = time.strftime("%Y%m%d_%H%M%S")
-            file_path = os.path.join(results_path, f"optimize_selectivity.{run_ts}.yaml")
+            if param_results_file is None:
+                param_results_file = f"optimize_selectivity.{run_ts}.yaml"
+            file_path = os.path.join(results_path, param_results_file)
             param_names = opt_param_config.param_names
             param_tuples = opt_param_config.param_tuples
             output_dict = {}
@@ -911,6 +914,9 @@ def main(
     comm.barrier()
     if results_dict is not None:
         return {population: results_dict}, distgfs_params
+    else:
+        return None, None
+
     
 @click.command()
 @click.option(
@@ -977,6 +983,9 @@ def main(
     type=str,
     default="synaptic",
     help="parameter type to use for optimization (synaptic)",
+)
+@click.option(
+    "--param-results-file", required=False, type=str, help="optimization parameter results yaml file"
 )
 @click.option(
     "--results-file", required=False, type=str, help="optimization results file"
@@ -1104,6 +1113,7 @@ def main_cmd(
     param_config_name,
     selectivity_config_name,
     param_type,
+    param_results_file,
     results_file,
     results_path,
     spike_events_path,
@@ -1143,6 +1153,7 @@ def main_cmd(
                 param_config_name,
                 selectivity_config_name,
                 param_type,
+                param_results_file,
                 results_file,
                 results_path,
                 spike_events_path,
@@ -1164,7 +1175,7 @@ def main_cmd(
                 spawn_executable,
                 spawn_args,
                 spawn_startup_wait,
-            verbose,
+                verbose,
                 )
 
 if __name__ == "__main__":

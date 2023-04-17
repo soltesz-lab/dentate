@@ -67,6 +67,13 @@ class OptimizeSelectivitySNR:
             generate_weights = set([])
 
         os.makedirs(outputs["job_output"], exist_ok=True)
+
+        param_results_file=outputs.get("param_results_file",
+                                       f"optimize_selectivity_snr.{self.run_id}.yaml")
+        results_file=outputs.get("results_file",
+                                 f"optimize_selectivity_snr.{self.run_id}.h5")
+        param_results_path=os.path.join(outputs["job_output"], param_results_file)
+        results_path=os.path.join(outputs["job_output"], results_file)
         
         results_dict, distgfs_params = optimize_selectivity_snr.main(
             config=model_configuration,
@@ -85,7 +92,8 @@ class OptimizeSelectivitySNR:
             param_config_name=self.param_config_name,
             selectivity_config_name=self.selectivity_config_name,
             param_type=self.param_type,
-            results_file=outputs.get("results_file", None),
+            param_results_file=param_results_file,
+            results_file=results_file,
             results_path=outputs["job_output"],
             spike_events_path=inputs.get("spike_events", None),
             spike_events_namespace=self.spike_events_namespace,
@@ -121,12 +129,15 @@ class OptimizeSelectivitySNR:
                                 param_dict = { re.sub(r'\W+|^(?=\d)','_', x): v for x, v in results_dict[population][gid].parameters }
                                 mlflow.log_params(param_dict)
                                 mlflow.log_metrics(results_dict[population][gid].objectives)
+                                mlflow.log_artifact(param_results_path)
+                                mlflow.log_artifact(results_path)
                 else:
                     with mlflow.start_run(run_name=str(self.run_id)):
                         param_dict = { re.sub(r'\W+|^(?=\d)','_', x): v for x, v in results_dict[population][gid].parameters }
                         mlflow.log_params(param_dict)
                         mlflow.log_metrics(results_dict[population].objectives)
-            
+                        mlflow.log_artifact(param_results_path)
+                        mlflow.log_artifact(results_path)
 
 def mpi_get_config(config):
     comm = MPI.COMM_WORLD
