@@ -3,7 +3,7 @@ import sys
 import uuid
 from dataclasses import dataclass
 from typing import Any, Tuple, Optional, Union, List, Dict, Set
-from dentate import network_clamp, utils, task
+from dentate import network_clamp, utils
 from mpi4py import MPI
 from simple_slurm import Slurm
 from commandlib import Command
@@ -38,7 +38,6 @@ class NetClampOptimize:
     opt_seed: Optional[int] = None
     opt_iter: int = 10
     templates: str = "templates"
-    config: Optional[str] = None
     param_config_name: Optional[str] = None
     param_type: str = "synaptic"
     spike_events_namespace: str = "Spike Events"
