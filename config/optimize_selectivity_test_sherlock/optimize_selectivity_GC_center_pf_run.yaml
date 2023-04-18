@@ -1,0 +1,20 @@
+param_config_name: "Weight selectivity SynExp3NMDA2"
+config: Network_Clamp_GC_Exc_Sat_SynExp3NMDA2fd_SLN_CLS_IN_PR_center_pf.yaml
+population: GC
+t_max: 9250
+n_trials: 1
+trial_regime: mean
+use_coreneuron: True
+dt: 0.0125
+input_features_namespaces:
+  - 'Place Selectivity'
+  - 'Grid Selectivity'
+  - 'Constant Selectivity'
+target_features_namespace: 'Place Selectivity'
+arena_id: A
+trajectory_id: Diag
+phase_mod: True
+n_iter: 1
+gid: 880730
+
+  
