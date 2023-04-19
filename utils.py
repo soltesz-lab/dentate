@@ -643,8 +643,20 @@ class IncludeLoader(yaml.Loader):
         with open(filename, 'r') as f:
             return yaml.load(f, IncludeLoader)
 
+    def envsubst(self, node):
+        """
+
+        :param node:
+        :return:
+        """
+
+        s = self.construct_scalar(node)
+        s = envsubst(s)
+        return s
+
 
 IncludeLoader.add_constructor('!include', IncludeLoader.include)
+IncludeLoader.add_constructor('!envsubst', IncludeLoader.envsubst)
 
 class ExplicitDumper(yaml.SafeDumper):
     """
@@ -653,6 +665,7 @@ class ExplicitDumper(yaml.SafeDumper):
 
     def ignore_aliases(self, data):
         return True
+
 
 def config_logging(verbose):
     if verbose:
@@ -680,7 +693,7 @@ def get_script_logger(name):
 logger = get_module_logger(__name__)
 
 
-def write_to_yaml(file_path, data, default_flow_style=None, convert_scalars=False):
+def write_to_yaml(file_path, data, default_flow_style=False, convert_scalars=False):
     """
 
     :param file_path: str (should end in '.yaml')
@@ -722,6 +735,7 @@ def yaml_envsubst(full, val=None, initial=True):
             val[idx] = yaml_envsubst(full, i, False)
     elif isinstance(val, str):
         val = envsubst(val.format(**full))
+
     return val    
 
 

@@ -1,7 +1,7 @@
 job_input: ./results/optimize_selectivity
-config_prefix: $HOME/model/dentate/config
-dataset_prefix: $SCRATCH/dentate
-input_features: $SCRATCH/dentate/Full_Scale_Control/DG_input_features_20220216.h5
-target_features: $SCRATCH/dentate/Slice/dentatenet_Slice_SLN_center_pf_20221216.h5
+config_prefix: !envsubst $HOME/model/dentate/config
+dataset_prefix: !envsubst $SCRATCH/dentate
+input_features: !envsubst $SCRATCH/dentate/Full_Scale_Control/DG_input_features_20220216.h5
+target_features: !envsubst $SCRATCH/dentate/Slice/dentatenet_Slice_SLN_center_pf_20221216.h5
 templates: templates
   

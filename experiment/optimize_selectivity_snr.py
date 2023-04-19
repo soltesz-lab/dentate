@@ -1,4 +1,5 @@
 import os
+import stat
 import sys
 import uuid
 import re
@@ -150,7 +151,7 @@ def mpi_get_config(config):
         config_dict = config.copy()
     else:
         raise RuntimeError(f"mpi_get_config: unable to process configuration object {config}")
-    config_dict = utils.yaml_envsubst(config_dict)
+    #config_dict = utils.yaml_envsubst(config_dict)
     return config_dict
 
 def get_config(config):
@@ -160,7 +161,7 @@ def get_config(config):
         config_dict = config.copy()
     else:
         raise RuntimeError(f"get_config: unable to process configuration object {config}")
-    config_dict = utils.yaml_envsubst(config)
+    #config_dict = utils.yaml_envsubst(config_dict)
     return config_dict
     
 @click.group()
@@ -230,8 +231,9 @@ def job_grid(root_config):
         operational_config_path = os.path.join(job_input_path, "operational_config.yaml")
         inputs_config_path = os.path.join(job_input_path, "inputs.yaml")
         outputs_config_path = os.path.join(job_input_path, "outputs.yaml")
+
         
-        utils.write_to_yaml(operational_config_path, operational_config)
+        utils.write_to_yaml(operational_config_path, this_operational_config)
         utils.write_to_yaml(inputs_config_path, inputs)
         utils.write_to_yaml(outputs_config_path, outputs)
 
@@ -253,7 +255,7 @@ def batch_job_grid(root_config):
     if comm.size > 1:
         raise RuntimeError(f"optimize_selectivity_snr.batch_job_grid: unable to run in MPI mode with multiple ranks")
 
-    root_config = get_config(root_confi)
+    root_config = get_config(root_config)
 
     resource_config = root_config["Resources"]
     env_config = root_config.get("Environment", {})
@@ -261,8 +263,12 @@ def batch_job_grid(root_config):
     input_config = root_config["Inputs"]
     output_config = root_config["Outputs"]
     parameter_grid = root_config["Parameter Grid"]
-    
-    python_executable = env_config.get("python_executable", "python3")
+
+    env_modules = env_config.get("modules", [])
+    env_variables = env_config.get("variables", {})
+    env_executables = env_config.get("executables", {})
+    python_executable = env_executables.get("python", "python3")
+    mpirun_executable = env_executables.get("mpiexec", "mpiexec")
 
     for params in parameter_grid:
 
@@ -270,37 +276,66 @@ def batch_job_grid(root_config):
         this_operational_config.update(params)
 
         run_id = uuid.uuid4()
-        operational_config['run_id'] = run_id
+        operational_config['run_id'] = str(run_id)
 
-        job_input_path = os.path.join(inputs['job_input'], run_id)
+        job_input_path = os.path.join(input_config['job_input'], str(run_id))
         os.makedirs(job_input_path, exist_ok=True)
-        job_output_path = os.path.join(outputs['job_output'], run_id)
+        job_output_path = os.path.join(output_config['job_output'], str(run_id))
         os.makedirs(job_output_path, exist_ok=True)
 
-        inputs['job_input_path'] = job_input_path
-        inputs['job_output_path'] = job_output_path
+        input_config['job_input_path'] = job_input_path
+        output_config['job_output_path'] = job_output_path
         
         operational_config_path = os.path.join(job_input_path, "operational_config.yaml")
         inputs_config_path = os.path.join(job_input_path, "inputs.yaml")
         outputs_config_path = os.path.join(job_input_path, "outputs.yaml")
+        output_script_path = os.path.join(job_input_path, "script.sh")
         
-        utils.write_to_yaml(operational_config_path, operational_config)
-        utils.write_to_yaml(inputs_config_path, inputs)
-        utils.write_to_yaml(outputs_config_path, outputs)
+        utils.write_to_yaml(operational_config_path, this_operational_config)
+        utils.write_to_yaml(inputs_config_path, input_config)
+        utils.write_to_yaml(outputs_config_path, output_config)
 
+        job_name = f"optimize_selectivity_snr_{str(run_id)}"
         slurm_job = Slurm(
-            job_name=run_id,
-            output=os.path.join(outputs['job_output_path'], f"{run_id}.%J.out"),
+            job_name=job_name,
+            output=os.path.join(output_config['job_output_path'], f"{job_name}.%J.out"),
             **resource_config
         )
+        ntasks = resource_config.get("ntasks", 1)
 
-        cmd = Command(python_executable,
+        cmd = Command(mpirun_executable, "-v", 
+                      python_executable,
                       "-m", "dentate.experiment.optimize_selectivity_snr",
+                      "run",
                       f"--operational-config {operational_config_path}",
                       f"--inputs {inputs_config_path}",
                       f"--outputs {outputs_config_path}")
-            
-        slurm.sbatch(str(cmd))
+
+        pre_cmds = []
+        
+        for mod in env_modules:
+            module_cmd = f"module load {mod}"
+            pre_cmds.append(module_cmd)
+
+        for k,v in env_variables.items():
+            env_cmd = f"export {k}={v}"
+            pre_cmds.append(env_cmd)
+
+        pre_cmds.append("set")
+        pre_cmds.append("echo $PWD")
+        pre_cmds.append("set -x")
+
+        post_cmds = []
+
+        cmd_block = "\n".join(pre_cmds) + "\n" + str(cmd) + "\n" + "\n".join(post_cmds)
+
+
+        with open(output_script_path, 'w') as f:
+            f.write(cmd_block)
+        st = os.stat(output_script_path)
+        os.chmod(output_script_path, st.st_mode | stat.S_IEXEC)
+
+        slurm_job.sbatch(output_script_path, shell="/bin/bash", verbose=True)
 
         
 cli.add_command(run)

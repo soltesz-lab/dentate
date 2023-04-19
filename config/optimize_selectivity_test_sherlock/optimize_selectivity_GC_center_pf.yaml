@@ -18,15 +18,35 @@ Selectivity Optimization SNR:
   n_iter: 4000
 Inputs:
   job_input: ./results/optimize_selectivity
-  config_prefix: $HOME/model/dentate/config
-  dataset_prefix: $SCRATCH/dentate
-  input_features: $SCRATCH/dentate/Full_Scale_Control/DG_input_features_20220216.h5
-  target_features: $SCRATCH/dentate/Slice/dentatenet_Slice_SLN_center_pf_20221216.h5
+  config_prefix: !envsubst $HOME/model/dentate/config
+  dataset_prefix: !envsubst $SCRATCH/dentate
+  input_features: !envsubst $SCRATCH/dentate/Full_Scale_Control/DG_input_features_20220216.h5
+  target_features: !envsubst $SCRATCH/dentate/Slice/dentatenet_Slice_SLN_center_pf_20221216.h5
   templates: templates
 Outputs:
   job_output: ./results/optimize_selectivity
 Parameter Grid:
   - gid: 880730
-    
+Resources:
+  partition: "normal,owners"
+  ntasks: 5
+  mem_per_cpu: 8G
+  time: "1:00:00"
+  mail_user: ivan.g.raikov@gmail.com
+  mail_type: all
+Environment:
+  variables:
+    MODEL_HOME: $HOME/model
+    DG_HOME:    $MODEL_HOME/dentate
+    NEURONROOT: $GROUP_HOME/software/neuron_openmpi_4_1_2
+    PYTHONPATH: $MODEL_HOME:$SCRATCH/site-packages:$NEURONROOT/lib/python:$PYTHONPATH
+    PATH:       $NEURONROOT/bin:$PATH
+#    UCX_TLS:    "ud,sm,cuda,self"
+  modules:
+    - python/3.9.0
+    - ncurses 
+    - readline
+    - openmpi/4.1.2
+    - phdf5/local.1.12.1
 
-  
+
