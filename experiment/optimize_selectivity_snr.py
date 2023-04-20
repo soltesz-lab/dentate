@@ -290,6 +290,7 @@ def batch_job_grid(root_config):
         inputs_config_path = os.path.join(job_input_path, "inputs.yaml")
         outputs_config_path = os.path.join(job_input_path, "outputs.yaml")
         output_script_path = os.path.join(job_input_path, "script.sh")
+        submit_script_path = os.path.join(job_input_path, "submit.sh")
         
         utils.write_to_yaml(operational_config_path, this_operational_config)
         utils.write_to_yaml(inputs_config_path, input_config)
@@ -303,7 +304,7 @@ def batch_job_grid(root_config):
         )
         ntasks = resource_config.get("ntasks", 1)
 
-        cmd = Command(mpirun_executable, "-v", 
+        cmd = Command(mpirun_executable, "-v",
                       python_executable,
                       "-m", "dentate.experiment.optimize_selectivity_snr",
                       "run",
@@ -313,6 +314,9 @@ def batch_job_grid(root_config):
 
         pre_cmds = []
         
+        pre_cmds.append("unset ${!OMPI*}")
+        pre_cmds.append("unset ${!PMIX*}")
+
         for mod in env_modules:
             module_cmd = f"module load {mod}"
             pre_cmds.append(module_cmd)
@@ -321,7 +325,6 @@ def batch_job_grid(root_config):
             env_cmd = f"export {k}={v}"
             pre_cmds.append(env_cmd)
 
-        pre_cmds.append("set")
         pre_cmds.append("echo $PWD")
         pre_cmds.append("set -x")
 
@@ -329,13 +332,14 @@ def batch_job_grid(root_config):
 
         cmd_block = "\n".join(pre_cmds) + "\n" + str(cmd) + "\n" + "\n".join(post_cmds)
 
-
         with open(output_script_path, 'w') as f:
             f.write(cmd_block)
         st = os.stat(output_script_path)
         os.chmod(output_script_path, st.st_mode | stat.S_IEXEC)
 
-        slurm_job.sbatch(output_script_path, shell="/bin/bash", verbose=True)
+        slurm_job.sbatch(cmd_block, shell="/bin/bash", 
+                         script_file=submit_script_path)
+
 
         
 cli.add_command(run)
