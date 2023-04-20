@@ -1,0 +1,232 @@
+Selectivity Optimization SNR:
+  param_config_name: "Weight selectivity SynExp3NMDA2"
+  config: Network_Clamp_GC_Exc_Sat_SynExp3NMDA2fd_SLN_CLS_IN_PR_center_pf.yaml
+  population: GC
+  t_max: 9250
+  n_trials: 1
+  trial_regime: mean
+  use_coreneuron: True
+  dt: 0.0125
+  input_features_namespaces:
+    - 'Place Selectivity'
+    - 'Grid Selectivity'
+    - 'Constant Selectivity'
+  target_features_namespace: 'Place Selectivity'
+  arena_id: A
+  trajectory_id: Diag
+  phase_mod: True
+  n_iter: 3000
+Inputs:
+  job_input: !envsubst $SCRATCH/dentate/optimize_selectivity
+  config_prefix: !envsubst $HOME/model/dentate/config
+  dataset_prefix: !envsubst $SCRATCH/dentate
+  input_features: !envsubst $SCRATCH/dentate/Full_Scale_Control/DG_input_features_20220216.h5
+  target_features: !envsubst $SCRATCH/dentate/Slice/dentatenet_Slice_SLN_center_pf_20221216.h5
+  templates: templates
+Outputs:
+  job_output: !envsubst $SCRATCH/results/optimize_selectivity
+Resources:
+  partition: "normal,owners"
+  ntasks: 49
+  mem_per_cpu: 8G
+  time: "8:00:00"
+  mail_user: ivan.g.raikov@gmail.com
+  mail_type: all
+  get_user_env: True
+Environment:
+  executables:
+    mpiexec: mpiexec
+  variables:
+    MODEL_HOME: $HOME/model
+    DG_HOME:    $MODEL_HOME/dentate
+    NEURONROOT: $GROUP_HOME/software/neuron_openmpi_4_1_2
+    PYTHONPATH: $MODEL_HOME:$SCRATCH/site-packages:$NEURONROOT/lib/python:$PYTHONPATH
+    PATH:       $NEURONROOT/bin:$PATH
+    UCX_TLS:    "ud,sm,cuda,self"
+  modules:
+    - python/3.9.0
+    - ncurses 
+    - readline
+    - openmpi/4.1.2
+    - phdf5/local.1.12.1
+Parameter Grid:
+##   - gid: 4787
+##   - gid: 8871
+##   - gid: 11938
+##   - gid: 16198
+##   - gid: 18304
+##   - gid: 20205
+##   - gid: 22499
+##   - gid: 30065
+#   - gid: 36281
+#   - gid: 52962
+#   - gid: 53280
+#   - gid: 53429
+##   - gid: 81542
+#   - gid: 83630
+#   - gid: 88667
+#   - gid: 89163
+#   - gid: 90507
+#   - gid: 97175
+  # - gid: 110710
+  # - gid: 111449
+  - gid: 124089
+  # - gid: 128960
+  # - gid: 133949
+  # - gid: 136698
+  # - gid: 145775
+  # - gid: 146529
+  # - gid: 147282
+  # - gid: 151248
+  # - gid: 154695
+  # - gid: 155585
+  # - gid: 164670
+  # - gid: 166565
+  # - gid: 175083
+  # - gid: 182873
+  # - gid: 184367
+  # - gid: 191280
+  # - gid: 198188
+  # - gid: 203309
+  # - gid: 209965
+  # - gid: 210188
+  # - gid: 211601
+  # - gid: 212869
+  # - gid: 216528
+  # - gid: 218001
+  # - gid: 223820
+  # - gid: 230963
+  # - gid: 242129
+  # - gid: 244820
+  # - gid: 245360
+  # - gid: 262070
+  # - gid: 265327
+  # - gid: 270194
+  # - gid: 271241
+  # - gid: 273751
+  # - gid: 277243
+  # - gid: 281669
+  # - gid: 286679
+  # - gid: 293733
+  # - gid: 293917
+  # - gid: 309782
+  # - gid: 310317
+  # - gid: 313223
+  # - gid: 313514
+  # - gid: 317598
+  # - gid: 318552
+  # - gid: 327609
+  # - gid: 328021
+  # - gid: 333097
+  # - gid: 334587
+  # - gid: 349778
+  # - gid: 352193
+  # - gid: 352917
+  # - gid: 354965
+  # - gid: 356135
+  # - gid: 361159
+  # - gid: 361621
+  # - gid: 363579
+  # - gid: 380394
+  # - gid: 380922
+  # - gid: 382202
+  # - gid: 383266
+  # - gid: 383806
+  # - gid: 396295
+  # - gid: 404932
+  # - gid: 405388
+  # - gid: 406166
+  # - gid: 414839
+  # - gid: 418973
+  # - gid: 424349
+  # - gid: 426660
+  # - gid: 427779
+  # - gid: 428269
+  # - gid: 437748
+  # - gid: 438497
+  # - gid: 447739
+  # - gid: 451716
+  # - gid: 455014
+  # - gid: 459749
+  # - gid: 463020
+  # - gid: 478079
+  # - gid: 500401
+  # - gid: 500621
+  # - gid: 507629
+  # - gid: 508261
+  # - gid: 510568
+  # - gid: 512035
+  # - gid: 513710
+  # - gid: 515267
+  # - gid: 519559
+  # - gid: 535684
+  # - gid: 536751
+  # - gid: 558232
+  # - gid: 558992
+  # - gid: 566934
+  # - gid: 579395
+  # - gid: 583788
+  # - gid: 595942
+  # - gid: 596174
+  # - gid: 597914
+  # - gid: 607512
+  # - gid: 607723
+  # - gid: 615396
+  # - gid: 619286
+  # - gid: 620057
+  # - gid: 624283
+  # - gid: 628250
+  # - gid: 628871
+  # - gid: 634268
+  # - gid: 640197
+  # - gid: 642665
+  # - gid: 647941
+  # - gid: 675206
+  # - gid: 679578
+  # - gid: 689997
+  # - gid: 691780
+  # - gid: 693357
+  # - gid: 713869
+  # - gid: 723949
+  # - gid: 724221
+  # - gid: 726143
+  # - gid: 738368
+  # - gid: 738380
+  # - gid: 747649
+  # - gid: 752365
+  # - gid: 755023
+  # - gid: 763426
+  # - gid: 763769
+  # - gid: 775186
+  # - gid: 778405
+  # - gid: 792631
+  # - gid: 801663
+  # - gid: 803318
+  # - gid: 804641
+  # - gid: 805934
+  # - gid: 814518
+  # - gid: 820160
+  # - gid: 821719
+  # - gid: 821760
+  # - gid: 822839
+  # - gid: 828561
+  # - gid: 834842
+  # - gid: 837209
+  # - gid: 841709
+  # - gid: 849555
+  # - gid: 849780
+  # - gid: 857537
+  # - gid: 872027
+  # - gid: 873707
+##  - gid: 880730
+  # - gid: 890681
+  # - gid: 908725
+  # - gid: 925541
+  # - gid: 932035
+  # - gid: 941450
+  # - gid: 950934
+  # - gid: 958468
+  # - gid: 959759
+  # - gid: 960280
+  # - gid: 971357
+  # - gid: 999687

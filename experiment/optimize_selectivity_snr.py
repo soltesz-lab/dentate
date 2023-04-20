@@ -276,7 +276,7 @@ def batch_job_grid(root_config):
         this_operational_config.update(params)
 
         run_id = uuid.uuid4()
-        operational_config['run_id'] = str(run_id)
+        this_operational_config['run_id'] = str(run_id)
 
         job_input_path = os.path.join(input_config['job_input'], str(run_id))
         os.makedirs(job_input_path, exist_ok=True)
