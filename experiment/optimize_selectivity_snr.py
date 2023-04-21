@@ -75,6 +75,7 @@ class OptimizeSelectivitySNR:
                                  f"optimize_selectivity_snr.{self.run_id}.h5")
         param_results_path=os.path.join(outputs["job_output"], param_results_file)
         results_path=os.path.join(outputs["job_output"], results_file)
+        mlruns_path=os.path.join(outputs["job_output"], "mlruns")
         
         results_dict, distgfs_params = optimize_selectivity_snr.main(
             config=model_configuration,
@@ -120,6 +121,7 @@ class OptimizeSelectivitySNR:
         )
 
         if results_dict is not None:
+            mlflow.set_tracking_uri(f"file:{mlruns_path}")
             for population in results_dict:
                 mlflow.set_experiment(f"Optimize Selectivity SNR {population}")
                 mlflow.set_experiment_tag("population", population)
