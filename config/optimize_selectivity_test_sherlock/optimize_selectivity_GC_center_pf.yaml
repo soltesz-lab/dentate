@@ -15,7 +15,7 @@ Selectivity Optimization SNR:
   arena_id: A
   trajectory_id: Diag
   phase_mod: True
-  n_iter: 4000
+  n_iter: 1
 Inputs:
   job_input: ./results/optimize_selectivity
   config_prefix: !envsubst $HOME/model/dentate/config
@@ -37,7 +37,7 @@ Resources:
   get_user_env: True
 Environment:
   executables:
-    mpiexec: mpiexec
+    mpiexec: mpirun
   variables:
     MODEL_HOME: $HOME/model
     DG_HOME:    $MODEL_HOME/dentate
@@ -51,6 +51,5 @@ Environment:
     - readline
     - openmpi/4.1.2
     - phdf5/local.1.12.1
-    - cudnn
 
 
