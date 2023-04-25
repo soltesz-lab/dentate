@@ -36,7 +36,9 @@ def main(population, features_path, features_namespace, extra_columns):
     
     soma_coords = {}
 
-    extra_columns_list = extra_columns.split(",")
+    extra_columns_list = []
+    if extra_columns is not None:
+        extra_columns_list = extra_columns.split(",")
     columns = ['Field Width', 'X Offset', 'Y Offset']+extra_columns_list
     df_dict = {}
     it = read_cell_attributes(features_path, population, 

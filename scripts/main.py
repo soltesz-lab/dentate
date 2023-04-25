@@ -37,7 +37,7 @@ sys.excepthook = mpi_excepthook
               help='name of arena used for spatial stimulus')
 @click.option("--cell-selection-path", required=False, type=click.Path(exists=True, file_okay=True, dir_okay=False),
               help='name of file specifying subset of cells gids to be instantiated')
-@click.option("--config-file", required=True, type=str, help='model configuration file name')
+@click.option("--config", required=True, type=str, help='model configuration file name')
 @click.option("--template-paths", type=str, default='templates', 
               help='colon-separated list of paths to directories containing hoc cell templates')
 @click.option("--hoc-lib-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
@@ -91,7 +91,7 @@ sys.excepthook = mpi_excepthook
 @click.option('--verbose', '-v', is_flag=True, help='print verbose diagnostic messages while constructing the network')
 @click.option('--debug', is_flag=True, help='enable debug mode')
 @click.option('--dry-run', is_flag=True, help='whether to actually execute simulation after building network')
-def main(arena_id, cell_selection_path, config_file, template_paths, hoc_lib_path, dataset_prefix, config_prefix,
+def main(arena_id, cell_selection_path, config, template_paths, hoc_lib_path, dataset_prefix, config_prefix,
          results_path, results_id, node_rank_file, io_size, use_cell_attr_gen, cell_attr_gen_cache_size, recording_fraction, recording_profile, output_syn_spike_count,
          use_coreneuron, trajectory_id, tstop, v_init, stimulus_onset, max_walltime_hours, microcircuit_inputs, 
          checkpoint_clear_data, checkpoint_interval, results_write_time, spike_input_path, spike_input_namespace, 

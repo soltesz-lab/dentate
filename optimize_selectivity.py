@@ -38,7 +38,7 @@ def mpi_excepthook(type, value, traceback):
 sys_excepthook = sys.excepthook
 sys.excepthook = mpi_excepthook
 
-def init_selectivity_objfun(config_file, population, cell_index_set, arena_id, trajectory_id,
+def init_selectivity_objfun(config, population, cell_index_set, arena_id, trajectory_id,
                             n_trials, trial_regime, problem_regime,
                             generate_weights, t_max, t_min,
                             template_paths, dataset_prefix, config_prefix, results_path,
@@ -533,7 +533,7 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
         return None
 
 @click.command()
-@click.option("--config-file", '-c', required=True, type=str, help='model configuration file name')
+@click.option("--config", '-c', required=True, type=str, help='model configuration file name')
 @click.option("--population", '-p', required=True, type=str, default='GC', help='target population')
 @click.option("--dt",  type=float, help='simulation time step')
 @click.option("--gid", '-g', type=int, help='target cell gid')
@@ -601,7 +601,7 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
 @click.option("--spawn-executable", type=str)
 @click.option("--spawn-args", type=str, multiple=True)
 @click.option("--spawn-startup-wait", type=int)
-def main(config_file, population, dt, gid, gid_selection_file, arena_id, trajectory_id, generate_weights,
+def main(config, population, dt, gid, gid_selection_file, arena_id, trajectory_id, generate_weights,
          t_max, t_min,  nprocs_per_worker, n_epochs, n_initial, initial_maxiter, initial_method, optimizer_method, surrogate_method,
          population_size, num_generations, resample_fraction, mutation_rate,
          template_paths, dataset_prefix, config_prefix,

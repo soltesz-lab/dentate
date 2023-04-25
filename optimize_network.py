@@ -167,7 +167,7 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
                       'num_generations': num_generations,
                       'resample_fraction': resample_fraction,
                       'mutation_rate': mutation_rate,
-                      'file_path': f'{optimize_file_dir}/{optimize_file_name}',
+                      'file_path': os.path.join(optimize_file_dir, optimize_file_name),
                       'termination_conditions': True,
                       'save_surrogate_eval': True,
                       'save': True,
@@ -184,7 +184,7 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
     if best is not None:
         if optimize_file_dir is not None:
             results_file_id = f'DG_optimize_network_{run_ts}'
-            yaml_file_path = f'{optimize_file_dir}/optimize_network.{results_file_id}.yaml'
+            yaml_file_path = os.path.join(optimize_file_dir, f"optimize_network.{results_file_id}.yaml")
             prms = best[0]
             prms_dict = dict(prms)
             n_res = prms[0][1].shape[0]

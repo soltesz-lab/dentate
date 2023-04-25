@@ -92,7 +92,7 @@ def main(config, config_prefix, types_path, template_path, geometry_path, output
             output_file.close()
     comm.barrier()
 
-    env = Env(comm=comm, config_file=config, config_prefix=config_prefix)
+    env = Env(comm=comm, config=config, config_prefix=config_prefix)
 
     random_seed = int(env.model_config['Random Seeds']['Soma Locations'])
     random.seed(random_seed)
@@ -111,7 +111,7 @@ def main(config, config_prefix, types_path, template_path, geometry_path, output
             gc.collect()
             has_layer_alpha_shape = False
             if geometry_path:
-                this_layer_alpha_shape_path = '%s/%s' % (layer_alpha_shape_path, layer)
+                this_layer_alpha_shape_path = os.path.join(layer_alpha_shape_path, layer)
                 this_layer_alpha_shape = load_alpha_shape(geometry_path, this_layer_alpha_shape_path)
                 layer_alpha_shapes[layer] = this_layer_alpha_shape
                 if this_layer_alpha_shape is not None:
@@ -144,7 +144,7 @@ def main(config, config_prefix, types_path, template_path, geometry_path, output
             pop_layer_count += count
         assert(population_count == pop_layer_count)
         if rank == 0:
-            logger.info("Population %s: layer distribution is %s" % (population, str(pop_layers)))
+            logger.info(f"Population {population}: layer distribution is {pop_layers}")
 
 
         xyz_coords = None
@@ -168,7 +168,7 @@ def main(config, config_prefix, types_path, template_path, geometry_path, output
                 N = int(count*2) # layer-specific number of nodes
                 node_count = 0
 
-                logger.info("Generating %i nodes..." % N)
+                logger.info(f"Generating {N} nodes...")
 
                 if verbose:
                     rbf_logger = logging.Logger.manager.loggerDict['rbf.pde.nodes']
@@ -185,12 +185,12 @@ def main(config, config_prefix, types_path, template_path, geometry_path, output
                     node_count = len(in_nodes)
                     N = int(1.5*N)
                 
-                    logger.info("%i interior nodes out of %i nodes generated" % (node_count, len(nodes)))
+                    logger.info(f"{node_count} interior nodes out of {len(nodes)} nodes generated")
 
                 xyz_coords_lst.append(in_nodes.reshape(-1,3))
 
             xyz_coords = np.concatenate(xyz_coords_lst)
-            logger.info("Inverse interpolation of %i nodes..." % len(xyz_coords))
+            logger.info(f"Inverse interpolation of {len(xyz_coords)} nodes...")
             uvl_coords_interp = vol.inverse(xyz_coords)
             xyz_coords_interp = vol(uvl_coords_interp[:,0],uvl_coords_interp[:,1],uvl_coords_interp[:,2],mesh=False).reshape(3,-1).T
 
@@ -224,7 +224,7 @@ def main(config, config_prefix, types_path, template_path, geometry_path, output
 
                     xyz_error   = np.add(xyz_error, np.abs(np.subtract(xyz_coords[coord_ind,:], xyz_coords1)))
 
-                    logger.info('Rank %i: cell %i: %f %f %f' % (rank, i, uvl_coords[0], uvl_coords[1], uvl_coords[2]))
+                    logger.info(f"Rank {rank}: cell {i}: {uvl_coords}")
 
                     coords.append((xyz_coords1[0],xyz_coords1[1],xyz_coords1[2],
                                   uvl_coords[0],uvl_coords[1],uvl_coords[2]))
@@ -237,7 +237,7 @@ def main(config, config_prefix, types_path, template_path, geometry_path, output
         coords_count = np.sum(np.asarray(comm.allgather(len(coords))))
 
         if rank == 0:
-            logger.info('Total %i coordinates generated' % coords_count)
+            logger.info(f"Total {coords_count} coordinates generated")
 
         mean_xyz_error = np.asarray([(total_xyz_error[0] / coords_count), \
                                      (total_xyz_error[1] / coords_count), \
@@ -245,7 +245,7 @@ def main(config, config_prefix, types_path, template_path, geometry_path, output
 
         
         if rank == 0:
-            logger.info("mean XYZ error: %f %f %f " % (mean_xyz_error[0], mean_xyz_error[1], mean_xyz_error[2]))
+            logger.info(f"mean XYZ error: {mean_xyz_error}")
 
 
         coords_lst = comm.gather(coords, root=0)
@@ -256,7 +256,7 @@ def main(config, config_prefix, types_path, template_path, geometry_path, output
                     all_coords.append(item)
 
             if coords_count < population_count:
-                logger.warning("Generating additional %i coordinates " % (population_count - len(all_coords)))
+                logger.warning(f"Generating additional {(population_count - len(all_coords))} coordinates")
 
                 safety = 0.01
                 delta = population_count - len(all_coords)
@@ -276,15 +276,14 @@ def main(config, config_prefix, types_path, template_path, geometry_path, output
 
             
             sampled_coords.sort(key=lambda coord: coord[3]) ## sort on U coordinate
-            
-            
 
-            coords_dict = { population_start+i :  { 'X Coordinate': np.asarray([x_coord],dtype=np.float32),
-                                    'Y Coordinate': np.asarray([y_coord],dtype=np.float32),
-                                    'Z Coordinate': np.asarray([z_coord],dtype=np.float32),
-                                    'U Coordinate': np.asarray([u_coord],dtype=np.float32),
-                                    'V Coordinate': np.asarray([v_coord],dtype=np.float32),
-                                    'L Coordinate': np.asarray([l_coord],dtype=np.float32) }
+            coords_dict = { population_start+i :
+                            { 'X Coordinate': np.asarray([x_coord],dtype=np.float32),
+                              'Y Coordinate': np.asarray([y_coord],dtype=np.float32),
+                              'Z Coordinate': np.asarray([z_coord],dtype=np.float32),
+                              'U Coordinate': np.asarray([u_coord],dtype=np.float32),
+                              'V Coordinate': np.asarray([v_coord],dtype=np.float32),
+                              'L Coordinate': np.asarray([l_coord],dtype=np.float32) }
                             for (i,(x_coord,y_coord,z_coord,u_coord,v_coord,l_coord)) in enumerate(sampled_coords) }
 
             append_cell_attributes(output_path, population, coords_dict,

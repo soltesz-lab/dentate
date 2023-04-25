@@ -41,7 +41,7 @@ def main(config, config_prefix, forest_path, coords_path, populations, resolutio
     comm = MPI.COMM_WORLD
     rank = comm.rank  
 
-    env = Env(comm=comm, config_file=config, config_prefix=config_prefix)
+    env = Env(comm=comm, config=config, config_prefix=config_prefix)
     swc_type_soma   = env.SWC_Types['soma']
 
     if io_size==-1:
@@ -92,7 +92,7 @@ def main(config, config_prefix, forest_path, coords_path, populations, resolutio
         pop_layers = env.geometry['Cell Distribution'][population]        
 
         if rank == 0:
-            logger.info('Reading forest for population %s...' % population)
+            logger.info(f"Reading forest for population {population}...")
             
         (trees, forestSize) = scatter_read_trees(forest_path, population, io_size=io_size, comm=comm)
         (population_start, _) = pop_ranges[population]
@@ -142,16 +142,6 @@ def main(config, config_prefix, forest_path, coords_path, populations, resolutio
                 xyz_error = xyz_error_interp
                 xyz_coords1 = xyz_coords_interp
             
-            if rank == 0:
-                logger.info('xyz_coords: %s' % str(xyz_coords))
-                logger.info('uvl_coords_interp: %s' % str(uvl_coords_interp))
-                logger.info('xyz_coords_interp: %s' % str(xyz_coords_interp))
-                logger.info('xyz_error_interp: %s' % str(xyz_error_interp))
-                logger.info('uvl_coords_opt: %s' % str(uvl_coords_opt))
-                logger.info('xyz_coords_opt: %s' % str(xyz_coords_opt))
-                logger.info('xyz_error_opt: %s' % str(xyz_error_opt))
-                logger.info('uvl_in_bounds: %s' % str(uvl_in_bounds(uvl_coords, layer_extents, pop_layers)))
-
                 
             coords_dict[gid] = { 'X Coordinate': np.array([xyz_coords1[0]], dtype='float32'),
                                  'Y Coordinate': np.array([xyz_coords1[1]], dtype='float32'),
@@ -165,8 +155,8 @@ def main(config, config_prefix, forest_path, coords_path, populations, resolutio
                (xyz_error[0] <= reltol) and (xyz_error[1] <= reltol) and (xyz_error[2] <= reltol):
                 coords.append((gid, uvl_coords[0], uvl_coords[1], uvl_coords[2]))
             else:
-                logger.warning("Rank %d: uvl coords %s not added to new index (in bounds: %s; error: %s)" % \
-                               (rank, str(uvl_coords), str(uvl_in_bounds(uvl_coords, layer_extents, pop_layers)), str(xyz_error)))
+                logger.warning(f"Rank {rank}: uvl coords {uvl_coords} not added to new index "
+                               f"(in bounds: {uvl_in_bounds(uvl_coords, layer_extents, pop_layers)}; error: {xyz_error})")
 
             count += 1
 
@@ -178,9 +168,8 @@ def main(config, config_prefix, forest_path, coords_path, populations, resolutio
         global_count = np.sum(np.asarray(comm.gather(count, root=0)))
         if rank == 0:
             if global_count > 0:
-                logger.info('Interpolation of %i %s cells took %i s' % (np.sum(global_count), \
-                                                                        population, \
-                                                                        time.time()-start_time))
+                logger.info(f"Interpolation of {np.sum(global_count)} {population} "
+                            f"cells took {(time.time()-start_time)} s")
         all_coords = comm.reduce(coords, root=0, op=mpi_op_concat)
             
         if rank == 0:

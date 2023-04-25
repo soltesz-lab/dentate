@@ -33,7 +33,7 @@ def main(config, config_prefix, connectivity_path, coords_path, output_path, ver
     utils.config_logging(verbose)
     logger = utils.get_script_logger(script_name)
 
-    env = Env(config_file=config, config_prefix=config_prefix)
+    env = Env(config=config, config_prefix=config_prefix)
 
     layer_extents = env.geometry['Parametric Surface']['Layer Extents']
     (extent_u, extent_v, extent_l) = geometry.get_total_extents(layer_extents)
