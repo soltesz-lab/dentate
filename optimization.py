@@ -21,6 +21,11 @@ from mpi4py import MPI
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
 
+OptResult = namedtuple('OptResult',
+                       ['parameters',
+                        'objectives',
+                        'features'])
+
 
 SynParam = namedtuple('SynParam',
                       ['population',

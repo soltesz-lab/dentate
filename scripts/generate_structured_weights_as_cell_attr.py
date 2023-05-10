@@ -296,7 +296,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     if rank == 0:
         logger.info(f'{comm.size} ranks have been allocated')
 
-    env = Env(comm=comm, config_file=config, io_size=io_size)
+    env = Env(comm=comm, config=config, io_size=io_size)
     env.comm.barrier()
 
     if plot and (not save_fig) and (not show_fig):

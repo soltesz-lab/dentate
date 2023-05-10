@@ -1,4 +1,5 @@
 import sys
+import csv
 from mpi4py import MPI
 from neuroh5.io import read_population_ranges, read_population_names, read_cell_attribute_selection
 import numpy as np
@@ -33,10 +34,10 @@ def main(population, coords_path, coords_namespace, distances_namespace, selecti
     soma_coords = {}
 
     selection = []
-    f = open(selection_path, 'r')
-    for line in f.readlines():
-        selection.append(int(line))
-    f.close()
+    with open(selection_path, 'r') as f:
+        reader = csv.reader(f, delimiter=',')
+        for line in reader:
+            selection.append(int(line[0]))
 
     columns = ['U', 'V', 'L']
     df_dict = {}

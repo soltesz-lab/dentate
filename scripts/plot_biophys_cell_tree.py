@@ -63,7 +63,7 @@ def main(config_file, population, gid, template_paths, dataset_prefix, config_pr
 
     logger.info('loading cell %i' % gid)
 
-    load_weights = False
+    load_weights = True
     biophys_cell = make_biophys_cell(env, population, gid, 
                                      load_synapses=load_synapses,
                                      load_weights=load_weights, 

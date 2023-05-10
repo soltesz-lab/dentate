@@ -24,7 +24,7 @@ logger = get_module_logger(__name__)
             
         
 @click.command()
-@click.option("--config-file", '-c', required=True, type=str, help='model configuration file name')
+@click.option("--config", '-c', required=True, type=str, help='model configuration file name')
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='config',
               help='path to directory containing network and cell mechanism config files')
@@ -47,7 +47,7 @@ logger = get_module_logger(__name__)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--write-size", type=int, default=1)
 @click.option("--verbose", "-v", is_flag=True)
-def main(config_file, config_prefix, input_path, population, template_paths, dataset_prefix, results_path, results_file_id, results_namespace_id, v_init, io_size, chunk_size, value_chunk_size, write_size, verbose):
+def main(config, config_prefix, input_path, population, template_paths, dataset_prefix, results_path, results_file_id, results_namespace_id, v_init, io_size, chunk_size, value_chunk_size, write_size, verbose):
 
     utils.config_logging(verbose)
     logger = utils.get_script_logger(os.path.basename(__file__))

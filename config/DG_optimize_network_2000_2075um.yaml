@@ -15,7 +15,7 @@ objective_names:
 - NGFC firing rate
 target_populations: ['GC', 'MC', 'AAC', 'BC', 'HC', 'HCC', 'IS', 'MOPP', 'NGFC']
 kwargs:
-  config_file: Network_Clamp_Slice_2000_2075um_IN_Izh.yaml
+  config: Network_Clamp_Slice_2000_2075um_IN_Izh.yaml
   tstop: 3300.
   checkpoint_interval: 0.
   v_init: -77.

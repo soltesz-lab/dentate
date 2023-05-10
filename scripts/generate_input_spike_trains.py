@@ -1,6 +1,6 @@
 
 import click
-import copy, random, gc
+import os, copy, random, gc
 from mpi4py import MPI
 import h5py
 from dentate.env import Env
@@ -26,10 +26,10 @@ sys.excepthook = mpi_excepthook
 
 def debug_callback(context):
     from dentate.plot import plot_1D_rate_map
-    fig_title = '%s %s %s cell %i' % (context.trajectory_id, context.population, context.this_selectivity_type_name, context.gid)
+    fig_title = f"{context.trajectory_id} {context.population} {context.this_selectivity_type_name} cell {context.gid}"
     fig_options = copy.copy(context.fig_options)
     if context.save_fig is not None:
-        fig_options.saveFig = '%s %s' % (context.save_fig, fig_title)
+        fig_options.saveFig = f"{context.save_fig} {fig_title}"
     plot_1D_rate_map(t=context.t, rate_map=context.rate_map,
                      peak_rate=context.env.stimulus_config['Peak Rate'][context.population][context.this_selectivity_type],
                      spike_train=context.spike_train, title=fig_title, **fig_options())
@@ -42,19 +42,19 @@ def plot_summed_spike_psth(t, trajectory_id, selectivity_type_name, merged_spike
     spike_hist_edges = np.linspace(min(t), max(t), spike_hist_resolution + 1)
     for population, this_selectivity_type_name in viewitems(merged_spike_hist_sum):
         for this_selectivity_type_name in merged_spike_hist_sum[population]:
-            fig_title = '%s %s summed spike PSTH' % (population, this_selectivity_type_name)
+            fig_title = f"{population} {this_selectivity_type_name} summed spike PSTH"
             fig, axes = plt.subplots()
             axes.plot(spike_hist_edges[1:], merged_spike_hist_sum[population][selectivity_type_name])
             axes.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
             axes.set_ylabel('Population spike count', fontsize=fig_options.fontSize)
             axes.set_ylim(0., np.max(merged_spike_hist_sum[population][selectivity_type_name]) * 1.1)
-            axes.set_title('Summed spike PSTH\n%s %s cells' % (population, selectivity_type_name),
+            axes.set_title(f"Summed spike PSTH\n{population} {selectivity_type_name} cells"m
                            fontsize=fig_options.fontSize)
             clean_axes(axes)
 
             if fig_options.saveFig is not None:
-                save_title = 'Summed spike PSTH %s %s %s' % (trajectory_id, population, selectivity_type_name)
-                save_fig = '%s %s' % (fig_options.saveFig, save_title)
+                save_title = f"Summed spike PSTH {trajectory_id} {population} {selectivity_type_name}"
+                save_fig = f"{fig_options.saveFig} {save_title}"
                 save_figure(save_fig, fig=fig, **fig_options())
                 
             if fig_options.showFig:
@@ -133,11 +133,11 @@ def main(config, config_prefix, selectivity_path, selectivity_namespace, coords_
         raise RuntimeError("generate_input_spike_trains: when phase_mod is True, coords_path is required")
 
     
-    env = Env(comm=comm, config_file=config, config_prefix=config_prefix, template_paths=None)
+    env = Env(comm=comm, config=config, config_prefix=config_prefix, template_paths=None)
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
-        logger.info('%i ranks have been allocated' % comm.size)
+        logger.info(f"{comm.size} ranks have been allocated")
 
     if save_fig is not None:
         plot = True
@@ -174,28 +174,27 @@ def main(config, config_prefix, selectivity_path, selectivity_namespace, coords_
             del distances
         
     if arena_id not in env.stimulus_config['Arena']:
-        raise RuntimeError('Arena with ID: %s not specified by configuration at file path: %s' %
-                           (arena_id, config_prefix + '/' + config))
+        raise RuntimeError(f"Arena with ID: {arena_id} not specified by configuration at file path: "
+                           f"{os.path.join(config_prefix, config)}")
     arena = env.stimulus_config['Arena'][arena_id]
 
     valid_selectivity_namespaces = dict()
     if rank == 0:
         for population in populations:
             if population not in population_ranges:
-                raise RuntimeError('generate_input_spike_trains: specified population: %s not found in '
-                                   'provided selectivity_path: %s' % (population, selectivity_path))
+                raise RuntimeError(f"generate_input_spike_trains: specified population: {population} not found in "
+                                   f"provided selectivity_path: {selectivity_path}")
             if population not in env.stimulus_config['Selectivity Type Probabilities']:
                 raise RuntimeError('generate_input_spike_trains: selectivity type not specified for '
-                                   'population: %s' % population)
+                                   f"population: {population}")
             valid_selectivity_namespaces[population] = []
             with h5py.File(selectivity_path, 'r') as selectivity_f:
                 for this_namespace in selectivity_f['Populations'][population]:
-                    if 'Selectivity %s' % arena_id in this_namespace:
+                    if f"Selectivity {arena_id}" in this_namespace:
                         valid_selectivity_namespaces[population].append(this_namespace)
                 if len(valid_selectivity_namespaces[population]) == 0:
-                    raise RuntimeError('generate_input_spike_trains: no selectivity data in arena: %s found '
-                                       'for specified population: %s in provided selectivity_path: %s' %
-                                       (arena_id, population, selectivity_path))
+                    raise RuntimeError(f"generate_input_spike_trains: no selectivity data in arena: {arena_id} found "
+                                       f"for specified population: {population} in provided selectivity_path: {selectivity_path}")
     comm.barrier()
 
                 
@@ -218,8 +217,8 @@ def main(config, config_prefix, selectivity_path, selectivity_namespace, coords_
         d = comm.bcast(d, root=0)
         trajectory = t, x, y, d
 
-        trajectory_namespace = 'Trajectory %s %s' % (arena_id, trajectory_id)
-        output_namespace = '%s %s %s' % (spikes_namespace, arena_id, trajectory_id)
+        trajectory_namespace = f"Trajectory {arena_id} {trajectory_id}"
+        output_namespace = f"{spikes_namespace} {arena_id} {trajectory_id}"
 
         if not dry_run and rank == 0:
             if output_path is None:
@@ -231,16 +230,16 @@ def main(config, config_prefix, selectivity_path, selectivity_namespace, coords_
                     input_file.close()
             with h5py.File(output_path, 'a') as f:
                 if trajectory_namespace not in f:
-                    logger.info('Appending %s datasets to file at path: %s' % (trajectory_namespace, output_path))
+                    logger.info(f"Appending {trajectory_namespace} datasets to file at path: {output_path}")
                 group = f.create_group(trajectory_namespace)
                 for key, value in zip(['t', 'x', 'y', 'd'], [t, x, y, d]):
                     dataset = group.create_dataset(key, data=value, dtype='float32')
                 else:
                     loaded_t = f[trajectory_namespace]['t'][:]
                     if len(t) != len(loaded_t):
-                        raise RuntimeError('generate_input_spike_trains: file at path: %s already contains the '
-                                           'namespace: %s, but the dataset sizes are inconsistent with the provided input'
-                                           'configuration' % (output_path, trajectory_namespace))
+                        raise RuntimeError(f"generate_input_spike_trains: file at path: {output_path} already contains the "
+                                           f"namespace: {trajectory_namespace}, but the dataset sizes are inconsistent with the provided input"
+                                           'configuration')
         comm.barrier()
 
         if rank == 0:
@@ -269,7 +268,8 @@ def main(config, config_prefix, selectivity_path, selectivity_namespace, coords_
             for this_selectivity_namespace in sorted(valid_selectivity_namespaces[population]):
 
                 if rank == 0:
-                    logger.info('Generating input source spike trains for population %s [%s]...' % (population, this_selectivity_namespace))
+                    logger.info(f"Generating input source spike trains for population "
+                                f"{population} [{this_selectivity_namespace}]...")
             
                 start_time = time.time()
                 req = comm.Ibarrier()
@@ -304,8 +304,7 @@ def main(config, config_prefix, selectivity_path, selectivity_namespace, coords_
                         req = comm.Ibarrier()
                         total_gid_count = comm.reduce(gid_count, root=0, op=MPI.SUM)
                         if rank == 0:
-                            logger.info('generated spike trains for %i %s cells' %
-                                        (total_gid_count, population))
+                            logger.info(f"generated spike trains for {total_gid_count} {population} cells")
                         req.wait()
                     
                         req = comm.Ibarrier()
@@ -337,8 +336,7 @@ def main(config, config_prefix, selectivity_path, selectivity_namespace, coords_
             req = comm.Ibarrier()
             total_gid_count = comm.reduce(gid_count, root=0, op=MPI.SUM)
             if rank == 0:
-                logger.info('generated spike trains for %i %s cells in %.2f s' %
-                            (total_gid_count, population, process_time))
+                logger.info(f"generated spike trains for {total_gid_count} {population} cells in {process_time:.02f} s")
             req.wait()
 
             if gather:

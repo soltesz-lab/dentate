@@ -34,13 +34,13 @@ def roundf( n, f ):
 
 def debug_callback(context):
     from dentate.plot import plot_2D_rate_map, close_figure
-    fig_title = '%s %s cell %i' % (context.population, context.this_selectivity_type_name, context.gid)
+    fig_title = f"{context.population} {context.this_selectivity_type_name} cell {context.gid}"
     fig_options = copy.copy(context.fig_options)
     if context.save_fig is not None:
-        fig_options.saveFig = '%s %s' % (context.save_fig, fig_title)
+        fig_options.saveFig = f"{context.save_fig} {fig_title}"
     fig = plot_2D_rate_map(x=context.arena_x_mesh, y=context.arena_y_mesh, rate_map=context.rate_map,
                            peak_rate = context.env.stimulus_config['Peak Rate'][context.population][context.this_selectivity_type],
-                           title='%s\nNormalized cell position: %.3f' % (fig_title, context.norm_u_arc_distance),
+                           title=f"{fig_title}}\nNormalized cell position: {context.norm_u_arc_distance:.03f}",
                            **fig_options())
     close_figure(fig)
     
@@ -163,7 +163,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
 
     config_logging(verbose)
 
-    env = Env(comm=comm, config_file=config, config_prefix=config_prefix, template_paths=None)
+    env = Env(comm=comm, config=config, config_prefix=config_prefix, template_paths=None)
     if io_size == -1:
         io_size = comm.size
     if rank == 0:
@@ -183,7 +183,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
         fig_options.showFig = show_fig
 
     if save_fig is not None:
-        save_fig = '%s %s' % (save_fig, arena_id)
+        save_fig = f"{save_fig} {arena_id}"
         fig_options.saveFig = save_fig
 
     if not dry_run and rank == 0:
@@ -205,27 +205,26 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
     if rank == 0:
         for population in sorted(populations):
             if population not in population_ranges:
-                raise RuntimeError('generate_input_selectivity_features: specified population: %s not found in '
-                                   'provided coords_path: %s' % (population, coords_path))
+                raise RuntimeError(f"generate_input_selectivity_features: specified population: {population} not found in "
+                                   f"provided coords_path: {coords_path}")
             if population not in env.stimulus_config['Selectivity Type Probabilities']:
-                raise RuntimeError('generate_input_selectivity_features: selectivity type not specified for '
-                                   'population: %s' % population)
+                raise RuntimeError("generate_input_selectivity_features: selectivity type not specified for "
+                                   "population: {population}")
             with h5py.File(coords_path, 'r') as coords_f:
                 pop_size = population_ranges[population][1]
                 unique_gid_count = len(set(
                     coords_f['Populations'][population][distances_namespace]['U Distance']['Cell Index'][:]))
                 if pop_size != unique_gid_count:
-                    raise RuntimeError('generate_input_selectivity_features: only %i/%i unique cell indexes found '
-                                       'for specified population: %s in provided coords_path: %s' %
-                                       (unique_gid_count, pop_size, population, coords_path))
+                    raise RuntimeError(f"generate_input_selectivity_features: only {unique_gid_count}/{pop_size} unique cell indexes found "
+                                       "for specified population: {population} in provided coords_path: {coords_path}")
                 try:
                     reference_u_arc_distance_bounds_dict[population] = \
                       coords_f['Populations'][population][distances_namespace].attrs['Reference U Min'], \
                       coords_f['Populations'][population][distances_namespace].attrs['Reference U Max']
                 except Exception:
                     raise RuntimeError('generate_input_selectivity_features: problem locating attributes '
-                                       'containing reference bounds in namespace: %s for population: %s from '
-                                       'coords_path: %s' % (distances_namespace, population, coords_path))
+                                       f"containing reference bounds in namespace: {distances_namespace} for population: {population} from "
+                                       f"coords_path: {coords_path}")
     comm.barrier()
     reference_u_arc_distance_bounds_dict = comm.bcast(reference_u_arc_distance_bounds_dict, root=0)
 
@@ -235,7 +234,7 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
         this_selectivity_type_name = selectivity_type_names[this_selectivity_type]
         chars = list(this_selectivity_type_name)
         chars[0] = chars[0].upper()
-        selectivity_type_namespaces[this_selectivity_type_name] = ''.join(chars) + ' Selectivity %s' % arena_id
+        selectivity_type_namespaces[this_selectivity_type_name] = ''.join(chars) + f' Selectivity {arena_id}'
 
     if arena_id not in env.stimulus_config['Arena']:
         raise RuntimeError(f'Arena with ID: {arena_id} not specified by configuration at file path: {config_prefix}/{config}')
@@ -354,9 +353,10 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
                     for selectivity_type_name in selectivity_gid_count:
                         total_gid_count += selectivity_gid_count[selectivity_type_name]
                     for selectivity_type_name in selectivity_gid_count:
-                        logger.info('generated selectivity features for %i/%i %s %s cells in %.2f s' %
-                                    (selectivity_gid_count[selectivity_type_name], total_gid_count, population, selectivity_type_name,
-                                    (time.time() - start_time)))
+                        logger.info("generated selectivity features for {selectivity_gid_count[selectivity_type_name]}/{total_gid_count} "
+                                    f"{population} {selectivity_type_name} cells "
+                                    f"in {(time.time() - start_time):.02f} s")
+
 
                 if not dry_run:
                     for selectivity_type_name in sorted(selectivity_attr_dict.keys()):
@@ -395,9 +395,9 @@ def main(config, config_prefix, coords_path, distances_namespace, output_path, a
             for selectivity_type_name in selectivity_gid_count:
                 total_gid_count += selectivity_gid_count[selectivity_type_name]
             for selectivity_type_name in selectivity_gid_count:
-                logger.info('generated selectivity features for %i/%i %s %s cells in %.2f s' %
-                            (selectivity_gid_count[selectivity_type_name], total_gid_count, population, selectivity_type_name,
-                             (time.time() - start_time)))
+                logger.info("generated selectivity features for {selectivity_gid_count[selectivity_type_name]}/{total_gid_count} "
+                            f"{population} {selectivity_type_name} cells "
+                            f"in {(time.time() - start_time):.02f} s")
 
         if not dry_run:
             for selectivity_type_name in sorted(selectivity_attr_dict.keys()):
