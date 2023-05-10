@@ -6,7 +6,7 @@
 #SBATCH -p large      # Queue (partition) name
 #SBATCH -N 1024             # Total # of nodes 
 #SBATCH --ntasks-per-node=56 # # of mpi tasks per node
-#SBATCH -t 36:00:00        # Run time (hh:mm:ss)
+#SBATCH -t 24:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
@@ -56,7 +56,7 @@ ibrun -np 28545 \
     --target-features-namespace="Place Selectivity" \
     --verbose \
     --nprocs-per-worker=223 \
-    --n-epochs=1 \
+    --n-epochs=2 \
     --n-initial=50 --initial-method="slh" --num-generations=400 --population-size=127 --resample-fraction 1.0 \
     --no_cleanup \
     --arena_id=A --trajectory_id=Diag \
