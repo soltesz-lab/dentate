@@ -958,7 +958,7 @@ def plot_reindex_positions(env, coords_path, population, distances_namespace='Ar
 
 def plot_coords_in_volume(populations, coords_path, coords_namespace, config, scale=25., subvol=False):
     
-    env = Env(config_file=config)
+    env = Env(config=config)
 
     rotate = env.geometry['Parametric Surface']['Rotation']
     min_extents = env.geometry['Parametric Surface']['Minimum Extent']
@@ -1200,7 +1200,7 @@ def plot_biophys_cell_tree (env, biophys_cell, node_filters={'swc_types': ['apic
     logger.info('plotting %i synapses' % len(syns_dict))
     for sec_id, syn_xyz in viewitems(syn_xyz_sec_dict):
         syn_sources = syn_src_sec_dict[sec_id]
-        mlab.points3d(syn_xyz[:,0], syn_xyz[:,1], syn_xyz[:,2], syn_sources, scale_mode='vector',scale_factor=10.0)
+        mlab.points3d(syn_xyz[:,0], syn_xyz[:,1], syn_xyz[:,2], syn_sources, scale_mode='vector',scale_factor=4.0)
         
     mlab.gcf().scene.x_plus_view()
     mlab.show()
@@ -1210,7 +1210,7 @@ def plot_biophys_cell_tree (env, biophys_cell, node_filters={'swc_types': ['apic
     
 def plot_cell_trees_in_volume(population, forest_path, config, line_width=1., sample=0.05, coords_path=None, distances_namespace='Arc Distances', longitudinal_extent=None, volume='full', color_edge_scalars=True, volume_opacity=0.1):
     
-    env = Env(config_file=config)
+    env = Env(config=config)
 
     rotate = env.geometry['Parametric Surface']['Rotation']
 
@@ -1357,14 +1357,14 @@ def plot_cell_trees_in_volume(population, forest_path, config, line_width=1., sa
 
     
     
-def plot_spikes_in_volume(config_path, populations, coords_path, coords_namespace, spike_input_path,
+def plot_spikes_in_volume(config, populations, coords_path, coords_namespace, spike_input_path,
                           spike_input_namespace, time_variable='t', marker_scale=10., compute_rates=False, 
                           time_step = 5.0, subvol=False, rotate_anim=False, time_range=None, **kwargs):
 
     fig_options = copy.copy(default_fig_options)
     fig_options.update(kwargs)
 
-    env = Env(config_file=config_path, template_paths=None)
+    env = Env(config=config_path, template_paths=None)
 
     rotate = env.geometry['Parametric Surface']['Rotation']
 
@@ -1660,7 +1660,7 @@ def plot_lfp(config, input_path, time_range = None, compute_psd=False, window_si
     fig_options = copy.copy(default_fig_options)
     fig_options.update(kwargs)
 
-    env = Env(config_file=config)
+    env = Env(config=config)
 
     nrows = len(env.LFP_config)
     ncols = 1
@@ -1756,7 +1756,7 @@ def plot_lfp_spectrogram(config, input_path, time_range = None, window_size=4096
     fig_options = copy.copy(default_fig_options)
     fig_options.update(kwargs)
 
-    env = Env(config_file=config)
+    env = Env(config=config)
 
     nrows = len(env.LFP_config)
     ncols = 1
@@ -2815,7 +2815,7 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
     if (target_input_features_path is not None) and (target_input_features_namespace is not None):
         if config_file is None:
             raise RuntimeError("plot_network_clamp: config_file must be provided with target_input_features_path.") 
-        env = Env(config_file=config_file, config_prefix=config_prefix,
+        env = Env(config=config, config_prefix=config_prefix,
                   arena_id=target_input_features_arena_id,
                   trajectory_id=target_input_features_trajectory_id)
     
@@ -3101,7 +3101,7 @@ def plot_spike_rates(input_path, namespace_id, config_path=None, include = ['eac
     
     env = None
     if config_path is not None:
-        env = Env(config_file=config_path)
+        env = Env(config=config)
         if env.analysis_config is not None:
             baks_config.update(env.analysis_config['Firing Rate Inference'])
         
@@ -3249,7 +3249,7 @@ def plot_spike_rates_with_features(spike_input_path, spike_namespace_id, arena_i
     
     env = None
     if config_path is not None:
-        env = Env(config_file=config_path)
+        env = Env(config=config)
         if env.analysis_config is not None:
             baks_config.update(env.analysis_config['Firing Rate Inference'])
     else:
@@ -3445,7 +3445,7 @@ def plot_spike_histogram (input_path, namespace_id, config_path=None, include = 
 
     env = None
     if config_path is not None:
-        env = Env(config_file=config_path)
+        env = Env(config=config)
         if env.analysis_config is not None:
             baks_config.update(env.analysis_config['Firing Rate Inference'])
 
@@ -3772,7 +3772,7 @@ def plot_spike_distribution_per_time (input_path, namespace_id, config_path=None
 
     env = None
     if config_path is not None:
-        env = Env(config_file=config_path)
+        env = Env(config=config)
         if env.analysis_config is not None:
             baks_config.update(env.analysis_config['Firing Rate Inference'])
 
@@ -4110,7 +4110,7 @@ def plot_place_fields(spike_input_path, spike_namespace_id, trajectory_path, are
 
     env = None
     if config_path is not None:
-        env = Env(config_file=config_path)
+        env = Env(config=config)
         if env.analysis_config is not None:
             baks_config.update(env.analysis_config['Firing Rate Inference'])
             pf_config.update(env.analysis_config['Place Fields'])
@@ -5963,7 +5963,7 @@ def plot_network_clamp_trial(input_path, spike_namespace, intracellular_namespac
     if (target_input_features_path is not None) and (target_input_features_namespace is not None):
         if config_file is None:
             raise RuntimeError("plot_network_clamp: config_file must be provided with target_input_features_path.") 
-        env = Env(config_file=config_file, config_prefix=config_prefix,
+        env = Env(config=config, config_prefix=config_prefix,
                   arena_id=target_input_features_arena_id,
                   trajectory_id=target_input_features_trajectory_id)
         target_trj_rate_maps = stimulus.rate_maps_from_features(env, state_pop_name,

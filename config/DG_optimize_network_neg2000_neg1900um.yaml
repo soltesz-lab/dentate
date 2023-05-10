@@ -15,7 +15,7 @@ objective_names:
 - NGFC firing rate
 target_populations: ['GC', 'MC', 'AAC', 'BC', 'HC', 'HCC', 'IS', 'MOPP', 'NGFC']
 kwargs:
-  config_file: Network_Clamp_Slice_neg2000_neg1900um_SynExp3NMDA2_IN_PR.yaml
+  config: Network_Clamp_Slice_neg2000_neg1900um_SynExp3NMDA2fd_CLS_IN_PR.yaml
   tstop: 8000.
   checkpoint_interval: 0.
   v_init: -77.

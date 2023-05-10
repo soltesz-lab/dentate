@@ -45,7 +45,7 @@ def main(config, coords_path, coords_namespace, geometry_path, populations, inte
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
-    env = Env(comm=comm, config_file=config)
+    env = Env(comm=comm, config=config)
     output_path = coords_path
 
     soma_coords = {}
@@ -71,7 +71,7 @@ def main(config, coords_path, coords_namespace, geometry_path, populations, inte
     if rank == 0:
         if geometry_path is not None:
             f = h5py.File(geometry_path)
-            pkl_path = '%s/ip_dist.pkl' % ip_dist_path
+            pkl_path = os.path.join(ip_dist_path, "ip_dist.pkl")
             if pkl_path in f:
                 has_ip_dist = True
                 ip_dist_dset = f[pkl_path]
@@ -86,7 +86,7 @@ def main(config, coords_path, coords_namespace, geometry_path, populations, inte
         if rank == 0:
             if geometry_path is not None:
                 f = h5py.File(geometry_path, 'a')
-                pkl_path = '%s/ip_dist.pkl' % ip_dist_path
+                pkl_path = os.path.join(ip_dist_path, "ip_dist.pkl")
                 pkl = pickle.dumps((origin_ranges, ip_dist_u, ip_dist_v))
                 pklstr = base64.b64encode(pkl)
                 f[pkl_path] = pklstr
@@ -101,7 +101,7 @@ def main(config, coords_path, coords_namespace, geometry_path, populations, inte
     for population in list(sorted(soma_distances.keys())):
 
         if rank == 0:
-            logger.info('Writing distances for population %s...' % population)
+            logger.info(f"Writing distances for population {population}...")
 
         dist_dict = soma_distances[population]
         attr_dict = {}

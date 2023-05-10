@@ -47,6 +47,7 @@ from dentate.utils import (
 from dentate.network_clamp import init, run_with
 from dentate.stimulus import rate_maps_from_features
 from dentate.optimization import (
+    OptResult,
     ProblemRegime,
     TrialRegime,
     update_network_params,
@@ -94,7 +95,7 @@ def init_controller(subworld_size, use_coreneuron):
         h.pc.psolve(0.1)
 
 def init_selectivity_objfun(
-    config_file,
+    config,
     population,
     cell_index_set,
     arena_id,
@@ -117,7 +118,6 @@ def init_selectivity_objfun(
     param_type,
     param_config_name,
     selectivity_config_name,
-    recording_profile,
     target_features_path,
     target_features_namespace,
     target_features_arena,
@@ -132,7 +132,9 @@ def init_selectivity_objfun(
 ):
 
     params = dict(locals())
-    params["comm"] = worker.merged_comm
+    params["comm"] = MPI.COMM_WORLD
+    if worker is not None:
+        params["comm"] = worker.merged_comm
 
     env = Env(**params)
     env.results_file_path = None
@@ -167,6 +169,7 @@ def init_selectivity_objfun(
         env.stimulus_config.get("Equilibration Duration", 0.0)
     )
 
+
     target_rate_vector_dict = rate_maps_from_features(
         env,
         population,
@@ -177,6 +180,12 @@ def init_selectivity_objfun(
         arena_id=arena_id,
     )
 
+    logger.info(f"cell_index_set = {cell_index_set}")
+    logger.info(f"arena_id = {arena_id}")
+    logger.info(f"target_features_path = {target_features_path}")
+    logger.info(f"target_features_namespace = {target_features_namespace}")
+    logger.info(f"target_rate_vector_dict = {target_rate_vector_dict}")
+    
     for gid, target_rate_vector in viewitems(target_rate_vector_dict):
         target_rate_vector[
             np.isclose(target_rate_vector, 0.0, atol=1e-3, rtol=1e-3)
@@ -558,6 +567,7 @@ def optimize_run(
     spawn_executable=None,
     spawn_args=[],
     verbose=False,
+    return_distgfs_params=False,
 ):
 
     objective_names = ["snr"]
@@ -588,11 +598,11 @@ def optimize_run(
 
     if results_file is None:
         if env.results_path is not None:
-            file_path = f"{env.results_path}/distgfs.optimize_selectivity.{env.results_file_id}.h5"
+            file_path = os.path.join(env.results_path, f"distgfs.optimize_selectivity.{env.results_file_id}.h5")
         else:
             file_path = f"distgfs.optimize_selectivity.{env.results_file_id}.h5"
     else:
-        file_path = "%s/%s" % (env.results_path, results_file)
+        file_path = os.path.join(env.results_path, results_file)
     problem_ids = None
     cell_index_set = init_params.get("cell_index_set", None)
     n_trials = init_params.get("n_trials", 1)
@@ -665,44 +675,252 @@ def optimize_run(
     )
     if opt_results is not None:
         if ProblemRegime[problem_regime] == ProblemRegime.every:
-            gid_results_config_dict = {}
+            gid_result_dict = {}
             for gid, opt_result in viewitems(opt_results):
                 params_dict = dict(opt_result[0])
                 result_value = opt_result[1]
-                results_config_tuples = []
+                result_param_tuples = []
                 for param_pattern, param_tuple in zip(param_names, param_tuples):
-                    results_config_tuples.append(
+                    result_param_tuples.append(
                         (param_pattern, params_dict[param_pattern])
                     )
-                gid_results_config_dict[int(gid)] = results_config_tuples
+                gid_result_dict[int(gid)] = OptResult(result_param_tuples,
+                                                      {'objective': result_value},
+                                                      None)
 
             logger.info(
                 "Optimized parameters and objective function: "
-                f"{pprint.pformat(gid_results_config_dict)} @"
-                f"{result_value}"
+                f"{pprint.pformat(gid_result_dict)}"
             )
-            return gid_results_config_dict
+            results = gid_result_dict
         else:
             params_dict = dict(opt_results[0])
             result_value = opt_results[1]
-            results_config_tuples = []
+            result_param_tuples = []
             for param_pattern, param_tuple in zip(param_names, param_tuples):
-                results_config_tuples.append(
+                result_param_tuples.append(
                     (param_pattern, params_dict[param_pattern])
                 )
             logger.info(
                 "Optimized parameters and objective function: "
-                f"{pprint.pformat(results_config_tuples)} @"
+                f"{pprint.pformat(result_param_tuples)} @"
                 f"{result_value}"
             )
-            return results_config_tuples
+            results = {pop_name: OptResult(result_param_tuples,
+                                           {'objective': result_value},
+                                           None) }
     else:
-        return None
+        results = None
 
+    if return_distgfs_params:
+        return results, distgfs_params
+    else:
+        return results
 
+def main(
+    config,
+    population,
+    dt,
+    gid,
+    arena_id,
+    trajectory_id,
+    generate_weights,
+    t_max,
+    t_min,
+    nprocs_per_worker,
+    template_paths,
+    dataset_prefix,
+    config_prefix,
+    param_config_name,
+    selectivity_config_name,
+    param_type,
+    param_results_file,
+    results_file,
+    results_path,
+    spike_events_path,
+    spike_events_namespace,
+    spike_events_t,
+    input_features_path,
+    input_features_namespaces,
+    n_iter,
+    n_trials,
+    n_max_tasks,
+    trial_regime,
+    problem_regime,
+    target_features_path,
+    target_features_namespace,
+    infld_threshold,
+    use_coreneuron,
+    cooperative_init,
+    spawn_workers,
+    spawn_executable,
+    spawn_args,
+    spawn_startup_wait,
+    verbose,
+):
+    """
+    Optimize the input stimulus selectivity of the specified cell in a network clamp configuration.
+    """
+    init_params = dict(locals())
+
+    comm = MPI.COMM_WORLD
+    size = comm.Get_size()
+    rank = comm.Get_rank()
+
+    
+    results_file_id = None
+    if rank == 0:
+        results_file_id = generate_results_file_id(population, gid)
+
+    results_file_id = comm.bcast(results_file_id, root=0)
+    comm.barrier()
+
+    np.seterr(all="raise")
+    cache_queries = True
+
+    config_logging(verbose or (rank == size-1))
+    
+
+    cell_index_set = set([])
+    if gid is not None:
+        cell_index_set.add(gid)
+    else:
+        comm.barrier()
+        comm0 = comm.Split(2 if rank == 0 else 1, 0)
+        if rank == 0:
+            env = Env(**init_params, comm=comm0)
+            attr_info_dict = read_cell_attribute_info(
+                env.data_file_path,
+                populations=[population],
+                read_cell_index=True,
+                comm=comm0,
+            )
+            cell_index = None
+            attr_name, attr_cell_index = next(iter(attr_info_dict[population]["Trees"]))
+            cell_index_set = set(attr_cell_index)
+        comm.barrier()
+        cell_index_set = comm.bcast(cell_index_set, root=0)
+        comm.barrier()
+        comm0.Free()
+    init_params["cell_index_set"] = cell_index_set
+    del init_params["gid"]
+
+    params = dict(locals())
+    env = Env(**params)
+    if size == 1:
+        configure_hoc_env(env)
+        init(
+            env,
+            population,
+            cell_index_set,
+            arena_id,
+            trajectory_id,
+            n_trials,
+            spike_events_path,
+            spike_events_namespace=spike_events_namespace,
+            spike_train_attr_name=spike_events_t,
+            input_features_path=input_features_path,
+            input_features_namespaces=input_features_namespaces,
+            generate_weights_pops=set(generate_weights),
+            t_min=t_min,
+            t_max=t_max,
+        )
+
+    if population in env.netclamp_config.optimize_parameters[param_type]:
+        opt_params = env.netclamp_config.optimize_parameters[param_type][population]
+    else:
+        raise RuntimeError(
+            f"optimize_selectivity: population {population} does not have optimization configuration"
+        )
+
+    init_params["target_features_arena"] = arena_id
+    init_params["target_features_trajectory"] = trajectory_id
+    init_objfun_name = "init_selectivity_objfun"
+
+    results_dict, distgfs_params = optimize_run(
+        env,
+        population,
+        param_config_name,
+        selectivity_config_name,
+        init_objfun_name,
+        problem_regime=problem_regime,
+        n_iter=n_iter,
+        param_type=param_type,
+        init_params=init_params,
+        results_file=results_file,
+        nprocs_per_worker=nprocs_per_worker,
+        use_coreneuron=use_coreneuron,
+        n_max_tasks=n_max_tasks,
+        cooperative_init=cooperative_init,
+        spawn_workers=spawn_workers,
+        spawn_executable=spawn_executable,
+        spawn_args=spawn_args,
+        spawn_startup_wait=spawn_startup_wait,
+        verbose=verbose or (rank == size-1),
+        return_distgfs_params=True,
+    )
+
+    opt_param_config = optimization_params(
+        env.netclamp_config.optimize_parameters,
+        [population],
+        param_config_name,
+        param_type,
+    )
+    if results_dict is not None:
+        if results_path is not None:
+            run_ts = time.strftime("%Y%m%d_%H%M%S")
+            if param_results_file is None:
+                param_results_file = f"optimize_selectivity.{run_ts}.yaml"
+            file_path = os.path.join(results_path, param_results_file)
+            param_names = opt_param_config.param_names
+            param_tuples = opt_param_config.param_tuples
+            output_dict = {}
+            if ProblemRegime[problem_regime] == ProblemRegime.every:
+                for gid, opt_res in viewitems(results_dict):
+                    prms_dict = dict(opt_res.parameters)
+                    this_results_config_dict = {}
+                    results_param_list = []
+                    for param_pattern, param_tuple in zip(param_names, param_tuples):
+                        results_param_list.append(
+                            (
+                                param_tuple.population,
+                                param_tuple.source,
+                                param_tuple.sec_type,
+                                param_tuple.syn_name,
+                                param_tuple.param_path,
+                                float(prms_dict[param_pattern]),
+                            )
+                        )
+                    output_dict[gid] = {0: results_param_list}
+
+            else:
+                prms_dict = dict(results_dict.parameters)
+                results_param_list = []
+                for param_pattern, param_tuple in zip(param_names, param_tuples):
+                    results_param_list.append(
+                        (
+                            param_tuple.population,
+                            param_tuple.source,
+                            param_tuple.sec_type,
+                            param_tuple.syn_name,
+                            param_tuple.param_path,
+                            float(prms_dict[param_pattern]),
+                        )
+                    )
+                output_dict[0] = results_param_list
+
+            write_to_yaml(file_path, {population: output_dict})
+
+    comm.barrier()
+    if results_dict is not None:
+        return {population: results_dict}, distgfs_params
+    else:
+        return None, None
+
+    
 @click.command()
 @click.option(
-    "--config-file", "-c", required=True, type=str, help="model configuration file name"
+    "--config", "-c", required=True, type=str, help="model configuration file name"
 )
 @click.option(
     "--population",
@@ -714,11 +932,6 @@ def optimize_run(
 )
 @click.option("--dt", type=float, help="simulation time step")
 @click.option("--gid", "-g", type=int, help="target cell gid")
-@click.option(
-    "--gid-selection-file",
-    type=click.Path(exists=True, file_okay=True, dir_okay=False),
-    help="file containing target cell gids",
-)
 @click.option("--arena-id", "-a", type=str, required=True, help="arena id")
 @click.option("--trajectory-id", "-t", type=str, required=True, help="trajectory id")
 @click.option(
@@ -771,7 +984,9 @@ def optimize_run(
     default="synaptic",
     help="parameter type to use for optimization (synaptic)",
 )
-@click.option("--recording-profile", type=str, help="recording profile to use")
+@click.option(
+    "--param-results-file", required=False, type=str, help="optimization parameter results yaml file"
+)
 @click.option(
     "--results-file", required=False, type=str, help="optimization results file"
 )
@@ -881,12 +1096,11 @@ def optimize_run(
 @click.option("--spawn-args", type=str, multiple=True)
 @click.option("--spawn-startup-wait", type=int)
 @click.option("--verbose", is_flag=True)
-def main(
-    config_file,
+def main_cmd(
+    config,
     population,
     dt,
     gid,
-    gid_selection_file,
     arena_id,
     trajectory_id,
     generate_weights,
@@ -899,7 +1113,7 @@ def main(
     param_config_name,
     selectivity_config_name,
     param_type,
-    recording_profile,
+    param_results_file,
     results_file,
     results_path,
     spike_events_path,
@@ -923,168 +1137,49 @@ def main(
     spawn_startup_wait,
     verbose,
 ):
-    """
-    Optimize the input stimulus selectivity of the specified cell in a network clamp configuration.
-    """
-    init_params = dict(locals())
-
-    comm = MPI.COMM_WORLD
-    size = comm.Get_size()
-    rank = comm.Get_rank()
-
-    results_file_id = None
-    if rank == 0:
-        results_file_id = generate_results_file_id(population, gid)
-
-    results_file_id = comm.bcast(results_file_id, root=0)
-    comm.barrier()
-
-    np.seterr(all="raise")
-    cache_queries = True
-
-    config_logging(verbose or (rank == size-1))
-
-    cell_index_set = set([])
-    if gid_selection_file is not None:
-        with open(gid_selection_file, "r") as f:
-            lines = f.readlines()
-            for line in lines:
-                gid = int(line)
-                cell_index_set.add(gid)
-    elif gid is not None:
-        cell_index_set.add(gid)
-    else:
-        comm.barrier()
-        comm0 = comm.Split(2 if rank == 0 else 1, 0)
-        if rank == 0:
-            env = Env(**init_params, comm=comm0)
-            attr_info_dict = read_cell_attribute_info(
-                env.data_file_path,
-                populations=[population],
-                read_cell_index=True,
-                comm=comm0,
-            )
-            cell_index = None
-            attr_name, attr_cell_index = next(iter(attr_info_dict[population]["Trees"]))
-            cell_index_set = set(attr_cell_index)
-        comm.barrier()
-        cell_index_set = comm.bcast(cell_index_set, root=0)
-        comm.barrier()
-        comm0.Free()
-    init_params["cell_index_set"] = cell_index_set
-    del init_params["gid"]
-
-    params = dict(locals())
-    env = Env(**params)
-    if size == 1:
-        configure_hoc_env(env)
-        init(
-            env,
-            population,
-            cell_index_set,
-            arena_id,
-            trajectory_id,
-            n_trials,
-            spike_events_path,
-            spike_events_namespace=spike_events_namespace,
-            spike_train_attr_name=spike_events_t,
-            input_features_path=input_features_path,
-            input_features_namespaces=input_features_namespaces,
-            generate_weights_pops=set(generate_weights),
-            t_min=t_min,
-            t_max=t_max,
-        )
-
-    if population in env.netclamp_config.optimize_parameters[param_type]:
-        opt_params = env.netclamp_config.optimize_parameters[param_type][population]
-    else:
-        raise RuntimeError(
-            f"optimize_selectivity: population {population} does not have optimization configuration"
-        )
-
-    init_params["target_features_arena"] = arena_id
-    init_params["target_features_trajectory"] = trajectory_id
-    init_objfun_name = "init_selectivity_objfun"
-
-    best = optimize_run(
-        env,
-        population,
-        param_config_name,
-        selectivity_config_name,
-        init_objfun_name,
-        problem_regime=problem_regime,
-        n_iter=n_iter,
-        param_type=param_type,
-        init_params=init_params,
-        results_file=results_file,
-        nprocs_per_worker=nprocs_per_worker,
-        use_coreneuron=use_coreneuron,
-        n_max_tasks=n_max_tasks,
-        cooperative_init=cooperative_init,
-        spawn_workers=spawn_workers,
-        spawn_executable=spawn_executable,
-        spawn_args=spawn_args,
-        spawn_startup_wait=spawn_startup_wait,
-        verbose=verbose or (rank == size-1),
-    )
-
-    opt_param_config = optimization_params(
-        env.netclamp_config.optimize_parameters,
-        [population],
-        param_config_name,
-        param_type,
-    )
-    if best is not None:
-        if results_path is not None:
-            run_ts = time.strftime("%Y%m%d_%H%M%S")
-            file_path = f"{results_path}/optimize_selectivity.{run_ts}.yaml"
-            param_names = opt_param_config.param_names
-            param_tuples = opt_param_config.param_tuples
-
-            if ProblemRegime[problem_regime] == ProblemRegime.every:
-                results_config_dict = {}
-                for gid, prms in viewitems(best):
-                    prms_dict = dict(prms)
-                    this_results_config_dict = {}
-                    results_param_list = []
-                    for param_pattern, param_tuple in zip(param_names, param_tuples):
-                        results_param_list.append(
-                            (
-                                param_tuple.population,
-                                param_tuple.source,
-                                param_tuple.sec_type,
-                                param_tuple.syn_name,
-                                param_tuple.param_path,
-                                float(prms_dict[param_pattern]),
-                            )
-                        )
-                    results_config_dict[gid] = {0: results_param_list}
-
-            else:
-                prms = best[0]
-                prms_dict = dict(prms)
-                results_config_dict = {}
-                results_param_list = []
-                for param_pattern, param_tuple in zip(param_names, param_tuples):
-                    results_param_list.append(
-                        (
-                            param_tuple.population,
-                            param_tuple.source,
-                            param_tuple.sec_type,
-                            param_tuple.syn_name,
-                            param_tuple.param_path,
-                            float(prms_dict[param_pattern]),
-                        )
-                    )
-                results_config_dict[gid] = {0: results_param_list}
-
-            write_to_yaml(file_path, {population: results_config_dict})
-
-    comm.barrier()
-
+    return main(config,
+                population,
+                dt,
+                gid,
+                arena_id,
+                trajectory_id,
+                generate_weights,
+                t_max,
+                t_min,
+                nprocs_per_worker,
+                template_paths,
+                dataset_prefix,
+                config_prefix,
+                param_config_name,
+                selectivity_config_name,
+                param_type,
+                param_results_file,
+                results_file,
+                results_path,
+                spike_events_path,
+                spike_events_namespace,
+                spike_events_t,
+                input_features_path,
+                input_features_namespaces,
+                n_iter,
+                n_trials,
+                n_max_tasks,
+                trial_regime,
+                problem_regime,
+                target_features_path,
+                target_features_namespace,
+                infld_threshold,
+                use_coreneuron,
+                cooperative_init,
+                spawn_workers,
+                spawn_executable,
+                spawn_args,
+                spawn_startup_wait,
+                verbose,
+                )
 
 if __name__ == "__main__":
-    main(
+    main_cmd(
         args=sys.argv[
             (
                 list_find(

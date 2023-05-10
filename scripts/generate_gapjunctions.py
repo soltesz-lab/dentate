@@ -48,7 +48,7 @@ def main(config, template_path, types_path, forest_path, connectivity_path, conn
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
-    env = Env(comm=comm, config_file=config, template_paths=template_path)
+    env = Env(comm=comm, config=config, template_paths=template_path)
     configure_hoc_env(env)
 
     gj_config = env.gapjunctions

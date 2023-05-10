@@ -19,7 +19,7 @@ get_features_stages:
 get_objectives:
   optimize_network_clamp: get_objectives
 kwargs:
-  config_file: Network_Clamp_GC_Exc_Sat_SLN_extent.yaml
+  config: Network_Clamp_GC_Exc_Sat_SLN_extent.yaml
   state_filter: lowpass
   input_features_namespaces: 
    - "Place Selectivity"

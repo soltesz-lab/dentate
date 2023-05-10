@@ -1,0 +1,7 @@
+job_input: ./results/optimize_selectivity
+config_prefix: $HOME/src/model/dentate/config
+dataset_prefix: $HOME/src/model/dentate/datasets
+input_features: $HOME/src/model/dentate/datasets/Full_Scale_Control/DG_input_features_20220216.h5
+target_features: $HOME/src/model/dentate/datasets/Slice/dentatenet_Slice_SLN_center_pf_20221216.h5
+templates: templates
+  

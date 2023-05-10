@@ -41,7 +41,7 @@ get_features_stages:
 get_objectives:
   dentate.troubleshoot2_optimize_network_subworlds: get_objectives
 kwargs:
-  config_file: Network_Clamp_Slice_neg2000_neg1925um_IN_Izh.yaml
+  config: Network_Clamp_Slice_neg2000_neg1925um_IN_Izh.yaml
   tstop: 4500.
   checkpoint_interval: 0.
   v_init: -77.

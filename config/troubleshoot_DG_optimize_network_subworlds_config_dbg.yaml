@@ -41,7 +41,7 @@ get_features_stages:
 get_objectives:
   troubleshoot_optimize_network_subworlds: get_objectives
 kwargs:
-  config_file: Network_Clamp_Slice_neg25_pos25um_IN_Izh.yaml
+  config: Network_Clamp_Slice_neg25_pos25um_IN_Izh.yaml
   tstop: 9500.
   checkpoint_interval: 0.
   v_init: -77.

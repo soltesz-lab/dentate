@@ -57,3 +57,30 @@ apical:
           syn_types:
           - excitatory
         value: 28.0
+      tau_D1:
+        - filters:
+            layers: [MML, OML]
+            syn_types:
+            - excitatory
+          value: 185.0
+        - filters:
+            layers: [IML]
+            syn_types:
+            - excitatory
+          value: 176.0
+      tau_F:
+        - filters:
+            layers: [MML, OML]
+            syn_types:
+            - excitatory
+          value: 109.0
+        - filters:
+            layers: [IML]
+            syn_types:
+              - excitatory
+          value: 86.0
+      delta_F:
+        filters:
+          syn_types:
+          - excitatory
+        value: 0.2
