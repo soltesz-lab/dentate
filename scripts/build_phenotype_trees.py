@@ -5,7 +5,7 @@ from mpi4py import MPI
 import dentate
 import dentate.utils as utils
 import dentate.cells as cells
-from neuroh5.io import NeuroH5TreeGen, append_cell_attributes, append_cell_trees, append_cell_attributes, read_tree_selection
+from neuroh5.io import NeuroH5TreeGen, append_cell_attributes, append_cell_trees, append_cell_attributes, read_cell_attributes, read_tree_selection
 import h5py
 import scipy
 
@@ -22,14 +22,16 @@ sys.excepthook = mpi_excepthook
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--coords-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--phenotypes-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.option("--template-path", type=str)
 @click.option("--output-path", required=True, type=click.Path(exists=False, file_okay=True, dir_okay=False))
+@click.option("--h5types-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--distances-namespace", type=str, default='Arc Distances')
 @click.option("--io-size", type=int, default=-1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=10000)
 @click.option("--dry-run",  is_flag=True)
 @click.option("--verbose", '-v', is_flag=True)
-def main(config, config_prefix, population, forest_path, coords_path, phenotypes_path, output_path, io_size, chunk_size, value_chunk_size, dry_run, verbose):
+@click.option("--debug", is_flag=True)
+def main(population, forest_path, coords_path, phenotypes_path, output_path, h5types_path, distances_namespace, io_size, chunk_size, value_chunk_size, dry_run, verbose, debug):
     """
 
     :param population: str
@@ -62,31 +64,33 @@ def main(config, config_prefix, population, forest_path, coords_path, phenotypes
     phenotypes_tree_dict = None
     phenotype_distances = None
     if rank==0:
+        phenotypes_tree_dict = {}
         if not os.path.isfile(output_path):
-            input_file  = h5py.File(forest_path,'r')
+            input_file  = h5py.File(h5types_path,'r')
             output_file = h5py.File(output_path,'w')
             input_file.copy('/H5Types',output_file)
             input_file.close()
             output_file.close()
-            phenotypes = np.loadtxt(phenotypes_path, delimiter=",")
-            phenotype_gids = phenotypes[:,0].astype(int).tolist()
-            phenotype_distances = np.column_stack((phenotypes[:,2], phenotypes[:,3]))
-            phenotypes_tree_iter, _ = read_tree_selection(forest_path, population, phenotype_gids, comm=comm0)
-            for (gid,tree_dict) in phenotype_tree_iter:
-                phenotypes_tree_dict[gid] = tree_dict
-            
-            logger.info(f'Reading {population} coordinates...')
-            distances_iter = read_cell_attributes(coords_path, population, comm=comm0,
-                                                  mask=set(['U Distance', 'V Distance']),
-                                                  namespace=distances_namespace)
-            soma_distances = { k: (float(v['U Distance'][0]), 
-                                   float(v['V Distance'][0])) for (k,v) in distances_iter }
+        phenotypes = np.loadtxt(phenotypes_path)
+        phenotype_gids = phenotypes[:,0].astype(int).tolist()
+        phenotype_distances = np.column_stack((phenotypes[:,2], phenotypes[:,3]))
+        phenotypes_tree_iter, _ = read_tree_selection(forest_path, population, phenotype_gids, 
+                                                      comm=comm0, topology=False)
+        for (gid,tree_dict) in phenotypes_tree_iter:
+            phenotypes_tree_dict[gid] = tree_dict
+
+        logger.info(f'Reading {population} coordinates...')
+        distances_iter = read_cell_attributes(coords_path, population, comm=comm0,
+                                              mask=set(['U Distance', 'V Distance']),
+                                              namespace=distances_namespace)
+        soma_distances = { k: (float(v['U Distance'][0]), 
+                               float(v['V Distance'][0])) for (k,v) in distances_iter }
 
     comm.barrier()
     comm0.Free()
 
-    phenotype_gids = comm.bcast(phenotypes_gids, root=0)
-    phenotype_distances = comm.bcast(phenotypes_distances, root=0)
+    phenotype_gids = comm.bcast(phenotype_gids, root=0)
+    phenotype_distances = comm.bcast(phenotype_distances, root=0)
     phenotypes_tree_dict = comm.bcast(phenotypes_tree_dict, root=0)
     soma_distances = comm.bcast(soma_distances, root=0)
 
@@ -94,6 +98,7 @@ def main(config, config_prefix, population, forest_path, coords_path, phenotypes
 
     phenotype_gid_dict = {}
     new_trees_dict = {}
+    it = 0
     for gid, tree_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, comm=comm, topology=False):
         if gid is not None:
             logger.info(f"Rank {rank} received gid {gid}")
@@ -104,7 +109,9 @@ def main(config, config_prefix, population, forest_path, coords_path, phenotypes
             new_tree_dict = phenotypes_tree_dict[phenotype_gid]
             new_trees_dict[gid] = new_tree_dict
             phenotype_gid_dict[gid] = phenotype_gid
-            
+        if debug and it > 10:
+            break
+        it += 1
 
     if not dry_run:
         append_cell_trees(output_path, population, new_trees_dict, io_size=io_size, comm=comm)

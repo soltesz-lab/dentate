@@ -268,7 +268,7 @@ def main(config, config_prefix, template_path, output_path, forest_path, populat
 
         global_count, summary = global_syn_summary(comm, syn_stats, gid_count, root=0)
         if rank == 0:
-            logger.info(f"target: {poulation}, {comm.size} ranks took {time.time() - start_time} s "
+            logger.info(f"target: {population}, {comm.size} ranks took {time.time() - start_time} s "
                         f"to compute synapse locations for {np.sum(global_count)} cells")
             logger.info(summary)
 
