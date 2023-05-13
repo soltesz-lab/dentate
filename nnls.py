@@ -71,12 +71,12 @@ def solveNQP(Q, q, epsilon, max_n_iter, logger=None):
     n_rows, n_cols = Q.shape
     
     # Initialize
-    x          = np.zeros((n_cols, 1))
-    x_diff     = np.zeros((n_cols, 1))
+    x          = np.zeros((n_cols, 1), dtype=np.float32)
+    x_diff     = np.zeros((n_cols, 1), dtype=np.float32)
     grad_f     = q.copy()
     grad_f_bar = q.copy()
-    Q_dot_x_diff = np.zeros((n_cols, 1))
-    Q_dot_grad_f_bar = np.zeros((n_cols, 1))
+    Q_dot_x_diff = np.zeros((n_cols, 1), dtype=np.float32)
+    Q_dot_grad_f_bar = np.zeros((n_cols, 1), dtype=np.float32)
     passive_set = np.zeros((n_cols, 1), dtype=np.bool_)
     
     for i in range(max_n_iter):

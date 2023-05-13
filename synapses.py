@@ -2849,7 +2849,7 @@ def get_structured_input_arrays(structured_weights_dict, gid):
     input_matrix = np.full((target_map.size, len(input_rate_map_dict)), np.nan,
                             dtype=np.float64)
     source_gid_array = np.full(len(input_rate_map_dict), -1, dtype=np.uint32)
-    syn_count_array = np.full(len(input_rate_map_dict), np.nan, dtype=np.uint32)
+    syn_count_array = np.full(len(input_rate_map_dict), 0, dtype=np.uint32)
     initial_weight_array = np.full(len(input_rate_map_dict), np.nan, dtype=np.float64)
     input_rank = np.full(len(input_rate_map_dict), np.nan, dtype=np.float32)
     for i, source_gid in enumerate(input_rate_map_dict):
@@ -3006,6 +3006,7 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
     local_random = np.random.RandomState()
     local_random.seed(int(seed_offset + destination_gid))
 
+    #np.seterr(all='raise')
     
     structured_weights_dict = { 'target_map': target_map,
                                 'initial_weight_dict': initial_weight_dict,
@@ -3045,12 +3046,12 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
     D1 = np.diagflat(-1*np.ones(n_variables-1), 1)
     np.fill_diagonal(D1, 1)
     k1 = 2.0
-    D2 = np.diagflat(2*np.ones(n_variables-1), 1) + np.diagflat(-1*np.ones(n_variables-2), 2)
+    D2 = (np.diagflat(2*np.ones(n_variables-1), 1) + np.diagflat(-1*np.ones(n_variables-2), 2))
     np.fill_diagonal(D2, -1)
     k2 = 0.5
-    W = np.sort(local_random.lognormal(size=(1, n_variables), mean=0.0, sigma=0.5))[::-1]
-    A = np.vstack((scaled_input_matrix[:,input_rank_order], k1*D1, k2*D2, W))
-    lsqr_target_map = np.concatenate((lsqr_target_map, np.zeros(n_variables), np.zeros(n_variables), csum*np.ones((1,))))
+    W = (np.sort(local_random.lognormal(size=(1, n_variables), mean=0.0, sigma=0.5))[::-1])
+    A = np.vstack((scaled_input_matrix[:,input_rank_order], k1*D1, k2*D2, W)).astype(np.float32)
+    lsqr_target_map = np.concatenate((lsqr_target_map, np.zeros(n_variables), np.zeros(n_variables), csum*np.ones((1,)))).astype(np.float32)
     res = nnls_gdal(A, lsqr_target_map.reshape((-1,1)),
                     max_n_iter=max_opt_iter, epsilon=optimize_tol, verbose=verbose)
     lsqr_weights = np.asarray(res[inverse_input_rank_order], dtype=np.float32).reshape((res.shape[0],))
