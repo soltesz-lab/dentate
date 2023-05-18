@@ -108,16 +108,16 @@ def main(population, forest_path, coords_path, phenotypes_path, output_path, h5t
             logger.info(f"Rank {rank}: using phenotype {phenotype_gid} for gid {gid}")
             new_tree_dict = phenotypes_tree_dict[phenotype_gid]
             new_trees_dict[gid] = new_tree_dict
-            phenotype_gid_dict[gid] = phenotype_gid
+            phenotype_gid_dict[gid] = { 'phenotype_id': np.asarray([phenotype_gid],dtype=np.uint32) }
         if debug and it > 10:
             break
         it += 1
 
     if not dry_run:
-        append_cell_trees(output_path, population, new_trees_dict, io_size=io_size, comm=comm)
+        #append_cell_trees(output_path, population, new_trees_dict, io_size=io_size, comm=comm)
         append_cell_attributes(output_path, population, phenotype_gid_dict,
-                                namespace='Phenotype ID', io_size=io_size, chunk_size=chunk_size,
-                                value_chunk_size=value_chunk_size, comm=comm)
+                               namespace='Phenotype ID', io_size=io_size, chunk_size=chunk_size,
+                               value_chunk_size=value_chunk_size, comm=comm)
         
     comm.barrier()
     if (not dry_run) and (rank == 0):

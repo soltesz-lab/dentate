@@ -34,7 +34,7 @@ ibrun python3 ./scripts/generate_normal_weights_as_cell_attr.py \
     -d GC -s MC -s ConMC \
     --config=Full_Scale_Basis.yaml \
     --config-prefix=./config \
-    --weights-path=$DATA_PREFIX/Full_Scale_Control/DG_GC_syn_weights_LN_20221209.h5 \
-    --connections-path=$DATA_PREFIX/Full_Scale_Control/DG_GC_connections_20221020_compressed.h5 \
+    --weights-path=$DATA_PREFIX/Full_Scale_Control/DG_GC_syn_weights_N_20230512.h5 \
+    --connections-path=$DATA_PREFIX/Full_Scale_Control/DG_GC_connections_20230511_compressed.h5 \
     --io-size=40 --cache-size=40  --value-chunk-size=10000 --chunk-size=10000 --write-size=0 -v
 

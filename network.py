@@ -115,6 +115,13 @@ def connect_cells(env):
             has_clusters = True
             cluster_config = synapse_config['clusters']
 
+        has_phenotypes = False
+        phenotype_config = None
+        if 'phenotypes' in env.celltypes[postsyn_name]:
+            phenotype_config = env.celltypes[postsyn_name]['phenotypes']
+            if (postsyn_name in env.cell_attribute_info) and ('Phenotype ID' in env.cell_attribute_info[postsyn_name]):
+                has_phenotypes = True
+
         if rank == 0:
             logger.info(f'*** Reading synaptic attributes of population {postsyn_name}')
 
@@ -178,7 +185,6 @@ def connect_cells(env):
                 syn_attrs.init_syn_id_attrs_from_iter(syn_attrs_iter, attr_type='tuple', 
                                                       attr_tuple_index=syn_attrs_info, debug=(rank == 0))
 
-        cluster_dicts = {}
         if has_clusters:
 
             cluster_namespace = cluster_config['namespace']
@@ -211,6 +217,35 @@ def connect_cells(env):
                 syn_secs = cell_cluster_attrs[syn_secs_ind]
                 syn_attrs.modify_syn_locs(gid, syn_ids=syn_ids, syn_locs=syn_locs, syn_secs=syn_secs)
 
+        phenotype_dict = None
+        if has_phenotypes:
+
+            phenotype_dict = {}
+
+            phenotype_namespaces = ["Phenotype ID"]
+            phenotype_attr_mask = set(['phenotype_id'])
+
+            if env.node_allocation is None:
+                phenotype_attr_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
+                                                                   namespaces=phenotype_namespaces, 
+                                                                   mask=phenotype_attr_mask,
+                                                                   comm=env.comm, io_size=env.io_size,
+                                                                   return_type='tuple')
+            else:
+                phenotype_attr_dict = scatter_read_cell_attributes(forest_file_path, postsyn_name,
+                                                                   namespaces=phenotype_namespaces, 
+                                                                   mask=phenotype_attr_mask,
+                                                                   comm=env.comm, io_size=env.io_size,
+                                                                   node_allocation=env.node_allocation,
+                                                                   return_type='tuple')
+
+            phenotype_attrs_iter, phenotype_attrs_index = phenotype_attr_dict[phenotype_namespace]
+
+            phenotype_id_ind = phenotype_attrs_index.get('phenotype_id', None)
+
+            for gid, cell_phenotype_attrs in phenotype_attrs_iter:
+                phenotype_id = cell_phenotype_attrs[phenotype_id_ind]
+                phenotype_dict[gid] = phenotype_id
 
         weight_attr_mask = list(syn_attrs.syn_mech_names)
         weight_attr_mask.append('syn_id')
@@ -320,6 +355,44 @@ def connect_cells(env):
                                           correct_g_pas=correct_for_spines, 
                                           verbose=((rank == 0) and (first_gid == gid)))
                     synapses.init_syn_mech_attrs(biophys_cell, env)
+
+                    if phenotype_dict is not None:
+                        phenotype_id = phenotype_dict[gid]
+
+                        phenotype_params = None # TODO
+
+                        param_tuples = []
+                        ## TODO: move this to config parsing in Env
+                        for source, source_dict in viewitems(phenotype_params):
+                            for sec_type, sec_type_dict in viewitems(source_dict):
+                                for syn_name, syn_mech_dict in viewitems(sec_type_dict):
+                                    for param_fst, param_rst in viewitems(syn_mech_dict):
+                                        if isinstance(param_rst, dict):
+                                            for const_name, const_val in sorted(viewitems(param_rst)):
+                                                param_path = (param_fst, const_name)
+                                                param_value = const_val
+                                                param_tuples.append((source, sec_type, syn_name, 
+                                                                     param_path, param_value))
+                                        else:
+                                            param_path = param_fst
+                                            param_value = param_rst
+                                            param_tuples.append((source, sec_type, syn_name,
+                                                                 param_path, param_value))
+                                            
+                        for source, sec_type, syn_name, param_path, param_value in phenotype_params:
+                            if isinstance(param_path, list) or isinstance(param_path, tuple):
+                                p, s = param_path
+                            else:
+                                p, s = param_path, None
+                                        
+                            synapses.modify_syn_param(biophys_cell, env, sec_type, syn_name,
+                                                      param_name=p, 
+                                                      value={s: param_value} if (s is not None) else param_value,
+                                                      filters={'sources': [source]} if source is not None else None,
+                                                      origin=None if is_reduced else 'soma', 
+                                                      update_targets=False)
+                    
+
                 except KeyError:
                     raise KeyError(f'*** connect_cells: population: {postsyn_name}; gid: {gid}; could not initialize biophysics')
 
@@ -809,8 +882,8 @@ def make_cells(env):
                         if rank == 0:
                             logger.info(f"*** Creating {pop_name} gid {gid}")
                             
-                        cell = make_cell_from_tree(env, gid, pop_name, mech_dict, tree_dict, mech_file_path,
-                                                   first_gid, is_izhikevich, is_PR, is_SC)
+                        cell = make_cell_from_tree(env, gid, pop_name, mech_dict, tree_dict, phenotype_config, 
+                                                   mech_file_path, first_gid, is_izhikevich, is_PR, is_SC)
                         num_cells += 1
             else:
                 if env.node_allocation is None:

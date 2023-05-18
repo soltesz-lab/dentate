@@ -11,12 +11,10 @@
 #SBATCH --mail-type=BEGIN
 #
 
-module load impi/18.0.5
-module load python3
-module load phdf5
+module load phdf5/1.10.4
 
 export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
-export PYTHONPATH=$SCRATCH/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
 export PATH=$NEURONROOT/bin:$PATH
 
 export I_MPI_ADJUST_ALLTOALL=4
@@ -31,7 +29,7 @@ ibrun python3  ./scripts/distribute_synapse_locs.py \
     --config=Full_Scale_Basis.yaml \
     --template-path=templates \
     --populations=GC \
-    --forest-path=$DATA_PREFIX/Full_Scale_Control/DGC_forest_normalized_20200628_compressed.h5 \
-    --output-path=$DATA_PREFIX/Full_Scale_Control/DGC_forest_syns_20221020.h5 \
+    --forest-path=$DATA_PREFIX/Full_Scale_Control/DGC_forest_phenotypes_20230510_compressed.h5 \
+    --output-path=$DATA_PREFIX/Full_Scale_Control/DGC_forest_syns_20230511.h5 \
     --io-size=40 --write-size=0 --cache-size=4 \
     --chunk-size=10000 --value-chunk-size=10000 -v 

@@ -104,7 +104,7 @@ def compute_centers(clusters, dataset):
             centers[j][i] = centers[j][i]/float(counts[j])
     return clusters, centers
 
-def minsize_kmeans(dataset, k, max_n_iter=5, min_size=0, max_size=None, time_limit=900, verbose=True):
+def minsize_kmeans(dataset, k, max_n_iter=5, min_size=0, max_size=None, time_limit=900, solver_path=None, verbose=True):
     n = len(dataset)
     if max_size == None:
         max_size = n
@@ -114,7 +114,10 @@ def minsize_kmeans(dataset, k, max_n_iter=5, min_size=0, max_size=None, time_lim
 
     it = 0
     converged = False
-    solver = pulp.apis.PULP_CBC_CMD(msg=verbose, timeLimit=time_limit)
+    if solver_path is not None:
+        solver = pulp.apis.COIN_CMD(msg=verbose, timeLimit=time_limit, path=solver_path)
+    else:
+        solver = pulp.apis.PULP_CBC_CMD(msg=verbose, timeLimit=time_limit)
     while not converged and (it < max_n_iter):
         m = subproblem(centers, dataset, min_size, max_size)
         clusters_ = m.solve(solver=solver)

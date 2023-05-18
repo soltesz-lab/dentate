@@ -4,12 +4,12 @@
 #SBATCH -o ./results/generate_structured_weights_DG_GC.%j.o
 #SBATCH -N 40
 #SBATCH --ntasks-per-node=56
-#SBATCH -p normal      # Queue (partition) name
-#SBATCH -t 3:00:00
+#SBATCH -p development      # Queue (partition) name
+#SBATCH -t 2:00:00
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=END
 #SBATCH --mail-type=BEGIN
-#SBATCH -A BIR20001
+
 
 module load python3/3.9.2
 module load phdf5/1.10.4
@@ -33,14 +33,14 @@ ibrun python3 ./scripts/generate_structured_weights_as_cell_attr.py \
     -d GC -s MPP -s LPP -n MC -n ConMC \
     --config=./config/Full_Scale_GC_Exc_Sat_DD_SLN.yaml \
     --initial-weights-namespace='Log-Normal Weights' \
-    --initial-weights-path=$DATA_PREFIX/DG_GC_syn_weights_LN_20221209_compressed.h5 \
+    --initial-weights-path=$DATA_PREFIX/DG_GC_syn_weights_LN_20230512_compressed.h5 \
     --non-structured-weights-namespace='Normal Weights' \
-    --non-structured-weights-path=$DATA_PREFIX/DG_GC_syn_weights_LN_20221209_compressed.h5 \
+    --non-structured-weights-path=$DATA_PREFIX/DG_GC_syn_weights_N_20230512_compressed.h5 \
     --output-features-namespace='Random Place Input Features' \
-    --output-features-path=$DATA_PREFIX/DG_GC_syn_weights_S_20221209.h5 \
+    --output-features-path=$DATA_PREFIX/DG_GC_syn_weights_S_20230512.h5 \
     --output-weights-namespace='Structured Weights' \
-    --output-weights-path=$DATA_PREFIX/DG_GC_syn_weights_S_20221209.h5 \
-    --connections-path=$DATA_PREFIX/DG_GC_connections_20221020_compressed.h5 \
+    --output-weights-path=$DATA_PREFIX/DG_GC_syn_weights_S_2022.h5 \
+    --connections-path=$DATA_PREFIX/DG_GC_connections_20230511_compressed.h5 \
     --input-features-path=$DATA_PREFIX/DG_input_features_20220216.h5 \
     --arena-id=A --arena-margin=0.3 \
     --target-amplitude=4 \
