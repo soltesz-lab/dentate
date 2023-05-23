@@ -9,13 +9,14 @@ __author__ = 'See AUTHORS.md'
 import os, sys, logging
 import click
 import numpy as np
+from mpi4py import MPI
 from collections import defaultdict, namedtuple
 import dentate
 from dentate import synapses, spikedata, stimulus, utils
 from dentate.env import Env
 from dentate.utils import viewitems, get_module_logger
+from dentate.synapses import SynParam
 from enum import Enum, IntEnum, unique
-from mpi4py import MPI
 
 
 # This logger will inherit its settings from the root logger, created in dentate.env
@@ -27,17 +28,6 @@ OptResult = namedtuple('OptResult',
                         'features'])
 
 
-SynParam = namedtuple('SynParam',
-                      ['population',
-                       'source',
-                       'sec_type',
-                       'syn_name',
-                       'param_path',
-                       'param_range'])
-
-
-def syn_param_from_dict(d):
-    return SynParam(*[d[key] for key in SynParam._fields])
 
 
 OptConfig = namedtuple("OptConfig",

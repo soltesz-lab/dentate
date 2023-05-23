@@ -4,7 +4,7 @@ from collections import defaultdict, namedtuple
 import numpy as np
 import yaml
 import dentate
-from dentate.synapses import SynapseAttributes, get_syn_filter_dict
+from dentate.synapses import SynapseAttributes, get_syn_filter_dict, parse_flat_syn_params
 from dentate.utils import IncludeLoader, ExprClosure, get_root_logger, str, viewitems, zip, read_from_yaml
 from neuroh5.io import read_cell_attribute_info, read_population_names, read_population_ranges, read_projection_names
 from mpi4py import MPI
@@ -820,6 +820,8 @@ class Env(object):
                     celltypes[k] = {}
                 celltypes[k]['start'] = population_ranges[k][0]
                 celltypes[k]['num'] = population_ranges[k][1]
+                if 'phenotypes' in celltypes[k]:
+                    celltypes[k]['phenotypes'] = parse_flat_syn_params(celltypes[k]['phenotypes'])
                 if 'mechanism file' in celltypes[k]:
                     celltypes[k]['mech_file_path'] = os.path.join(self.config_prefix, celltypes[k]['mechanism file'])
                     mech_dict = None

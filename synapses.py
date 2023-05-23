@@ -15,7 +15,65 @@ from dentate.utils import KDDict, ExprClosure, Promise, NamedTupleWithDocstring,
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
 
-    
+
+
+SynParam = namedtuple('SynParam',
+                      ['population',
+                       'source',
+                       'sec_type',
+                       'syn_name',
+                       'param_path',
+                       'param_range'])
+
+def syn_param_from_dict(d):
+    return SynParam(*[d[key] for key in SynParam._fields])
+
+
+def parse_flat_syn_params(pop_params_dict):
+    """Parses synaptic parameters of the form:
+       population:
+         gid:
+           - postsyn population           
+           - presyn population list
+           - section type
+           - synaptic mechanism
+           - synaptic mechanism parameter path
+           - parameter value
+    """
+
+    pop_params_tuple_dict = {}
+    for this_pop_name, this_pop_param_dict in viewitems(pop_params_dict):
+        this_pop_params_tuple_dict = defaultdict(list)
+        for this_gid, this_gid_params in viewitems(this_pop_param_dict):
+            if this_param_id is not None:
+                this_gid_params_list = this_gid_params[this_param_id]
+            else:
+                this_gid_params_list = this_gid_params
+            for this_gid_param in this_gid_params_list:
+                (
+                    this_population,
+                    source,
+                    sec_type,
+                    syn_name,
+                    param_path,
+                    param_val,
+                ) = this_gid_param
+                syn_param = SynParam(
+                    this_population,
+                    source,
+                    sec_type,
+                    syn_name,
+                    param_path,
+                    None,
+                )
+                this_pop_params_tuple_dict[this_gid].append(
+                    (syn_param, param_val)
+                )
+        pop_params_tuple_dict[this_pop_name] = dict(
+            this_pop_params_tuple_dict
+        )
+    return pop_param_tuple_dict
+
 
 class SynapseSource(object):
     """This class provides information about the presynaptic (source) cell

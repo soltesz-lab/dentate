@@ -15,7 +15,8 @@ import dentate
 from dentate import network, network_clamp, synapses, spikedata, stimulus, utils, optimization
 from dentate.env import Env
 from dentate.utils import read_from_yaml, write_to_yaml, list_find, viewitems, get_module_logger
-from dentate.optimization import (SynParam, OptConfig, syn_param_from_dict, optimization_params, 
+from dentate.synapses import (SynParam, syn_param_from_dict, )
+from dentate.optimization import (OptConfig, optimization_params, 
                                   update_network_params, network_features)
 from dentate.stimulus import rate_maps_from_features
 from dmosopt import dmosopt

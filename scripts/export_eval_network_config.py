@@ -15,7 +15,8 @@ import dentate
 from dentate import network, utils, optimization
 from dentate.env import Env
 from dentate.utils import read_from_yaml, write_to_yaml, list_find, viewitems, get_module_logger, config_logging
-from dentate.optimization import (SynParam, syn_param_from_dict, optimization_params)
+from dentate.synapses import (SynParam, syn_param_from_dict)
+from dentate.optimization import (optimization_params)
 
 ParamSpec = namedtuple("ParamSpec", ['param_names',  'param_tuples', ])
 

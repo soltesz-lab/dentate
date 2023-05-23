@@ -2917,12 +2917,20 @@ def load_biophys_cell_dicts(env, pop_name, gid_set, load_connections=True, valid
         has_clusters = True
         cluster_config = synapse_config['clusters']
 
+    has_phenotypes = False
+    phenotype_config = None
+    if 'phenotypes' in env.celltypes[postsyn_name]:
+        phenotype_config = env.celltypes[postsyn_name]['phenotypes']
+        if (postsyn_name in env.cell_attribute_info) and ('Phenotype ID' in env.cell_attribute_info[postsyn_name]):
+            has_phenotypes = True
+
     ## Loads cell morphological data, synaptic attributes and connection data
 
     tree_dicts = {}
     synapses_dicts = {}
     weight_dicts = {}
     cluster_dicts = {}
+    phenotype_dicts = {}
     connection_graphs = { gid: { pop_name: {} } for gid in gid_set }
     graph_attr_info = None
     
@@ -2942,6 +2950,24 @@ def load_biophys_cell_dicts(env, pop_name, gid_set, load_connections=True, valid
         for gid, attr_dict in synapses_iter:
             synapses_dicts[gid] = attr_dict
 
+        if has_phenotypes:
+
+            phenotype_dict = {}
+
+            phenotype_namespace = "Phenotype ID"
+            phenotype_attr_mask = set(['phenotype_id'])
+
+            phenotype_attrs_iter = read_cell_attribute_selection(env.data_file_path, pop_name,
+                                                                 selection=gid_list,
+                                                                 namespace=phenotype_namespace, 
+                                                                 mask=phenotype_attr_mask,
+                                                                 comm=env.comm, io_size=env.io_size)
+
+            for gid, cell_phenotype_attrs in phenotype_attrs_iter:
+                phenotype_id = cell_phenotype_attrs['phenotype_id'][0]
+                phenotype_dicts[gid] = phenotype_id
+
+            
         if has_clusters:
             cluster_namespace = cluster_config['namespace']
             cluster_iter = read_cell_attribute_selection(env.data_file_path, pop_name,
@@ -2984,10 +3010,12 @@ def load_biophys_cell_dicts(env, pop_name, gid_set, load_connections=True, valid
             cluster_dict = cluster_dicts.get(gid, None)
             weight_dict = weight_dicts.get(gid, None)
             connection_graph = connection_graphs[gid]
+            phenotype_dict = phenotype_dicts.get(gid, None)
             this_cell_dict['synapse'] = synapses_dict
             this_cell_dict['connectivity'] = connection_graph, graph_attr_info
             this_cell_dict['weight'] = weight_dict
             this_cell_dict['cluster'] = cluster_dict
+            this_cell_dict['phenotype'] = phenotype_dict
         cell_dicts[gid] = this_cell_dict
         
     
@@ -3156,7 +3184,7 @@ def make_biophys_cell(env, pop_name, gid,
                       load_synapses=False, synapses_dict=None, 
                       load_edges=False, connection_graph=None,
                       load_weights=False, weight_dict=None, 
-                      load_clusters=False, cluster_dict=None, 
+                      load_clusters=False, cluster_dict=None,
                       set_edge_delays=True, bcast_template=True,
                       validate_tree=True,
                       **kwargs):

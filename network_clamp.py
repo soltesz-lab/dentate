@@ -1942,37 +1942,7 @@ def go(
                 params_id = [None] * len(params_path)
             for this_params_path, this_param_id in zip(params_path, params_id):
                 pop_params_dict = read_from_yaml(this_params_path)
-                pop_params_tuple_dict = {}
-                for this_pop_name, this_pop_param_dict in viewitems(pop_params_dict):
-                    this_pop_params_tuple_dict = defaultdict(list)
-                    for this_gid, this_gid_params in viewitems(this_pop_param_dict):
-                        if this_param_id is not None:
-                            this_gid_params_list = this_gid_params[this_param_id]
-                        else:
-                            this_gid_params_list = this_gid_params
-                        for this_gid_param in this_gid_params_list:
-                            (
-                                this_population,
-                                source,
-                                sec_type,
-                                syn_name,
-                                param_path,
-                                param_val,
-                            ) = this_gid_param
-                            syn_param = SynParam(
-                                this_population,
-                                source,
-                                sec_type,
-                                syn_name,
-                                param_path,
-                                None,
-                            )
-                            this_pop_params_tuple_dict[this_gid].append(
-                                (syn_param, param_val)
-                            )
-                    pop_params_tuple_dict[this_pop_name] = dict(
-                        this_pop_params_tuple_dict
-                    )
+                pop_params_tuple_dict = synapses.parse_flat_syn_params(pop_params_dict)
                 pop_params_tuple_dicts.append(pop_params_tuple_dict)
     results_file_id = comm.bcast(results_file_id, root=0)
     init_params["results_file_id"] = results_file_id
