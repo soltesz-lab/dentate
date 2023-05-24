@@ -1,6 +1,6 @@
 import sys, collections, copy, itertools, math, pprint, uuid, time, traceback
 from functools import reduce
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 import numpy as np
 from scipy import signal, spatial
 from neuroh5.io import write_cell_attributes
@@ -29,6 +29,50 @@ def syn_param_from_dict(d):
     return SynParam(*[d[key] for key in SynParam._fields])
 
 
+def parse_flat_syn_params_with_index(pop_params_dict):
+    """Parses synaptic parameters of the form:
+       population:
+         gid:
+           - index:
+             - postsyn population           
+             - presyn population list
+             - section type
+             - synaptic mechanism
+             - synaptic mechanism parameter path
+             - parameter value
+    """
+
+    pop_params_tuple_dict = {}
+    for this_pop_name, this_pop_param_dict in viewitems(pop_params_dict):
+        this_pop_params_tuple_dict = defaultdict(lambda: defaultdict(list))
+        for this_gid, this_gid_index_dict in viewitems(this_pop_param_dict):
+            for this_index, this_gid_index_params in viewitems(this_gid_index_dict):
+                for this_gid_param in this_gid_index_params:
+                    (
+                        this_population,
+                        source,
+                        sec_type,
+                        syn_name,
+                        param_path,
+                        param_val,
+                    ) = this_gid_param
+                    syn_param = SynParam(
+                        this_population,
+                        source,
+                        sec_type,
+                        syn_name,
+                        param_path,
+                        None,
+                    )
+                    this_pop_params_tuple_dict[this_gid][this_index].append(
+                        (syn_param, param_val)
+                    )
+        pop_params_tuple_dict[this_pop_name] = dict(
+            this_pop_params_tuple_dict
+        )
+    return pop_params_tuple_dict
+
+
 def parse_flat_syn_params(pop_params_dict):
     """Parses synaptic parameters of the form:
        population:
@@ -45,11 +89,7 @@ def parse_flat_syn_params(pop_params_dict):
     for this_pop_name, this_pop_param_dict in viewitems(pop_params_dict):
         this_pop_params_tuple_dict = defaultdict(list)
         for this_gid, this_gid_params in viewitems(this_pop_param_dict):
-            if this_param_id is not None:
-                this_gid_params_list = this_gid_params[this_param_id]
-            else:
-                this_gid_params_list = this_gid_params
-            for this_gid_param in this_gid_params_list:
+            for this_gid_param in this_gid_params:
                 (
                     this_population,
                     source,
@@ -72,7 +112,7 @@ def parse_flat_syn_params(pop_params_dict):
         pop_params_tuple_dict[this_pop_name] = dict(
             this_pop_params_tuple_dict
         )
-    return pop_param_tuple_dict
+    return pop_params_tuple_dict
 
 
 class SynapseSource(object):

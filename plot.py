@@ -2815,7 +2815,7 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
     if (target_input_features_path is not None) and (target_input_features_namespace is not None):
         if config_file is None:
             raise RuntimeError("plot_network_clamp: config_file must be provided with target_input_features_path.") 
-        env = Env(config=config, config_prefix=config_prefix,
+        env = Env(config=config_file, config_prefix=config_prefix,
                   arena_id=target_input_features_arena_id,
                   trajectory_id=target_input_features_trajectory_id)
     

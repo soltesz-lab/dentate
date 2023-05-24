@@ -1942,8 +1942,13 @@ def go(
                 params_id = [None] * len(params_path)
             for this_params_path, this_param_id in zip(params_path, params_id):
                 pop_params_dict = read_from_yaml(this_params_path)
-                pop_params_tuple_dict = synapses.parse_flat_syn_params(pop_params_dict)
-                pop_params_tuple_dicts.append(pop_params_tuple_dict)
+                pop_params_index_tuple_dict = synapses.parse_flat_syn_params_with_index(pop_params_dict)
+                pop_params_tuple_dict = {}
+                for pop_name, params_index_tuple_dict in viewitems(pop_params_index_tuple_dict):
+                    pop_params_tuple_dict[pop_name] = {}
+                    for gid, params_tuple_dict in viewitems(params_index_tuple_dict):
+                        pop_params_tuple_dict[pop_name][gid] = params_index_tuple_dict[gid][this_param_id]
+                    pop_params_tuple_dicts.append(pop_params_tuple_dict)
     results_file_id = comm.bcast(results_file_id, root=0)
     init_params["results_file_id"] = results_file_id
     pop_params_tuple_dicts = comm.bcast(pop_params_tuple_dicts, root=0)
@@ -2020,7 +2025,7 @@ def go(
                 ]
                 env.results_file_id = f"{results_file_id}_{params_basename}"
                 env.results_file_path = os.path.join(
-                    env.results_path, "{env.modelName}_results_{env.results_file_id}.h5"
+                    env.results_path, f"{env.modelName}_results_{env.results_file_id}.h5"
                 )
                 run_with(env, pop_params_tuple_dict)
                 write_output(env)

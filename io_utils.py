@@ -289,7 +289,7 @@ def spikeout(env, output_path, t_start=None, clear_data=False):
 
     env.comm.barrier()
     if env.comm.Get_rank() == 0:
-        logger.info("*** Output spike results to file %s" % output_path)
+        logger.info(f"*** Output spike results to file {output_path}")
 
 
 def recsout(env, output_path, t_start=None, clear_data=False, write_cell_location_data=False, write_trial_data=False):

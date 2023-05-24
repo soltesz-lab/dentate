@@ -2919,9 +2919,9 @@ def load_biophys_cell_dicts(env, pop_name, gid_set, load_connections=True, valid
 
     has_phenotypes = False
     phenotype_config = None
-    if 'phenotypes' in env.celltypes[postsyn_name]:
-        phenotype_config = env.celltypes[postsyn_name]['phenotypes']
-        if (postsyn_name in env.cell_attribute_info) and ('Phenotype ID' in env.cell_attribute_info[postsyn_name]):
+    if 'phenotypes' in env.celltypes[pop_name]:
+        phenotype_config = env.celltypes[pop_name]['phenotypes']
+        if (pop_name in env.cell_attribute_info) and ('Phenotype ID' in env.cell_attribute_info[pop_name]):
             has_phenotypes = True
 
     ## Loads cell morphological data, synaptic attributes and connection data
@@ -2961,7 +2961,7 @@ def load_biophys_cell_dicts(env, pop_name, gid_set, load_connections=True, valid
                                                                  selection=gid_list,
                                                                  namespace=phenotype_namespace, 
                                                                  mask=phenotype_attr_mask,
-                                                                 comm=env.comm, io_size=env.io_size)
+                                                                 comm=env.comm)
 
             for gid, cell_phenotype_attrs in phenotype_attrs_iter:
                 phenotype_id = cell_phenotype_attrs['phenotype_id'][0]

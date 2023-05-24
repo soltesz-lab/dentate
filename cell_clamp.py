@@ -65,11 +65,12 @@ def init_biophys_cell(env, pop_name, gid, load_synapses=True, load_weights=True,
     
     has_phenotypes = False
     phenotype_config = None
-    if 'phenotypes' in env.celltypes[postsyn_name]:
-        phenotype_config = env.celltypes[postsyn_name]['phenotypes']
-        if (postsyn_name in env.cell_attribute_info) and ('Phenotype ID' in env.cell_attribute_info[postsyn_name]):
+    if 'phenotypes' in env.celltypes[pop_name]:
+        phenotype_config = env.celltypes[pop_name]['phenotypes']
+        if (pop_name in env.cell_attribute_info) and ('Phenotype ID' in env.cell_attribute_info[pop_name]):
             has_phenotypes = True
 
+    logger.info(f"gid {gid}: has_phenotypes = {has_phenotypes}")
     
     ## Load cell gid and its synaptic attributes and connection data
     if is_izhikevich:
@@ -128,13 +129,13 @@ def init_biophys_cell(env, pop_name, gid, load_synapses=True, load_weights=True,
     synapses.init_syn_mech_attrs(cell, env)
 
     if has_phenotypes:
-        phenotype_dict = cell_dict.get('phenotype', None)
+        phenotype_id = cell_dict.get('phenotype', None)
 
-        if phenotype_dict is None:
+        if phenotype_id is None:
             phenotype_namespace = "Phenotype ID"
             phenotype_attr_mask = set(['phenotype_id'])
 
-            phenotype_attr_iter, phenotype_attr_info = read_cell_attribute_selection(forest_file_path, postsyn_name,
+            phenotype_attr_iter, phenotype_attr_info = read_cell_attribute_selection(forest_file_path, pop_name,
                                                                                      selection=[gid],
                                                                                      namespace=phenotype_namespace, 
                                                                                      mask=phenotype_attr_mask,
@@ -143,50 +144,50 @@ def init_biophys_cell(env, pop_name, gid, load_synapses=True, load_weights=True,
 
             phenotype_id_ind = phenotype_attr_info.get('phenotype_id', None)
             for this_gid, cell_phenotype_attrs in phenotype_attrs_iter:
+                assert this_gid == gid
                 phenotype_id = cell_phenotype_attrs[phenotype_id_ind][0]
-                phenotype_dict[this_gid] = phenotype_id
 
-            phenotype_id = phenotype_dict[gid]
+        phenotype_syn_param_tuples = phenotype_config[pop_name][phenotype_id]
 
-            phenotype_syn_param_tuples = phenotype_config[phenotype_id]
+        for param_tuple, param_value in phenotype_syn_param_tuples:
+            
+            assert pop_name == param_tuple.population
 
-            for param_tuple, param_value in param_tuples:
-                assert postsyn_name == param_tuple.population
-
-                source = param_tuple.source
-                sec_type = param_tuple.sec_type
-                syn_name = param_tuple.syn_name
-                param_path = param_tuple.param_path
+            source = param_tuple.source
+            sec_type = param_tuple.sec_type
+            syn_name = param_tuple.syn_name
+            param_path = param_tuple.param_path
                 
-                if isinstance(param_path, list) or isinstance(param_path, tuple):
-                    p, s = param_path
-                else:
-                    p, s = param_path, None
+            if isinstance(param_path, list) or isinstance(param_path, tuple):
+                p, s = param_path
+            else:
+                p, s = param_path, None
 
-                sources = None
-                if isinstance(source, list) or isinstance(source, tuple):
-                    sources = source
-                else:
-                    if source is not None:
-                        sources = [source]
+            sources = None
+            if isinstance(source, list) or isinstance(source, tuple):
+                sources = source
+            else:
+                if source is not None:
+                    sources = [source]
 
-                if isinstance(sec_type, list) or isinstance(sec_type, tuple):
-                    sec_types = sec_type
-                else:
-                    sec_types = [sec_type]
+            if isinstance(sec_type, list) or isinstance(sec_type, tuple):
+                sec_types = sec_type
+            else:
+                sec_types = [sec_type]
 
-                for this_sec_type in sec_types:
-                    synapses.modify_syn_param(
-                        cell,
-                        env,
-                        this_sec_type,
-                        syn_name,
-                        param_name=p,
-                        value={s: param_value} if (s is not None) else param_value,
-                        filters={"sources": sources} if sources is not None else None,
-                        origin=None if is_reduced else "soma",
-                        update_targets=False,
-                    )
+            logger.info(f"parameter {p} {s}: {param_value}")
+            for this_sec_type in sec_types:
+                synapses.modify_syn_param(
+                    cell,
+                    env,
+                    this_sec_type,
+                    syn_name,
+                    param_name=p,
+                    value={s: param_value} if (s is not None) else param_value,
+                    filters={"sources": sources} if sources is not None else None,
+                    origin=None if is_reduced else "soma",
+                    update_targets=False,
+                )
     
     if register_cell:
         cells.register_cell(env, pop_name, gid, cell)

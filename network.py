@@ -366,7 +366,7 @@ def connect_cells(env):
                     if phenotype_dict is not None:
                         phenotype_id = phenotype_dict[gid]
 
-                        phenotype_syn_param_tuples = phenotype_config[phenotype_id]
+                        phenotype_syn_param_tuples = phenotype_config[[postsyn_name]phenotype_id]
                         
                         for param_tuple, param_value in param_tuples:
                             assert postsyn_name == param_tuple.population
@@ -555,7 +555,7 @@ def connect_cell_selection(env):
                                                                                      selection=gid_range,
                                                                                      namespace=phenotype_namespace, 
                                                                                      mask=phenotype_attr_mask,
-                                                                                     comm=env.comm, io_size=env.io_size,
+                                                                                     comm=env.comm, 
                                                                                      return_type='tuple')
 
             phenotype_id_ind = phenotype_attr_info.get('phenotype_id', None)
@@ -667,7 +667,7 @@ def connect_cell_selection(env):
                         if phenotype_dict is not None:
                             phenotype_id = phenotype_dict[gid]
 
-                            phenotype_syn_param_tuples = phenotype_config[phenotype_id]
+                            phenotype_syn_param_tuples = phenotype_config[postsyn_name][phenotype_id]
 
                             for param_tuple, param_value in param_tuples:
                                 assert postsyn_name == param_tuple.population
