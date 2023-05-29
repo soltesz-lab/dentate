@@ -2,7 +2,8 @@ import copy, datetime, gc, itertools, logging, math, numbers, os.path, importlib
 from fractions import Fraction
 import pprint, string, sys, time, click
 from builtins import input, map, next, object, range, str, zip
-from collections import MutableMapping, Iterable, defaultdict, namedtuple
+from collections import defaultdict, namedtuple
+from collections.abc import MutableMapping, Iterable
 from envsubst import envsubst
 import numpy as np
 from numpy.lib.stride_tricks import as_strided

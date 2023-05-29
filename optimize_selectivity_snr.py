@@ -123,6 +123,9 @@ def init_selectivity_objfun(
     target_features_arena,
     target_features_trajectory,
     infld_threshold,
+    state_variable,
+    state_variable_mean_ceil,
+    state_filter,
     use_coreneuron,
     cooperative_init,
     nprocs_per_worker,
@@ -358,6 +361,53 @@ def init_selectivity_objfun(
 
         return result
 
+    def gid_state_values(spkdict, t_offset, n_trials, t_rec, state_recs_dict):
+        t_vec = np.asarray(t_rec.to_python(), dtype=np.float32)
+        t_trial_inds = get_trial_time_indices(t_vec, n_trials, t_offset)
+        results_dict = {}
+        filter_fun = None
+        if state_filter == 'lowpass':
+            filter_fun = lambda x, t: get_low_pass_filtered_trace(x, t)
+        for gid in state_recs_dict:
+            state_values = None
+            state_recs = state_recs_dict[gid]
+            assert(len(state_recs) == 1)
+            rec = state_recs[0]
+            vec = np.asarray(rec['vec'].to_python(), dtype=np.float32)
+            if filter_fun is None:
+                data = np.asarray([ vec[t_inds] for t_inds in t_trial_inds ])
+            else:
+                data = np.asarray([ filter_fun(vec[t_inds], t_vec[t_inds])
+                                    for t_inds in t_trial_inds ])
+
+            state_values = []
+            max_len = np.max(np.asarray([len(a) for a in data]))
+            for state_value_array in data:
+                this_len = len(state_value_array)
+                if this_len < max_len:
+                    a = np.pad(state_value_array, (0, max_len-this_len), 'edge')
+                else:
+                    a = state_value_array
+                state_values.append(a)
+
+            results_dict[gid] = state_values
+        return t_vec[t_trial_inds[0]], results_dict
+
+    def trial_state_constr(gid, t_peak_idxs, t_trough_idxs, t_infld_idxs, t_outfld_idxs, state_values):
+
+        state_value_arrays = np.row_stack(state_values)
+        
+        mean_state_values = []
+        for i in range(state_value_arrays.shape[0]):
+            state_value_array = state_value_arrays[i, :]
+            mean_state_value = np.mean(state_value_array)
+                
+            mean_state_values.append(mean_state_value)
+
+        state_constr = [np.mean(peak_inflds), np.mean(trough_inflds), np.mean(mean_outflds)]
+        return (np.asarray(residuals_outfld), state_features)
+
+    
     def gid_firing_rate_vectors(spkdict, cell_index_set):
         rates_dict = defaultdict(list)
         for i in range(n_trials):
@@ -452,7 +502,17 @@ def init_selectivity_objfun(
         return (np.asarray(snrs), trial_rate_features, rate_features)
 
     env.recording_profile = None
+    recording_profile = { 'label': f'optimize_selectivity_snr.{state_variable}',
+                          'section quantity': {
+                              state_variable: { 'swc types': ['soma'] }
+                            }
+                        }
+    env.recording_profile = recording_profile
+    state_recs_dict = {}
+    for gid in my_cell_index_set:
+        state_recs_dict[gid] = record_cell(env, population, gid, recording_profile=recording_profile)
 
+    
     def eval_problem(cell_param_dict, **kwargs):
 
         run_params = {
@@ -462,6 +522,13 @@ def init_selectivity_objfun(
         }
         spkdict = run_with(env, run_params)
         rates_dict = gid_firing_rate_vectors(spkdict, my_cell_index_set)
+
+        t_s, state_values_dict = gid_state_values(spkdict,
+                                                  equilibration_duration,
+                                                  n_trials,
+                                                  env.t_rec, 
+                                                  state_recs_dict)
+        
         t_vec = np.asarray(env.t_rec.to_python(), dtype=np.float32)
         t_trial_inds = get_trial_time_indices(t_vec, n_trials, equilibration_duration)
         t_s = t_vec[t_trial_inds[0]]
@@ -509,6 +576,7 @@ def init_selectivity_objfun(
                 t_outfld_idxs = None
 
             rate_vectors = rates_dict[gid]
+            state_values = state_values_dict[gid]
 
             logger.info(
                 f"selectivity objective: max rates of gid {gid}: "
@@ -750,6 +818,8 @@ def main(
     target_features_path,
     target_features_namespace,
     infld_threshold,
+    state_variable,
+    state_filter, 
     use_coreneuron,
     cooperative_init,
     spawn_workers,
@@ -833,9 +903,13 @@ def main(
             f"optimize_selectivity: population {population} does not have optimization configuration"
         )
 
+    init_objfun_name = "init_selectivity_objfun"
+
     init_params["target_features_arena"] = arena_id
     init_params["target_features_trajectory"] = trajectory_id
-    init_objfun_name = "init_selectivity_objfun"
+    init_params['state_variable_mean_ceil'] = -40
+    init_params['state_variable'] = 'v'
+    init_params['state_filter'] = 'lowpass'
 
     results_dict, distgfs_params = optimize_run(
         env,

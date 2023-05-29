@@ -1950,7 +1950,7 @@ def apply_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, 
     if 'func' not in rules['custom'] or rules['custom']['func'] is None:
         raise RuntimeError('apply_custom_syn_mech_rules: no custom function provided for synaptic mechanism: %s '
                            'parameter: %s in sec_type: %s' % (syn_name, param_name, node.type))
-    if rules['custom']['func'] in globals() and isinstance(globals()[rules['custom']['func']], collections.Callable):
+    if rules['custom']['func'] in globals() and isinstance(globals()[rules['custom']['func']], collections.abc.Callable):
         func = globals()[rules['custom']['func']]
     else:
         raise RuntimeError('apply_custom_syn_mech_rules: problem locating custom function: %s for synaptic '

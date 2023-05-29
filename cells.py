@@ -2270,7 +2270,7 @@ def apply_custom_mech_rules(cell, node, mech_name, param_name, baseline, rules, 
     if 'func' not in rules['custom'] or rules['custom']['func'] is None:
         raise RuntimeError('apply_custom_mech_rules: no custom function provided for mechanism: %s parameter: %s in '
                            'sec_type: %s' % (mech_name, param_name, node.type))
-    if rules['custom']['func'] in globals() and isinstance(globals()[rules['custom']['func']], collections.Callable):
+    if rules['custom']['func'] in globals() and isinstance(globals()[rules['custom']['func']], collections.abc.Callable):
         func = globals()[rules['custom']['func']]
     else:
         raise RuntimeError('apply_custom_mech_rules: problem locating custom function: %s for mechanism: %s '
