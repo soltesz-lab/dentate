@@ -222,13 +222,13 @@ def job_grid(root_config):
         run_id = uuid.uuid4()
         operational_config['run_id'] = run_id
 
-        job_input_path = os.path.join(inputs['job_input'], run_id)
+        job_input_path = os.path.join(input_config['job_input'], str(run_id))
         os.makedirs(job_input_path, exist_ok=True)
-        job_output_path = os.path.join(outputs['job_output'], run_id)
+        job_output_path = os.path.join(output_config['job_output'], str(run_id))
         os.makedirs(job_output_path, exist_ok=True)
 
-        inputs['job_input_path'] = job_input_path
-        inputs['job_output_path'] = job_output_path
+        input_config['job_input_path'] = job_input_path
+        input_config['job_output_path'] = job_output_path
         
         operational_config_path = os.path.join(job_input_path, "operational_config.yaml")
         inputs_config_path = os.path.join(job_input_path, "inputs.yaml")
@@ -236,8 +236,8 @@ def job_grid(root_config):
 
         
         utils.write_to_yaml(operational_config_path, this_operational_config)
-        utils.write_to_yaml(inputs_config_path, inputs)
-        utils.write_to_yaml(outputs_config_path, outputs)
+        utils.write_to_yaml(inputs_config_path, input_config)
+        utils.write_to_yaml(outputs_config_path, output_config)
 
         cmd = Command(python_executable,
                       "-m", "dentate.experiment.optimize_selectivity_snr",
