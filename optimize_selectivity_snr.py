@@ -315,6 +315,7 @@ def init_selectivity_objfun(
     param_tuples = opt_param_config.param_tuples
 
     feature_names = [
+        "mean_v",
         "mean_peak_rate",
         "mean_trough_rate",
         "max_infld_rate",
@@ -327,6 +328,8 @@ def init_selectivity_objfun(
     feature_dtypes.append(("trial_mean_infld_rate", (np.float32, (1, n_trials))))
     feature_dtypes.append(("trial_mean_outfld_rate", (np.float32, (1, n_trials))))
 
+    constraint_names = ["mean_v_below_threshold"]
+    
     def from_param_dict(params_dict):
         result = []
         for param_pattern, param_tuple in zip(param_names, param_tuples):
@@ -393,7 +396,7 @@ def init_selectivity_objfun(
             results_dict[gid] = state_values
         return t_vec[t_trial_inds[0]], results_dict
 
-    def trial_state_constr(gid, t_peak_idxs, t_trough_idxs, t_infld_idxs, t_outfld_idxs, state_values):
+    def mean_state_value(gid, t_peak_idxs, t_trough_idxs, t_infld_idxs, t_outfld_idxs, state_values):
 
         state_value_arrays = np.row_stack(state_values)
         
@@ -404,8 +407,7 @@ def init_selectivity_objfun(
                 
             mean_state_values.append(mean_state_value)
 
-        state_constr = [np.mean(peak_inflds), np.mean(trough_inflds), np.mean(mean_outflds)]
-        return (np.asarray(residuals_outfld), state_features)
+        return np.mean(mean_state_values)
 
     
     def gid_firing_rate_vectors(spkdict, cell_index_set):
@@ -602,12 +604,21 @@ def init_selectivity_objfun(
                     f"selectivity_rate_objective: unknown trial regime {trial_regime}"
                 )
 
+            mean_v = mean_state_value(gid, t_peak_idxs, t_trough_idxs, t_infld_idxs, t_outfld_idxs, state_values)
+            mean_v_below_threshold = mean_v < state_variable_mean_ceil
+
+            constr_array = np.asarray([1], dtype=np.int8)
+            if not mean_v_below_threshold:
+                snr_objective -= 1e6
+                constr_array[0] = -1
+
             result[gid] = (
                 snr_objective,
                 np.array(
-                    [tuple(rate_features + trial_rate_features)],
+                    [tuple([mean_v] + rate_features + trial_rate_features)],
                     dtype=np.dtype(feature_dtypes),
                 ),
+                constr_array,
             )
 
         return result
@@ -640,6 +651,7 @@ def optimize_run(
 
     objective_names = ["snr"]
     feature_names = [
+        "mean_v",
         "mean_peak_rate",
         "mean_trough_rate",
         "max_infld_rate",
@@ -647,7 +659,8 @@ def optimize_run(
         "mean_infld_rate",
         "mean_outfld_rate",
     ]
-
+    constraint_names = ["mean_v_below_threshold"]
+    
     opt_param_config = optimization_params(
         env.netclamp_config.optimize_parameters,
         [population],
@@ -683,20 +696,19 @@ def optimize_run(
     feature_dtypes = [(feature_name, (np.float32, (n_problems, 1))) for feature_name in feature_names]
     feature_dtypes.append(("trial_mean_infld_rate", (np.float32, (n_problems, n_trials))))
     feature_dtypes.append(("trial_mean_outfld_rate", (np.float32, (n_problems, n_trials))))
-
     
     reduce_fun_name = None
     reduce_fun_args = {}
     if ProblemRegime[problem_regime] == ProblemRegime.every:
-        reduce_fun_name = "opt_reduce_every_features"
+        reduce_fun_name = "opt_reduce_every_features_constraints"
         problem_ids = cell_index_set
     elif ProblemRegime[problem_regime] == ProblemRegime.mean:
-        reduce_fun_name = "opt_reduce_mean_features"
+        reduce_fun_name = "opt_reduce_mean_features_constraints"
         assert(cell_index_set is not None)
         reduce_fun_args = { "index": cell_index_set,
                             "feature_dtypes": feature_dtypes, }
     elif ProblemRegime[problem_regime] == ProblemRegime.max:
-        reduce_fun_name = "opt_reduce_max_features"
+        reduce_fun_name = "opt_reduce_max_features_constraints"
         assert(cell_index_set is not None)
         reduce_fun_args = { "index": cell_index_set,
                             "feature_dtypes": feature_dtypes, }
@@ -724,6 +736,7 @@ def optimize_run(
         "space": hyperprm_space,
         "objective_names": objective_names,
         "feature_dtypes": feature_dtypes,
+        "constraint_names": constraint_names,
         "n_iter": n_iter,
         "n_max_tasks": n_max_tasks,
         "file_path": file_path,
@@ -818,8 +831,6 @@ def main(
     target_features_path,
     target_features_namespace,
     infld_threshold,
-    state_variable,
-    state_filter, 
     use_coreneuron,
     cooperative_init,
     spawn_workers,

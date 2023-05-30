@@ -364,10 +364,10 @@ def opt_reduce_every_features(items):
 
 def opt_reduce_every_features_constraints(items):
     result = {}
-    features = {}
-    for yd, fd, cd in items:
-        for k in yd:
-            result[k] = (yd[k], fd[k], cd[k])
+    for xd in items:
+        for k in xd:
+            yd, fd, cd = xd[k]
+            result[k] = (yd, fd, cd)
     return result
 
 def opt_reduce_every_constraints(items):
