@@ -21,7 +21,7 @@ Inputs:
   config_prefix: !envsubst $HOME/model/dentate/config
   dataset_prefix: !envsubst $SCRATCH/dentate
   input_features: !envsubst $SCRATCH/dentate/Full_Scale_Control/DG_input_features_20220216.h5
-  target_features: !envsubst $SCRATCH/dentate/Slice/dentatenet_Slice_SLN_center_pf_20221216.h5
+  target_features: !envsubst $SCRATCH/dentate/Slice/dentatenet_Slice_SLN_center_pf_20230315.h5
   templates: templates
 Outputs:
   job_output: !envsubst $SCRATCH/results/optimize_selectivity3
@@ -49,6 +49,8 @@ Environment:
     - readline
     - openmpi/4.1.2
     - phdf5/local.1.12.1
+    - cuda/11.7.1
+    - cudnn/8.6.0.163
 Parameter Grid:
 ##  - gid: 4787
 ##  - gid: 8871
