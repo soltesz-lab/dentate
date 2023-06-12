@@ -191,10 +191,8 @@ def connect_cells(env):
                 syn_attrs.init_syn_id_attrs_from_iter(syn_attrs_iter, attr_type='tuple', 
                                                       attr_tuple_index=syn_attrs_info, debug=(rank == 0))
 
-        phenotype_dict = None
+        phenotype_dict = env.phenotype_dict[postsyn_name]
         if has_phenotypes:
-
-            phenotype_dict = {}
 
             phenotype_namespaces = ["Phenotype ID"]
             phenotype_attr_mask = set(['phenotype_id'])
@@ -543,10 +541,8 @@ def connect_cell_selection(env):
             if (postsyn_name in env.cell_attribute_info) and ('Phenotype ID' in env.cell_attribute_info[postsyn_name]):
                 has_phenotypes = True
 
-        phenotype_dict = None
+        phenotype_dict = env.phenotype_dict[postsyn_name]
         if has_phenotypes:
-
-            phenotype_dict = {}
 
             phenotype_namespace = "Phenotype ID"
             phenotype_attr_mask = set(['phenotype_id'])
