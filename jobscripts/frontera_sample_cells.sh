@@ -39,6 +39,6 @@ ibrun -n 1 python3 ./scripts/sample_cells.py \
     --input-features-namespaces 'Place Selectivity' \
     --input-features-namespaces 'Grid Selectivity' \
     --input-features-namespaces 'Constant Selectivity' \
-    --selection-path=gid_NGFC.dat \
+    --selection-path=GC_phenotypes.dat \
     --verbose
 
