@@ -433,20 +433,28 @@ def init_selectivity_objfun(
 
         return rates_dict
 
-    def trial_rate_snrs(
+    def get_trial_rate_features(
         gid,
         peak_idxs,
         trough_idxs,
         infld_idxs,
         outfld_idxs,
         rate_vectors,
+        masked_rate_vectors,
         target_rate_vector,
     ):
 
         n_trials = len(rate_vectors)
-        snrs = []
-        trial_inflds = []
-        trial_outflds = []
+        
+        trial_snrs = []
+        trial_masked_rates = []
+
+        trial_mean_peaks = []
+        trial_mean_troughs = []
+        trial_max_inflds = []
+        trial_min_inflds = []
+        trial_mean_inflds = []
+        trial_mean_outflds = []
 
         target_var = np.var(target_rate_vector)
         target_infld = target_rate_vector[infld_idxs]
@@ -461,47 +469,60 @@ def init_selectivity_objfun(
 
             rate_vector = rate_vectors[trial_i]
             infld_rate_vector = rate_vector[infld_idxs]
+            masked_rate_vector = masked_rate_vectors[trial_i]
+            
             outfld_rate_vector = None
             if outfld_idxs is not None:
                 outfld_rate_vector = rate_vector[outfld_idxs]
+            else:
+                outfld_rate_vector = masked_rate_vectors[trial_i]
+                
             n = min(len(rate_vector), len(target_rate_vector))
             
-            var_delta = np.var(rate_vector[:n] - target_rate_vector[:n])
-            mean_peak = np.mean(rate_vector[peak_idxs])
-            mean_trough = np.mean(rate_vector[trough_idxs])
-            min_infld = np.min(infld_rate_vector)
-            max_infld = np.max(infld_rate_vector)
-            mean_infld = np.mean(infld_rate_vector)
-            mean_outfld = np.nan
+            trial_mean_peak = np.mean(rate_vector[peak_idxs])
+            trial_mean_trough = np.mean(rate_vector[trough_idxs])
+            trial_min_infld = np.min(infld_rate_vector)
+            trial_max_infld = np.max(infld_rate_vector)
+            trial_mean_infld = np.mean(infld_rate_vector)
+            trial_mean_outfld = np.nan
             if outfld_rate_vector is not None:
-                mean_outfld = np.mean(outfld_rate_vector)
-
-            snr = target_var / var_delta
+                trial_mean_outfld = np.mean(outfld_rate_vector)
+            trial_mean_masked = np.mean(masked_rate_vectors[trial_i])
+                
+            var_delta = np.var(rate_vector[:n] - target_rate_vector[:n])
+            trial_snr = target_var / var_delta
 
             logger.info(
                 f"selectivity objective: gid {gid} trial {trial_i}: max infld/mean infld/mean peak/trough/mean outfld/snr: "
-                f"{max_infld:.02f} {mean_infld:.02f} {mean_peak:.02f} {mean_trough:.02f} {mean_outfld:.02f} {snr:.04f}"
+                f"{trial_max_infld:.02f} {trial_mean_infld:.02f} {trial_mean_peak:.02f} {trial_mean_trough:.02f} {trial_mean_outfld:.02f} {trial_snr:.04f}"
             )
 
-            snrs.append(snr)
-            trial_inflds.append(mean_infld)
-            trial_outflds.append(mean_outfld)
-
+            
+            trial_masked_rates.append(trial_ean_masked)
+            trial_snrs.append(trial_snr)
+            trial_mean_inflds.append(trial_mean_infld)
+            trial_mean_outflds.append(trial_mean_outfld)
+            trial_mean_peaks.append(trial_mean_peak)
+            trial_mean_troughs.append(trial_mean_trough)
+            trial_min_inflds.append(trial_min_infld)
+            trial_max_inflds.append(trial_max_infld)
+            
         trial_rate_features = [
-            np.asarray(trial_inflds, dtype=np.float32).reshape((1, n_trials)),
-            np.asarray(trial_outflds, dtype=np.float32).reshape((1, n_trials)),
+            np.asarray(trial_mean_inflds, dtype=np.float32).reshape((1, n_trials)),
+            np.asarray(trial_mean_outflds, dtype=np.float32).reshape((1, n_trials)),
         ]
         rate_features = [
-            [mean_peak],
-            [mean_trough],
-            [max_infld],
-            [min_infld],
-            [mean_infld],
-            [mean_outfld],
+            [np.mean(trial_mean_peaks)],
+            [np.mean(trial_mean_troughs)],
+            [np.mean(trial_max_inflds)],
+            [np.mean(trial_min_inflds)],
+            [np.mean(trial_mean_inflds)],
+            [np.mean(trial_mean_outflds)],
         ]
         # rate_constr = [ mean_peak if max_infld > 0. else -1. ]
         # rate_constr = [ mean_peak - mean_trough if max_infld > 0. else -1. ]
-        return (np.asarray(snrs), trial_rate_features, rate_features)
+        return (np.asarray(trial_snrs), np.asarray(trial_mean_masked),
+                trial_rate_features, rate_features)
 
     env.recording_profile = None
     recording_profile = { 'label': f'optimize_selectivity_snr.{state_variable}',
@@ -522,6 +543,13 @@ def init_selectivity_objfun(
                 gid: from_param_dict(cell_param_dict[gid]) for gid in my_cell_index_set
             }
         }
+
+        masked_run_params = {population: { gid: update_run_params(run_params[population][gid],
+                                                                  selectivity_opt_param_config.mask_param_names,
+                                                                  selectivity_opt_param_config.mask_param_tuples)
+                                           for gid in my_cell_index_set } }
+
+        
         spkdict = run_with(env, run_params)
         rates_dict = gid_firing_rate_vectors(spkdict, my_cell_index_set)
 
@@ -530,11 +558,14 @@ def init_selectivity_objfun(
                                                   n_trials,
                                                   env.t_rec, 
                                                   state_recs_dict)
-        
         t_vec = np.asarray(env.t_rec.to_python(), dtype=np.float32)
         t_trial_inds = get_trial_time_indices(t_vec, n_trials, equilibration_duration)
         t_s = t_vec[t_trial_inds[0]]
 
+        masked_spkdict = run_with(env, masked_run_params)
+        masked_rates_dict = gid_firing_rate_vectors(masked_spkdict, my_cell_index_set)
+
+        
         result = {}
         for gid in my_cell_index_set:
             infld_idxs = infld_idxs_dict[gid]
@@ -579,29 +610,31 @@ def init_selectivity_objfun(
 
             rate_vectors = rates_dict[gid]
             state_values = state_values_dict[gid]
+            masked_rate_vectors = masked_rates_dict[gid]
 
             logger.info(
                 f"selectivity objective: max rates of gid {gid}: "
                 f"{list([np.max(rate_vector) for rate_vector in rate_vectors])}"
             )
 
-            snrs, trial_rate_features, rate_features = trial_rate_snrs(
+            trial_snrs, trial_masked_rates, trial_rate_features, rate_features = get_trial_rate_features(
                 gid,
                 peak_idxs,
                 trough_idxs,
                 infld_idxs,
                 outfld_idxs,
                 rate_vectors,
+                masked_rate_vectors,
                 target_rate_vector,
             )
 
             if trial_regime == "mean":
-                snr_objective = np.mean(snrs)
+                snr_objective = np.mean(trial_snrs) - np.mean(trial_masked_rates)
             elif trial_regime == "best":
-                snr_objective = np.max(snrs)
+                snr_objective = np.max(trial_snrs) - np.max(trial_masked_rates)
             else:
                 raise RuntimeError(
-                    f"selectivity_rate_objective: unknown trial regime {trial_regime}"
+                    f"selectivity_objective: unknown trial regime {trial_regime}"
                 )
 
             mean_v = mean_state_value(gid, t_peak_idxs, t_trough_idxs, t_infld_idxs, t_outfld_idxs, state_values)

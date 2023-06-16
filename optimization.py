@@ -61,9 +61,9 @@ class InitMessageTag(IntEnum):
 def parse_optimization_param_dict(pop_name,
                                   param_dict,
                                   keyfun = lambda kv: str(kv[0]),
-                                  param_tuples = []
-                                  param_initial_dict = {}
-                                  param_bounds = {}
+                                  param_tuples = [],
+                                  param_initial_dict = {},
+                                  param_bounds = {},
                                   param_names = []):
     for source, source_dict in sorted(viewitems(param_ranges), key=keyfun):
         for sec_type, sec_type_dict in sorted(viewitems(source_dict), key=keyfun):
@@ -88,25 +88,27 @@ def parse_optimization_param_dict(pop_name,
                             param_bounds[param_key] = param_range
                             param_names.append(param_key)
 
+                            
 def parse_optimization_param_entries(pop_name,
                                      param_entries,
                                      keyfun = lambda kv: str(kv[0]),
-                                     param_tuples = []
-                                     param_initial_dict = {}
-                                     param_bounds = {}
+                                     param_tuples = [],
+                                     param_initial_dict = {},
+                                     param_bounds = {},
                                      param_names = []):
     
     if isinstance(param_entries, dict):
         parse_optimization_param_dict(pop_name,
                                       param_entries,
                                       keyfun = lambda kv: str(kv[0]),
-                                      param_tuples = []
-                                      param_initial_dict = {}
-                                      param_bounds = {}
+                                      param_tuples = [],
+                                      param_initial_dict = {},
+                                      param_bounds = {},
                                       param_names = [])
     elif isinstance(param_entries, list):
         # each entry is list x, where x[0] is options, x[1] is param_dict
         # TODO: pass env so that phenotype-specific optimization parameters can be instantiated
+        raise NotImplementedError
     else:
         raise RuntimeError(f"Invalid optimization parameter object: {param_entries}")
             
