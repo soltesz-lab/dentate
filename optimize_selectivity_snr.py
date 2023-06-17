@@ -498,7 +498,7 @@ def init_selectivity_objfun(
             )
 
             
-            trial_masked_rates.append(trial_ean_masked)
+            trial_masked_rates.append(trial_mean_masked)
             trial_snrs.append(trial_snr)
             trial_mean_inflds.append(trial_mean_infld)
             trial_mean_outflds.append(trial_mean_outfld)

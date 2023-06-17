@@ -64,8 +64,8 @@ def parse_optimization_param_dict(pop_name,
                                   param_tuples = [],
                                   param_initial_dict = {},
                                   param_bounds = {},
-                                  param_names = []):
-    for source, source_dict in sorted(viewitems(param_ranges), key=keyfun):
+                                  param_names = [],):
+    for source, source_dict in sorted(viewitems(param_dict), key=keyfun):
         for sec_type, sec_type_dict in sorted(viewitems(source_dict), key=keyfun):
             for syn_name, syn_mech_dict in sorted(viewitems(sec_type_dict), key=keyfun):
                 for param_fst, param_rst in sorted(viewitems(syn_mech_dict), key=keyfun):
@@ -78,15 +78,15 @@ def parse_optimization_param_dict(pop_name,
                             param_initial_dict[param_key] = param_initial_value
                             param_bounds[param_key] = const_range
                             param_names.append(param_key)
-                        else:
-                            param_name = param_fst
-                            param_range = param_rst
-                            param_tuples.append(SynParam(pop_name, source, sec_type, syn_name, param_name, param_range))
-                            param_key = '%s.%s.%s.%s.%s' % (pop_name, source, sec_type, syn_name, param_name)
-                            param_initial_value = (param_range[1] - param_range[0]) / 2.0
-                            param_initial_dict[param_key] = param_initial_value
-                            param_bounds[param_key] = param_range
-                            param_names.append(param_key)
+                    else:
+                        param_name = param_fst
+                        param_range = param_rst
+                        param_tuples.append(SynParam(pop_name, source, sec_type, syn_name, param_name, param_range))
+                        param_key = '%s.%s.%s.%s.%s' % (pop_name, source, sec_type, syn_name, param_name)
+                        param_initial_value = (param_range[1] - param_range[0]) / 2.0
+                        param_initial_dict[param_key] = param_initial_value
+                        param_bounds[param_key] = param_range
+                        param_names.append(param_key)
 
                             
 def parse_optimization_param_entries(pop_name,
@@ -136,11 +136,12 @@ def optimization_params(optimization_config, pop_names, param_config_name, param
                 opt_targets[f'{pop_name} {target_name}'] = target_val
             
             parse_optimization_param_dict(pop_name,
+                                          param_ranges,
                                           param_bounds=param_bounds, 
                                           param_names=param_names, 
                                           param_initial_dict=param_initial_dict, 
-                                          param_tuples=param_tuples, 
-                                          opt_targets=opt_targets)
+                                          param_tuples=param_tuples, )
+
         else:
             raise RuntimeError("optimization_params: unknown parameter type %s" % param_type)
 
