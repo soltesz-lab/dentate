@@ -3249,7 +3249,7 @@ def plot_spike_rates_with_features(spike_input_path, spike_namespace_id, arena_i
     
     env = None
     if config_path is not None:
-        env = Env(config=config)
+        env = Env(config=config_path)
         if env.analysis_config is not None:
             baks_config.update(env.analysis_config['Firing Rate Inference'])
     else:

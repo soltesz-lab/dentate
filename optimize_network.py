@@ -114,7 +114,9 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
     objective_names = operational_config['objective_names']
     param_config_name = operational_config['param_config_name']
     target_populations = operational_config['target_populations']
-    opt_param_config = optimization_params(env.netclamp_config.optimize_parameters, target_populations, param_config_name)
+    opt_param_config = optimization_params(env.netclamp_config.optimize_parameters,
+                                           target_populations,
+                                           param_config_name)
 
     opt_targets = opt_param_config.opt_targets
     param_names = opt_param_config.param_names

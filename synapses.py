@@ -18,12 +18,20 @@ logger = get_module_logger(__name__)
 
 
 SynParam = namedtuple('SynParam',
-                      ['population',
+                      ('population',
                        'source',
                        'sec_type',
                        'syn_name',
                        'param_path',
-                       'param_range'])
+                       'param_range',
+                       'phenotype'),
+                      defaults=(None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None))
 
 def syn_param_from_dict(d):
     return SynParam(*[d[key] for key in SynParam._fields])

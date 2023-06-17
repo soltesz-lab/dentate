@@ -191,12 +191,13 @@ def connect_cells(env):
                 syn_attrs.init_syn_id_attrs_from_iter(syn_attrs_iter, attr_type='tuple', 
                                                       attr_tuple_index=syn_attrs_info, debug=(rank == 0))
 
-        phenotype_dict = None
+        phenotype_dict = env.phenotype_dict[postsyn_name]
         if has_phenotypes:
 
             phenotype_dict = {}
 
-            phenotype_namespaces = ["Phenotype ID"]
+            phenotype_namespace = "Phenotype ID"
+            phenotype_namespaces = [phenotype_namespace]
             phenotype_attr_mask = set(['phenotype_id'])
 
             if env.node_allocation is None:
@@ -366,9 +367,9 @@ def connect_cells(env):
                     if phenotype_dict is not None:
                         phenotype_id = phenotype_dict[gid]
 
-                        phenotype_syn_param_tuples = phenotype_config[[postsyn_name]phenotype_id]
+                        phenotype_syn_param_tuples = phenotype_config[postsyn_name][phenotype_id]
                         
-                        for param_tuple, param_value in param_tuples:
+                        for param_tuple, param_value in phenotype_syn_param_tuples:
                             assert postsyn_name == param_tuple.population
                             
                             source = param_tuple.source
@@ -543,10 +544,8 @@ def connect_cell_selection(env):
             if (postsyn_name in env.cell_attribute_info) and ('Phenotype ID' in env.cell_attribute_info[postsyn_name]):
                 has_phenotypes = True
 
-        phenotype_dict = None
+        phenotype_dict = env.phenotype_dict[postsyn_name]
         if has_phenotypes:
-
-            phenotype_dict = {}
 
             phenotype_namespace = "Phenotype ID"
             phenotype_attr_mask = set(['phenotype_id'])
@@ -973,7 +972,7 @@ def make_cells(env):
                         if rank == 0:
                             logger.info(f"*** Creating {pop_name} gid {gid}")
                             
-                        cell = make_cell_from_tree(env, gid, pop_name, mech_dict, tree_dict, phenotype_config, 
+                        cell = make_cell_from_tree(env, gid, pop_name, mech_dict, tree_dict, 
                                                    mech_file_path, first_gid, is_izhikevich, is_PR, is_SC)
                         num_cells += 1
             else:

@@ -128,6 +128,7 @@ def init_biophys_cell(env, pop_name, gid, load_synapses=True, load_weights=True,
                           correct_g_pas=correct_for_spines_flag, env=env)
     synapses.init_syn_mech_attrs(cell, env)
 
+    phenotype_dict = env.phenotype_dict[pop_name]
     if has_phenotypes:
         phenotype_id = cell_dict.get('phenotype', None)
 
@@ -146,7 +147,8 @@ def init_biophys_cell(env, pop_name, gid, load_synapses=True, load_weights=True,
             for this_gid, cell_phenotype_attrs in phenotype_attrs_iter:
                 assert this_gid == gid
                 phenotype_id = cell_phenotype_attrs[phenotype_id_ind][0]
-
+                phenotype_dict[this_gid] = phenotype_id
+                
         phenotype_syn_param_tuples = phenotype_config[pop_name][phenotype_id]
 
         for param_tuple, param_value in phenotype_syn_param_tuples:
