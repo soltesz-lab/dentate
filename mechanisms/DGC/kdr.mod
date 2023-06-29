@@ -8,7 +8,6 @@ TITLE K-DR channel
 UNITS {
         (mA) = (milliamp)
         (mV) = (millivolt)
-        (mol) = (1)
 }
 
 NEURON {
