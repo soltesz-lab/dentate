@@ -1,4 +1,5 @@
 import os, sys, gc, logging, random
+from itertools import islice
 import click
 import numpy as np
 from mpi4py import MPI
@@ -17,6 +18,13 @@ def mpi_excepthook(type, value, traceback):
 sys.excepthook = mpi_excepthook
 
 
+def split_every(n, iterable):
+    i = iter(iterable)
+    piece = list(islice(i, n))
+    while piece:
+        yield piece
+        piece = list(islice(i, n))
+
 @click.command()
 @click.option("--population", required=True, type=str)
 @click.option("--forest-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
@@ -26,12 +34,14 @@ sys.excepthook = mpi_excepthook
 @click.option("--h5types-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--distances-namespace", type=str, default='Arc Distances')
 @click.option("--io-size", type=int, default=-1)
-@click.option("--chunk-size", type=int, default=1000)
+@click.option("--chunk-size", type=int, default=4000)
 @click.option("--value-chunk-size", type=int, default=10000)
+@click.option("--cache-size", type=int, default=10)
+@click.option("--write-every", type=int, default=100)
 @click.option("--dry-run",  is_flag=True)
 @click.option("--verbose", '-v', is_flag=True)
 @click.option("--debug", is_flag=True)
-def main(population, forest_path, coords_path, phenotypes_path, output_path, h5types_path, distances_namespace, io_size, chunk_size, value_chunk_size, dry_run, verbose, debug):
+def main(population, forest_path, coords_path, phenotypes_path, output_path, h5types_path, distances_namespace, io_size, chunk_size, value_chunk_size, cache_size, write_every, dry_run, verbose, debug):
     """
 
     :param population: str
@@ -99,7 +109,8 @@ def main(population, forest_path, coords_path, phenotypes_path, output_path, h5t
     phenotype_gid_dict = {}
     new_trees_dict = {}
     it = 0
-    for gid, tree_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, comm=comm, topology=False):
+    for gid, tree_dict in NeuroH5TreeGen(forest_path, population, io_size=io_size, cache_size=cache_size,
+                                         comm=comm, topology=False):
         if gid is not None:
             logger.info(f"Rank {rank} received gid {gid}")
             this_soma_dist = soma_distances[gid]
@@ -109,17 +120,32 @@ def main(population, forest_path, coords_path, phenotypes_path, output_path, h5t
             new_tree_dict = phenotypes_tree_dict[phenotype_gid]
             new_trees_dict[gid] = new_tree_dict
             phenotype_gid_dict[gid] = { 'phenotype_id': np.asarray([phenotype_gid],dtype=np.uint32) }
-        if debug and it > 10:
+        if debug and it >= 10:
             break
         it += 1
 
     if not dry_run:
-        #append_cell_trees(output_path, population, new_trees_dict, io_size=io_size, comm=comm)
-        append_cell_attributes(output_path, population, phenotype_gid_dict,
-                               namespace='Phenotype ID', io_size=io_size, chunk_size=chunk_size,
-                               value_chunk_size=value_chunk_size, comm=comm)
-        
-    comm.barrier()
+        comm.barrier()
+        if write_every > 0:
+            items = zip(split_every(write_every, new_trees_dict.items()), 
+                        split_every(write_every, phenotype_gid_dict.items()))
+            for chunk in items:
+                new_trees_chunk = dict(chunk[0])
+                phenotype_gid_chunk = dict(chunk[1])
+                append_cell_trees(output_path, population, new_trees_chunk, io_size=io_size, 
+                                  chunk_size=chunk_size, value_chunk_size=value_chunk_size, comm=comm)
+                append_cell_attributes(output_path, population, phenotype_gid_chunk,
+                                       namespace='Phenotype ID', io_size=io_size, 
+                                       chunk_size=chunk_size, value_chunk_size=value_chunk_size, comm=comm)
+                comm.barrier()
+        else:
+            append_cell_trees(output_path, population, new_trees_dict, io_size=io_size, 
+                              chunk_size=chunk_size, value_chunk_size=value_chunk_size, comm=comm)
+            append_cell_attributes(output_path, population, phenotype_gid_dict,
+                                   namespace='Phenotype ID', io_size=io_size, 
+                                   chunk_size=chunk_size, value_chunk_size=value_chunk_size, comm=comm)
+            comm.barrier()
+            
     if (not dry_run) and (rank == 0):
         logger.info(f"Appended phenotype trees to {output_path}")
 
