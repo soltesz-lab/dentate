@@ -306,7 +306,7 @@ def batch_job_grid(root_config):
         )
         ntasks = resource_config.get("ntasks", 1)
 
-        cmd = Command(mpirun_executable, "-v",
+        cmd = Command(mpirun_executable, 
                       python_executable,
                       "-m", "dentate.experiment.optimize_selectivity_snr",
                       "run",
@@ -316,9 +316,6 @@ def batch_job_grid(root_config):
 
         pre_cmds = []
         
-        pre_cmds.append("unset ${!OMPI*}")
-        pre_cmds.append("unset ${!PMIX*}")
-
         for mod in env_modules:
             module_cmd = f"module load {mod}"
             pre_cmds.append(module_cmd)
@@ -339,7 +336,7 @@ def batch_job_grid(root_config):
         st = os.stat(output_script_path)
         os.chmod(output_script_path, st.st_mode | stat.S_IEXEC)
 
-        slurm_job.sbatch(cmd_block, shell="/bin/bash", 
+        slurm_job.sbatch(cmd_block, shell="/bin/bash", verbose=True,
                          script_file=submit_script_path)
 
 

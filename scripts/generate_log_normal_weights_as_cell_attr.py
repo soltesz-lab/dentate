@@ -1,4 +1,5 @@
 import os, sys, time, gc
+from itertools import islice
 import logging, click
 from collections import defaultdict
 from mpi4py import MPI
@@ -15,6 +16,13 @@ def mpi_excepthook(type, value, traceback):
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
 sys.excepthook = mpi_excepthook
+
+def split_every(n, iterable):
+    i = iter(iterable)
+    piece = list(islice(i, n))
+    while piece:
+        yield piece
+        piece = list(islice(i, n))
 
 mu = 0.
 sigma = 3.0
@@ -35,7 +43,7 @@ sigma = 3.0
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--cache-size", type=int, default=50)
-@click.option("--write-size", type=int, default=1)
+@click.option("--write-size", type=int, default=100)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
 def main(config, config_prefix, weights_path, weights_namespace, weights_name, min_weight, max_weight, connections_path, destination, sources, io_size, chunk_size, value_chunk_size, write_size, cache_size, verbose, dry_run):
@@ -112,24 +120,26 @@ def main(config, config_prefix, weights_path, weights_namespace, weights_name, m
               synapses.generate_log_normal_weights(weights_name, mu, sigma, seed, source_syn_dict, clip=(min_weight, max_weight))
             logger.info(f"Rank {rank}; destination: {destination}; destination gid {destination_gid}; sources: {sources}; "
                         f"generated log-normal weights for {len(weights_dict[destination_gid]['syn_id'])} inputs in "
-                        f"(time.time() - local_time):.02f s")
+                        f"{(time.time() - local_time):.02f} s")
             count += 1
         else:
             logger.info(f"Rank: {rank} received destination_gid as None")
         gid_count += 1
-        if (write_size > 0) and (gid_count % write_size == 0):
-            if not dry_run:
-                append_cell_attributes(weights_path, destination, weights_dict, namespace=weights_namespace,
-                                       comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-            del source_syn_dict
-            del source_gid_array
-            del conn_attr_dict
-            weights_dict.clear()
-            gc.collect()
 
     if not dry_run:
-        append_cell_attributes( weights_path, destination, weights_dict, namespace=weights_namespace,
-                                comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+        if write_size > 0:
+            items = split_every(write_size, weights_dict.items())
+            for chunk in items:
+                weights_chunk = dict(chunk)
+                append_cell_attributes( weights_path, destination, weights_chunk, namespace=weights_namespace,
+                                    comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+                comm.barrier()
+        else:
+            append_cell_attributes( weights_path, destination, weights_dict, namespace=weights_namespace,
+                                    comm=comm, io_size=io_size, chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+            comm.barrier()
+
+        
     global_count = comm.gather(count, root=0)
     if rank == 0:
         logger.info(f"destination: {destination}; {comm.size} ranks generated log-normal weights "
