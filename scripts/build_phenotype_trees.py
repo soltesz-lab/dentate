@@ -37,11 +37,11 @@ def split_every(n, iterable):
 @click.option("--chunk-size", type=int, default=4000)
 @click.option("--value-chunk-size", type=int, default=10000)
 @click.option("--cache-size", type=int, default=10)
-@click.option("--write-every", type=int, default=100)
+@click.option("--write-size", type=int, default=100)
 @click.option("--dry-run",  is_flag=True)
 @click.option("--verbose", '-v', is_flag=True)
 @click.option("--debug", is_flag=True)
-def main(population, forest_path, coords_path, phenotypes_path, output_path, h5types_path, distances_namespace, io_size, chunk_size, value_chunk_size, cache_size, write_every, dry_run, verbose, debug):
+def main(population, forest_path, coords_path, phenotypes_path, output_path, h5types_path, distances_namespace, io_size, chunk_size, value_chunk_size, cache_size, write_size, dry_run, verbose, debug):
     """
 
     :param population: str
@@ -126,9 +126,9 @@ def main(population, forest_path, coords_path, phenotypes_path, output_path, h5t
 
     if not dry_run:
         comm.barrier()
-        if write_every > 0:
-            items = zip(split_every(write_every, new_trees_dict.items()), 
-                        split_every(write_every, phenotype_gid_dict.items()))
+        if write_size > 0:
+            items = zip(split_every(write_size, new_trees_dict.items()), 
+                        split_every(write_size, phenotype_gid_dict.items()))
             for chunk in items:
                 new_trees_chunk = dict(chunk[0])
                 phenotype_gid_chunk = dict(chunk[1])
