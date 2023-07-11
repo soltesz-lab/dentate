@@ -116,7 +116,8 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
     target_populations = operational_config['target_populations']
     opt_param_config = optimization_params(env.netclamp_config.optimize_parameters,
                                            target_populations,
-                                           param_config_name)
+                                           param_config_name=param_config_name,
+                                           phenotype_dict=env.phenotype_ids)
 
     opt_targets = opt_param_config.opt_targets
     param_names = opt_param_config.param_names

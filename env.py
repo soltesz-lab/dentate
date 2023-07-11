@@ -250,6 +250,7 @@ class Env(object):
         self.celltypes = self.model_config['Cell Types']
         self.cell_attribute_info = {}
         self.phenotype_dict = {}
+        self.phenotype_ids = {}
 
         # The name of this model
         if 'Model Name' in self.model_config:
@@ -824,6 +825,7 @@ class Env(object):
                 if 'phenotypes' in celltypes[k]:
                     celltypes[k]['phenotypes'] = parse_flat_syn_params(celltypes[k]['phenotypes'])
                     self.phenotype_dict[k] = {}
+                    self.phenotype_ids[k] = set(celltypes[k]['phenotypes'][k].keys())
                 if 'mechanism file' in celltypes[k]:
                     celltypes[k]['mech_file_path'] = os.path.join(self.config_prefix, celltypes[k]['mechanism file'])
                     mech_dict = None

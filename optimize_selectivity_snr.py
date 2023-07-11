@@ -303,11 +303,14 @@ def init_selectivity_objfun(
     opt_param_config = optimization_params(
         env.netclamp_config.optimize_parameters,
         [population],
-        param_config_name,
-        param_type,
+        param_config_name=param_config_name,
+        phenotype_dict=env.phenotype_ids,
+        param_type=param_type
     )
     selectivity_opt_param_config = selectivity_optimization_params(
-        env.netclamp_config.optimize_parameters, [population], selectivity_config_name
+        env.netclamp_config.optimize_parameters,
+        [population],
+        param_config_name=selectivity_config_name,
     )
 
     opt_targets = opt_param_config.opt_targets
@@ -697,8 +700,9 @@ def optimize_run(
     opt_param_config = optimization_params(
         env.netclamp_config.optimize_parameters,
         [population],
-        param_config_name,
-        param_type,
+        param_config_name=param_config_name,
+        phenotype_dict=env.phenotype_ids,
+        param_type=param_type,
     )
 
     opt_targets = opt_param_config.opt_targets
@@ -981,8 +985,9 @@ def main(
     opt_param_config = optimization_params(
         env.netclamp_config.optimize_parameters,
         [population],
-        param_config_name,
-        param_type,
+        param_config_name=param_config_name,
+        phenotype_dict=env.phenotype_dict,
+        param_type=param_type,
     )
     if results_dict is not None:
         if results_path is not None:

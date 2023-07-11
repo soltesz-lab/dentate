@@ -139,9 +139,14 @@ def init_selectivity_objfun(config, population, cell_index_set, arena_id, trajec
         logger.info(f'selectivity objective: mean target peak/trough rate of gid {gid}: '
                     f'{np.mean(target_peak_rate_vector):.02f} {np.mean(target_trough_rate_vector):.02f}')
         
-    opt_param_config = optimization_params(env.netclamp_config.optimize_parameters, [population], param_config_name, param_type)
-    selectivity_opt_param_config = selectivity_optimization_params(env.netclamp_config.optimize_parameters, [population],
-                                                                   selectivity_config_name)
+    opt_param_config = optimization_params(env.netclamp_config.optimize_parameters,
+                                           [population],
+                                           param_config_name=param_config_name,
+                                           phenotype_dict=env.phenotype_ids,
+                                           param_type=param_type)
+    selectivity_opt_param_config = selectivity_optimization_params(env.netclamp_config.optimize_parameters,
+                                                                   [population],
+                                                                   param_config_name=selectivity_config_name)
 
     opt_targets = opt_param_config.opt_targets
     param_names = opt_param_config.param_names
@@ -419,7 +424,11 @@ def optimize_run(env, population, param_config_name, selectivity_config_name, in
                  param_type='synaptic', init_params={}, results_file=None, cooperative_init=False, 
                  spawn_startup_wait=None, spawn_executable=None, spawn_args=[], verbose=False):
 
-    opt_param_config = optimization_params(env.netclamp_config.optimize_parameters, [population], param_config_name, param_type)
+    opt_param_config = optimization_params(env.netclamp_config.optimize_parameters,
+                                           [population],
+                                           param_config_name=param_config_name,
+                                           phenotype_dict=env.phenotype_ids,
+                                           param_type=param_type)
 
     opt_targets = opt_param_config.opt_targets
     param_names = opt_param_config.param_names
@@ -692,7 +701,11 @@ def main(config, population, dt, gid, gid_selection_file, arena_id, trajectory_i
                         param_type=param_type, init_params=init_params, results_file=results_file, nprocs_per_worker=nprocs_per_worker, 
                         cooperative_init=cooperative_init, spawn_executable=spawn_executable, spawn_args=spawn_args, spawn_startup_wait=spawn_startup_wait, verbose=verbose)
     
-    opt_param_config = optimization_params(env.netclamp_config.optimize_parameters, [population], param_config_name, param_type)
+    opt_param_config = optimization_params(env.netclamp_config.optimize_parameters,
+                                           [population],
+                                           param_config_name=param_config_name,
+                                           phenotype_dict=env.phenotype_ids,
+                                           param_type=param_type)
     if best is not None:
         if results_path is not None:
             run_ts = time.strftime("%Y%m%d_%H%M%S")
