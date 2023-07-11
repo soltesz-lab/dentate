@@ -10,16 +10,15 @@
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
-module load mkl/19.1.1
-module load python3/3.9.2
-module load phdf5/1.10.4
+
+module load phdf5
 
 set -x
 
 export TF_CPP_MIN_LOG_LEVEL=2
 
 export NEURONROOT=$SCRATCH/bin/nrnpython3_intel19
-export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/intel19:$PYTHONPATH
+export PYTHONPATH=$HOME/model:$NEURONROOT/lib/python:$SCRATCH/site-packages/python3.10:$PYTHONPATH
 
 export DATA_PREFIX="/tmp/optimize_DG_network"
 export CDTools=/home1/apps/CDTools/1.2
@@ -64,7 +63,7 @@ ibrun -np 28545 \
     --dataset_prefix="$DATA_PREFIX" \
     --config_prefix=$DG_HOME/config \
     --results_path=$results_path \
-    --spike_input_path="$DATA_PREFIX/Slice/dentatenet_Slice_SLN_neg2000_neg1900um_20221210_compressed.h5" \
+    --spike_input_path="$DATA_PREFIX/Slice/dentatenet_Slice_SLN_neg2000_neg1900um_20230628.h5" \
     --spike_input_namespace='Input Spikes A Diag' \
     --spike_input_attr='Spike Train' \
     --max_walltime_hours=4.0 \
