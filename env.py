@@ -178,7 +178,7 @@ class Env(object):
         # Whether to use cell attribute generation for I/O operations
         # and number of cache (readahead) items
         self.use_cell_attr_gen = use_cell_attr_gen
-        self.cell_attr_gen_cache_size = cell_attr_gen_cache_size
+        self.cell_attr_gen_cache_size = int(cell_attr_gen_cache_size)
 
         # Initialization voltage
         self.v_init = float(v_init)

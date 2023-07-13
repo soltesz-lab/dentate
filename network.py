@@ -953,6 +953,8 @@ def make_cells(env):
             first_gid = None
 
             if env.use_cell_attr_gen:
+                if rank == 0:
+                    logger.info(f"data_file_path = {data_file_path} io_size={env.io_size} cache_size={env.cell_attr_gen_cache_size}")
                 if env.node_allocation is None:
                     tree_attr_gen = NeuroH5TreeGen(data_file_path, pop_name,
                                                    comm=env.comm, topology=True,

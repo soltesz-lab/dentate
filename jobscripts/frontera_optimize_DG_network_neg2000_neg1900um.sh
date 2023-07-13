@@ -6,7 +6,7 @@
 #SBATCH -p large      # Queue (partition) name
 #SBATCH -N 1024             # Total # of nodes 
 #SBATCH --ntasks-per-node=56 # # of mpi tasks per node
-#SBATCH -t 24:00:00        # Run time (hh:mm:ss)
+#SBATCH -t 36:00:00        # Run time (hh:mm:ss)
 #SBATCH --mail-user=ivan.g.raikov@gmail.com
 #SBATCH --mail-type=all    # Send email at begin and end of job
 
@@ -50,7 +50,7 @@ ibrun -np 28545 \
     python3 optimize_network.py \
     --config-path=$DG_HOME/config/DG_optimize_network_neg2000_neg1900um.yaml \
     --optimize-file-dir=$results_path \
-    --optimize-file-name=dmosopt.optimize_network_20230308_1600.h5 \
+    --optimize-file-name=dmosopt.optimize_network_20230710_1900.h5 \
     --target-features-path="$DATA_PREFIX/Full_Scale_Control/DG_input_features_20220216.h5" \
     --target-features-namespace="Place Selectivity" \
     --verbose \
