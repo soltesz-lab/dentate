@@ -109,7 +109,7 @@ def main(config_path, params_id, n_samples, target_features_path, target_feature
         eval_config['target_features_namespace'] = target_features_namespace
 
     network_param_spec_src = eval_config['param_spec']
-    network_param_values = eval_config['param_values']
+    network_param_values = eval_config.get('param_values', {})
 
     feature_names = eval_config['feature_names']
     target_populations = eval_config['target_populations']
@@ -133,7 +133,7 @@ def main(config_path, params_id, n_samples, target_features_path, target_feature
     target_features_arena = env.arena_id
     target_features_trajectory = env.trajectory_id
     for pop_name in target_populations:
-        if ('%s target rate dist residual' % pop_name) not in feature_names:
+        if ('%s snr' % pop_name) not in feature_names:
             continue
         my_cell_index_set = set(env.biophys_cells[pop_name].keys())
         trj_rate_maps = {}
@@ -309,7 +309,7 @@ def collect_network_features(env, local_features, target_populations, output_pat
             pop_features_dicts = [ features_dict[pop_name] for features_dict in all_features ]
 
             sum_mean_rate = 0.
-            sum_target_rate_dist_residual = 0.
+            sum_snr = 0.
             n_total = 0
             n_active = 0
             n_target_rate_map = 0
@@ -319,15 +319,15 @@ def collect_network_features(env, local_features, target_populations, output_pat
                 n_total_local = pop_feature_dict['n_total']
                 n_target_rate_map_local = pop_feature_dict['n_target_rate_map']
                 sum_mean_rate_local = pop_feature_dict['sum_mean_rate']
-                sum_target_rate_dist_residual_local = pop_feature_dict['sum_target_rate_dist_residual']
+                sum_snr_local = pop_feature_dict['sum_snr']
 
                 n_total += n_total_local
                 n_active += n_active_local
                 n_target_rate_map += n_target_rate_map_local
                 sum_mean_rate += sum_mean_rate_local
 
-                if sum_target_rate_dist_residual_local is not None:
-                    sum_target_rate_dist_residual += sum_target_rate_dist_residual_local
+                if sum_snr_local is not None:
+                    sum_snr += sum_snr_local
 
             if n_active > 0:
                 mean_rate = sum_mean_rate / n_active
@@ -339,17 +339,17 @@ def collect_network_features(env, local_features, target_populations, output_pat
             else:
                 fraction_active = 0.
 
-            mean_target_rate_dist_residual = None
+            mean_snr = None
             if n_target_rate_map > 0:
-                mean_target_rate_dist_residual = sum_target_rate_dist_residual / n_target_rate_map
+                mean_snr = sum_snr / n_target_rate_map
 
             logger.info(f'population {pop_name}: n_active = {n_active} n_total = {n_total} mean rate = {mean_rate}')
-            logger.info(f'population {pop_name}: n_target_rate_map = {n_target_rate_map} sum_target_rate_dist_residual = {sum_target_rate_dist_residual}')
+            logger.info(f'population {pop_name}: n_target_rate_map = {n_target_rate_map} snr: sum = {sum_snr} mean = {mean_snr}')
 
             collected_features['%s fraction active' % pop_name] = fraction_active
             collected_features['%s firing rate' % pop_name] = mean_rate
-            if mean_target_rate_dist_residual is not None:
-                collected_features['%s target rate dist residual' % pop_name] = mean_target_rate_dist_residual
+            if mean_snr is not None:
+                collected_features['%s snr' % pop_name] = mean_snr
 
         output_file = h5py.File(output_path, "a")
         network_grp = h5_get_group(output_file, 'DG_eval_network')
