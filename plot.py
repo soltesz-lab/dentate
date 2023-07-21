@@ -3101,7 +3101,7 @@ def plot_spike_rates(input_path, namespace_id, config_path=None, include = ['eac
     
     env = None
     if config_path is not None:
-        env = Env(config=config)
+        env = Env(config=config_path)
         if env.analysis_config is not None:
             baks_config.update(env.analysis_config['Firing Rate Inference'])
         
