@@ -1,0 +1,179 @@
+param_spec:
+  GC:
+        AAC:
+         ais:
+            GABA_A:
+              weight: [0.05, 3.0]
+        !!python/tuple [BC, HC]:
+         !!python/tuple [soma, apical]:
+            GABA_A:
+              weight: [0.05, 3.0]
+        !!python/tuple [HCC, MOPP, NGFC]:
+          apical:
+            GABA_A:
+              weight: [0.05, 3.0]
+        NGFC:
+          apical:
+            GABA_B:
+              weight: [0.05, 3.0]
+  MC:
+        !!python/tuple [GC, MC]:
+          apical:
+            AMPA:
+              weight: 
+                a: [1.0, 2.0]
+        CA3c:
+          apical:
+            AMPA:
+              weight: 
+                a: [1.0, 10.0]
+                c: [1.0, 10.0]
+        AAC:
+          ais:
+            GABA_A:
+              weight: [0.005, 1.0]
+        !!python/tuple [BC, HC]:
+          !!python/tuple [soma, apical]:
+            GABA_A:
+              weight: [0.1, 3.0]
+        HCC:
+          !!python/tuple [soma, apical]:
+            GABA_A:
+              weight: [0.1, 3.0]
+  AAC:
+        !!python/tuple [GC, MC, ConMC, CA3c, MPP, LPP]:
+          !!python/tuple [soma, basal, apical]:
+            AMPA:
+              weight: [1.0, 2.0]
+        !!python/tuple [HCC, NGFC, MOPP]:
+          apical:
+            GABA_A:
+              weight: [0.1, 2.0]
+        HC:
+          apical:
+            GABA_A:
+              weight: [0.1, 2.0]
+        NGFC:
+          apical:
+            GABA_B:
+              weight: [0.1, 2.0]
+  BC:
+        !!python/tuple [GC, MC, ConMC, CA3c, MPP, LPP]:
+          !!python/tuple [soma, basal, apical]:
+            AMPA:
+              weight: [1.0, 2.0]
+        !!python/tuple [BC, HC]:
+          !!python/tuple [apical, basal, soma]:
+            GABA_A:
+              weight: [0.1, 2.0]
+        !!python/tuple [HCC, NGFC, MOPP]:
+          apical:
+            GABA_A:
+              weight: [0.005, 1.0]
+        NGFC:
+          apical:
+            GABA_B:
+              weight: [0.01, 1.0]
+  HC:
+        !!python/tuple [GC, MC, CA3c]:
+          !!python/tuple [soma, apical]:
+            AMPA:
+              weight: [0.1, 2.0]
+        HC:
+          apical:
+            GABA_A:
+              weight: [0.1, 2.0]
+        IS:
+          !!python/tuple [apical, soma]:
+            GABA_A:
+              weight: [0.1, 2.0]
+  HCC:
+        !!python/tuple [GC, MC, CA3c, MPP, LPP]:
+          !!python/tuple [soma, basal, apical]:
+            AMPA:
+              weight: [1.0, 2.0]
+        BC:
+          !!python/tuple [apical, basal, soma]:
+            GABA_A:
+              weight: [0.1, 2.0]
+        !!python/tuple [IS, HCC, NGFC, MOPP]:
+          !!python/tuple [apical, basal]:
+            GABA_A:
+              weight: [0.1, 2.0]
+        NGFC:
+          apical:
+            GABA_B:
+              weight: [0.005, 0.25]
+  NGFC:
+        !!python/tuple [MPP, LPP]:
+          !!python/tuple [soma, basal, apical]:
+            AMPA:
+              weight: [1.0, 2.0]
+        !!python/tuple [HC, NGFC, MOPP]:
+          !!python/tuple [apical, basal, soma]:
+            GABA_A:
+              weight: [0.1, 2.0]
+        HC:
+          !!python/tuple [apical, basal, soma]:
+            GABA_A:
+              weight: [0.1, 2.0]
+        NGFC:
+          !!python/tuple [apical, basal, soma]:
+            GABA_B:
+              weight: [0.1, 2.0]
+  MOPP:
+        !!python/tuple [MPP, LPP, MC]:
+          !!python/tuple [soma, basal, apical]:
+            AMPA:
+              weight: [1.0, 2.0]
+        HC:
+          !!python/tuple [apical, basal, soma]:
+            GABA_A:
+              weight: [0.1, 2.0]
+        !!python/tuple [HCC, MOPP, NGFC]:
+          !!python/tuple [apical, basal, soma]:
+            GABA_A:
+              weight: [0.005, 0.33]
+        NGFC:
+          apical:
+            GABA_B:
+              weight: [0.005, 0.25]
+  IS:
+        GC:
+          !!python/tuple [soma, basal, apical]:
+            AMPA:
+              weight: [0.1, 2.0]
+        IS:
+          !!python/tuple [apical, basal, soma]:
+            GABA_A:
+              weight: [0.1, 1.0]
+#param_values: !include DG_eval_network_params_neg2000_neg1900um_20220118.yaml
+feature_names:
+- GC snr
+- GC firing rate
+- GC fraction active
+- MC snr
+- MC firing rate
+- MC fraction active
+- AAC firing rate
+- BC firing rate
+- HC firing rate
+- HCC firing rate
+- IS firing rate
+- MOPP firing rate
+- NGFC firing rate
+target_populations: ['GC', 'MC', 'AAC', 'BC', 'HC', 'HCC', 'IS', 'MOPP', 'NGFC']
+kwargs:
+  config: Network_Clamp_Slice_neg2000_neg1900um_SynExp3NMDA2fd_CLS_IN_PR.yaml
+  tstop: 9000.
+  checkpoint_interval: 0.
+  v_init: -77.
+  recording_fraction: 0.01
+  recording_profile: "Network default"
+  dt: 0.025
+  cleanup: False
+  verbose: True
+  cache_queries: True
+  output_results: True
+  use_coreneuron: True
+
