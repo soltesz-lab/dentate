@@ -82,13 +82,14 @@ def parse_flat_syn_params_with_index(index_params_dict):
                 param_path,
                 phenotype,
                 param_val,
-            ) = this_gid_param
+            ) = this_param
             syn_param = SynParam(
                 this_population,
                 source,
                 sec_type,
                 syn_name,
                 param_path,
+                None,
                 None if phenotype == 'null' else phenotype,
             )
             this_param_tuples.append(
@@ -150,7 +151,8 @@ def main(config_path, params_id, n_samples, target_features_path, target_feature
         eval_config['target_features_namespace'] = target_features_namespace
 
     network_param_spec_src = eval_config.get('param_spec', None)
-    network_param_values = eval_config.get('param_values', {})
+    network_param_values_src = eval_config.get('param_values', {})
+    network_param_values = parse_flat_syn_params_with_index(network_param_values_src)
 
     feature_names = eval_config['feature_names']
     target_populations = eval_config['target_populations']
@@ -189,6 +191,7 @@ def main(config_path, params_id, n_samples, target_features_path, target_feature
     network_param_spec = None
     if network_param_spec_src is not None:
         network_param_spec = make_param_spec(target_populations, network_param_spec_src)
+
 
     eval_network(env, network_config,
                  network_param_values, params_id,
@@ -280,12 +283,11 @@ def init_network(comm, kwargs):
     return env
 
 
-def eval_network(env, network_config, network_params, network_param_values, params_id, target_trj_rate_map_dict, t_start, t_stop, target_populations, output_path):
+def eval_network(env, network_config, network_param_values, params_id, target_trj_rate_map_dict, t_start, t_stop, target_populations, output_path):
 
     param_tuple_values = None
     if params_id is not None:
-        x = network_param_values[params_id]
-        param_tuple_values = parse_flat_syn_params_with_index(x)
+        param_tuple_values = network_param_values[params_id]
         if env.comm.rank == 0:
             logger.info("*** Updating network parameters ...")
             logger.info(pprint.pformat(param_tuple_values))

@@ -822,7 +822,6 @@ class Env(object):
                     celltypes[k] = {}
                 celltypes[k]['start'] = population_ranges[k][0]
                 celltypes[k]['num'] = population_ranges[k][1]
-                print(celltypes[k])
                 if 'phenotypes' in celltypes[k]:
                     celltypes[k]['phenotypes'] = parse_flat_syn_params(celltypes[k]['phenotypes'])
                     self.phenotype_dict[k] = {}
