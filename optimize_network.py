@@ -210,6 +210,7 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
                       'initial_method': initial_method,
                       'optimizer': optimizer_method,
                       'surrogate_method': 'megp',
+                      'surrogate_options': { 'batch_size': 400 },
                       'n_epochs': n_epochs,
                       'population_size': population_size,
                       'num_generations': num_generations,
@@ -218,6 +219,7 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
                       'file_path': os.path.join(optimize_file_dir, optimize_file_name),
                       'termination_conditions': True,
                       'save_surrogate_eval': True,
+                      'sensitivity_method': 'dgsm',
                       'save': True,
                       'save_eval': 5
                       }

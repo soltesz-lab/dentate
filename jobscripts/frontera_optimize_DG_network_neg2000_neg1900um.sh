@@ -55,7 +55,7 @@ ibrun -np 28545 \
     --target-features-namespace="Place Selectivity" \
     --verbose \
     --nprocs-per-worker=223 \
-    --n-epochs=2 \
+    --n-epochs=3 \
     --n-initial=50 --initial-method="slh" --num-generations=400 --population-size=127 --resample-fraction 1.0 \
     --no_cleanup \
     --arena_id=A --trajectory_id=Diag \
