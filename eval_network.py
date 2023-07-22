@@ -57,6 +57,47 @@ def h5_get_dataset (g, dsetname, **kwargs):
         dset = g.create_dataset(dsetname, (0,), **kwargs)
     return dset
 
+
+def parse_flat_syn_params_with_index(index_params_dict):
+    """Parses synaptic parameters of the form:
+       - index:
+             - postsyn population           
+             - presyn population list
+             - section type
+             - synaptic mechanism
+             - synaptic mechanism parameter path
+             - phenotype id [optional]
+             - parameter value
+    """
+
+    params_tuple_dict = {}
+    for this_index, this_index_params in viewitems(index_params_dict):
+        this_param_tuples = []
+        for this_param in this_index_params:
+            (
+                this_population,
+                source,
+                sec_type,
+                syn_name,
+                param_path,
+                phenotype,
+                param_val,
+            ) = this_gid_param
+            syn_param = SynParam(
+                this_population,
+                source,
+                sec_type,
+                syn_name,
+                param_path,
+                None if phenotype == 'null' else phenotype,
+            )
+            this_param_tuples.append(
+                (syn_param, param_val)
+            )
+        params_tuple_dict[this_index] = this_param_tuples
+    return params_tuple_dict
+
+
 @click.command(context_settings=dict(
     ignore_unknown_options=True,
     allow_extra_args=True,
@@ -108,7 +149,7 @@ def main(config_path, params_id, n_samples, target_features_path, target_feature
     if target_features_namespace is not None:
         eval_config['target_features_namespace'] = target_features_namespace
 
-    network_param_spec_src = eval_config['param_spec']
+    network_param_spec_src = eval_config.get('param_spec', None)
     network_param_values = eval_config.get('param_values', {})
 
     feature_names = eval_config['feature_names']
@@ -133,7 +174,7 @@ def main(config_path, params_id, n_samples, target_features_path, target_feature
     target_features_arena = env.arena_id
     target_features_trajectory = env.trajectory_id
     for pop_name in target_populations:
-        if ('%s snr' % pop_name) not in feature_names:
+        if (f'{pop_name} snr') not in feature_names:
             continue
         my_cell_index_set = set(env.biophys_cells[pop_name].keys())
         trj_rate_maps = {}
@@ -145,40 +186,12 @@ def main(config_path, params_id, n_samples, target_features_path, target_feature
         target_trj_rate_map_dict[pop_name] = trj_rate_maps
 
 
-    network_param_spec = make_param_spec(target_populations, network_param_spec_src)
-
-    def from_param_list(x):
-        result = []
-        for pop_param in x:
-            this_population, source, sec_type, syn_name, param_path, param_val = pop_param
-            param_tuple = SynParam(this_population, source, sec_type, syn_name, param_path, None)
-            result.append((param_tuple, param_val))
-
-        return result
-
-    def from_param_dict(x):
-        result = []
-        for pop_name, param_specs in viewitems(x):
-            keyfun = lambda kv: str(kv[0])
-            for source, source_dict in sorted(viewitems(param_specs), key=keyfun):
-                for sec_type, sec_type_dict in sorted(viewitems(source_dict), key=keyfun):
-                    for syn_name, syn_mech_dict in sorted(viewitems(sec_type_dict), key=keyfun):
-                        for param_fst, param_rst in sorted(viewitems(syn_mech_dict), key=keyfun):
-                            if isinstance(param_rst, dict):
-                                for const_name, const_value in sorted(viewitems(param_rst)):
-                                    param_path = (param_fst, const_name)
-                                    param_tuple = SynParam(pop_name, source, sec_type, syn_name, param_path, const_value)
-                                    result.append(param_tuple, const_value)
-                            else:
-                                param_name = param_fst
-                                param_value = param_rst
-                                param_tuple = SynParam(pop_name, source, sec_type, syn_name, param_name, param_value)
-                                result.append(param_tuple, param_value)
-        return result
+    network_param_spec = None
+    if network_param_spec_src is not None:
+        network_param_spec = make_param_spec(target_populations, network_param_spec_src)
 
     eval_network(env, network_config,
-                 from_param_list, from_param_dict,
-                 network_param_spec, network_param_values, params_id,
+                 network_param_values, params_id,
                  target_trj_rate_map_dict, t_start, t_stop, 
                  target_populations, output_path)
 
@@ -267,18 +280,12 @@ def init_network(comm, kwargs):
     return env
 
 
-def eval_network(env, network_config, from_param_list, from_param_dict, network_params, network_param_values, params_id, target_trj_rate_map_dict, t_start, t_stop, target_populations, output_path):
+def eval_network(env, network_config, network_params, network_param_values, params_id, target_trj_rate_map_dict, t_start, t_stop, target_populations, output_path):
 
     param_tuple_values = None
     if params_id is not None:
         x = network_param_values[params_id]
-        if isinstance(x, list):
-            param_tuple_values = from_param_list(x)
-        elif isinstance(x, dict):
-            param_tuple_values = from_param_dict(x)
-        else:
-            raise RuntimeError(f"eval_network: invalid input parameters argument {x}")
-    
+        param_tuple_values = parse_flat_syn_params_with_index(x)
         if env.comm.rank == 0:
             logger.info("*** Updating network parameters ...")
             logger.info(pprint.pformat(param_tuple_values))
@@ -346,10 +353,10 @@ def collect_network_features(env, local_features, target_populations, output_pat
             logger.info(f'population {pop_name}: n_active = {n_active} n_total = {n_total} mean rate = {mean_rate}')
             logger.info(f'population {pop_name}: n_target_rate_map = {n_target_rate_map} snr: sum = {sum_snr} mean = {mean_snr}')
 
-            collected_features['%s fraction active' % pop_name] = fraction_active
-            collected_features['%s firing rate' % pop_name] = mean_rate
+            collected_features[f'{pop_name} fraction active'] = fraction_active
+            collected_features[f'{pop_name} firing rate'] = mean_rate
             if mean_snr is not None:
-                collected_features['%s snr' % pop_name] = mean_snr
+                collected_features[f'{pop_name} snr'] = mean_snr
 
         output_file = h5py.File(output_path, "a")
         network_grp = h5_get_group(output_file, 'DG_eval_network')

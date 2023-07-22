@@ -413,7 +413,7 @@ def network_features(env, target_trj_rate_map_dict, t_start, t_stop, target_popu
                     var_delta = np.var(spike_density_dict[gid]['rate'][:rate_map_len] - target_trj_rate_map)
                 else:
                     var_delta = target_var
-                snr = target_var / var_delta if var_delta > 0. else target_var
+                snr = target_var / var_delta if var_delta > 0. else 0.0
                 snrs.append(snr)
             sum_snr = np.sum(snrs)
     
