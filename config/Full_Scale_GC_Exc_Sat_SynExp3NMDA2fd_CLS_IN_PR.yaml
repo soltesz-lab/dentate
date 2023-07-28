@@ -47,8 +47,8 @@ Cell Types:
     synapses:
       density: !include BC_synapse_density.yaml
   AAC:
-    template: PRN_nrn
-    template file: PRN_nrn.hoc
+    template: PR_nrn
+    template file: PR_nrn.hoc
     mechanism file: DG_AAC_PR_config.yaml
     synapses:
       density: !include AAC_synapse_density.yaml
