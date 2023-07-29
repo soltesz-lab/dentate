@@ -961,8 +961,9 @@ def init_state_objfun(
     opt_param_config = optimization_params(
         env.netclamp_config.optimize_parameters,
         [population],
-        param_config_name,
-        param_type,
+        param_config_name=param_config_name,
+        phenotype_dict=env.phenotype_ids,
+        param_type=param_type,
     )
 
     opt_targets = opt_param_config.opt_targets
@@ -1119,8 +1120,9 @@ def init_rate_objfun(
     opt_param_config = optimization_params(
         env.netclamp_config.optimize_parameters,
         [population],
-        param_config_name,
-        param_type,
+        param_config_name=param_config_name,
+        phenotype_dict=env.phenotype_ids,
+        param_type=param_type,
     )
 
     opt_targets = opt_param_config.opt_targets
@@ -1379,8 +1381,9 @@ def init_rate_dist_objfun(
     opt_param_config = optimization_params(
         env.netclamp_config.optimize_parameters,
         [pop_name],
-        param_config_name,
-        param_type,
+        param_config_name=param_config_name,
+        phenotype_dict=env.phenotype_ids,
+        param_type=param_type,
     )
 
     opt_targets = opt_param_config.opt_targets
@@ -1503,8 +1506,9 @@ def optimize_run(
     opt_param_config = optimization_params(
         env.netclamp_config.optimize_parameters,
         [pop_name],
-        param_config_name,
-        param_type,
+        param_config_name=param_config_name,
+        phenotype_dict=env.phenotype_ids,
+        param_type=param_type,
     )
 
     opt_targets = opt_param_config.opt_targets

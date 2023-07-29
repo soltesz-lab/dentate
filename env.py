@@ -57,7 +57,7 @@ class Env(object):
                  results_path=None, results_file_id=None, results_namespace_id=None, 
                  node_rank_file=None, node_allocation=None, 
                  io_size=0, use_cell_attr_gen=False, cell_attr_gen_cache_size=10,
-                 recording_profile=None, recording_fraction=0.002,
+                 recording_profile=None, recording_fraction=0.002, recording_scale=100.,
                  tstart=0., tstop=0., v_init=-65, stimulus_onset=0.0, n_trials=1, 
                  max_walltime_hours=0.5, checkpoint_interval=500.0, checkpoint_clear_data=True, nrn_timeout=600,
                  results_write_time=0, dt=None, ldbal=False, lptbal=False, 
@@ -178,7 +178,7 @@ class Env(object):
         # Whether to use cell attribute generation for I/O operations
         # and number of cache (readahead) items
         self.use_cell_attr_gen = use_cell_attr_gen
-        self.cell_attr_gen_cache_size = cell_attr_gen_cache_size
+        self.cell_attr_gen_cache_size = int(cell_attr_gen_cache_size)
 
         # Initialization voltage
         self.v_init = float(v_init)
@@ -250,6 +250,7 @@ class Env(object):
         self.celltypes = self.model_config['Cell Types']
         self.cell_attribute_info = {}
         self.phenotype_dict = {}
+        self.phenotype_ids = {}
 
         # The name of this model
         if 'Model Name' in self.model_config:
@@ -370,6 +371,8 @@ class Env(object):
         # Configuration profile for recording intracellular quantities
         assert((recording_fraction >= 0.0) and (recording_fraction <= 1.0))
         self.recording_fraction = recording_fraction
+        assert recording_scale > 0.
+        self.recording_scale = recording_scale
         self.recording_profile = None
         if ('Recording' in self.model_config) and (recording_profile is not None):
             self.recording_profile = self.model_config['Recording']['Intracellular'][recording_profile]
@@ -824,6 +827,7 @@ class Env(object):
                 if 'phenotypes' in celltypes[k]:
                     celltypes[k]['phenotypes'] = parse_flat_syn_params(celltypes[k]['phenotypes'])
                     self.phenotype_dict[k] = {}
+                    self.phenotype_ids[k] = set(celltypes[k]['phenotypes'][k].keys())
                 if 'mechanism file' in celltypes[k]:
                     celltypes[k]['mech_file_path'] = os.path.join(self.config_prefix, celltypes[k]['mechanism file'])
                     mech_dict = None

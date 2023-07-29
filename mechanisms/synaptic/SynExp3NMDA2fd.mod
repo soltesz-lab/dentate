@@ -49,7 +49,7 @@ NEURON {
 	NONSPECIFIC_CURRENT i
 	RANGE  tau1_0, a1, tau2_0, a2, tauV, e, i, gVI, st_gVD, v0_gVD, Mg, K0, delta
         RANGE tau_D1, delta_D1, tau_F, delta_F
-	GLOBAL inf, tau1, tau2
+	RANGE inf, tau1, tau2
 	THREADSAFE
 }
 
@@ -174,7 +174,7 @@ DERIVATIVE state { LOCAL x
         d1 = 1 - (1 - d1)*exp(-(t - t0)/tau_D1)
         f = 1 + (f - 1)*exp(-(t - t0)/tau_F)
         t0 = t
-
+        
         wf  = weight*factor*d1*f
 	A = A + wf
 	B = B + wf

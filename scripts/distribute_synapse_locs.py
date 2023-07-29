@@ -1,4 +1,5 @@
 import os, sys, gc, logging, string, time, itertools
+from itertools import islice
 from mpi4py import MPI
 import click
 from collections import defaultdict
@@ -20,6 +21,13 @@ def mpi_excepthook(type, value, traceback):
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
 sys.excepthook = mpi_excepthook
+
+def split_every(n, iterable):
+    i = iter(iterable)
+    piece = list(islice(i, n))
+    while piece:
+        yield piece
+        piece = list(islice(i, n))
 
 
 def update_syn_stats(env, syn_stats_dict, syn_dict):
@@ -127,7 +135,7 @@ def check_syns(gid, morph_dict, syn_stats_dict, seg_density_per_sec, layer_set_d
 @click.option("--cache-size", type=int, default=1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
-@click.option("--write-size", type=int, default=1)
+@click.option("--write-size", type=int, default=100)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
 @click.option("--debug", is_flag=True)
@@ -251,20 +259,25 @@ def main(config, config_prefix, template_path, output_path, forest_path, populat
             else:
                 logger.info(f'Rank {rank} gid is None')
             gc.collect()
-            if (not dry_run) and (write_size > 0) and (gid_count % write_size == 0):
-                append_cell_attributes(output_path, population, synapse_dict,
-                                       namespace='Synapse Attributes', comm=comm, io_size=io_size, 
-                                       chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-                synapse_dict = {}
             syn_stats[population] = syn_stats_dict
             count += 1
-            if debug and count == 5:
+            if debug and count >= 20:
                 break
 
         if not dry_run:
-            append_cell_attributes(output_path, population, synapse_dict,
-                                   namespace='Synapse Attributes', comm=comm, io_size=io_size, 
-                                   chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+            if write_size > 0:
+                items = split_every(write_size, synapse_dict.items())
+                for chunk in items:
+                    synapse_chunk = dict(chunk)
+                    append_cell_attributes(output_path, population, synapse_chunk,
+                                           namespace='Synapse Attributes', comm=comm, io_size=io_size, 
+                                           chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+                    comm.barrier()
+            else:
+                append_cell_attributes(output_path, population, synapse_dict,
+                                       namespace='Synapse Attributes', comm=comm, io_size=io_size, 
+                                       chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+                comm.barrier()
 
         global_count, summary = global_syn_summary(comm, syn_stats, gid_count, root=0)
         if rank == 0:

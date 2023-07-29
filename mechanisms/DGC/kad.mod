@@ -15,7 +15,6 @@ UNITS {
 	(mA) = (milliamp)
 	(mV) = (millivolt)
 	(mS) = (millisiemens)
-    (mol) = (1)
 }
 
 PARAMETER {

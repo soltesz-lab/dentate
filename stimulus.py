@@ -1361,7 +1361,7 @@ def bin_stimulus_features(features, t, bin_size, time_range):
 
 def rate_maps_from_features (env, population, cell_index_set, input_features_path=None, input_features_namespace=None, 
                              input_features_dict=None, arena_id=None, trajectory_id=None, time_range=None,
-                             include_time=False, phase_mod_config=None):
+                             include_time=False, phase_mod_config=None, include_empty=False):
     
     """Initializes presynaptic spike sources from a file with input selectivity features represented as firing rates."""
 
@@ -1435,8 +1435,14 @@ def rate_maps_from_features (env, population, cell_index_set, input_features_pat
                                                   selectivity_type_names=selectivity_type_names,
                                                   selectivity_attr_dict=selectivity_attr_dict,
                                                   phase_mod_config=phase_mod_config)
+        if not include_empty:
+            if hasattr(input_cell_config, 'num_fields'):
+                if input_cell_config.num_fields < 1:
+                    continue
+
         rate_map = input_cell_config.get_rate_map(x=x, y=y, velocity=velocity if phase_mod_config is not None else None)
         rate_map[np.isclose(rate_map, 0., atol=1e-3, rtol=1e-3)] = 0.
+
 
         if include_time:
             input_rate_map_dict[gid] = (t, rate_map)

@@ -60,6 +60,7 @@ class InitMessageTag(IntEnum):
     
 def parse_optimization_param_dict(pop_name,
                                   param_dict,
+                                  phenotype_id = None,
                                   keyfun = lambda kv: str(kv[0]),
                                   param_tuples = [],
                                   param_initial_dict = {},
@@ -72,8 +73,29 @@ def parse_optimization_param_dict(pop_name,
                     if isinstance(param_rst, dict):
                         for const_name, const_range in sorted(viewitems(param_rst)):
                             param_path = (param_fst, const_name)
-                            param_tuples.append(SynParam(pop_name, source, sec_type, syn_name, param_path, const_range))
-                            param_key = '%s.%s.%s.%s.%s.%s' % (pop_name, str(source), sec_type, syn_name, param_fst, const_name)
+                            param_tuples.append(SynParam(pop_name,
+                                                         source,
+                                                         sec_type,
+                                                         syn_name,
+                                                         param_path,
+                                                         const_range,
+                                                         phenotype_id))
+                            if phenotype_id is not None:
+                                param_key = '%s.%d.%s.%s.%s.%s.%s' % (pop_name,
+                                                                      phenotype_id,
+                                                                      str(source),
+                                                                      sec_type,
+                                                                      syn_name,
+                                                                      param_fst,
+                                                                      const_name)
+                            else:
+                                param_key = '%s.%s.%s.%s.%s.%s' % (pop_name,
+                                                                   str(source),
+                                                                   sec_type,
+                                                                   syn_name,
+                                                                   param_fst,
+                                                                   const_name)
+                                
                             param_initial_value = (const_range[1] - const_range[0]) / 2.0
                             param_initial_dict[param_key] = param_initial_value
                             param_bounds[param_key] = const_range
@@ -81,8 +103,25 @@ def parse_optimization_param_dict(pop_name,
                     else:
                         param_name = param_fst
                         param_range = param_rst
-                        param_tuples.append(SynParam(pop_name, source, sec_type, syn_name, param_name, param_range))
-                        param_key = '%s.%s.%s.%s.%s' % (pop_name, source, sec_type, syn_name, param_name)
+                        param_tuples.append(SynParam(pop_name,
+                                                     source,
+                                                     sec_type,
+                                                     syn_name,
+                                                     param_name,
+                                                     param_range,
+                                                     phenotype_id))
+                        if phenotype_id is not None:
+                            param_key = '%s.%d.%s.%s.%s.%s' % (pop_name,
+                                                               phenotype_id,
+                                                               source,
+                                                               sec_type,
+                                                               syn_name,                                                                                                             param_name)
+                        else:
+                            param_key = '%s.%s.%s.%s.%s' % (pop_name,
+                                                            source,
+                                                            sec_type,
+                                                            syn_name,                                                                                                             param_name)
+                            
                         param_initial_value = (param_range[1] - param_range[0]) / 2.0
                         param_initial_dict[param_key] = param_initial_value
                         param_bounds[param_key] = param_range
@@ -91,6 +130,7 @@ def parse_optimization_param_dict(pop_name,
                             
 def parse_optimization_param_entries(pop_name,
                                      param_entries,
+                                     phenotype_dict = {},
                                      keyfun = lambda kv: str(kv[0]),
                                      param_tuples = [],
                                      param_initial_dict = {},
@@ -100,21 +140,51 @@ def parse_optimization_param_entries(pop_name,
     if isinstance(param_entries, dict):
         parse_optimization_param_dict(pop_name,
                                       param_entries,
-                                      keyfun = lambda kv: str(kv[0]),
-                                      param_tuples = [],
-                                      param_initial_dict = {},
-                                      param_bounds = {},
-                                      param_names = [])
+                                      keyfun=keyfun,
+                                      param_tuples = param_tuples,
+                                      param_initial_dict = param_initial_dict,
+                                      param_bounds = param_bounds,
+                                      param_names = param_names)
     elif isinstance(param_entries, list):
-        # each entry is list x, where x[0] is options, x[1] is param_dict
-        # TODO: pass env so that phenotype-specific optimization parameters can be instantiated
-        raise NotImplementedError
+        for param_entry in param_entries:
+            if isinstance(param_entry, dict):
+                parse_optimization_param_dict(pop_name,
+                                              param_entry,
+                                              keyfun=keyfun,
+                                              param_tuples = param_tuples,
+                                              param_initial_dict = param_initial_dict,
+                                              param_bounds = param_bounds,
+                                              param_names = param_names)
+                continue
+            optimization_options = param_entry[0]
+            param_dict = param_entry[1]
+            # Instantiate parameter entries for each phenotype
+            if optimization_options.get("phenotype", False):
+                phenotype_ids = phenotype_dict[pop_name]
+                if len(phenotype_ids) > 1:
+                    for phenotype_id in phenotype_ids:
+                        parse_optimization_param_dict(pop_name,
+                                                      param_dict,
+                                                      keyfun=keyfun,
+                                                      phenotype_id=phenotype_id,
+                                                      param_tuples = param_tuples,
+                                                      param_initial_dict = param_initial_dict,
+                                                      param_bounds = param_bounds,
+                                                      param_names = param_names)
+                    else:
+                        parse_optimization_param_dict(pop_name,
+                                                      param_dict,
+                                                      keyfun=keyfun,
+                                                      param_tuples = param_tuples,
+                                                      param_initial_dict = param_initial_dict,
+                                                      param_bounds = param_bounds,
+                                                      param_names = param_names)
     else:
         raise RuntimeError(f"Invalid optimization parameter object: {param_entries}")
             
 
     
-def optimization_params(optimization_config, pop_names, param_config_name, param_type='synaptic'):
+def optimization_params(optimization_config, pop_names, param_config_name, phenotype_dict={}, param_type='synaptic'):
 
     """Constructs a flat list representation of synaptic optimization parameters based on network clamp optimization configuration."""
     
@@ -135,12 +205,13 @@ def optimization_params(optimization_config, pop_names, param_config_name, param
             for target_name, target_val in viewitems(opt_params['Targets']):
                 opt_targets[f'{pop_name} {target_name}'] = target_val
             
-            parse_optimization_param_dict(pop_name,
-                                          param_ranges,
-                                          param_bounds=param_bounds, 
-                                          param_names=param_names, 
-                                          param_initial_dict=param_initial_dict, 
-                                          param_tuples=param_tuples, )
+            parse_optimization_param_entries(pop_name,
+                                             param_ranges,
+                                             phenotype_dict=phenotype_dict,
+                                             param_bounds=param_bounds, 
+                                             param_names=param_names, 
+                                             param_initial_dict=param_initial_dict, 
+                                             param_tuples=param_tuples, )
 
         else:
             raise RuntimeError("optimization_params: unknown parameter type %s" % param_type)
@@ -197,7 +268,7 @@ def update_network_params(env, param_tuples):
     for population in env.biophys_cells:
         
         synapse_config = env.celltypes[population].get('synapses', {})
-        phenotype_dict = env.phenotypes.get(population, None)
+        phenotype_dict = env.phenotype_dict.get(population, None)
         weights_dict = synapse_config.get('weights', {})
         
         for param_tuple, param_value in param_tuples:
@@ -337,12 +408,14 @@ def network_features(env, target_trj_rate_map_dict, t_start, t_stop, target_popu
             for gid in pop_target_trj_rate_map_dict:
                 target_trj_rate_map = pop_target_trj_rate_map_dict[gid]
                 rate_map_len = len(target_trj_rate_map)
-                target_var = np.var(target_trj_rate_map)
                 if gid in spike_density_dict:
-                    var_delta = np.var(spike_density_dict[gid]['rate'][:rate_map_len] - target_trj_rate_map)
+                    measured_rate = spike_density_dict[gid]['rate'][:rate_map_len]
+                    ref_signal = target_trj_rate_map - np.mean(target_trj_rate_map)
+                    signal = measured_rate - np.mean(measured_rate)
+                    noise  = signal - ref_signal
+                    snr = np.var(signal) / max(np.var(noise), 1e-6)
                 else:
-                    var_delta = target_var
-                snr = target_var / var_delta if var_delta > 0. else target_var
+                    snr = 0.
                 snrs.append(snr)
             sum_snr = np.sum(snrs)
     

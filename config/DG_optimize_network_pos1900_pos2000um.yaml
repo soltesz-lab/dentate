@@ -1,0 +1,28 @@
+param_config_name: "Weight exc inh microcircuit SynExp3NMDA2"
+objective_names:
+- GC snr
+- GC firing rate
+- GC fraction active
+- MC snr
+- MC firing rate
+- MC fraction active
+- AAC firing rate
+- BC firing rate
+- HC firing rate
+- HCC firing rate
+- IS firing rate
+- MOPP firing rate
+- NGFC firing rate
+target_populations: ['GC', 'MC', 'AAC', 'BC', 'HC', 'HCC', 'IS', 'MOPP', 'NGFC']
+kwargs:
+  config: Network_Clamp_Slice_pos1900_pos2000um_SynExp3NMDA2fd_CLS_IN_PR.yaml
+  tstop: 8000.
+  checkpoint_interval: 0.
+  v_init: -77.
+  dt: 0.025
+  cleanup: False
+  verbose: True
+  cache_queries: True
+  output_results: False
+  use_coreneuron: True
+

@@ -191,7 +191,7 @@ def connect_cells(env):
                 syn_attrs.init_syn_id_attrs_from_iter(syn_attrs_iter, attr_type='tuple', 
                                                       attr_tuple_index=syn_attrs_info, debug=(rank == 0))
 
-        phenotype_dict = env.phenotype_dict[postsyn_name]
+        phenotype_dict = env.phenotype_dict.get(postsyn_name, None)
         if has_phenotypes:
 
             phenotype_dict = {}
@@ -544,7 +544,7 @@ def connect_cell_selection(env):
             if (postsyn_name in env.cell_attribute_info) and ('Phenotype ID' in env.cell_attribute_info[postsyn_name]):
                 has_phenotypes = True
 
-        phenotype_dict = env.phenotype_dict[postsyn_name]
+        phenotype_dict = env.phenotype_dict.get(postsyn_name, None)
         if has_phenotypes:
 
             phenotype_namespace = "Phenotype ID"
@@ -953,6 +953,8 @@ def make_cells(env):
             first_gid = None
 
             if env.use_cell_attr_gen:
+                if rank == 0:
+                    logger.info(f"data_file_path = {data_file_path} io_size={env.io_size} cache_size={env.cell_attr_gen_cache_size}")
                 if env.node_allocation is None:
                     tree_attr_gen = NeuroH5TreeGen(data_file_path, pop_name,
                                                    comm=env.comm, topology=True,
@@ -1079,9 +1081,12 @@ def make_cells(env):
         logger.info(f"Rank {rank}: env.comm.rank = {env.comm.rank}")
         if rank == 0:
             all_pop_biophys_gids = sorted([item for sublist in pop_biophys_gids_per_rank for item in sublist])
-            for gid in all_pop_biophys_gids:
-                if ranstream_recording.uniform() <= env.recording_fraction:
-                    recording_set.add(gid)
+            num_biophys_gids = len(all_pop_biophys_gids)
+            if num_biophys_gids > 0:
+                rescaled_recording_fraction = float(env.recording_fraction) / (float(num_biophys_gids) / env.recording_scale)
+                for gid in all_pop_biophys_gids:
+                    if ranstream_recording.uniform() <= rescaled_recording_fraction:
+                        recording_set.add(gid)
 
         req1 = env.comm.Ibarrier()
         recording_set = env.comm.bcast(recording_set, root=0)
