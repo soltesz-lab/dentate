@@ -481,7 +481,6 @@ def init_selectivity_objfun(
                 outfld_rate_vector = masked_rate_vectors[trial_i]
                 
             n = min(len(rate_vector), len(target_rate_vector))
-            
             trial_mean_peak = np.mean(rate_vector[peak_idxs])
             trial_mean_trough = np.mean(rate_vector[trough_idxs])
             trial_min_infld = np.min(infld_rate_vector)
@@ -491,9 +490,11 @@ def init_selectivity_objfun(
             if outfld_rate_vector is not None:
                 trial_mean_outfld = np.mean(outfld_rate_vector)
             trial_mean_masked = np.mean(masked_rate_vectors[trial_i])
-                
-            var_delta = np.var(rate_vector[:n] - target_rate_vector[:n])
-            trial_snr = target_var / var_delta
+
+            ref_signal = target_rate_vector[:n] - np.mean(target_rate_vector[:n])
+            signal = rate_vector[:n] - np.mean(rate_vector[:n])
+            noise  = signal - ref_signal
+            trial_snr = np.var(signal) / max(np.var(noise), 1e-6)
 
             logger.info(
                 f"selectivity objective: gid {gid} trial {trial_i}: max infld/mean infld/mean peak/trough/mean outfld/snr: "

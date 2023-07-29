@@ -1082,10 +1082,11 @@ def make_cells(env):
         if rank == 0:
             all_pop_biophys_gids = sorted([item for sublist in pop_biophys_gids_per_rank for item in sublist])
             num_biophys_gids = len(all_pop_biophys_gids)
-            rescaled_recording_fraction = float(env.recording_fraction) / (float(num_biophys_gids) / env.recording_scale)
-            for gid in all_pop_biophys_gids:
-                if ranstream_recording.uniform() <= rescaled_recording_fraction:
-                    recording_set.add(gid)
+            if num_biophys_gids > 0:
+                rescaled_recording_fraction = float(env.recording_fraction) / (float(num_biophys_gids) / env.recording_scale)
+                for gid in all_pop_biophys_gids:
+                    if ranstream_recording.uniform() <= rescaled_recording_fraction:
+                        recording_set.add(gid)
 
         req1 = env.comm.Ibarrier()
         recording_set = env.comm.bcast(recording_set, root=0)

@@ -408,12 +408,14 @@ def network_features(env, target_trj_rate_map_dict, t_start, t_stop, target_popu
             for gid in pop_target_trj_rate_map_dict:
                 target_trj_rate_map = pop_target_trj_rate_map_dict[gid]
                 rate_map_len = len(target_trj_rate_map)
-                target_var = np.var(target_trj_rate_map)
                 if gid in spike_density_dict:
-                    var_delta = np.var(spike_density_dict[gid]['rate'][:rate_map_len] - target_trj_rate_map)
+                    measured_rate = spike_density_dict[gid]['rate'][:rate_map_len]
+                    ref_signal = target_trj_rate_map - np.mean(target_trj_rate_map)
+                    signal = measured_rate - np.mean(measured_rate)
+                    noise  = signal - ref_signal
+                    snr = np.var(signal) / max(np.var(noise), 1e-6)
                 else:
-                    var_delta = target_var
-                snr = target_var / var_delta if var_delta > 0. else 0.0
+                    snr = 0.
                 snrs.append(snr)
             sum_snr = np.sum(snrs)
     
