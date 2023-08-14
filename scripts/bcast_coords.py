@@ -38,7 +38,7 @@ def main(config, coords_path, coords_namespace, distances_namespace, populations
     comm = MPI.COMM_WORLD
     rank = comm.rank
 
-    env = Env(comm=comm, config_file=config)
+    env = Env(comm=comm, config=config)
     output_path = coords_path
 
     soma_coords = {}

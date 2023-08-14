@@ -1897,7 +1897,7 @@ def get_mech_rules_dict(cell, **rules):
     """
     rules_dict = {name: rules[name] for name in
                   (name for name in ['value', 'origin', 'slope', 'tau', 'xhalf', 'min', 'max', 'min_loc', 'max_loc',
-                                     'outside', 'custom'] if name in rules and rules[name] is not None)}
+                                     'outside', 'decay', 'custom'] if name in rules and rules[name] is not None)}
     if 'origin' in rules_dict:
         origin_type = rules_dict['origin']
         valid_sec_types = [sec_type for sec_type in cell.nodes if len(cell.nodes[sec_type]) > 0]
@@ -2137,7 +2137,7 @@ def set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor=Non
     :param rules: dict
     :param donor: :class:'SHocNode' or None
     """
-    if not ('min_loc' in rules or 'max_loc' in rules or 'slope' in rules):
+    if not ('min_loc' in rules or 'max_loc' in rules or 'slope' in rules or 'decay' in rules):
         if mech_name == 'ions':
             setattr(node.sec, param_name, baseline)
         else:
@@ -2159,6 +2159,7 @@ def set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor=Non
         tau = rules.get('tau', None)
         xhalf = rules.get('xhalf', None)
         outside = rules.get('outside', None)
+        decay = rules.get('decay', None)
 
         # No need to insert the mechanism into the section if no segment matches location constraints
         min_seg_distance = get_distance_to_node(cell, donor, node, 0.5 / node.sec.nseg)
@@ -2173,7 +2174,7 @@ def set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor=Non
             for seg in node.sec:
                 distance = get_distance_to_node(cell, donor, node, seg.x)
                 value = get_param_val_by_distance(distance, baseline, slope, min_distance, max_distance, min_val,
-                                                  max_val, tau, xhalf, outside)
+                                                  max_val, tau, xhalf, outside, decay)
                 if value is not None:
                     if mech_name == 'ions':
                         setattr(seg, param_name, value)
@@ -2182,7 +2183,7 @@ def set_mech_param(cell, node, mech_name, param_name, baseline, rules, donor=Non
 
 
 def get_param_val_by_distance(distance, baseline, slope, min_distance, max_distance=None, min_val=None, max_val=None,
-                              tau=None, xhalf=None, outside=None):
+                              tau=None, xhalf=None, outside=None, decay=None):
     """
     By default, if only some segments or synapses in a section meet the location constraints, the parameter inherits the
     mechanism's default value. if another value is desired, it can be specified via an 'outside' key in the mechanism
@@ -2211,6 +2212,12 @@ def get_param_val_by_distance(distance, baseline, slope, min_distance, max_dista
                     value = offset + slope * np.exp(distance / tau)
             else:  # linear gradient
                 value = baseline + slope * distance
+            if min_val is not None and value < min_val:
+                value = min_val
+            elif max_val is not None and value > max_val:
+                value = max_val
+        elif decay is not None: # exponential decay
+            value = baseline * (1 - decay)**distance
             if min_val is not None and value < min_val:
                 value = min_val
             elif max_val is not None and value > max_val:
@@ -2263,7 +2270,7 @@ def apply_custom_mech_rules(cell, node, mech_name, param_name, baseline, rules, 
     if 'func' not in rules['custom'] or rules['custom']['func'] is None:
         raise RuntimeError('apply_custom_mech_rules: no custom function provided for mechanism: %s parameter: %s in '
                            'sec_type: %s' % (mech_name, param_name, node.type))
-    if rules['custom']['func'] in globals() and isinstance(globals()[rules['custom']['func']], collections.Callable):
+    if rules['custom']['func'] in globals() and isinstance(globals()[rules['custom']['func']], collections.abc.Callable):
         func = globals()[rules['custom']['func']]
     else:
         raise RuntimeError('apply_custom_mech_rules: problem locating custom function: %s for mechanism: %s '
@@ -2890,7 +2897,7 @@ def load_biophys_cell_dicts(env, pop_name, gid_set, load_connections=True, valid
     :param validate_tree: bool
 
     Environment can be instantiated as:
-    env = Env(config_file, template_paths, dataset_prefix, config_prefix)
+    env = Env(config, template_paths, dataset_prefix, config_prefix)
     :param template_paths: str; colon-separated list of paths to directories containing hoc cell templates
     :param dataset_prefix: str; path to directory containing required neuroh5 data files
     :param config_prefix: str; path to directory containing network and cell mechanism config files
@@ -2910,12 +2917,20 @@ def load_biophys_cell_dicts(env, pop_name, gid_set, load_connections=True, valid
         has_clusters = True
         cluster_config = synapse_config['clusters']
 
+    has_phenotypes = False
+    phenotype_config = None
+    if 'phenotypes' in env.celltypes[pop_name]:
+        phenotype_config = env.celltypes[pop_name]['phenotypes']
+        if (pop_name in env.cell_attribute_info) and ('Phenotype ID' in env.cell_attribute_info[pop_name]):
+            has_phenotypes = True
+
     ## Loads cell morphological data, synaptic attributes and connection data
 
     tree_dicts = {}
     synapses_dicts = {}
     weight_dicts = {}
     cluster_dicts = {}
+    phenotype_dicts = {}
     connection_graphs = { gid: { pop_name: {} } for gid in gid_set }
     graph_attr_info = None
     
@@ -2935,6 +2950,24 @@ def load_biophys_cell_dicts(env, pop_name, gid_set, load_connections=True, valid
         for gid, attr_dict in synapses_iter:
             synapses_dicts[gid] = attr_dict
 
+        if has_phenotypes:
+
+            phenotype_dict = {}
+
+            phenotype_namespace = "Phenotype ID"
+            phenotype_attr_mask = set(['phenotype_id'])
+
+            phenotype_attrs_iter = read_cell_attribute_selection(env.data_file_path, pop_name,
+                                                                 selection=gid_list,
+                                                                 namespace=phenotype_namespace, 
+                                                                 mask=phenotype_attr_mask,
+                                                                 comm=env.comm)
+
+            for gid, cell_phenotype_attrs in phenotype_attrs_iter:
+                phenotype_id = cell_phenotype_attrs['phenotype_id'][0]
+                phenotype_dicts[gid] = phenotype_id
+
+            
         if has_clusters:
             cluster_namespace = cluster_config['namespace']
             cluster_iter = read_cell_attribute_selection(env.data_file_path, pop_name,
@@ -2977,10 +3010,12 @@ def load_biophys_cell_dicts(env, pop_name, gid_set, load_connections=True, valid
             cluster_dict = cluster_dicts.get(gid, None)
             weight_dict = weight_dicts.get(gid, None)
             connection_graph = connection_graphs[gid]
+            phenotype_dict = phenotype_dicts.get(gid, None)
             this_cell_dict['synapse'] = synapses_dict
             this_cell_dict['connectivity'] = connection_graph, graph_attr_info
             this_cell_dict['weight'] = weight_dict
             this_cell_dict['cluster'] = cluster_dict
+            this_cell_dict['phenotype'] = phenotype_dict
         cell_dicts[gid] = this_cell_dict
         
     
@@ -3050,12 +3085,12 @@ def init_circuit_context(env, pop_name, gid,
 
         elif load_clusters:
             if (env.data_file_path is None):
-                raise RuntimeError('init_circuit_context: load_=True but data file path is not specified ')
+                raise RuntimeError('init_circuit_context: load_clusters=True but data file path is not specified ')
                 
             cell_clusters_iter = read_cell_attribute_selection(env.data_file_path, pop_name, 
                                                                selection=[gid], 
                                                                namespace=cluster_namespace,
-                                                               mask=set(['syn_ids', 'syn_locs', 'syn_secs']),
+                                                               mask=set(['syn_ids', 'syn_secs', 'syn_locs']),
                                                                comm=env.comm)
             for cell_clusters_gid, cell_cluster_dict in cell_clusters_iter:
                 assert(cell_clusters_gid == gid)
@@ -3149,7 +3184,7 @@ def make_biophys_cell(env, pop_name, gid,
                       load_synapses=False, synapses_dict=None, 
                       load_edges=False, connection_graph=None,
                       load_weights=False, weight_dict=None, 
-                      load_clusters=False, cluster_dict=None, 
+                      load_clusters=False, cluster_dict=None,
                       set_edge_delays=True, bcast_template=True,
                       validate_tree=True,
                       **kwargs):
@@ -3173,7 +3208,7 @@ def make_biophys_cell(env, pop_name, gid,
         tree_attr_iter, _ = read_tree_selection(env.data_file_path, pop_name, [gid], comm=env.comm, 
                                                 topology=True, validate=validate_tree)
         _, tree_dict = next(tree_attr_iter)
-        
+
     hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict)
     cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env,
                        mech_file_path=mech_file_path, mech_dict=mech_dict)
@@ -3359,7 +3394,7 @@ def register_cell(env, pop_name, gid, cell):
     :param gid: gid
     :param cell: cell instance
     """
-    rank = env.comm.rank
+    rank = env.pc.id()
     env.gidset.add(gid)
     env.pc.set_gid2node(gid, rank)
     hoc_cell = getattr(cell, 'hoc_cell', cell)

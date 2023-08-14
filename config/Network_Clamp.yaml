@@ -176,37 +176,39 @@ Synaptic Optimization:
             GABA_B:
               weight: [0.005, 1.0]
       Weight exc inh microcircuit SynExp3NMDA2:
-        !!python/tuple [MPP, LPP]:
-          apical:
-            AMPA:
-              weight: 
-                a: [1.0, 10.0]
-                b: [0.5, 5.0]
-            NMDA:
-              gVI: [0.00001, 0.0001]
-        !!python/tuple [MC, ConMC]:
-          apical:
-            AMPA:
-              weight: 
-                c: [0.1, 5.0]
-            NMDA:
-              gVI: [0.00001, 0.0001]
-        AAC:
-         ais:
-            GABA_A:
-              weight: [0.1, 10.0]
-        !!python/tuple [BC, HC]:
-         !!python/tuple [soma, apical]:
-            GABA_A:
-              weight: [0.1, 10.0]
-        !!python/tuple [HCC, MOPP, NGFC]:
-          apical:
-            GABA_A:
-              weight: [0.1, 10.0]
-        NGFC:
-          apical:
-            GABA_B:
-              weight: [0.1, 10.0]
+        - - { phenotype: True }
+          - !!python/tuple [MPP, LPP]:
+              apical:
+                AMPA:
+                  weight: 
+                    a: [1.0, 10.0]
+                    b: [0.5, 5.0]
+                NMDA:
+                  gVI: [0.00001, 0.001]
+        - - { phenotype: True }
+          - !!python/tuple [MC, ConMC]:
+              apical:
+                AMPA:
+                  weight: 
+                    c: [0.1, 5.0]
+                NMDA:
+                  gVI: [0.00001, 0.001]
+        - AAC:
+            ais:
+              GABA_A:
+                weight: [0.1, 4.0]
+          !!python/tuple [BC, HC]:
+            !!python/tuple [soma, apical]:
+              GABA_A:
+                weight: [0.1, 4.0]
+          !!python/tuple [HCC, MOPP, NGFC]:
+            apical:
+              GABA_A:
+                weight: [0.1, 4.0]
+          NGFC:
+            apical:
+              GABA_B:
+                weight: [0.1, 4.0]
       Weight exc inh microcircuit wide:
         !!python/tuple [MC, ConMC]:
           apical:
@@ -257,37 +259,83 @@ Synaptic Optimization:
           apical:
             AMPA:
               weight: 
-                c: [0.1, 5.0]
+                c: [0.1, 10.0]
        AAC:
           ais:
             GABA_A:
-              weight: [0.1, 10.0]
+              weight: [0.1, 4.0]
        NGFC:
           apical:
             GABA_A:
-              weight: [0.1, 10.0]
+              weight: [0.1, 4.0]
        MOPP:
           apical:
             GABA_A:
-              weight: [0.1, 20.0]
+              weight: [0.1, 4.0]
        HCC:
           apical:
             GABA_A:
-              weight: [0.1, 20.0]
+              weight: [0.1, 4.0]
        BC:
           !!python/tuple [soma, apical]:
             GABA_A:
-              weight: [0.1, 10.0]
+              weight: [0.1, 4.0]
        HC:
           apical:
             GABA_A:
-              weight: [0.1, 10.0]
+              weight: [0.1, 4.0]
        NGFC:
           apical:
             GABA_A:
-              weight: [0.1, 10.0]
+              weight: [0.1, 4.0]
             GABA_B:
-              weight: [0.1, 10.0]
+              weight: [0.1, 4.0]
+      Weight selectivity facilNMDA:
+       !!python/tuple [MPP, LPP]:
+          apical:
+            AMPA:
+              weight: 
+                a: [1.0, 10.0]
+                b: [0.5, 5.0]
+            NMDA:
+              g_unit: [0.00001, 0.0005]
+       !!python/tuple [MC, ConMC]:
+          apical:
+            AMPA:
+              weight: 
+                c: [0.1, 10.0]
+            NMDA:
+              g_unit: [0.00001, 0.0005]
+       AAC:
+          ais:
+            GABA_A:
+              weight: [0.1, 4.0]
+       NGFC:
+          apical:
+            GABA_A:
+              weight: [0.1, 4.0]
+       MOPP:
+          apical:
+            GABA_A:
+              weight: [0.1, 4.0]
+       HCC:
+          apical:
+            GABA_A:
+              weight: [0.1, 4.0]
+       BC:
+          !!python/tuple [soma, apical]:
+            GABA_A:
+              weight: [0.1, 4.0]
+       HC:
+          apical:
+            GABA_A:
+              weight: [0.1, 4.0]
+       NGFC:
+          apical:
+            GABA_A:
+              weight: [0.1, 4.0]
+            GABA_B:
+              weight: [0.1, 4.0]
       Weight selectivity SynExp3NMDA2:
        !!python/tuple [MPP, LPP]:
           apical:
@@ -296,44 +344,90 @@ Synaptic Optimization:
                 a: [1.0, 10.0]
                 b: [0.5, 5.0]
             NMDA:
-              gVI: [0.00001, 0.0001]
+              gVI: [0.000001, 0.001]
        !!python/tuple [MC, ConMC]:
           apical:
             AMPA:
               weight: 
                 c: [0.1, 5.0]
             NMDA:
-              gVI: [0.00001, 0.0001]
+              gVI: [0.000001, 0.001]
        AAC:
           ais:
             GABA_A:
-              weight: [0.1, 10.0]
+              weight: [0.1, 4.0]
        NGFC:
           apical:
             GABA_A:
-              weight: [0.1, 10.0]
+              weight: [0.1, 4.0]
        MOPP:
           apical:
             GABA_A:
-              weight: [0.1, 10.0]
+              weight: [0.1, 4.0]
        HCC:
           apical:
             GABA_A:
-              weight: [0.1, 10.0]
+              weight: [0.1, 4.0]
        BC:
           !!python/tuple [soma, apical]:
             GABA_A:
-              weight: [0.1, 10.0]
+              weight: [0.1, 4.0]
        HC:
           apical:
             GABA_A:
-              weight: [0.1, 10.0]
+              weight: [0.1, 4.0]
        NGFC:
           apical:
             GABA_A:
-              weight: [0.1, 10.0]
+              weight: [0.1, 4.0]
             GABA_B:
-              weight: [0.1, 10.0]
+              weight: [0.1, 4.0]
+      Weight selectivity SynExp3NMDA2fd:
+       !!python/tuple [LPP, MPP]:
+          apical:
+            AMPA:
+              weight: 
+                a: [1.0, 10.0]
+                b: [0.5, 5.0]
+            NMDA:
+              gVI: [0.00001, 0.001]
+       !!python/tuple [MC, ConMC]:
+          apical:
+            AMPA:
+              weight: 
+                c: [0.1, 5.0]
+            NMDA:
+              gVI: [0.00001, 0.001]
+       AAC:
+          ais:
+            GABA_A:
+              weight: [0.1, 4.0]
+       NGFC:
+          apical:
+            GABA_A:
+              weight: [0.1, 4.0]
+       MOPP:
+          apical:
+            GABA_A:
+              weight: [0.1, 4.0]
+       HCC:
+          apical:
+            GABA_A:
+              weight: [0.1, 4.0]
+       BC:
+          !!python/tuple [soma, apical]:
+            GABA_A:
+              weight: [0.1, 4.0]
+       HC:
+          apical:
+            GABA_A:
+              weight: [0.1, 4.0]
+       NGFC:
+          apical:
+            GABA_A:
+              weight: [0.1, 4.0]
+            GABA_B:
+              weight: [0.1, 4.0]
       Weight selectivity all-dend SynExp3NMDA2:
        !!python/tuple [MPP, LPP]:
           apical:
@@ -342,14 +436,14 @@ Synaptic Optimization:
                 a: [1.0, 10.0]
                 b: [0.5, 5.0]
             NMDA:
-              gVI: [0.00001, 0.0001]
+              gVI: [0.00001, 0.001]
        !!python/tuple [MC, ConMC]:
           apical:
             AMPA:
               weight: 
                 c: [0.1, 10.0]
             NMDA:
-              gVI: [0.00001, 0.0001]
+              gVI: [0.00001, 0.001]
        AAC:
           ais:
             GABA_A:
@@ -509,15 +603,15 @@ Synaptic Optimization:
         AAC:
           ais:
             GABA_A:
-              weight: [0.1, 4.0]
+              weight: [0.1, 3.0]
         !!python/tuple [BC, HC]:
           !!python/tuple [apical, soma]:
             GABA_A:
-              weight: [0.1, 4.0]
+              weight: [0.1, 3.0]
         HCC:
           !!python/tuple [apical, soma]:
             GABA_A:
-              weight: [0.1, 4.0]
+              weight: [0.1, 3.0]
       Weight exc inh microcircuit wide:
         !!python/tuple [GC, MC]:
           apical:
@@ -599,7 +693,7 @@ Synaptic Optimization:
         !!python/tuple [GC, MC, CA3c]:
           apical:
             NMDA:
-              gVI: [0.00001, 0.0001]
+              gVI: [0.000001, 0.001]
         AAC:
           ais:
             GABA_A:

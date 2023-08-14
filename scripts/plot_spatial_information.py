@@ -13,16 +13,17 @@ script_name = os.path.basename(__file__)
 @click.option("--config", required=True, type=str)
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
               default='config')
-@click.option("--spike-events-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.option("--spike-events-path", '-p', required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--spike-events-namespace", '-n', type=str, default='Spike Events')
 @click.option("--spike-train-attr-name", type=str, default='t')
-@click.option("--populations", '-p', type=str, multiple=True, default=None)
+@click.option("--populations", '-i', type=str, multiple=True, default=None)
 @click.option("--include-artificial/--exclude-artificial", type=bool, default=True, is_flag=True)
 @click.option("--t-max", type=float)
 @click.option("--t-min", type=float)
 @click.option("--trajectory-path", required=True, type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.option("--arena-id", '-a', type=str, default='Default')
 @click.option("--trajectory-id", '-t', type=str, default='Default')
+@click.option("--threshold", type=float, default=0.01)
 @click.option("--bin-size", '-b', type=float, default=10.0)
 @click.option("--output-file-path", required=False, type=str, default=None)
 @click.option("--save-fig", required=False, type=str, default=None)
@@ -32,7 +33,7 @@ script_name = os.path.basename(__file__)
 @click.option("--fig-format", required=False, type=str, default='svg')
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
 def main(config, config_prefix, spike_events_path, spike_events_namespace, spike_train_attr_name, populations, include_artificial, t_max,
-         t_min, trajectory_path, arena_id, trajectory_id, bin_size, output_file_path, save_fig, save_fig_dir, font_size,
+         t_min, trajectory_path, arena_id, trajectory_id, threshold, bin_size, output_file_path, save_fig, save_fig_dir, font_size,
          fig_size, fig_format, verbose):
     """
 
@@ -66,8 +67,8 @@ def main(config, config_prefix, spike_events_path, spike_events_namespace, spike
             time_range = [t_min, t_max]
 
     plot.plot_spatial_information(spike_events_path, spike_events_namespace, trajectory_path, arena_id, trajectory_id,
-                                  populations=populations, include_artificial=include_artificial, position_bin_size=bin_size,
-                                  spike_train_attr_name=spike_train_attr_name, time_range=time_range,
+                                  populations=populations, include_artificial=include_artificial, threshold=threshold,
+                                  position_bin_size=bin_size, spike_train_attr_name=spike_train_attr_name, time_range=time_range,
                                   fontSize=font_size, verbose=verbose, output_file_path=output_file_path,
                                   saveFig=save_fig, figFormat=fig_format, figSize=fig_size)
 

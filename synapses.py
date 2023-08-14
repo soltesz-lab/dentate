@@ -1,6 +1,6 @@
 import sys, collections, copy, itertools, math, pprint, uuid, time, traceback
 from functools import reduce
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 import numpy as np
 from scipy import signal, spatial
 from neuroh5.io import write_cell_attributes
@@ -15,7 +15,113 @@ from dentate.utils import KDDict, ExprClosure, Promise, NamedTupleWithDocstring,
 # This logger will inherit its settings from the root logger, created in dentate.env
 logger = get_module_logger(__name__)
 
-    
+
+
+SynParam = namedtuple('SynParam',
+                      ('population',
+                       'source',
+                       'sec_type',
+                       'syn_name',
+                       'param_path',
+                       'param_range',
+                       'phenotype'),
+                      defaults=(None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None,
+                                None))
+
+def syn_param_from_dict(d):
+    return SynParam(*[d[key] for key in SynParam._fields])
+
+
+def parse_flat_syn_params_with_index(pop_params_dict):
+    """Parses synaptic parameters of the form:
+       population:
+         gid:
+           - index:
+             - postsyn population           
+             - presyn population list
+             - section type
+             - synaptic mechanism
+             - synaptic mechanism parameter path
+             - parameter value
+    """
+
+    pop_params_tuple_dict = {}
+    for this_pop_name, this_pop_param_dict in viewitems(pop_params_dict):
+        this_pop_params_tuple_dict = defaultdict(lambda: defaultdict(list))
+        for this_gid, this_gid_index_dict in viewitems(this_pop_param_dict):
+            for this_index, this_gid_index_params in viewitems(this_gid_index_dict):
+                for this_gid_param in this_gid_index_params:
+                    (
+                        this_population,
+                        source,
+                        sec_type,
+                        syn_name,
+                        param_path,
+                        param_val,
+                    ) = this_gid_param
+                    syn_param = SynParam(
+                        this_population,
+                        source,
+                        sec_type,
+                        syn_name,
+                        param_path,
+                        None,
+                    )
+                    this_pop_params_tuple_dict[this_gid][this_index].append(
+                        (syn_param, param_val)
+                    )
+        pop_params_tuple_dict[this_pop_name] = dict(
+            this_pop_params_tuple_dict
+        )
+    return pop_params_tuple_dict
+
+
+def parse_flat_syn_params(pop_params_dict):
+    """Parses synaptic parameters of the form:
+       population:
+         gid:
+           - postsyn population           
+           - presyn population list
+           - section type
+           - synaptic mechanism
+           - synaptic mechanism parameter path
+           - parameter value
+    """
+
+    pop_params_tuple_dict = {}
+    for this_pop_name, this_pop_param_dict in viewitems(pop_params_dict):
+        this_pop_params_tuple_dict = defaultdict(list)
+        for this_gid, this_gid_params in viewitems(this_pop_param_dict):
+            for this_gid_param in this_gid_params:
+                (
+                    this_population,
+                    source,
+                    sec_type,
+                    syn_name,
+                    param_path,
+                    param_val,
+                ) = this_gid_param
+                syn_param = SynParam(
+                    this_population,
+                    source,
+                    sec_type,
+                    syn_name,
+                    param_path,
+                    None,
+                )
+                this_pop_params_tuple_dict[this_gid].append(
+                    (syn_param, param_val)
+                )
+        pop_params_tuple_dict[this_pop_name] = dict(
+            this_pop_params_tuple_dict
+        )
+    return pop_params_tuple_dict
+
 
 class SynapseSource(object):
     """This class provides information about the presynaptic (source) cell
@@ -1467,7 +1573,7 @@ def validate_syn_mech_param(env, syn_name, param_name):
 
 
 def modify_syn_param(cell, env, sec_type, syn_name, param_name=None, value=None, origin=None, slope=None, tau=None,
-                     xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None, custom=None,
+                     xhalf=None, min=None, max=None, min_loc=None, max_loc=None, outside=None, decay=None, custom=None,
                      append=False, filters=None, origin_filters=None, update_targets=False, verbose=False):
     """Modifies a cell's mechanism dictionary to specify attributes of a
     synaptic mechanism by sec_type. This method is meant to be called
@@ -1521,7 +1627,7 @@ def modify_syn_param(cell, env, sec_type, syn_name, param_name=None, value=None,
             raise ValueError(f'modify_syn_mech_param: mechanism: {syn_name}; parameter: {param_name}; sec_type: {sec_type} cannot inherit from '
                              f'origin: {origin} without origin_filters')
     rules = get_mech_rules_dict(cell, value=value, origin=origin, slope=slope, tau=tau, xhalf=xhalf, min=min, max=max,
-                                min_loc=min_loc, max_loc=max_loc, outside=outside, custom=custom)
+                                min_loc=min_loc, max_loc=max_loc, outside=outside, decay=decay, custom=custom)
     if filters is not None:
         syn_filters = get_syn_filter_dict(env, filters)
         rules['filters'] = syn_filters
@@ -1627,7 +1733,7 @@ def update_syn_mech_param_by_sec_type(cell, env, sec_type, syn_name, param_name,
     is_reduced = False
     if hasattr(cell, 'is_reduced'):
         is_reduced = cell.is_reduced
-
+        
     if is_reduced:
         synapse_filters['swc_types'] = [env.SWC_Types[sec_type]]
         apply_syn_mech_rules(cell, env, syn_name, param_name, new_rules, 
@@ -1686,6 +1792,7 @@ def apply_syn_mech_rules(cell, env, syn_name, param_name, rules, node=None, syn_
         target_distance = min(syn_distances)
         syn_ids = list(filtered_syns.keys())
 
+            
     if 'origin' in rules and donor is None:
         if node is None:
             donor = None
@@ -1792,7 +1899,7 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline,
     :param verbose: bool
     """
     syn_attrs = env.synapse_attributes
-    if not ('min_loc' in rules or 'max_loc' in rules or 'slope' in rules):
+    if not ('min_loc' in rules or 'max_loc' in rules or 'slope' in rules or 'decay' in rules):
         for syn_id in syn_ids:
             syn_attrs.modify_mech_attrs(cell.pop_name, cell.gid, syn_id, syn_name, 
                                         {param_name: baseline})
@@ -1808,6 +1915,7 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline,
         tau = rules['tau'] if 'tau' in rules else None
         xhalf = rules['xhalf'] if 'xhalf' in rules else None
         outside = rules['outside'] if 'outside' in rules else None
+        decay = rules.get('decay', None)
 
         gid = cell.gid
         syn_attrs = env.synapse_attributes
@@ -1818,7 +1926,7 @@ def set_syn_mech_param(cell, env, node, syn_ids, syn_name, param_name, baseline,
             syn_loc = syn.syn_loc
             distance = get_distance_to_node(cell, donor, node, syn_loc)
             value = get_param_val_by_distance(distance, baseline, slope, min_distance, max_distance,
-                                              min_val, max_val, tau, xhalf, outside)
+                                              min_val, max_val, tau, xhalf, outside, decay)
                 
             if value is not None:
                 syn_attrs.modify_mech_attrs(cell.pop_name, cell.gid, syn_id, syn_name, 
@@ -1850,7 +1958,7 @@ def apply_custom_syn_mech_rules(cell, env, node, syn_ids, syn_name, param_name, 
     if 'func' not in rules['custom'] or rules['custom']['func'] is None:
         raise RuntimeError('apply_custom_syn_mech_rules: no custom function provided for synaptic mechanism: %s '
                            'parameter: %s in sec_type: %s' % (syn_name, param_name, node.type))
-    if rules['custom']['func'] in globals() and isinstance(globals()[rules['custom']['func']], collections.Callable):
+    if rules['custom']['func'] in globals() and isinstance(globals()[rules['custom']['func']], collections.abc.Callable):
         func = globals()[rules['custom']['func']]
     else:
         raise RuntimeError('apply_custom_syn_mech_rules: problem locating custom function: %s for synaptic '
@@ -2516,7 +2624,7 @@ def distribute_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, laye
 
 
 def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_dict, layer_dict, sec_layer_density_dict,
-                                          neurotree_dict, cell_sec_dict, cell_secidx_dict, syn_cluster_dict):
+                                          neurotree_dict, cell_sec_dict, cell_secidx_dict, syn_cluster_dict, cluster_syn_count_max=50):
     """
     Computes synapse locations distributed according to a given
     per-section clustering and Poisson distribution within the
@@ -2569,6 +2677,7 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
             cluster_syn_ids_count += len(syn_cluster)
 
     syn_cluster_dict = copy.deepcopy(dict(syn_cluster_dict))
+    sec_syn_count = defaultdict(int)
     
     while cluster_syn_ids_count > 0:
 
@@ -2576,6 +2685,7 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
 
             swc_type = swc_type_dict[sec_name]
             seg_dict = {}
+            seg_syn_count_dict = {}
             L_total = 0
 
             (seclst, maxdist) = cell_sec_dict[sec_name]
@@ -2588,15 +2698,13 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                 sec_subgraph = sec_graph.subgraph(list(sec_dict.keys()))
                 if len(sec_subgraph.edges()) > 0:
                     sec_roots = [n for n, d in sec_subgraph.in_degree() if d == 0]
-                    sec_edges = []
-                    for sec_root in sec_roots:
-                        sec_edges.append(list(nx.dfs_edges(sec_subgraph, sec_root)))
-                        sec_edges.append([(None, sec_root)])
-                    sec_edges = [val for sublist in sec_edges for val in sublist]
+                    sec_bfs_layers = list(nx.bfs_layers(sec_subgraph, sec_roots))
+                    sec_order = [val for sublist in sec_bfs_layers for val in sublist]
                 else:
-                    sec_edges = [(None, idx) for idx in list(sec_dict.keys())]
+                    sec_order = [idx for idx in list(sec_dict.keys())]
             else:
-                sec_edges = [(None, idx) for idx in list(sec_dict.keys())]
+                sec_order = [idx for idx in list(sec_dict.keys())]
+            sec_order = sorted(sec_order, key=lambda x: sec_syn_count[x])
             for sec_index, sec in viewitems(sec_dict):
                 seg_list = []
                 if maxdist is None:
@@ -2608,6 +2716,7 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                         if seg.x < 1.0 and seg.x > 0.0 and ((L_total + sec.L * seg.x) <= maxdist):
                             seg_list.append(seg)
                 seg_dict[sec_index] = seg_list
+                seg_syn_count_dict[sec_index] = np.zeros((len(seg_list),))
                 L_total += sec.L
 
             seg_density_dict, layers_dict = \
@@ -2621,9 +2730,10 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                 seg_density = seg_density_dict[syn_type]
                 layers = layers_dict[syn_type]
                 end_distance = {}
-                for sec_parent, sec_index in sec_edges:
+                for sec_index in sec_order:
                     interp_loc = sec_interp_loc_dict[sec_index]
                     seg_list = seg_dict[sec_index]
+                    seg_syn_count = seg_syn_count_dict[sec_index]
                     sec_seg_layers = layers[sec_index]
                     sec_seg_density = seg_density[sec_index]
                     sec_seg_layer_set = set(sec_seg_layers)
@@ -2635,25 +2745,20 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                     if not syn_cluster_match_found:
                         continue
 
-                    est_syn_count = 0
-                    for seg, density in zip(seg_list, sec_seg_density):
-                        seg_start = seg.x - (0.5 / seg.sec.nseg)
-                        seg_end = seg.x + (0.5 / seg.sec.nseg)
-                        L = seg.sec.L
-                        L_seg_start = seg_start * L
-                        L_seg_end = seg_end * L
-                        seg_L = L_seg_end - L_seg_start
-                        est_syn_count += round(seg_L * density)
-
                     current_syn_cluster_type = None
                     current_syn_cluster_id = None
                     current_cluster_syn_ids = []
+                    current_cluster_syn_count = 0
 
-                    start_seg = seg_list[0]
                     interval = 0.
                     syn_loc = 0.
-                    for seg, layer, density in zip(seg_list, sec_seg_layers, sec_seg_density):
+                    seg_order = np.argsort(seg_syn_count, kind='stable')
+                    for seg_index in seg_order:
 
+                        seg = seg_list[seg_index]
+                        layer = sec_seg_layers[seg_index]
+                        density = sec_seg_density[seg_index]
+                        
                         if not density > 0.:
                             continue
                         
@@ -2667,6 +2772,7 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                                 continue
                             current_syn_cluster_id = r.choice(list(syn_clusters.keys()), size=1)[0]
                             current_cluster_syn_ids = syn_clusters[current_syn_cluster_id]
+                            current_cluster_syn_count = 0
 
                         seg_start = seg.x - (0.5 / seg.sec.nseg)
                         seg_end = seg.x + (0.5 / seg.sec.nseg)
@@ -2679,26 +2785,29 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                             sample = r.exponential(beta)
                             if sample < (L_seg_end - L_seg_start):
                                 break
-                        interval = L_seg_start + sample
-                        while interval < L_seg_end:
+                        interval = L_seg_end - sample
+                        while interval > L_seg_start:
                             syn_loc = (interval / L)
                             assert ((syn_loc <= 1) and (syn_loc >= seg_start))
                             if syn_loc < 1.0:
-                                while len(current_cluster_syn_ids) == 0:
-                                    if current_syn_cluster_type not in syn_cluster_dict:
-                                        break
-                                    syn_clusters = syn_cluster_dict[current_syn_cluster_type]
-                                    if current_syn_cluster_id is not None:
-                                        if (current_syn_cluster_id in syn_clusters) and (len(syn_clusters[current_syn_cluster_id]) == 0):
-                                            del(syn_clusters[current_syn_cluster_id])
-                                    if len(syn_clusters) == 0:
-                                        break
-                                    current_syn_cluster_id = r.choice(list(syn_clusters.keys()), size=1)[0]
-                                    current_cluster_syn_ids = syn_clusters[current_syn_cluster_id]
+                                if len(current_cluster_syn_ids) == 0 or (current_cluster_syn_count > cluster_syn_count_max):
+                                    while len(current_cluster_syn_ids) == 0:
+                                        if current_syn_cluster_type not in syn_cluster_dict:
+                                            break
+                                        syn_clusters = syn_cluster_dict[current_syn_cluster_type]
+                                        if current_syn_cluster_id is not None:
+                                            if (current_syn_cluster_id in syn_clusters) and (len(syn_clusters[current_syn_cluster_id]) == 0):
+                                                del(syn_clusters[current_syn_cluster_id])
+                                        if len(syn_clusters) == 0:
+                                            break
+                                        current_syn_cluster_id = r.choice(list(syn_clusters.keys()), size=1)[0]
+                                        current_cluster_syn_ids = syn_clusters[current_syn_cluster_id]
+                                        current_cluster_syn_count = 0
                                 if len(current_cluster_syn_ids) == 0:
                                     break
                                 syn_index = current_cluster_syn_ids.pop(0)
                                 cluster_syn_ids_count -= 1
+                                current_cluster_syn_count += 1
                                 syn_cdist = math.sqrt(reduce(lambda a, b: a+b, ( interp_loc[i](syn_loc)**2 for i in range(3) )))
                                 syn_cdists.append(syn_cdist)
                                 syn_locs.append(syn_loc)
@@ -2707,7 +2816,9 @@ def distribute_clustered_poisson_synapses(density_seed, syn_type_dict, swc_type_
                                 syn_layers.append(layer)
                                 syn_types.append(syn_type)
                                 swc_types.append(swc_type)
-                            interval += r.exponential(beta)
+                                sec_syn_count[sec_index] += 1
+                                seg_syn_count[seg_index] += 1
+                            interval -= r.exponential(beta)
 
                     end_distance[sec_index] = (1.0 - syn_loc) * L
 
@@ -2844,7 +2955,7 @@ def get_structured_input_arrays(structured_weights_dict, gid):
     input_matrix = np.full((target_map.size, len(input_rate_map_dict)), np.nan,
                             dtype=np.float64)
     source_gid_array = np.full(len(input_rate_map_dict), -1, dtype=np.uint32)
-    syn_count_array = np.full(len(input_rate_map_dict), np.nan, dtype=np.uint32)
+    syn_count_array = np.full(len(input_rate_map_dict), 0, dtype=np.uint32)
     initial_weight_array = np.full(len(input_rate_map_dict), np.nan, dtype=np.float64)
     input_rank = np.full(len(input_rate_map_dict), np.nan, dtype=np.float32)
     for i, source_gid in enumerate(input_rate_map_dict):
@@ -3001,6 +3112,7 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
     local_random = np.random.RandomState()
     local_random.seed(int(seed_offset + destination_gid))
 
+    #np.seterr(all='raise')
     
     structured_weights_dict = { 'target_map': target_map,
                                 'initial_weight_dict': initial_weight_dict,
@@ -3040,12 +3152,12 @@ def generate_structured_weights(destination_gid, target_map, initial_weight_dict
     D1 = np.diagflat(-1*np.ones(n_variables-1), 1)
     np.fill_diagonal(D1, 1)
     k1 = 2.0
-    D2 = np.diagflat(2*np.ones(n_variables-1), 1) + np.diagflat(-1*np.ones(n_variables-2), 2)
+    D2 = (np.diagflat(2*np.ones(n_variables-1), 1) + np.diagflat(-1*np.ones(n_variables-2), 2))
     np.fill_diagonal(D2, -1)
     k2 = 0.5
-    W = np.sort(local_random.lognormal(size=(1, n_variables), mean=0.0, sigma=0.5))[::-1]
-    A = np.vstack((scaled_input_matrix[:,input_rank_order], k1*D1, k2*D2, W))
-    lsqr_target_map = np.concatenate((lsqr_target_map, np.zeros(n_variables), np.zeros(n_variables), csum*np.ones((1,))))
+    W = (np.sort(local_random.lognormal(size=(1, n_variables), mean=0.0, sigma=0.5))[::-1])
+    A = np.vstack((scaled_input_matrix[:,input_rank_order], k1*D1, k2*D2, W)).astype(np.float32)
+    lsqr_target_map = np.concatenate((lsqr_target_map, np.zeros(n_variables), np.zeros(n_variables), csum*np.ones((1,)))).astype(np.float32)
     res = nnls_gdal(A, lsqr_target_map.reshape((-1,1)),
                     max_n_iter=max_opt_iter, epsilon=optimize_tol, verbose=verbose)
     lsqr_weights = np.asarray(res[inverse_input_rank_order], dtype=np.float32).reshape((res.shape[0],))

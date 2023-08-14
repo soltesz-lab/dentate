@@ -1,5 +1,6 @@
 
 import sys, os, time, gc, click, logging, pprint
+from itertools import islice
 from collections import defaultdict
 import numpy as np
 from mpi4py import MPI
@@ -23,6 +24,13 @@ def mpi_excepthook(type, value, traceback):
         MPI.COMM_WORLD.Abort(1)
 sys.excepthook = mpi_excepthook
 
+
+def split_every(n, iterable):
+    i = iter(iterable)
+    piece = list(islice(i, n))
+    while piece:
+        yield piece
+        piece = list(islice(i, n))
 
 def read_weights(weights_path, weights_namespace, synapse_name, destination, selection, comm, io_size, 
                  weights_by_syn_id_dict, logger=None):
@@ -296,7 +304,7 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
     if rank == 0:
         logger.info(f'{comm.size} ranks have been allocated')
 
-    env = Env(comm=comm, config_file=config, io_size=io_size)
+    env = Env(comm=comm, config=config, io_size=io_size)
     env.comm.barrier()
 
     if plot and (not save_fig) and (not show_fig):
@@ -616,13 +624,13 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
                              'X Offset',
                              'Y Offset',]}
             output_features_dict[destination_gid]['Rate Map Residual Mean Error'] = np.asarray([arena_map_residual_mae], dtype=np.float32)
-            
+
             this_structured_syn_id_count = structured_syn_id_count[destination_gid]
             output_syn_ids = np.full(this_structured_syn_id_count, -1, dtype='uint32', )
             LTD_weights_output = np.full(this_structured_syn_id_count, np.nan, dtype='float32')
             LTP_weights_output = np.full(this_structured_syn_id_count, np.nan, dtype='float32')
             source_input_rank_output = np.full(this_structured_syn_id_count, np.nan, dtype='float32')
-            syn_sources_output = np.full(this_structured_syn_id_count, np.nan, dtype='uint8')
+            syn_sources_output = np.zeros(this_structured_syn_id_count, dtype='uint8')
             i = 0
             for source_gid in LTP_delta_weights_dict:
                  for syn_id in syn_ids_by_source_gid_dict[destination_gid][source_gid]:
@@ -649,70 +657,62 @@ def main(config, coordinates, field_width, gid, input_features_path, input_featu
             gc.collect()
 
         env.comm.barrier()
-        if (write_size > 0) and (iter_count % write_size == 0):
-            if not dry_run:
-                append_cell_attributes(output_weights_path, destination, LTD_weights_output_dict,
-                                       namespace=LTD_weights_output_namespace, comm=env.comm, io_size=env.io_size,
-                                       chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-                append_cell_attributes(output_weights_path, destination, LTP_weights_output_dict,
-                                       namespace=LTP_weights_output_namespace, comm=env.comm, io_size=env.io_size,
-                                       chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-                append_cell_attributes(output_weights_path, destination, source_input_rank_output_dict,
-                                       namespace=source_input_rank_output_namespace, comm=env.comm, io_size=env.io_size,
-                                       chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-                count = env.comm.reduce(len(LTP_weights_output_dict), op=MPI.SUM, root=0)
-                env.comm.barrier()
-
-                if rank == 0:
-                    logger.info(f'Destination: {destination}; appended weights for {count} cells')
-                if output_features_path is not None:
-                    if output_features_namespace is None:
-                        output_features_namespace = f'{target_selectivity_type_name.title()} Selectivity'
-                    this_output_features_namespace = f'{output_features_namespace} {arena_id}'
-                    append_cell_attributes(output_features_path, destination, output_features_dict,
-                                           namespace=this_output_features_namespace)
-                    count = env.comm.reduce(len(output_features_dict), op=MPI.SUM, root=0)
-                    env.comm.barrier()
-
-                    if rank == 0:
-                        logger.info(f'Destination: {destination}; appended selectivity features for {count} cells')
-                        
-
-            LTP_weights_output_dict.clear()
-            LTD_weights_output_dict.clear()
-            output_features_dict.clear()
-            source_input_rank_output_dict.clear()
-            gc.collect()
-
-        env.comm.barrier()
 
         if (iter_count >= 10) and debug:
             break
 
     env.comm.barrier()
     if not dry_run:
-        append_cell_attributes(output_weights_path, destination, LTD_weights_output_dict,
-                               namespace=LTD_weights_output_namespace, comm=env.comm, io_size=env.io_size,
-                               chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-        append_cell_attributes(output_weights_path, destination, LTP_weights_output_dict,
-                               namespace=LTP_weights_output_namespace, comm=env.comm, io_size=env.io_size,
-                               chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-        append_cell_attributes(output_weights_path, destination, source_input_rank_output_dict,
-                               namespace=source_input_rank_output_namespace, comm=env.comm, io_size=env.io_size,
-                               chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-        count = comm.reduce(len(LTP_weights_output_dict), op=MPI.SUM, root=0)
-        env.comm.barrier()
+        if write_size > 0:
+            items = zip(split_every(write_size, LTD_weights_output_dict.items()), 
+                        split_every(write_size, LTP_weights_output_dict.items()), 
+                        split_every(write_size, source_input_rank_output_dict.items()))
+            for chunk in items:
+                LTD_weights_chunk = dict(chunk[0])
+                LTP_weights_chunk = dict(chunk[1])
+                source_input_rank_chunk = dict(chunk[2])
 
+                append_cell_attributes(output_weights_path, destination, LTD_weights_chunk,
+                                       namespace=LTD_weights_output_namespace, comm=env.comm, io_size=env.io_size,
+                                       chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+                append_cell_attributes(output_weights_path, destination, LTP_weights_chunk,
+                                       namespace=LTP_weights_output_namespace, comm=env.comm, io_size=env.io_size,
+                                       chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+                append_cell_attributes(output_weights_path, destination, source_input_rank_chunk,
+                                       namespace=source_input_rank_output_namespace, comm=env.comm, io_size=env.io_size,
+                                       chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+                env.comm.barrier()
+        else:
+            append_cell_attributes(output_weights_path, destination, LTD_weights_output_dict,
+                                   namespace=LTD_weights_output_namespace, comm=env.comm, io_size=env.io_size,
+                                   chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+            append_cell_attributes(output_weights_path, destination, LTP_weights_output_dict,
+                                   namespace=LTP_weights_output_namespace, comm=env.comm, io_size=env.io_size,
+                                   chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+            append_cell_attributes(output_weights_path, destination, source_input_rank_output_dict,
+                                   namespace=source_input_rank_output_namespace, comm=env.comm, io_size=env.io_size,
+                                   chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+            env.comm.barrier()
+        count = comm.reduce(len(LTP_weights_output_dict), op=MPI.SUM, root=0)
         if rank == 0:
             logger.info(f'Destination: {destination}; appended weights for {count} cells')
+
         if output_features_path is not None:
             if output_features_namespace is None:
                 output_features_namespace = 'Selectivity Features'
             this_output_features_namespace = f'{output_features_namespace} {arena_id}'
-            append_cell_attributes(output_features_path, destination, output_features_dict,
-                                   namespace=this_output_features_namespace)
+            if write_size > 0:
+                items = split_every(write_size, output_features_dict.items())
+                for chunk in items:
+                    output_features_chunk = dict(chunk)
+                    append_cell_attributes(output_features_path, destination, output_features_chunk,
+                                           namespace=this_output_features_namespace)
+                    env.comm.barrier()
+            else:
+                append_cell_attributes(output_features_path, destination, output_features_dict,
+                                       namespace=this_output_features_namespace)
+                env.comm.barrier()
             count = env.comm.reduce(len(output_features_dict), op=MPI.SUM, root=0)
-            env.comm.barrier()
 
             if rank == 0:
                 logger.info(f'Destination: {destination}; appended selectivity features for {count} cells')

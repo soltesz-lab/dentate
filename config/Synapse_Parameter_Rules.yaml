@@ -157,6 +157,29 @@ Exp3NMDA2:
     netcon_params:
       weight: 0
     netcon_state: {}
+Exp3NMDA2fd:
+    mech_file: SynExp3NMDA2fd.mod
+    mech_params:
+      - gVI
+      - tau1_0
+      - tau2_0
+      - a1
+      - b1
+      - a2
+      - b2
+      - tauV
+      - K0
+      - delta_D
+      - delta_F
+      - tau_D1
+      - tau_F
+    netcon_params:
+      weight: 0
+    netcon_state:
+      wf: 1
+      f:  2
+      d1: 3
+      t0: 4
 EPSC:
     mech_file: exp2EPSC.mod
     mech_params:

@@ -958,7 +958,7 @@ def plot_reindex_positions(env, coords_path, population, distances_namespace='Ar
 
 def plot_coords_in_volume(populations, coords_path, coords_namespace, config, scale=25., subvol=False):
     
-    env = Env(config_file=config)
+    env = Env(config=config)
 
     rotate = env.geometry['Parametric Surface']['Rotation']
     min_extents = env.geometry['Parametric Surface']['Minimum Extent']
@@ -1155,8 +1155,8 @@ def plot_biophys_cell_tree (env, biophys_cell, node_filters={'swc_types': ['apic
     #edges = nx.minimum_spanning_tree(morph_graph).edges(data=True)
     edges = morph_graph.edges(data=True)
     start_idx, end_idx, _ = np.array(list(edges)).T
-    start_idx = start_idx.astype(np.int)
-    end_idx   = end_idx.astype(np.int)
+    start_idx = start_idx.astype(int)
+    end_idx   = end_idx.astype(int)
     #edge_scalars = layers[start_idx]
     
     logger.info('plotting tree %i' % biophys_cell.gid)
@@ -1200,7 +1200,7 @@ def plot_biophys_cell_tree (env, biophys_cell, node_filters={'swc_types': ['apic
     logger.info('plotting %i synapses' % len(syns_dict))
     for sec_id, syn_xyz in viewitems(syn_xyz_sec_dict):
         syn_sources = syn_src_sec_dict[sec_id]
-        mlab.points3d(syn_xyz[:,0], syn_xyz[:,1], syn_xyz[:,2], syn_sources, scale_mode='vector',scale_factor=10.0)
+        mlab.points3d(syn_xyz[:,0], syn_xyz[:,1], syn_xyz[:,2], syn_sources, scale_mode='vector',scale_factor=4.0)
         
     mlab.gcf().scene.x_plus_view()
     mlab.show()
@@ -1210,7 +1210,7 @@ def plot_biophys_cell_tree (env, biophys_cell, node_filters={'swc_types': ['apic
     
 def plot_cell_trees_in_volume(population, forest_path, config, line_width=1., sample=0.05, coords_path=None, distances_namespace='Arc Distances', longitudinal_extent=None, volume='full', color_edge_scalars=True, volume_opacity=0.1):
     
-    env = Env(config_file=config)
+    env = Env(config=config)
 
     rotate = env.geometry['Parametric Surface']['Rotation']
 
@@ -1313,8 +1313,8 @@ def plot_cell_trees_in_volume(population, forest_path, config, line_width=1., sa
         # nx.mst returns an edge generator
         edges = nx.minimum_spanning_tree(g).edges(data=True)
         start_idx, end_idx, _ = np.array(list(edges)).T
-        start_idx = start_idx.astype(np.int)
-        end_idx   = end_idx.astype(np.int)
+        start_idx = start_idx.astype(int)
+        end_idx   = end_idx.astype(int)
         if color_edge_scalars:
             edge_scalars = z[start_idx]
             edge_color = None
@@ -1357,14 +1357,14 @@ def plot_cell_trees_in_volume(population, forest_path, config, line_width=1., sa
 
     
     
-def plot_spikes_in_volume(config_path, populations, coords_path, coords_namespace, spike_input_path,
+def plot_spikes_in_volume(config, populations, coords_path, coords_namespace, spike_input_path,
                           spike_input_namespace, time_variable='t', marker_scale=10., compute_rates=False, 
                           time_step = 5.0, subvol=False, rotate_anim=False, time_range=None, **kwargs):
 
     fig_options = copy.copy(default_fig_options)
     fig_options.update(kwargs)
 
-    env = Env(config_file=config_path, template_paths=None)
+    env = Env(config=config_path, template_paths=None)
 
     rotate = env.geometry['Parametric Surface']['Rotation']
 
@@ -1660,7 +1660,7 @@ def plot_lfp(config, input_path, time_range = None, compute_psd=False, window_si
     fig_options = copy.copy(default_fig_options)
     fig_options.update(kwargs)
 
-    env = Env(config_file=config)
+    env = Env(config=config)
 
     nrows = len(env.LFP_config)
     ncols = 1
@@ -1756,7 +1756,7 @@ def plot_lfp_spectrogram(config, input_path, time_range = None, window_size=4096
     fig_options = copy.copy(default_fig_options)
     fig_options.update(kwargs)
 
-    env = Env(config_file=config)
+    env = Env(config=config)
 
     nrows = len(env.LFP_config)
     ncols = 1
@@ -2270,8 +2270,8 @@ def plot_intracellular_state_in_tree (gid, population, forest_path, state_input_
     # nx.mst returns an edge generator
     edges = nx.minimum_spanning_tree(g).edges(data=True)
     start_idx, end_idx, _ = np.array(list(edges)).T
-    start_idx = start_idx.astype(np.int)
-    end_idx   = end_idx.astype(np.int)
+    start_idx = start_idx.astype(int)
+    end_idx   = end_idx.astype(int)
     
     edge_scalars = np.asarray([sec_state_dict.get(sec_idxs[s], 0.0) for s in start_idx])
     edge_scalars_max = np.max(np.abs(edge_scalars))
@@ -2459,7 +2459,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
             ax2.set_xlim(time_range)
         elif spike_hist == 'subplot':
             ax2=axes[-1]
-            ax2.bar (sphist_x_res, sphist_y_res, linewidth=1.0)
+            ax2.fill_between (sphist_x_res, sphist_y_res, linewidth=0.0, alpha=0.5)
             ax2.set_xlabel('Time (ms)', fontsize=fig_options.fontSize)
             ax2.set_ylabel('Spikes', fontsize=fig_options.fontSize)
             ax2.set_xlim(time_range)
@@ -2500,14 +2500,15 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
                 continue
 
             if pop_rates:
-                label = '%.02f%%\n%.2g Hz' % (info[0], info[1])
+                label = f'{info[0]:.02f}%\n{info[1]:.2g} Hz'
             else:
-                label = '%.02f%%\n' % (info[0])
+                label = f'{info[0]:.02f}%\n'
 
             maxN = max(pop_active_cells[pop_name])
             minN = min(pop_active_cells[pop_name])
-            loc = pop_start_inds[pop_name] + 0.5 * (maxN - minN)
-            a.set_yticks([loc, loc])
+            loc1 = pop_start_inds[pop_name] + 0.495 * (maxN - minN)
+            loc2 = pop_start_inds[pop_name] + 0.5 * (maxN - minN)
+            a.set_yticks([loc1, loc2])
             a.set_yticklabels([pop_name, label])
             yticklabels = a.get_yticklabels()
             # Create offset transform in x direction
@@ -2515,7 +2516,7 @@ def plot_spike_raster (input_path, namespace_id, include = ['eachPop'], time_ran
             offset = mpl.transforms.ScaledTranslation(dx, dy, fig.dpi_scale_trans)
             # apply offset transform to labels.
             yticklabels[0].set_transform(yticklabels[0].get_transform() + offset)
-            dx = -80/72.; dy = 0/72. 
+            dx = -60/72.; dy = 0/72. 
             offset = mpl.transforms.ScaledTranslation(dx, dy, fig.dpi_scale_trans)
             yticklabels[1].set_ha('left')    
             yticklabels[1].set_transform(yticklabels[1].get_transform() + offset)
@@ -2814,7 +2815,7 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
     if (target_input_features_path is not None) and (target_input_features_namespace is not None):
         if config_file is None:
             raise RuntimeError("plot_network_clamp: config_file must be provided with target_input_features_path.") 
-        env = Env(config_file=config_file, config_prefix=config_prefix,
+        env = Env(config=config_file, config_prefix=config_prefix,
                   arena_id=target_input_features_arena_id,
                   trajectory_id=target_input_features_trajectory_id)
     
@@ -3100,7 +3101,7 @@ def plot_spike_rates(input_path, namespace_id, config_path=None, include = ['eac
     
     env = None
     if config_path is not None:
-        env = Env(config_file=config_path)
+        env = Env(config=config_path)
         if env.analysis_config is not None:
             baks_config.update(env.analysis_config['Firing Rate Inference'])
         
@@ -3248,7 +3249,7 @@ def plot_spike_rates_with_features(spike_input_path, spike_namespace_id, arena_i
     
     env = None
     if config_path is not None:
-        env = Env(config_file=config_path)
+        env = Env(config=config_path)
         if env.analysis_config is not None:
             baks_config.update(env.analysis_config['Firing Rate Inference'])
     else:
@@ -3444,7 +3445,7 @@ def plot_spike_histogram (input_path, namespace_id, config_path=None, include = 
 
     env = None
     if config_path is not None:
-        env = Env(config_file=config_path)
+        env = Env(config=config)
         if env.analysis_config is not None:
             baks_config.update(env.analysis_config['Firing Rate Inference'])
 
@@ -3771,7 +3772,7 @@ def plot_spike_distribution_per_time (input_path, namespace_id, config_path=None
 
     env = None
     if config_path is not None:
-        env = Env(config_file=config_path)
+        env = Env(config=config)
         if env.analysis_config is not None:
             baks_config.update(env.analysis_config['Firing Rate Inference'])
 
@@ -3913,7 +3914,7 @@ def plot_spike_distribution_per_time (input_path, namespace_id, config_path=None
 
 def plot_spatial_information(spike_input_path, spike_namespace_id, trajectory_path, arena_id, trajectory_id,
                              populations=None, include_artificial=True, position_bin_size=5.0, spike_train_attr_name='t', time_range=None,
-                             alpha_fill=0.2, output_file_path=None, plot_dir_path=None, **kwargs):
+                             threshold=None, alpha_fill=0.2, output_file_path=None, plot_dir_path=None, **kwargs):
     """
     Plots distributions of spatial information per cell. Returns figure handle.
 
@@ -3981,7 +3982,7 @@ def plot_spatial_information(spike_input_path, spike_namespace_id, trajectory_pa
         spkinds = spkindlst[iplot]
         spkdict = spikedata.make_spike_dict(spkinds, spkts)
         MI_dict = spikedata.spatial_information(subset, trajectory, spkdict, time_range, position_bin_size,
-                                                arena_id=arena_id, trajectory_id=trajectory_id,
+                                                threshold=threshold, arena_id=arena_id, trajectory_id=trajectory_id,
                                                 output_file_path=output_file_path, **kwargs)
 
         MI_lst = []
@@ -4109,7 +4110,7 @@ def plot_place_fields(spike_input_path, spike_namespace_id, trajectory_path, are
 
     env = None
     if config_path is not None:
-        env = Env(config_file=config_path)
+        env = Env(config=config)
         if env.analysis_config is not None:
             baks_config.update(env.analysis_config['Firing Rate Inference'])
             pf_config.update(env.analysis_config['Place Fields'])
@@ -5668,7 +5669,7 @@ def get_RPSD(psd2D, dTheta=30, rMin=10, rMax=100):
     theta = np.rad2deg(np.arctan2(-(Y-hc), (X-wc)))
     theta = np.mod(theta + dTheta/2 + 360, 360)
     theta = dTheta * (theta//dTheta)
-    theta = theta.astype(np.int)
+    theta = theta.astype(int)
     
     # mask below rMin and above rMax by setting to -100
     R     = np.hypot(-(Y-hc), (X-wc))
@@ -5962,7 +5963,7 @@ def plot_network_clamp_trial(input_path, spike_namespace, intracellular_namespac
     if (target_input_features_path is not None) and (target_input_features_namespace is not None):
         if config_file is None:
             raise RuntimeError("plot_network_clamp: config_file must be provided with target_input_features_path.") 
-        env = Env(config_file=config_file, config_prefix=config_prefix,
+        env = Env(config=config, config_prefix=config_prefix,
                   arena_id=target_input_features_arena_id,
                   trajectory_id=target_input_features_trajectory_id)
         target_trj_rate_maps = stimulus.rate_maps_from_features(env, state_pop_name,

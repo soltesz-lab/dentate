@@ -2,7 +2,9 @@ import copy, datetime, gc, itertools, logging, math, numbers, os.path, importlib
 from fractions import Fraction
 import pprint, string, sys, time, click
 from builtins import input, map, next, object, range, str, zip
-from collections import MutableMapping, Iterable, defaultdict, namedtuple
+from collections import defaultdict, namedtuple
+from collections.abc import MutableMapping, Iterable
+from envsubst import envsubst
 import numpy as np
 from numpy.lib.stride_tricks import as_strided
 import scipy
@@ -642,8 +644,20 @@ class IncludeLoader(yaml.Loader):
         with open(filename, 'r') as f:
             return yaml.load(f, IncludeLoader)
 
+    def envsubst(self, node):
+        """
+
+        :param node:
+        :return:
+        """
+
+        s = self.construct_scalar(node)
+        s = envsubst(s)
+        return s
+
 
 IncludeLoader.add_constructor('!include', IncludeLoader.include)
+IncludeLoader.add_constructor('!envsubst', IncludeLoader.envsubst)
 
 class ExplicitDumper(yaml.SafeDumper):
     """
@@ -652,6 +666,7 @@ class ExplicitDumper(yaml.SafeDumper):
 
     def ignore_aliases(self, data):
         return True
+
 
 def config_logging(verbose):
     if verbose:
@@ -679,7 +694,7 @@ def get_script_logger(name):
 logger = get_module_logger(__name__)
 
 
-def write_to_yaml(file_path, data, default_flow_style=None, convert_scalars=False):
+def write_to_yaml(file_path, data, default_flow_style=False, convert_scalars=False):
     """
 
     :param file_path: str (should end in '.yaml')
@@ -709,6 +724,20 @@ def read_from_yaml(file_path, include_loader=None):
         return data
     else:
         raise IOError('read_from_yaml: invalid file_path: %s' % file_path)
+
+
+def yaml_envsubst(full, val=None, initial=True):
+    val = val or full if initial else val
+    if isinstance(val, dict):
+        for k, v in val.items():
+            val[k] = yaml_envsubst(full, v, False)
+    elif isinstance(val, list):
+        for idx, i in enumerate(val):
+            val[idx] = yaml_envsubst(full, i, False)
+    elif isinstance(val, str):
+        val = envsubst(val.format(**full))
+
+    return val    
 
 
 def print_param_dict_like_yaml(param_dict, digits=6):

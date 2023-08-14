@@ -129,8 +129,33 @@ def mkgap(env, cell, gid, secpos, secidx, sgid, dgid, w):
     :return:
     """
 
-    sec = list(cell.sections)[secidx]
+    is_reduced = False
+    if hasattr(cell, 'is_reduced'):
+        is_reduced = cell.is_reduced
+
+    cell_soma = None
+    cell_dendrite = None
+    if is_reduced:
+        if hasattr(cell, 'soma'):
+            cell_soma = cell.soma
+            if isinstance(cell_soma, list):
+                cell_soma = cell_soma[0]
+            if isinstance(cell_soma, list):
+                cell_soma = cell_soma[0]
+        if hasattr(cell, 'dend'):
+            cell_dendrite = cell.dend
+
+    sec = None
+    if is_reduced:
+        if cell_dendrite is not None:
+            sec = cell_dendrite
+        else:
+            sec = cell_soma
+    else:
+        sec = list(cell.sections)[secidx]
+
     seg = sec(secpos)
+        
     gj = h.ggap(seg)
     gj.g = w
 
@@ -182,11 +207,12 @@ def find_template(env, template_name, path=['templates'], template_file=None, bc
                         f'file {template_file}; path is {path}')
 
 
-def configure_hoc_env(env, bcast_template=False):
+def configure_hoc_env(env, bcast_template=False, subworld_size=None):
     """
 
     :param env: :class:'Env'
     """
+    h.nrnmpi_init()
     h.load_file("stdrun.hoc")
     h.load_file("loadbal.hoc")
     for template_dir in env.template_paths:
@@ -203,8 +229,11 @@ def configure_hoc_env(env, bcast_template=False):
     if env.use_coreneuron:
         from neuron import coreneuron
         coreneuron.enable = True
-        coreneuron.verbose = 1 if env.verbose else 0
+        coreneuron.verbose = 1 #if env.verbose else 0
     h.pc = h.ParallelContext()
+    logger.info(f"Rank {env.comm.rank}: configure_hoc_env: subworld_size = {subworld_size}")
+    if subworld_size is not None:
+        h.pc.subworlds(subworld_size)
     h.pc.gid_clear()
     env.pc = h.pc
     h.dt = env.dt

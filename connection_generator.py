@@ -486,7 +486,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
                 projection_dict = {}
             if not dry_run:
                 last_time = time.time()
-                append_graph(connectivity_path, projection_dict, io_size=io_size, comm=comm)
+                append_graph(connectivity_path, projection_dict, io_size=io_size, comm=comm, chunk_size=value_chunk_size)
                 if rank == 0:
                     if connection_dict:
                         logger.info(f'Appending connectivity for {len(connection_dict)} projections took {time.time() - last_time:.2f} s')
@@ -496,7 +496,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
 
         gid_count += 1
         it_count += 1
-        if (it_count > 250) and debug:
+        if debug and (it_count >= 20):
             break
 
 
@@ -507,7 +507,7 @@ def generate_uv_distance_connections(comm, population_dict, connection_config, c
     else:
         projection_dict = {}
     if not dry_run:
-        append_graph(connectivity_path, projection_dict, io_size=io_size, comm=comm)
+        append_graph(connectivity_path, projection_dict, io_size=io_size, comm=comm, chunk_size=value_chunk_size)
         if rank == 0:
             if connection_dict:
                 logger.info(f'Appending connectivity for {len(connection_dict)} projections took {time.time() - last_time:.2f} s')

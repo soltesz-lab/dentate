@@ -1,4 +1,5 @@
 import os, sys, gc, logging, string, time, itertools
+from itertools import islice
 from mpi4py import MPI
 import click
 from collections import defaultdict
@@ -20,6 +21,13 @@ def mpi_excepthook(type, value, traceback):
     if MPI.COMM_WORLD.size > 1:
         MPI.COMM_WORLD.Abort(1)
 sys.excepthook = mpi_excepthook
+
+def split_every(n, iterable):
+    i = iter(iterable)
+    piece = list(islice(i, n))
+    while piece:
+        yield piece
+        piece = list(islice(i, n))
 
 
 def update_syn_stats(env, syn_stats_dict, syn_dict):
@@ -61,12 +69,13 @@ def global_syn_summary(comm, syn_stats, gid_count, root):
                 for syn_type in syn_stats_dict[part_name]:
                     global_syn_count = comm.gather(syn_stats_dict[part_name][syn_type], root=root)
                     if comm.rank == root:
-                        res.append(f"{population} {part} {part_name}: mean {syn_type} synapses per cell: {(np.sum(global_syn_count) / global_count):.2f}")
+                        res.append(f"{population} {part} {part_name}: mean {syn_type} synapses per cell: "
+                                   f"{(np.sum(global_syn_count) / global_count):.2f}")
         total_syn_stats_dict = pop_syn_stats['total']
         for syn_type in total_syn_stats_dict:
             global_syn_count = comm.gather(total_syn_stats_dict[syn_type], root=root)
             if comm.rank == root:
-                res.append("%s: mean %s synapses per cell: %f" % (population, syn_type, np.sum(global_syn_count) / global_count))
+                res.append(f"{population}: mean {syn_type} synapses per cell: {(np.sum(global_syn_count) / global_count):.02f}")
         
     return global_count, str.join('\n', res)
 
@@ -76,7 +85,7 @@ def local_syn_summary(syn_stats_dict):
         for part_type in syn_stats_dict[part_name]:
             syn_count_dict = syn_stats_dict[part_name][part_type]
             for syn_type, syn_count in list(syn_count_dict.items()):
-                res.append("%s %i: %s synapses: %i" % (part_name, part_type, syn_type, syn_count))
+                res.append(f"{part_name} {part_type}: {syn_type} synapses: {syn_count}")
     return str.join('\n', res)
 
 
@@ -94,10 +103,10 @@ def check_syns(gid, morph_dict, syn_stats_dict, seg_density_per_sec, layer_set_d
             else:
                 warning_flag = True
     if warning_flag:
-        logger.warning('Rank %d: incomplete synapse layer set for cell %d: %s' % (env.comm.Get_rank(), gid, str(layer_stats)))
-        logger.info('layer_set_dict: %s' % str(layer_set_dict))
-        logger.info('gid %d: seg_density_per_sec: %s' % (gid, str(seg_density_per_sec)))
-        logger.info('gid %d: morph_dict: %s' % (gid, str(morph_dict)))
+        logger.warning(f"Rank {env.comm.rank}: incomplete synapse swc type set for cell {gid}: {layer_stats}\n"
+                       f"layer_set_dict: {layer_set_dict}\n"
+                       f"gid {gid}: seg_density_per_sec: {seg_density_per_sec}\n"
+                       f"gid {gid}: morph_dict: {morph_dict}")
     for syn_type, swc_set in viewitems(swc_set_dict):
         for swc_type in swc_set:
             if swc_type in swc_stats:
@@ -106,10 +115,10 @@ def check_syns(gid, morph_dict, syn_stats_dict, seg_density_per_sec, layer_set_d
             else:
                 warning_flag = True
     if warning_flag:
-        logger.warning('Rank %d: incomplete synapse swc type set for cell %d: %s' % (env.comm.Get_rank(), gid, str(swc_stats)))
-        logger.info('swc_set_dict: %s' % str(swc_set_dict.items))
-        logger.info('gid %d: seg_density_per_sec: %s' % (gid, str(seg_density_per_sec)))
-        logger.info('gid %d: morph_dict: %s' % (gid, str(morph_dict)))
+        logger.warning(f"Rank {env.comm.rank}: incomplete synapse swc type set for cell {gid}: {swc_stats}\n"
+                       f"swc_set_dict: {swc_set_dict.items}\n"
+                       f"gid {gid}: seg_density_per_sec: {seg_density_per_sec}\n"
+                       f"gid {gid}: morph_dict: {morph_dict}")
                 
 
             
@@ -126,7 +135,7 @@ def check_syns(gid, morph_dict, syn_stats_dict, seg_density_per_sec, layer_set_d
 @click.option("--cache-size", type=int, default=1)
 @click.option("--chunk-size", type=int, default=1000)
 @click.option("--value-chunk-size", type=int, default=1000)
-@click.option("--write-size", type=int, default=1)
+@click.option("--write-size", type=int, default=100)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
 @click.option("--debug", is_flag=True)
@@ -152,9 +161,9 @@ def main(config, config_prefix, template_path, output_path, forest_path, populat
     rank = comm.rank
     
     if rank == 0:
-        logger.info('%i ranks have been allocated' % comm.size)
+        logger.info(f'{comm.size} ranks have been allocated')
 
-    env = Env(comm=comm, config_file=config, config_prefix=config_prefix, template_paths=template_path)
+    env = Env(comm=comm, config=config, config_prefix=config_prefix, template_paths=template_path)
 
     configure_hoc_env(env)
     
@@ -185,7 +194,7 @@ def main(config, config_prefix, template_path, output_path, forest_path, populat
 
 
     for population in populations:
-        logger.info('Rank %i population: %s' % (rank, population))
+        logger.info(f"Rank {rank} population: {population}")
         (population_start, _) = pop_ranges[population]
         template_class = load_cell_template(env, population, bcast_template=True)
 
@@ -213,8 +222,16 @@ def main(config, config_prefix, template_path, output_path, forest_path, populat
             if gid is not None:
                 logger.info(f'Rank {rank} gid: {gid}')
                 cell = cells.make_neurotree_hoc_cell(template_class, neurotree_dict=morph_dict, gid=gid)
-                cell_sec_dict = {'apical': (cell.apical, None), 'basal': (cell.basal, None), 'soma': (cell.soma, None), 'ais': (cell.ais, None), 'hillock': (cell.hillock, None)}
-                cell_secidx_dict = {'apical': cell.apicalidx, 'basal': cell.basalidx, 'soma': cell.somaidx, 'ais': cell.aisidx, 'hillock': cell.hilidx}
+                cell_sec_dict = {'apical': (cell.apical, None),
+                                 'basal': (cell.basal, None),
+                                 'soma': (cell.soma, None),
+                                 'ais': (cell.ais, None),
+                                 'hillock': (cell.hillock, None)}
+                cell_secidx_dict = {'apical': cell.apicalidx,
+                                    'basal': cell.basalidx,
+                                    'soma': cell.somaidx,
+                                    'ais': cell.aisidx,
+                                    'hillock': cell.hilidx}
 
                 random_seed = env.model_config['Random Seeds']['Synapse Locations'] + gid
                 if distribution == 'uniform':
@@ -228,7 +245,7 @@ def main(config, config_prefix, template_path, output_path, forest_path, populat
                                                                                          density_dict, morph_dict,
                                                                                          cell_sec_dict, cell_secidx_dict)
                 else:
-                    raise Exception('Unknown distribution type: %s' % distribution)
+                    raise Exception(f"Unknown distribution type: {distribution}")
 
                 synapse_dict[gid] = syn_dict
                 this_syn_stats = update_syn_stats (env, syn_stats_dict, syn_dict)
@@ -236,30 +253,36 @@ def main(config, config_prefix, template_path, output_path, forest_path, populat
                 
                 del cell
                 num_syns = len(synapse_dict[gid]['syn_ids'])
-                logger.info(f'Rank {rank} took {time.time() - local_time:.01f} s to compute {num_syns} synapse locations for {population} gid: {gid}'
-                            f'{population} gid {gid} synapses: {local_syn_summary(this_syn_stats)}')
+                logger.info(f"Rank {rank} took {time.time() - local_time:.01f} s to compute {num_syns} synapse locations "
+                            f"for {population} gid: {gid}: {local_syn_summary(this_syn_stats)}")
                 gid_count += 1
             else:
                 logger.info(f'Rank {rank} gid is None')
             gc.collect()
-            if (not dry_run) and (write_size > 0) and (gid_count % write_size == 0):
-                append_cell_attributes(output_path, population, synapse_dict,
-                                       namespace='Synapse Attributes', comm=comm, io_size=io_size, 
-                                       chunk_size=chunk_size, value_chunk_size=value_chunk_size)
-                synapse_dict = {}
             syn_stats[population] = syn_stats_dict
             count += 1
-            if debug and count == 5:
+            if debug and count >= 20:
                 break
 
         if not dry_run:
-            append_cell_attributes(output_path, population, synapse_dict,
-                                   namespace='Synapse Attributes', comm=comm, io_size=io_size, 
-                                   chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+            if write_size > 0:
+                items = split_every(write_size, synapse_dict.items())
+                for chunk in items:
+                    synapse_chunk = dict(chunk)
+                    append_cell_attributes(output_path, population, synapse_chunk,
+                                           namespace='Synapse Attributes', comm=comm, io_size=io_size, 
+                                           chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+                    comm.barrier()
+            else:
+                append_cell_attributes(output_path, population, synapse_dict,
+                                       namespace='Synapse Attributes', comm=comm, io_size=io_size, 
+                                       chunk_size=chunk_size, value_chunk_size=value_chunk_size)
+                comm.barrier()
 
         global_count, summary = global_syn_summary(comm, syn_stats, gid_count, root=0)
         if rank == 0:
-            logger.info('target: %s, %i ranks took %i s to compute synapse locations for %i cells' % (population, comm.size,time.time() - start_time, np.sum(global_count)))
+            logger.info(f"target: {population}, {comm.size} ranks took {time.time() - start_time} s "
+                        f"to compute synapse locations for {np.sum(global_count)} cells")
             logger.info(summary)
 
         comm.barrier()

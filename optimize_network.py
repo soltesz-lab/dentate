@@ -4,15 +4,19 @@ Dentate Gyrus model optimization script for optimization with dmosopt
 """
 
 import os, sys, logging, datetime, gc
+os.environ["DISTWQ_CONTROLLER_RANK"] = "-1"
+
 from functools import partial
 import click
 import numpy as np
 from collections import defaultdict, namedtuple
+from neuron import h
 import dentate
 from dentate import network, network_clamp, synapses, spikedata, stimulus, utils, optimization
 from dentate.env import Env
 from dentate.utils import read_from_yaml, write_to_yaml, list_find, viewitems, get_module_logger
-from dentate.optimization import (SynParam, OptConfig, syn_param_from_dict, optimization_params, 
+from dentate.synapses import (SynParam, syn_param_from_dict, )
+from dentate.optimization import (OptConfig, optimization_params, 
                                   update_network_params, network_features)
 from dentate.stimulus import rate_maps_from_features
 from dmosopt import dmosopt
@@ -39,8 +43,20 @@ sys_excepthook = sys.excepthook
 sys.excepthook = mpi_excepthook
 
 
-def dmosopt_broker_init(broker, *args):
-    broker.group_comm.barrier()
+def init_controller(subworld_size, use_coreneuron):
+    h.nrnmpi_init()
+    h('objref pc, cvode')
+    h.cvode = h.CVode()
+    h.pc = h.ParallelContext()
+    h.pc.subworlds(subworld_size)
+    if use_coreneuron:
+        from neuron import coreneuron
+        coreneuron.enable = True
+        coreneuron.verbose = 0
+        h.cvode.cache_efficient(1)
+        h.finitialize(-65)
+        h.pc.set_maxstep(10)
+        h.pc.psolve(0.05)
 
 @click.command(context_settings=dict(
     ignore_unknown_options=True,
@@ -65,8 +81,9 @@ def dmosopt_broker_init(broker, *args):
 @click.option("--mutation-rate", type=float)
 @click.option("--collective-mode", type=str, default='gather')
 @click.option("--spawn-startup-wait", type=int, default=3)
+@click.option("--spawn-workers", is_flag=True)
 @click.option("--verbose", '-v', is_flag=True)
-def main(config_path, target_features_path, target_features_namespace, optimize_file_dir, optimize_file_name, nprocs_per_worker, n_epochs, n_initial, initial_maxiter, initial_method, optimizer_method, population_size, num_generations, resample_fraction, mutation_rate, collective_mode, spawn_startup_wait, verbose):
+def main(config_path, target_features_path, target_features_namespace, optimize_file_dir, optimize_file_name, nprocs_per_worker, n_epochs, n_initial, initial_maxiter, initial_method, optimizer_method, population_size, num_generations, resample_fraction, mutation_rate, collective_mode, spawn_startup_wait, spawn_workers, verbose):
 
     network_args = click.get_current_context().args
     network_config = {}
@@ -85,6 +102,7 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
         optimize_file_name=f"dmosopt.optimize_network_{run_ts}.h5"
     operational_config = read_from_yaml(config_path)
     operational_config['run_ts'] = run_ts
+    operational_config['nprocs_per_worker'] = nprocs_per_worker
     if target_features_path is not None:
         operational_config['target_features_path'] = target_features_path
     if target_features_namespace is not None:
@@ -96,7 +114,10 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
     objective_names = operational_config['objective_names']
     param_config_name = operational_config['param_config_name']
     target_populations = operational_config['target_populations']
-    opt_param_config = optimization_params(env.netclamp_config.optimize_parameters, target_populations, param_config_name)
+    opt_param_config = optimization_params(env.netclamp_config.optimize_parameters,
+                                           target_populations,
+                                           param_config_name=param_config_name,
+                                           phenotype_dict=env.phenotype_ids)
 
     opt_targets = opt_param_config.opt_targets
     param_names = opt_param_config.param_names
@@ -128,6 +149,10 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
                       'obj_fun_init_name': init_objfun, 
                       'obj_fun_init_module': 'dentate.optimize_network',
                       'obj_fun_init_args': init_params,
+                      'controller_init_fun_module': "dentate.optimize_network",
+                      'controller_init_fun_name': "init_controller",
+                      'controller_init_fun_args': {"subworld_size": nprocs_per_worker,
+                                                   "use_coreneuron": network_config.get("use_coreneuron", False)},
                       'reduce_fun_name': 'compute_objectives',
                       'reduce_fun_module': 'dentate.optimize_network',
                       'reduce_fun_args': (operational_config, opt_targets),
@@ -140,23 +165,21 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
                       'initial_maxiter': initial_maxiter,
                       'initial_method': initial_method,
                       'optimizer': optimizer_method,
-                      'surrogate_method': 'siv',
+                      'surrogate_method': 'megp',
                       'n_epochs': n_epochs,
                       'population_size': population_size,
                       'num_generations': num_generations,
                       'resample_fraction': resample_fraction,
                       'mutation_rate': mutation_rate,
-                      'file_path': f'{optimize_file_dir}/{optimize_file_name}',
+                      'file_path': os.path.join(optimize_file_dir, optimize_file_name),
                       'termination_conditions': True,
                       'save_surrogate_eval': True,
                       'save': True,
                       'save_eval': 5
                       }
-    
-    #dmosopt_params['broker_fun_name'] = 'dmosopt_broker_init'
-    #dmosopt_params['broker_module_name'] = 'dentate.optimize_network'
 
-    best = dmosopt.run(dmosopt_params, spawn_workers=True, sequential_spawn=True,
+    best = dmosopt.run(dmosopt_params, 
+                       spawn_workers=spawn_workers, 
                        spawn_startup_wait=spawn_startup_wait,
                        nprocs_per_worker=nprocs_per_worker,
                        collective_mode=collective_mode,
@@ -164,8 +187,8 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
     
     if best is not None:
         if optimize_file_dir is not None:
-            results_file_id = 'DG_optimize_network_%s' % run_ts
-            yaml_file_path = '%s/optimize_network.%s.yaml' % (optimize_file_dir, str(results_file_id))
+            results_file_id = f'DG_optimize_network_{run_ts}'
+            yaml_file_path = os.path.join(optimize_file_dir, f"optimize_network.{results_file_id}.yaml")
             prms = best[0]
             prms_dict = dict(prms)
             n_res = prms[0][1].shape[0]
@@ -186,12 +209,14 @@ def init_network_objfun(operational_config, opt_targets, param_names, param_tupl
     target_populations = operational_config['target_populations']
     target_features_path = operational_config['target_features_path']
     target_features_namespace = operational_config['target_features_namespace']
-    kwargs['results_file_id'] = 'DG_optimize_network_%d_%s' % \
-                                (worker.worker_id, operational_config['run_ts'])
-
+    kwargs['results_file_id'] = f"DG_optimize_network_{worker.worker_id}_{operational_config['run_ts']}"
+    nprocs_per_worker = operational_config["nprocs_per_worker"]
     logger = utils.get_script_logger(os.path.basename(__file__))
-    env = init_network(comm=MPI.COMM_WORLD, kwargs=kwargs)
-    gc.collect()
+    env = init_network(comm=worker.merged_comm, subworld_size=nprocs_per_worker, kwargs=kwargs)
+    if kwargs.get("use_coreneuron", False):
+        h.cvode.cache_efficient(1)
+        h.pc.set_maxstep(10)
+        h.pc.psolve(0.05)
 
     t_start = 50.
     t_stop = env.tstop
@@ -201,7 +226,7 @@ def init_network_objfun(operational_config, opt_targets, param_names, param_tupl
     target_features_arena = env.arena_id
     target_features_trajectory = env.trajectory_id
     for pop_name in target_populations:
-        if ('%s target rate dist residual' % pop_name) not in objective_names:
+        if f'{pop_name} snr' not in objective_names:
             continue
         my_cell_index_set = set(env.biophys_cells[pop_name].keys())
         trj_rate_maps = {}
@@ -222,10 +247,10 @@ def init_network_objfun(operational_config, opt_targets, param_names, param_tupl
                    target_trj_rate_map_dict, from_param_dict, t_start, t_stop, target_populations)
 
     
-def init_network(comm, kwargs):
+def init_network(comm, subworld_size, kwargs):
     np.seterr(all='raise')
     env = Env(comm=comm, **kwargs)
-    network.init(env)
+    network.init(env, subworld_size=subworld_size)
     return env
 
 
@@ -253,7 +278,7 @@ def compute_objectives(local_features, operational_config, opt_targets):
         pop_features_dicts = [ features_dict[0][pop_name] for features_dict in local_features ]
 
         sum_mean_rate = 0.
-        sum_target_rate_dist_residual = 0.
+        sum_snr = 0.
         n_total = 0
         n_active = 0
         n_target_rate_map = 0
@@ -263,15 +288,15 @@ def compute_objectives(local_features, operational_config, opt_targets):
             n_total_local = pop_feature_dict['n_total']
             n_target_rate_map_local = pop_feature_dict['n_target_rate_map']
             sum_mean_rate_local = pop_feature_dict['sum_mean_rate']
-            sum_target_rate_dist_residual_local = pop_feature_dict['sum_target_rate_dist_residual']
+            sum_snr_local = pop_feature_dict['sum_snr']
 
             n_total += n_total_local
             n_active += n_active_local
             n_target_rate_map += n_target_rate_map_local
             sum_mean_rate += sum_mean_rate_local
 
-            if sum_target_rate_dist_residual_local is not None:
-                sum_target_rate_dist_residual += sum_target_rate_dist_residual_local
+            if sum_snr_local is not None:
+                sum_snr += sum_snr_local
 
         if n_active > 0:
             mean_rate = sum_mean_rate / n_active
@@ -284,17 +309,17 @@ def compute_objectives(local_features, operational_config, opt_targets):
         else:
             fraction_active = 0.
 
-        mean_target_rate_dist_residual = None
+        mean_snr = None
         if n_target_rate_map > 0:
-            mean_target_rate_dist_residual = sum_target_rate_dist_residual / n_target_rate_map
+            mean_snr = sum_snr / n_target_rate_map
 
         logger.info(f'population {pop_name}: n_active = {n_active} n_total = {n_total} mean rate = {mean_rate}')
-        logger.info(f'population {pop_name}: n_target_rate_map = {n_target_rate_map} target_rate_dist_residual: sum = {sum_target_rate_dist_residual} mean = {mean_target_rate_dist_residual}')
+        logger.info(f'population {pop_name}: n_target_rate_map = {n_target_rate_map} snr: sum = {sum_snr} mean = {mean_snr}')
 
-        all_features_dict['%s fraction active' % pop_name] = fraction_active
-        all_features_dict['%s firing rate' % pop_name] = mean_rate
-        if mean_target_rate_dist_residual is not None:
-            all_features_dict['%s target rate dist residual' % pop_name] = mean_target_rate_dist_residual
+        all_features_dict[f'{pop_name} fraction active'] = fraction_active
+        all_features_dict[f'{pop_name} firing rate'] = mean_rate
+        if mean_snr is not None:
+            all_features_dict[f'{pop_name} snr'] = mean_snr
 
         rate_constr = mean_rate if mean_rate > 0. else -1. 
         constraints.append(rate_constr)
@@ -312,7 +337,7 @@ def compute_objectives(local_features, operational_config, opt_targets):
             objective = (feature_val - target_vals[key])**2
             logger.info(f'objective {key}: {objective} target: {target_vals[key]} feature: {feature_val}')
         else:
-            objective = feature_val
+            objective = -feature_val
             logger.info(f'objective {key}: {objective} feature: {feature_val}')
         objectives.append(objective)
         features.append(feature_val)

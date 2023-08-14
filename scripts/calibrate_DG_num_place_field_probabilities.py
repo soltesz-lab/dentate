@@ -64,7 +64,7 @@ def main(config, config_prefix, arena_id, populations, module_ids, target_fracti
 
     config_logging(verbose)
 
-    env = Env(comm=comm, config_file=config, config_prefix=config_prefix, template_paths=None)
+    env = Env(comm=comm, config=config, config_prefix=config_prefix, template_paths=None)
 
     if plot:
         import matplotlib.pyplot as plt

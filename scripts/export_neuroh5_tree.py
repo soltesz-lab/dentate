@@ -158,7 +158,7 @@ def main(config, config_prefix, gid, population, input_file, output_file, dry_ru
     h.load_file("nrngui.hoc")
     h.load_file("import3d.hoc")
 
-    env = Env(config_file=config, config_prefix=config_prefix)
+    env = Env(config=config, config_prefix=config_prefix)
     swc_type_defs = env.SWC_Types
     
     if not os.path.isfile(output_file):

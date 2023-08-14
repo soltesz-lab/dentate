@@ -289,7 +289,7 @@ def spikeout(env, output_path, t_start=None, clear_data=False):
 
     env.comm.barrier()
     if env.comm.Get_rank() == 0:
-        logger.info("*** Output spike results to file %s" % output_path)
+        logger.info(f"*** Output spike results to file {output_path}")
 
 
 def recsout(env, output_path, t_start=None, clear_data=False, write_cell_location_data=False, write_trial_data=False):
@@ -527,6 +527,20 @@ def write_cell_selection(env, write_selection_file_path, populations=None, write
         append_cell_trees(write_selection_file_path, pop_name, trees_output_dict, **write_kwds)
         write_cell_attributes(write_selection_file_path, pop_name, coords_output_dict, 
                               namespace='Coordinates', **write_kwds)
+
+        if (pop_name in env.cell_attribute_info) and ('Phenotype ID' in env.cell_attribute_info[pop_name]):
+            phenotype_attr_iter = scatter_read_cell_attribute_selection(data_file_path, pop_name, 
+                                                                        selection=gid_range,
+                                                                        namespace='Phenotype ID', 
+                                                                        comm=env.comm, 
+                                                                        io_size=env.io_size)
+        
+            phenotype_attr_output_dict = dict(list(phenotype_attr_iter))
+            write_cell_attributes(write_selection_file_path, pop_name, 
+                                  phenotype_attr_output_dict, 
+                                  namespace='Phenotype ID', 
+                                  **write_kwds)
+
         env.comm.barrier()
 
 
