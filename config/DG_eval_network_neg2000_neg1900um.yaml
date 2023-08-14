@@ -1,0 +1,30 @@
+param_values: !include DG_eval_network_params_neg2000_neg1900um_20230710.yaml
+feature_names:
+- GC snr
+- GC firing rate
+- GC fraction active
+- MC snr
+- MC firing rate
+- MC fraction active
+- AAC firing rate
+- BC firing rate
+- HC firing rate
+- HCC firing rate
+- IS firing rate
+- MOPP firing rate
+- NGFC firing rate
+target_populations: ['GC', 'MC', 'AAC', 'BC', 'HC', 'HCC', 'IS', 'MOPP', 'NGFC']
+kwargs:
+  config: Network_Clamp_Slice_neg2000_neg1900um_SynExp3NMDA2fd_CLS_IN_PR.yaml
+  tstop: 9000.
+  checkpoint_interval: 0.
+  v_init: -77.
+  recording_fraction: 0.01
+  recording_profile: "Network default"
+  dt: 0.025
+  cleanup: False
+  verbose: True
+  cache_queries: True
+  output_results: True
+  use_coreneuron: True
+

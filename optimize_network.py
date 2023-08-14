@@ -20,6 +20,7 @@ from dentate.optimization import (OptConfig, optimization_params,
                                   update_network_params, network_features)
 from dentate.stimulus import rate_maps_from_features
 from dmosopt import dmosopt
+from dmosopt.MOASMO import get_best
 from mpi4py import MPI
 
 logger = get_module_logger(__name__)
@@ -42,7 +43,48 @@ def mpi_excepthook(type, value, traceback):
 sys_excepthook = sys.excepthook
 sys.excepthook = mpi_excepthook
 
+def dmosopt_get_best(file_path, opt_id):
+    
+    _, max_epoch, old_evals, param_names, is_int, lo_bounds, hi_bounds, objective_names, feature_names, \
+        constraint_names, problem_parameters, problem_ids = \
+            dmosopt.init_from_h5(file_path, None, opt_id, None)
 
+    problem_id = 0
+    old_eval_epochs = [e.epoch for e in old_evals[problem_id]]
+    old_eval_xs = [e.parameters for e in old_evals[problem_id]]
+    old_eval_ys = [e.objectives for e in old_evals[problem_id]]
+    x = np.vstack(old_eval_xs)
+    y = np.vstack(old_eval_ys)
+    old_eval_fs = None
+    f = None
+    if feature_names is not None:
+        old_eval_fs = [e.features for e in old_evals[problem_id]]
+        f = np.concatenate(old_eval_fs, axis=None)
+        
+    old_eval_cs = None
+    c = None
+    if constraint_names is not None:
+        old_eval_cs = [e.constraints for e in old_evals[problem_id]]
+        c = np.vstack(old_eval_cs)
+        
+    x = np.vstack(old_eval_xs)
+    y = np.vstack(old_eval_ys)
+        
+    if len(old_eval_epochs) > 0 and old_eval_epochs[0] is not None:
+        epochs = np.concatenate(old_eval_epochs, axis=None)
+        
+    n_dim = len(lo_bounds)
+    n_objectives = len(objective_names)
+
+    best_x, best_y, best_f, best_c, best_epoch, _ = get_best(x, y, f, c,
+                                                             len(param_names),
+                                                             len(objective_names), 
+                                                             epochs=epochs, feasible=True)
+    best_x_items = tuple((param_names[i], best_x[:, i]) for i in range(best_x.shape[1]))
+    best_y_items = tuple((objective_names[i], best_y[:, i]) for i in range(best_y.shape[1]))
+    return (best_x_items, best_y_items, best_f, best_c)
+
+    
 def init_controller(subworld_size, use_coreneuron):
     h.nrnmpi_init()
     h('objref pc, cvode')
@@ -82,8 +124,9 @@ def init_controller(subworld_size, use_coreneuron):
 @click.option("--collective-mode", type=str, default='gather')
 @click.option("--spawn-startup-wait", type=int, default=3)
 @click.option("--spawn-workers", is_flag=True)
+@click.option("--get-best", is_flag=True)
 @click.option("--verbose", '-v', is_flag=True)
-def main(config_path, target_features_path, target_features_namespace, optimize_file_dir, optimize_file_name, nprocs_per_worker, n_epochs, n_initial, initial_maxiter, initial_method, optimizer_method, population_size, num_generations, resample_fraction, mutation_rate, collective_mode, spawn_startup_wait, spawn_workers, verbose):
+def main(config_path, target_features_path, target_features_namespace, optimize_file_dir, optimize_file_name, nprocs_per_worker, n_epochs, n_initial, initial_maxiter, initial_method, optimizer_method, population_size, num_generations, resample_fraction, mutation_rate, collective_mode, spawn_startup_wait, spawn_workers, get_best, verbose):
 
     network_args = click.get_current_context().args
     network_config = {}
@@ -114,6 +157,7 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
     objective_names = operational_config['objective_names']
     param_config_name = operational_config['param_config_name']
     target_populations = operational_config['target_populations']
+
     opt_param_config = optimization_params(env.netclamp_config.optimize_parameters,
                                            target_populations,
                                            param_config_name=param_config_name,
@@ -166,6 +210,7 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
                       'initial_method': initial_method,
                       'optimizer': optimizer_method,
                       'surrogate_method': 'megp',
+                      'surrogate_options': { 'batch_size': 400 },
                       'n_epochs': n_epochs,
                       'population_size': population_size,
                       'num_generations': num_generations,
@@ -174,16 +219,21 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
                       'file_path': os.path.join(optimize_file_dir, optimize_file_name),
                       'termination_conditions': True,
                       'save_surrogate_eval': True,
+                      'sensitivity_method': 'dgsm',
                       'save': True,
                       'save_eval': 5
                       }
 
-    best = dmosopt.run(dmosopt_params, 
-                       spawn_workers=spawn_workers, 
-                       spawn_startup_wait=spawn_startup_wait,
-                       nprocs_per_worker=nprocs_per_worker,
-                       collective_mode=collective_mode,
-                       verbose=True, worker_debug=True)
+    if get_best:
+        best = dmosopt_get_best(dmosopt_params['file_path'],
+                                dmosopt_params['opt_id'])
+    else:
+        best = dmosopt.run(dmosopt_params, 
+                           spawn_workers=spawn_workers, 
+                           spawn_startup_wait=spawn_startup_wait,
+                           nprocs_per_worker=nprocs_per_worker,
+                           collective_mode=collective_mode,
+                           verbose=True, worker_debug=True)
     
     if best is not None:
         if optimize_file_dir is not None:
@@ -196,7 +246,16 @@ def main(config_path, target_features_path, target_features_namespace, optimize_
             for i in range(n_res):
                 result_param_list = []
                 for param_pattern, param_tuple in zip(param_names, param_tuples):
-                    result_param_list.append([param_pattern, float(prms_dict[param_pattern][i])])
+                    result_param_list.append(
+                        (
+                            param_tuple.population,
+                            param_tuple.source,
+                            param_tuple.sec_type,
+                            param_tuple.syn_name,
+                            param_tuple.param_path,
+                            param_tuple.phenotype,
+                            float(prms_dict[param_pattern][i]),
+                        ))
                 results_config_dict[i] = result_param_list
             write_to_yaml(yaml_file_path, results_config_dict)
 
