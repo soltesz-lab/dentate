@@ -266,7 +266,7 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     """
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
-    env = Env(comm=comm, config_file=config_file, template_paths=template_paths, hoc_lib_path=hoc_lib_path,
+    env = Env(comm=comm, config=config_file, template_paths=template_paths, hoc_lib_path=hoc_lib_path,
               dataset_prefix=dataset_prefix, config_prefix=config_prefix, verbose=verbose)
     configure_hoc_env(env)
     mech_file_path = config_prefix + '/' + mech_file
