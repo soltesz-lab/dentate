@@ -1,0 +1,42 @@
+{load_file("nrngui.hoc")}
+objectvar save_window_, rvp_
+objectvar scene_vector_[3]
+objectvar ocbox_, ocbox_list_, scene_, scene_list_
+{ocbox_list_ = new List()  scene_list_ = new List()}
+{pwman_place(0,0,0)}
+
+//Begin MulRunFitter[0]
+{
+load_file("mulfit.hoc", "MulRunFitter")
+}
+{
+ocbox_ = new MulRunFitter(1)
+}
+{object_push(ocbox_)}
+{
+version(6)
+ranfac = 2
+fspec = new File("MRF-GC_NMDA_Exp3NMDA2.ses.ft1")
+fdat = new File("MRF-GC_NMDA_Exp3NMDA2.ses.fd1")
+read_data()
+build()
+}
+opt.set_optimizer("MulfitPraxWrap")
+{object_push(opt.optimizer)}
+{
+nstep = 1
+}
+{object_pop()}
+{p.gengui(0, 18, 487, 1026.24, 408.96)}
+{p.showargs(1217, 85, 240.96, 203.52)}
+{p.showdomain(24, 163, 361.92, 183.36)}
+{optrestore(1157, 359, 344.64, 352.32)}
+{object_pop()}
+{
+ocbox_.map("MulRunFitter[0]", 475, 40, 638.4, 357.12)
+}
+objref ocbox_
+//End MulRunFitter[0]
+
+objectvar scene_vector_[1]
+{doNotify()}
