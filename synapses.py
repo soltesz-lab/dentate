@@ -56,21 +56,33 @@ def parse_flat_syn_params_with_index(pop_params_dict):
         for this_gid, this_gid_index_dict in viewitems(this_pop_param_dict):
             for this_index, this_gid_index_params in viewitems(this_gid_index_dict):
                 for this_gid_param in this_gid_index_params:
-                    (
-                        this_population,
-                        source,
-                        sec_type,
-                        syn_name,
-                        param_path,
-                        param_val,
-                    ) = this_gid_param
+                    if len(this_gid_param) > 6:
+                        (
+                            this_population,
+                            source,
+                            sec_type,
+                            syn_name,
+                            param_path,
+                            phenotype_id,
+                            param_val,
+                        ) = this_gid_param
+                    else:
+                        (
+                            this_population,
+                            source,
+                            sec_type,
+                            syn_name,
+                            param_path,
+                            param_val,
+                        ) = this_gid_param
+                        phenotype_id = None
                     syn_param = SynParam(
                         this_population,
                         source,
                         sec_type,
                         syn_name,
                         param_path,
-                        None,
+                        phenotype_id,
                     )
                     this_pop_params_tuple_dict[this_gid][this_index].append(
                         (syn_param, param_val)
