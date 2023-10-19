@@ -1,4 +1,4 @@
-param_values: !include DG_eval_network_params_neg10_pos10um_20230729.yaml
+param_values: !include DG_eval_network_params_neg10_pos10um_20230802.yaml
 feature_names:
 - GC snr
 - GC firing rate
