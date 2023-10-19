@@ -16,11 +16,11 @@ dt = .025
 celsius = 18	//room temperature
 v_init = 40
 
-a1 = 1.5
-a2 = 28
-Tau1_0	= 0.018	
-Tau2_0	= 345
-SynWeight = 0.0063
+a1 = 11.608
+a2 = 3.0491
+Tau1_0	= 1.9531	
+Tau2_0	= 317.39
+g_unit  = 0.0074084
 gVI = 1
 
 // ------------------
@@ -47,10 +47,11 @@ nc = new NetCon(stim, sNMDA)
 proc init_NMDA() {
     sNMDA.tau1_0	= Tau1_0	
     sNMDA.tau2_0	= Tau2_0
-    sNMDA.a1	= a2	
+    sNMDA.a1	= a1
     sNMDA.a2	= a2
-    sNMDA.gVI           = gVI
-    nc.weight = SynWeight
+    sNMDA.gVI   = gVI
+    nc.weight[0] = 1.0
+    nc.weight[1] = g_unit
     nc.delay = 1
 }
 objref FinNMDA
