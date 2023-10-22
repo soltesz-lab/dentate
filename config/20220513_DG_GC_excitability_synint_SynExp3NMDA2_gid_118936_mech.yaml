@@ -67,6 +67,10 @@ apical:
           layers: [MML]
           syn_types: [excitatory]
     NMDA:
+      g_unit:
+        filters:
+          syn_types: [excitatory]
+        value: 0.006811
       gVI:
         - filters:
             layers: [IML]
