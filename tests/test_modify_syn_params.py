@@ -91,13 +91,13 @@ def standard_modify_syn_param_tests(cell, env, syn_name='AMPA', param_name='g_un
 @click.option("--pop-name", required=True, type=str, default='GC')
 @click.option("--config-file", required=True, type=str,
               default='Small_Scale_Control_tune_GC_synapses.yaml')
-@click.option("--template-paths", type=str, default='../../DGC/Mateos-Aparicio2014:../templates')
+@click.option("--template-paths", type=str, default='../DGC/Mateos-Aparicio2014:templates')
 @click.option("--hoc-lib-path", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
-              default='..')
+              default='.')
 @click.option("--dataset-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
-              default='../datasets')
+              default='datasets')
 @click.option("--config-prefix", required=True, type=click.Path(exists=True, file_okay=False, dir_okay=True),
-              default='../config')
+              default='config')
 @click.option("--mech-file", required=True, type=str, default='20181205_DG_GC_excitability_mech.yaml')
 @click.option("--output-dir", type=str, default='data')
 @click.option("--load-edges", is_flag=True)
@@ -127,7 +127,7 @@ def main(gid, pop_name, config_file, template_paths, hoc_lib_path, dataset_prefi
     """
     comm = MPI.COMM_WORLD
     np.seterr(all='raise')
-    env = Env(comm=comm, config_file=config_file, template_paths=template_paths, hoc_lib_path=hoc_lib_path,
+    env = Env(comm=comm, config=config_file, template_paths=template_paths, hoc_lib_path=hoc_lib_path,
               dataset_prefix=dataset_prefix, config_prefix=config_prefix, verbose=verbose,
               cache_queries=cache_queries)
     configure_hoc_env(env)
