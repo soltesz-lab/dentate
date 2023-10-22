@@ -47,7 +47,7 @@ ENDCOMMENT
 NEURON {
 	POINT_PROCESS Exp3NMDA2fd
 	NONSPECIFIC_CURRENT i
-	RANGE  tau1_0, a1, tau2_0, a2, tauV, e, i, gVI, st_gVD, v0_gVD, Mg, K0, delta
+	RANGE tau1_0, a1, tau2_0, a2, tauV, e, i, gVI, st_gVD, v0_gVD, Mg, K0, delta
         RANGE tau_D1, delta_D1, tau_F, delta_F
 	RANGE inf, tau1, tau2
 	THREADSAFE
@@ -91,10 +91,11 @@ PARAMETER {
 							: [Mg]o = 0 reduces value of this parameter
 							: Because TauV at room temperature (20) & [Mg]o = 1 mM is 9.12 Clarke08 & Kim11 
 							: and because Q10 at 26 degC is 1.52
-							: then tauV at 26 degC should be 7 
+							: then tauV at 26 degC should be 7
+                                                        
 	st_gVD = 0.007	(1/mV)	: steepness of the gVD-V graph from Clarke08 -> 2 units / 285 mv
 	v0_gVD = -100	(mV)	: Membrane potential at which there is no voltage dependent current, from Clarke08 -> -90 or -100
-	gVI = 1			(uS)	: Maximum Conductance of Voltage Independent component, This value is used to calculate gVD
+	gVI = 1.0	(uS)	: Maximum Conductance of Voltage Independent component in units of uS. This value is used to calculate gVD
 	Q10 = 1.52				: Kim11
 	T0 = 26			(degC)	: reference temperature 
 	celsius 		(degC)	: actual temperature for simulation, defined in Neuron, usually about 35
@@ -128,7 +129,6 @@ ASSIGNED {
 STATE {
 	A
 	B
-	C
 	gVD (uS)
 }
 
@@ -166,7 +166,7 @@ DERIVATIVE state { LOCAL x
 	gVD' = B*(inf-gVD)/tau
     }
     
-    NET_RECEIVE(weight, wf, f, d1, t0 (ms)) { LOCAL d
+    NET_RECEIVE(weight, g_unit (uS), wf, f, d1, t0 (ms)) { LOCAL d
         INITIAL {
             d1 = 1
             f  = 1
@@ -175,7 +175,7 @@ DERIVATIVE state { LOCAL x
         f = 1 + (f - 1)*exp(-(t - t0)/tau_F)
         t0 = t
         
-        wf  = weight*factor*d1*f
+        wf  = weight*g_unit*factor*d1*f
 	A = A + wf
 	B = B + wf
         d1 = d1 * delta_D1
