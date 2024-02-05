@@ -2981,7 +2981,7 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
                 trial_sdf_ip = interpolate.Akima1DInterpolator(trial_sdf_time, trial_sdf_rate)
                 trial_sdf_ips.append(trial_sdf_ip)
             if len(spk_inds) > 0:
-                ax_spk.stem(this_trial_spkts[spk_inds], [0.5]*len(spk_inds), markerfmt=' ', use_line_collection=True)
+                ax_spk.stem(this_trial_spkts[spk_inds], [0.5]*len(spk_inds), markerfmt=' ')
             ax_spk.set_yticks([])
         sprate = spk_count / n_trials  / tsecs
 
