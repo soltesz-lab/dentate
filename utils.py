@@ -940,8 +940,14 @@ def make_geometric_graph(x, y, z, edges):
         return np.sqrt(np.dot(d, d))
 
     g = nx.Graph()
-    for i, j in edges:
-        g.add_edge(i, j, weight=euclidean_dist(i, j))
+    for edge in edges:
+        if len(edge) > 2:
+            i, j, edge_attrs = edge
+            g.add_edge(i, j, weight=euclidean_dist(i, j), **edge_attrs)
+        else:
+            i, j = edge
+            g.add_edge(i, j, weight=euclidean_dist(i, j))
+        
     return g
 
 

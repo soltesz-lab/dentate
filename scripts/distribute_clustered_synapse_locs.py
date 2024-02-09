@@ -46,13 +46,14 @@ mpi_op_merge_dict = MPI.Op.Create(merge_dict, commute=True)
 @click.option("--value-chunk-size", type=int, default=1000)
 @click.option("--write-size", type=int, default=0)
 @click.option("--cluster-write-size", type=int, default=0)
+@click.option("--cluster-syn-count-max", type=int, default=50)
 @click.option("--attr-gen-cache-size", type=int, default=10)
 @click.option("--solver-path", type=str, default=None)
 @click.option("--verbose", "-v", is_flag=True)
 @click.option("--dry-run", is_flag=True)
 @click.option("--debug", is_flag=True)
 def main(config, config_prefix, template_path, output_path, forest_path, synapse_attributes_path, structured_weights_path, synapse_clusters_path, populations, arena_id, io_size, chunk_size, value_chunk_size,
-         write_size, cluster_write_size, attr_gen_cache_size, solver_path, verbose, dry_run, debug):
+         write_size, cluster_write_size, cluster_syn_count_max, attr_gen_cache_size, solver_path, verbose, dry_run, debug):
     """
 
     :param config:
@@ -366,7 +367,8 @@ def main(config, config_prefix, template_path, output_path, forest_path, synapse
                                                                                                env.SWC_Types, env.layers,
                                                                                                density_config_dict, cell_morph_dict,
                                                                                                cell_sec_dict, cell_secidx_dict,
-                                                                                               syn_cluster_attrs_dict)
+                                                                                               syn_cluster_attrs_dict,
+                                                                                               cluster_syn_count_max=cluster_syn_count_max)
 
                 assert(len(syn_dict['syn_ids']) == num_syns)
                 if debug:
