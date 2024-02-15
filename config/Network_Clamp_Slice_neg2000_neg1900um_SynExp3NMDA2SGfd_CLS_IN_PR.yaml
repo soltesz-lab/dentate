@@ -1,17 +1,17 @@
+## Model configuration of dentate gyrus network
 Network Clamp:  !include Network_Clamp.yaml
-Model Name: Single_GC_Exc_Sat_SynExp3NMDA2SGfd_SLN_CLS_IN_PR_GC_phenotypes
+Model Name: dentatenet
 Dataset Name: Slice
 Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-Cell Data: dentatenet_Slice_GC_phenotypes_20230628.h5
-Connection Data: dentatenet_Slice_GC_phenotypes_20230628.h5
-#Gap Junction Data: DG_gapjunctions_20191112.h5
+Cell Data: dentatenet_Slice_SLN_neg2000_neg1900um_20230628.h5
+Connection Data: dentatenet_Slice_SLN_neg2000_neg1900um_20230628.h5
+#Gap Junction Data: DG_gapjunctions_20181228.h5
 Connection Generator: !include Full_Scale_Connections_GC_Exc_Sat_SynExp3NMDA2SGfd_IN_PR.yaml
 Recording: !include Recording.yaml
 Stimulus: !include Input_Configuration.yaml
-Analysis: !include Analysis_Configuration.yaml
 ## Cell types for dentate gyrus model
 Cell Types:
   GC:
@@ -22,8 +22,8 @@ Cell Types:
     synapses:
       correct_for_spines: True
       weights: !include GC_SLN_weights.yaml
-      clusters: !include GC_SLN_clusters.yaml
       density: !include GC_synapse_density.yaml
+      clusters: !include GC_SLN_clusters.yaml
   MC:
     template: PRS_nrn
     template file: PRS_nrn.hoc
@@ -32,31 +32,45 @@ Cell Types:
       weights: !include MC_SLN_weights.yaml
       density: !include MC_synapse_density.yaml
   HC:
-    template: HIPPCell
+    template: PRH_nrn
+    template file: PRH_nrn.hoc
+    mechanism file: DG_HIPP_PR_config.yaml
     synapses:
       density: !include HC_synapse_density.yaml
   BC:
-    template: BasketCell
+    template: PRN_nrn
+    template file: PRN_nrn.hoc
+    mechanism file: DG_BC_PR_config.yaml
     synapses:
       density: !include BC_synapse_density.yaml
   AAC:
-    template: AxoAxonicCell
+    template: PR_nrn
+    template file: PR_nrn.hoc
+    mechanism file: DG_AAC_PR_config.yaml
     synapses:
       density: !include AAC_synapse_density.yaml
   HCC:
-    template: HICAPCell
+    template: PR_nrn
+    template file: PR_nrn.hoc
+    mechanism file: DG_HICAP_PR_config.yaml
     synapses:
       density: !include HCC_synapse_density.yaml
   NGFC:
-    template: NGFCell
+    template: PR_nrn
+    template file: PR_nrn.hoc
+    mechanism file: DG_NGFC_PR_config.yaml
     synapses:
       density: !include NGFC_synapse_density.yaml
   MOPP:
-    template: MOPPCell
+    template: PR_nrn
+    template file: PR_nrn.hoc
+    mechanism file: DG_MOPP_PR_config.yaml
     synapses:
       density: !include NGFC_synapse_density.yaml
   IS:
-    template: ISCell
+    template: PR_nrn
+    template file: PR_nrn.hoc
+    mechanism file: DG_IS_PR_config.yaml
     synapses:
       density: !include IS_synapse_density.yaml
   MPP:
@@ -79,4 +93,3 @@ Cell Types:
     spike train:
       namespace: Input Spikes
       attribute: Spike Train
-
