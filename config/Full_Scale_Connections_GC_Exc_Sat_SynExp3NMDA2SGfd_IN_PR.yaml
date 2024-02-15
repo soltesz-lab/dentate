@@ -159,7 +159,7 @@ Synapses:
           dur_onset: 0.5
           tau_offset: 6.2
           e: 0
-          g_unit: 0.000125
+          g_unit: 0.0003
           sat: 0.9
         NMDA:
           weight: 1.0
@@ -174,7 +174,7 @@ Synapses:
           dur_onset: 0.5
           tau_offset: 9.0
           e: 0
-          g_unit: 0.0006
+          g_unit: 0.0009
           sat: 0.9
         NMDA:
           weight: 1.0
@@ -216,7 +216,7 @@ Synapses:
           tau_offset: 9.0
           e: -75
           g_unit: 0.001
-          weight: 1.23
+          weight: 0.1
     AAC:  
       type: inhibitory
       sections: [ais]
@@ -229,7 +229,7 @@ Synapses:
           tau_offset: 9.0
           e: -75
           g_unit: 0.001
-          weight: 3.0
+          weight: 0.1
     HCC:  
       type: inhibitory
       sections: [apical]

@@ -1902,7 +1902,7 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
                 if (population in state_info) and (namespace in state_info[population]):
                     ns_state_info_dict = dict(state_info[population][namespace])
                     if state_variable in ns_state_info_dict:
-                        gid_set = list(ns_state_info_dict[state_variable])[:max_units]
+                        gid_set = list(set(ns_state_info_dict[state_variable]))[:max_units]
                         break
                     else:
                         raise RuntimeError('unable to find recording for state variable %s population %s namespace %s' % (state_variable, population, namespace))
@@ -1920,18 +1920,17 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
             for (gid, cell_states) in viewitems(pop_states):
                 pop_states_dict[pop_name][gid][namespace_id] = cell_states
 
-
     pop_state_mat_dict = defaultdict(lambda: dict())
     for (pop_name, pop_states) in viewitems(pop_states_dict):
-            for (gid, cell_state_dict) in viewitems(pop_states):
-                nss = sorted(cell_state_dict.keys())
-                cell_state_x = cell_state_dict[nss[0]][time_variable]
-                cell_state_mat = np.matrix([np.mean(np.row_stack(cell_state_dict[ns][state_variable]), axis=0)
-                                            for ns in nss], dtype=np.float32)
-                cell_state_distances = [cell_state_dict[ns]['distance'] for ns in nss]
-                cell_state_ri = [cell_state_dict[ns]['ri'] for ns in nss]
-                cell_state_labels = [f'{ns} {state_variable}' for ns in nss]
-                pop_state_mat_dict[pop_name][gid] = (cell_state_x, cell_state_mat, cell_state_labels, cell_state_distances, cell_state_ri)
+        for (gid, cell_state_dict) in viewitems(pop_states):
+            nss = sorted(cell_state_dict.keys())
+            cell_state_x = cell_state_dict[nss[0]][time_variable]
+            cell_state_mat = np.matrix([np.mean(np.row_stack(cell_state_dict[ns][state_variable]), axis=0)
+                                        for ns in nss], dtype=np.float32)
+            cell_state_distances = [cell_state_dict[ns]['distance'] for ns in nss]
+            cell_state_ri = [cell_state_dict[ns]['ri'] for ns in nss]
+            cell_state_labels = [f'{ns} {state_variable}' for ns in nss]
+            pop_state_mat_dict[pop_name][gid] = (cell_state_x, cell_state_mat, cell_state_labels, cell_state_distances, cell_state_ri)
     
     stplots = []
 

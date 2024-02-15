@@ -2475,7 +2475,7 @@ def make_section_graph(neurotree_dict):
     return sec_graph
 
 
-def make_morph_graph(biophys_cell, node_filters={}):
+def make_biophys_morph_graph(biophys_cell, node_filters={}):
     """
     Creates a graph of 3d points that follows the morphological organization of the given neuron.
     :param neurotree_dict:
@@ -3128,6 +3128,7 @@ def init_circuit_context(env, pop_name, gid,
 
             else:
                 raise RuntimeError("init_circuit_context: invalid weights parameters")
+
             if len(weights_namespaces) != len(cell_weights_dicts):
                 logger.warning("init_circuit_context: Unable to load all weights namespaces: %s" % str(weights_namespaces))
 

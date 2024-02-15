@@ -21,10 +21,14 @@ PinskyRinzel:
 apical:
   synapses:
     NMDA:
+      g_unit:
+        filters:
+          syn_types: [excitatory]
+        value: 0.05
       gVI:
         - filters:
             syn_types: [excitatory]
-          value: 0.0001
+          value: 0.0005
       tau1_0:
         filters:
           syn_types:
@@ -34,14 +38,46 @@ apical:
         filters:
           syn_types:
           - excitatory
-        value: 462.39
-      a1:
+        value: 100.0
+      tau_D1:
+        - filters:
+            layers: [MML, OML]
+            syn_types:
+            - excitatory
+          value: 185.0
+        - filters:
+            layers: [IML]
+            syn_types:
+            - excitatory
+          value: 176.0
+      tau_F:
+        - filters:
+            layers: [MML, OML]
+            syn_types:
+            - excitatory
+          value: 109.0
+        - filters:
+            layers: [IML]
+            syn_types:
+              - excitatory
+          value: 86.0
+      delta_F:
         filters:
           syn_types:
           - excitatory
-        value: 1.5
-      a2:
+        value: 0.1
+      tau_G1:
         filters:
           syn_types:
           - excitatory
-        value: 28.0
+        value: 2.03
+      tau_G2:
+        filters:
+          syn_types:
+          - excitatory
+        value: 100.0
+      Ginc:
+        filters:
+          syn_types:
+          - excitatory
+        value: 500.0

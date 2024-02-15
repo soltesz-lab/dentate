@@ -5,8 +5,8 @@ Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
 Geometry: !include Geometry.yaml
 Random Seeds: !include Random.yaml
-Cell Data: dentatenet_Slice_SLN_center_pf_20221216.h5
-Connection Data: dentatenet_Slice_SLN_center_pf_20221216.h5
+Cell Data: dentatenet_Slice_SLN_center_pf_20230315.h5
+Connection Data: dentatenet_Slice_SLN_center_pf_20230315.h5
 #Gap Junction Data: DG_gapjunctions_20191112.h5
 Connection Generator: !include Full_Scale_Connections_GC_Exc_Sat_SynExp3NMDA2fd_IN_PR.yaml
 Recording: !include Recording.yaml
@@ -21,6 +21,7 @@ Cell Types:
     synapses:
       correct_for_spines: True
       weights: !include GC_SLN_weights.yaml
+#      clusters: !include GC_SLN_clusters.yaml
       density: !include GC_synapse_density.yaml
   MC:
     template: PRS_nrn
