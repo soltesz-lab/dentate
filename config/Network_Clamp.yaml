@@ -390,7 +390,7 @@ Synaptic Optimization:
                 a: [1.0, 10.0]
                 b: [0.5, 5.0]
             NMDA:
-              gVI: [0.001, 0.1]
+              gVI: [0.0, 0.1]
        !!python/tuple [MC, ConMC]:
           apical:
             AMPA:
