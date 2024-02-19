@@ -1,0 +1,89 @@
+/* In this experiment I'm going to test a classic 2 exponential NMDA model
+Its voltage dependent block provided by Mg and happens fast
+I'm going to fit my model to the Wild Type NMDAR recordings obtained from 
+Dendrites of CA1-CA3 Neurons Reported in Spruston95
+Keivan Moradi
+Modified by Ivan Raikov, 2023.
+*/
+load_file("nrngui.hoc")
+//load_file("params.hoc")
+
+//fully activates cache efficiency
+cvode.cache_efficient(1)  
+
+tstop = 600
+dt = .025
+celsius = 18	//room temperature
+v_init = 40
+
+a1 = 11.608
+a2 = 3.0491
+Tau1_0	= 1.9531	
+Tau2_0	= 317.39
+g_unit  = 0.0074084
+gVI = 1
+
+// ------------------
+create soma
+access soma
+
+diam = 200
+L = 200
+
+print "L = ", L
+print "diam = ", diam
+
+
+objref sNMDA, stim, nc
+stim = new NetStim(.5)
+	stim.interval = 20	//ms (mean) time between spikes
+	stim.number = 1	//(average) number of spikes
+	stim.start 	= 80	//ms (most likely) start time of first spike
+	stim.noise 	= 0		//---- range 0 to 1. Fractional randomness.
+	//0 deterministic, 1 intervals have negexp distribution.
+sNMDA = new Exp3NMDA2fd(.5)
+nc = new NetCon(stim, sNMDA)
+
+proc init_NMDA() {
+    sNMDA.tau1_0	= Tau1_0	
+    sNMDA.tau2_0	= Tau2_0
+    sNMDA.a1	= a1
+    sNMDA.a2	= a2
+    sNMDA.gVI   = gVI
+    nc.weight[0] = 1.0
+    nc.weight[1] = g_unit
+    nc.delay = 1
+}
+objref FinNMDA
+FinNMDA = new FInitializeHandler(3,"init_NMDA()")
+	
+objref vc
+vc = new VClamp(.5)
+	vc.dur[0] = 60.5
+	vc.amp[0] = 40
+	vc.dur[1] = 10.0
+	vc.amp[1] = -80
+	vc.dur[2] = 500
+	vc.amp[2] = 48
+	
+// objref iNMDA, iFile, time, tFile
+// iNMDA = new Vector()
+// iNMDA.record(&sNMDA.i)
+// iFile = new File("iFile.dat")
+// iFile.wopen("iFile.dat")
+
+// time = new Vector()
+// time.record(&t)
+// tFile = new File("tFile.dat")
+// tFile.wopen("tFile.dat")
+
+// init()
+// run()
+
+// iNMDA.printf(iFile)
+// iFile.close()
+
+// time.printf(tFile)
+// tFile.close()
+
+load_file("scripts/MRF-GC_NMDA_Exp3NMDA2.ses")

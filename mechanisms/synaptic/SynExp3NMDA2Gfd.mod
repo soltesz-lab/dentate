@@ -45,11 +45,12 @@ by the more efficient cnexp method.
 ENDCOMMENT
 
 NEURON {
-	POINT_PROCESS Exp3NMDA2fd
+	POINT_PROCESS Exp3NMDA2Gfd
 	NONSPECIFIC_CURRENT i
-	RANGE tau1_0, a1, tau2_0, a2, tauV, e, i, gVI, st_gVD, v0_gVD, Mg, K0, delta
+	RANGE tau1_0, a1, b1, tau2_0, a2, b2, tauV, e, i, gVI, st_gVD, v0_gVD, Mg, K0, delta
         RANGE tau_D1, delta_D1, tau_F, delta_F
 	RANGE inf, tau1, tau2
+        RANGE Ginc, tau_G1, tau_G2
 	THREADSAFE
 }
 
@@ -74,7 +75,12 @@ PARAMETER {
     : short term depression parameters
     tau_D1 = 200 (ms)
     delta_D1 = 0.67
-    
+
+    : glutamate binding parameters
+    Ginc = 1
+    tau_G1 = 2.03 (ms)
+    tau_G2 = 100 (ms)
+
     : parameters control exponential decay of tau1
     tau1_0 = 2.2340 (ms)
     a1 = 0.0896		(ms)
@@ -119,6 +125,7 @@ ASSIGNED {
 	i		(nA)
 	g		(uS)
 	factor
+        Gfactor
         
 	inf		(uS)
 	tau		(ms)
@@ -143,7 +150,10 @@ INITIAL {
 	tp = (tau1*tau2)/(tau2 - tau1) * log(tau2/tau1)
 	factor = -exp(-tp/tau1) + exp(-tp/tau2)
 	factor = 1/factor
-        
+
+        tp = (tau_G1*tau_G2)/(tau_G2 - tau_G1) * log(tau_G2/tau_G1)
+        Gfactor = -exp(-tp/tau_G1) + exp(-tp/tau_G2)
+        Gfactor = 1/Gfactor        
         
 	: temperature-sensitivity of the slow unblock of NMDARs
 	tau = tauV * Q10^((T0 - celsius)/10(degC))
@@ -166,16 +176,25 @@ DERIVATIVE state { LOCAL x
 	gVD' = B*(inf-gVD)/tau
     }
     
-    NET_RECEIVE(weight, g_unit (uS), wf, f, d1, t0 (ms)) { LOCAL d
+NET_RECEIVE(weight, g_unit (uS), wf, f, d1, t0 (ms), G1, G2) { LOCAL d
         INITIAL {
             d1 = 1
-            f  = 1
+            f  = 0
+            G1 = 0
+            G2 = 0
         }
         d1 = 1 - (1 - d1)*exp(-(t - t0)/tau_D1)
         f = 1 + (f - 1)*exp(-(t - t0)/tau_F)
+
+        G1 = G1*exp(-(t-t0)/tau_G1)
+        G2 = G2*exp(-(t-t0)/tau_G2)
+        G1 = G1 + Ginc*Gfactor
+        G2 = G2 + Ginc*Gfactor        
+
         t0 = t
-        
-        wf  = weight*g_unit*factor*d1*f
+
+        wf  = weight*g_unit*factor*d1*f*(G2 - G1)
+
 	A = A + wf
 	B = B + wf
         d1 = d1 * delta_D1
@@ -187,9 +206,19 @@ FUNCTION Mgblock(v(mV)) {
 	Mgblock = 1 / (1 + (Mg/K0)*exp((0.001)*(-z)*delta*F*v/R/(T+celsius)))
 }
 
-PROCEDURE rates(v (mV)) { 
+
+FUNCTION sigm (x) {
+  sigm  =  1.0 / (exp(x) + 1.0)
+}
+
+
+PROCEDURE rates(v (mV)) {
+          LOCAL s1, s2
+          s1 = -0.12
+          s2 = 57.5
 	tau1 = tau1_0 + a1*exp(-b1*v)
-	tau2 = tau2_0 + a2*(1-exp(-b2*v))
+	:tau2 = tau2_0 + a2*(1-exp(-b2*v))
+        tau2 = tau2_0 * sigm(s1*(v+s2))
 	if (tau1/tau2 > .9999) {
 		tau1 = .9999*tau2
 	}

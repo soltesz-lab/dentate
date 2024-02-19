@@ -1,6 +1,6 @@
 import numbers, os, copy, pprint, sys, time
 from collections import defaultdict
-from scipy import interpolate, signal, ndimage
+from scipy import interpolate, signal, ndimage, spatial
 import numpy as np
 from mpi4py import MPI
 from neuroh5.io import NeuroH5ProjectionGen, bcast_cell_attributes, read_cell_attributes, read_population_names, \
@@ -19,7 +19,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import dentate
 from dentate.graph import vertex_distribution, vertex_metrics
 from dentate.statedata import read_state, query_state
-from dentate.cells import default_ordered_sec_types, get_distance_to_node, make_morph_graph
+from dentate.cells import default_ordered_sec_types, get_distance_to_node, make_biophys_morph_graph
 from dentate.env import Env
 from dentate.synapses import get_syn_filter_dict, get_syn_mech_param
 from dentate.utils import get_module_logger, Promise, Struct, add_bins, update_bins, finalize_bins
@@ -45,7 +45,7 @@ except ImportError as e:
 logger = get_module_logger(__name__)
 
 # Default figure configuration
-default_fig_options = Struct(figFormat='png', lw=2, figSize=(15,8), fontSize=14, saveFig=None, showFig=True,
+default_fig_options = Struct(figFormat='png', lw=2, figSize=(15,10), fontSize=14, saveFig=None, showFig=True,
                              colormap='jet', saveFigDir=None)
 
 dflt_colors = ["#009BFF", "#E85EBE", "#00FF00", "#0000FF", "#FF0000", "#01FFFE", "#FFA6FE", 
@@ -70,7 +70,7 @@ def hex2rgb(hexcode):
         import codecs
         bhexcode = bytes(hexcode[1:], 'utf-8')
         return tuple([ float(b)/255.0 for b in codecs.decode(bhexcode, 'hex') ])
-
+    
 mpl.rcParams['svg.fonttype'] = 'none'
 mpl.rcParams['font.size'] = 14.
 mpl.rcParams['font.sans-serif'] = 'Arial'
@@ -145,6 +145,52 @@ def plot_graph(x, y, z, start_idx, end_idx, edge_scalars=None, edge_color=None, 
     return vec
 
 
+
+def make_morph_graph(tree_dict, section_attrs={}, mst=True):
+    """ 
+    Creates a morphological graph using NetworkX
+    """
+    
+    xcoords = tree_dict["x"]
+    ycoords = tree_dict["y"]
+    zcoords = tree_dict["z"]
+    swc_type = tree_dict["swc_type"]
+    layer = tree_dict["layer"]
+    secnodes = tree_dict["section_topology"]["nodes"]
+    src = tree_dict["section_topology"]["src"]
+    dst = tree_dict["section_topology"]["dst"]
+    loc = tree_dict["section_topology"]["loc"]
+
+    x = xcoords.reshape(
+        -1,
+    )
+    y = ycoords.reshape(
+        -1,
+    )
+    z = zcoords.reshape(
+        -1,
+    )
+
+    edges = []
+    for sec, nodes in secnodes.items():
+        this_section_attrs = section_attrs.get(sec, {})
+        for i in range(1, len(nodes)):
+            srcnode = nodes[i - 1]
+            dstnode = nodes[i]
+            edges.append((srcnode, dstnode, this_section_attrs))
+
+    for s, d, l in zip(src, dst, loc):
+        srcnode = secnodes[s][l]
+        dstnode = secnodes[d][0]
+        edges.append((srcnode, dstnode, {}))
+
+    # Make a NetworkX graph out of our point and edge data
+    g = make_geometric_graph(x, y, z, edges)
+
+    return g
+    
+    
+    
 def plot_spatial_bin_graph(graph_dict, **kwargs):
     
     import hiveplot as hv
@@ -1142,7 +1188,7 @@ def plot_biophys_cell_tree (env, biophys_cell, node_filters={'swc_types': ['apic
     import networkx as nx
     from mayavi import mlab
 
-    morph_graph = make_morph_graph(biophys_cell, node_filters=node_filters)
+    morph_graph = make_biophys_morph_graph(biophys_cell, node_filters=node_filters)
     
     colormap = kwargs.get("colormap", 'coolwarm')
     mlab.figure(bgcolor=kwargs.get("bgcolor", (0,0,0)))
@@ -1856,7 +1902,7 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
                 if (population in state_info) and (namespace in state_info[population]):
                     ns_state_info_dict = dict(state_info[population][namespace])
                     if state_variable in ns_state_info_dict:
-                        gid_set = list(ns_state_info_dict[state_variable])[:max_units]
+                        gid_set = list(set(ns_state_info_dict[state_variable]))[:max_units]
                         break
                     else:
                         raise RuntimeError('unable to find recording for state variable %s population %s namespace %s' % (state_variable, population, namespace))
@@ -1874,18 +1920,17 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
             for (gid, cell_states) in viewitems(pop_states):
                 pop_states_dict[pop_name][gid][namespace_id] = cell_states
 
-
     pop_state_mat_dict = defaultdict(lambda: dict())
     for (pop_name, pop_states) in viewitems(pop_states_dict):
-            for (gid, cell_state_dict) in viewitems(pop_states):
-                nss = sorted(cell_state_dict.keys())
-                cell_state_x = cell_state_dict[nss[0]][time_variable]
-                cell_state_mat = np.matrix([np.mean(np.row_stack(cell_state_dict[ns][state_variable]), axis=0)
-                                            for ns in nss], dtype=np.float32)
-                cell_state_distances = [cell_state_dict[ns]['distance'] for ns in nss]
-                cell_state_ri = [cell_state_dict[ns]['ri'] for ns in nss]
-                cell_state_labels = [f'{ns} {state_variable}' for ns in nss]
-                pop_state_mat_dict[pop_name][gid] = (cell_state_x, cell_state_mat, cell_state_labels, cell_state_distances, cell_state_ri)
+        for (gid, cell_state_dict) in viewitems(pop_states):
+            nss = sorted(cell_state_dict.keys())
+            cell_state_x = cell_state_dict[nss[0]][time_variable]
+            cell_state_mat = np.matrix([np.mean(np.row_stack(cell_state_dict[ns][state_variable]), axis=0)
+                                        for ns in nss], dtype=np.float32)
+            cell_state_distances = [cell_state_dict[ns]['distance'] for ns in nss]
+            cell_state_ri = [cell_state_dict[ns]['ri'] for ns in nss]
+            cell_state_labels = [f'{ns} {state_variable}' for ns in nss]
+            pop_state_mat_dict[pop_name][gid] = (cell_state_x, cell_state_mat, cell_state_labels, cell_state_distances, cell_state_ri)
     
     stplots = []
 
@@ -2005,6 +2050,169 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
             filename = fig_options.saveFig
         else:
             filename = input_path+' '+'state.%s' % fig_options.figFormat
+            plt.savefig(filename)
+                
+    # show fig 
+    if fig_options.showFig:
+        show_figure()
+    
+    return fig
+
+
+
+## Plot intracellular state trace in tree morphology
+def plot_state_correlation_in_tree (config_file, config_prefix, state_path, state_namespace_ids, reference_features_path, reference_features_namespace, reference_features_arena_id, reference_features_trajectory_id, population, gid, cell_data_path=None, dataset_prefix=None, time_range=None, time_variable='t', state_variable='v', n_trials = 1, labels='legend', **kwargs): 
+    ''' 
+    Line plot of intracellular state variable (default: v). Returns the figure handle.
+
+    state_path: file with state data
+    state_namespace_ids: attribute namespaces  
+    time_range ([start:stop]): Time range of spikes shown; if None shows all (default: None)
+    time_variable: Name of variable containing spike times (default: 't')
+    state_variable: Name of state variable (default: 'v')
+    labels = ('legend', 'overlay'): Show population labels in a legend or overlayed on one side of raster (default: 'legend')
+    '''
+
+    import networkx as nx
+    
+    fig_options = copy.copy(default_fig_options)
+    fig_options.update(kwargs)
+
+    _, state_info = query_state(state_path, [population], namespace_ids=state_namespace_ids)
+
+    env = Env(config=config_file, config_prefix=config_prefix,
+              dataset_prefix=dataset_prefix, arena_id=reference_features_arena_id,
+              trajectory_id=reference_features_trajectory_id)
+
+    if env.data_file_path is None:
+        env.data_file_path = cell_data_path
+        env.connectivity_file_path = cell_data_path
+        env.load_celltypes()
+    
+    reference_trj_rate_maps = stimulus.rate_maps_from_features(env, population,
+                                                               cell_index_set=[gid],
+                                                               input_features_path=reference_features_path, 
+                                                               input_features_namespace=reference_features_namespace,
+                                                               time_range=time_range,
+                                                               include_time=True)
+    reference_x, reference_signal = reference_trj_rate_maps[gid]
+        
+    reference_signal_norm = reference_signal / np.max(reference_signal)
+    reference_ip = interpolate.pchip(reference_x, reference_signal_norm)
+
+    include = [population]
+    gid_set = [gid]
+
+    if time_range is None:
+        time_range = (np.min(reference_x), np.max(reference_x))
+
+    tree_dict = None
+    (tree_iter, _) = read_tree_selection(env.data_file_path, population, selection=[gid])
+    for (gid,tree_dict) in tree_iter:
+        tree_dict = tree_dict
+    
+    pop_states_dict = defaultdict(lambda: defaultdict(lambda: dict()))
+    for namespace_id in state_namespace_ids:
+        logger.info(f"Reading state values from namespace {namespace_id}...")
+        data = read_state (state_path, include, namespace_id, time_variable=time_variable,
+                           state_variables=[state_variable], time_range=time_range, 
+                           gid = gid_set, n_trials=n_trials)
+        states  = data['states']
+        
+        for (pop_name, pop_states) in viewitems(states):
+            for (gid, cell_states) in viewitems(pop_states):
+                pop_states_dict[pop_name][gid][namespace_id] = cell_states
+
+
+    pop_state_mat_dict = defaultdict(lambda: dict())
+    for (pop_name, pop_states) in viewitems(pop_states_dict):
+        for (gid, cell_state_dict) in viewitems(pop_states):
+            nss = sorted(cell_state_dict.keys())
+            cell_state_x = cell_state_dict[nss[0]][time_variable]
+            cell_state_sections = [cell_state_dict[ns]['section'] for ns in nss]
+            cell_state_mat = { section_index: np.mean(np.row_stack(cell_state_dict[ns][state_variable]), axis=0)
+                               for section_index, ns in zip(cell_state_sections, nss) }
+            cell_state_locs = [cell_state_dict[ns]['loc'] for ns in nss]
+            cell_state_labels = [f'{ns} {state_variable}' for ns in nss]
+            pop_state_mat_dict[pop_name][gid] = (cell_state_x,
+                                                 cell_state_mat,
+                                                 cell_state_labels,
+                                                 cell_state_sections,
+                                                 cell_state_locs)
+    
+    stplots = []
+
+    fig = plt.figure(figsize=fig_options.figSize)
+    ax = fig.add_subplot(projection="3d")
+    
+    legend_labels = []
+    for (pop_name, pop_states) in viewitems(pop_state_mat_dict):
+        
+        for (gid, cell_state_mat) in viewitems(pop_states):
+            
+            st_x = cell_state_mat[0][0].reshape((-1,))
+            
+            cell_state_sections = cell_state_mat[3]
+            cell_state_locs = cell_state_mat[4]
+            logger.info(f'cell_state_sections = {cell_state_sections}')
+            logger.info(f'cell_state_locs = {cell_state_locs}')
+
+            section_attrs = {}
+            section_state_corr_distances = []
+            for j in cell_state_sections:
+                section_state = np.asarray(cell_state_mat[1][j])
+                section_state_range = np.max(section_state) - np.min(section_state)
+                section_state_norm = np.abs(section_state / section_state_range)
+                logger.info(f"section_state_norm = {section_state_norm}")
+                logger.info(f"reference_signal_norm = {reference_signal_norm}")
+                section_state_ip = interpolate.pchip(st_x, section_state_norm)
+                section_state_corr_distance = np.clip(spatial.distance.correlation(reference_signal_norm,
+                                                                                   section_state_ip(reference_x)),
+                                                      0., None)
+                logger.info(f"section_state_corr_distances = {section_state_corr_distances}")
+                section_state_corr_distances.append(section_state_corr_distance)
+
+            section_state_corr_distances_norm = np.asarray(section_state_corr_distances) / np.max(section_state_corr_distances)
+            for section_order, j in enumerate(cell_state_sections):
+                d = section_state_corr_distances_norm[section_order]
+                section_color = cm.plasma_r(d)
+                logger.info(f"section {j}: section_state_corr_distance = {d}")
+                logger.info(f"section_color = {section_color}")
+                section_attrs[j] = {'color': section_color}
+                
+            morph_graph = make_morph_graph(tree_dict, section_attrs=section_attrs)
+            xcoords = tree_dict["x"]
+            ycoords = tree_dict["y"]
+            zcoords = tree_dict["z"]
+
+            e_xs = []
+            e_ys = []
+            e_zs = []
+            e_cs = []
+            for i, j, c in morph_graph.edges.data('color', default=(1,1,1,1)):
+                e_xs.append((xcoords[i], xcoords[j]))
+                e_ys.append((ycoords[i], ycoords[j]))
+                e_zs.append((zcoords[i], zcoords[j]))
+                e_cs.append(c)
+                
+            for xs,ys,zs,c in zip(e_xs,e_ys,e_zs,e_cs):
+                ax.plot(xs,ys,zs,c=c)
+                
+            ax.set_box_aspect((np.ptp(xcoords), np.ptp(ycoords), np.ptp(zcoords)))
+            ax.view_init(elev=0, azim=-90, roll=0)
+
+
+    cnorm = mpl.colors.Normalize(vmin=0, vmax=1)
+
+    fig.colorbar(mpl.cm.ScalarMappable(norm=cnorm, cmap=cm.plasma_r),
+                 ax=ax, orientation='horizontal')
+        
+    # save figure
+    if fig_options.saveFig:
+        if isinstance(fig_options.saveFig, str):
+            filename = fig_options.saveFig
+        else:
+            filename = state_path+' '+'state correlation.%s' % fig_options.figFormat
             plt.savefig(filename)
                 
     # show fig 
@@ -2184,109 +2392,6 @@ def interpolate_state(st_x, st_y):
     return st_y_res
 
 
-
-## Plot intracellular state mapped onto cell morphology
-def plot_intracellular_state_in_tree (gid, population, forest_path, state_input_path, namespace_ids, time_range = None, time_variable='t', state_variable='v',  colormap='coolwarm', line_width=3., **kwargs): 
-    ''' 
-    Aggregate plot of intracellular state variable in the cell morphology (default: v). Returns the figure handle.
-
-    state_input_path: file with state data
-    namespace_ids: attribute namespaces  
-    time_range ([start:stop]): Time range of spikes shown; if None shows all (default: None)
-    time_variable: Name of variable containing spike times (default: 't')
-    state_variable: Name of state variable (default: 'v')
-    '''
-
-    fig_options = copy.copy(default_fig_options)
-    fig_options.update(kwargs)
-
-    (population_ranges, N) = read_population_ranges(state_input_path)
-    population_names  = read_population_names(state_input_path)
-
-    pop_num_cells = {}
-    for k in population_names:
-        pop_num_cells[k] = population_ranges[k][1]
-
-
-    cell_state_dict = {}
-    for namespace_id in namespace_ids:
-        data = read_state (state_input_path, [population], namespace_id, time_variable=time_variable,
-                            state_variables=[state_variable], time_range=time_range, gid = [gid])
-        states  = data['states']
-        cell_state_dict[namespace_id] = states[population][gid]
-
-
-    cell_state_items = list(sorted(viewitems(cell_state_dict)))
-    cell_state_x = cell_state_items[0][1][0]
-    cell_state_mat = np.matrix([cell_state_item[1][1] for cell_state_item in cell_state_items], dtype=np.float32)
-    cell_state_distances = [cell_state_item[1][2] for cell_state_item in cell_state_items]
-    cell_state_labels = [cell_state_item[0] for cell_state_item in cell_state_items]
-
-    sec_state_dict = dict([(cell_state_item[1][3], np.sum(cell_state_item[1][1])) for cell_state_item in cell_state_items])
-
-    (tree_iter, _) = read_tree_selection(forest_path, population, selection=[gid])
-    _, tree_dict = next(tree_iter)
-
-    import networkx as nx
-    from mayavi import mlab
-
-    mlab.figure(bgcolor=(0,0,0))
-
-    logger.info('plotting tree %i' % gid)
-    xcoords = tree_dict['x']
-    ycoords = tree_dict['y']
-    zcoords = tree_dict['z']
-    swc_type = tree_dict['swc_type']
-    layer    = tree_dict['layer']
-    secnodes = tree_dict['section_topology']['nodes']
-    src      = tree_dict['section_topology']['src']
-    dst      = tree_dict['section_topology']['dst']
-
-    dend_idxs = np.where(swc_type == 4)[0]
-    dend_idx_set = set(dend_idxs.flat)
-    sec_idxs = {}
-    edges = []
-    for sec, nodes in viewitems(secnodes):
-        sec_idxs[nodes[0]] = sec
-        for i in range(1, len(nodes)):
-            sec_idxs[nodes[i]] = sec
-            srcnode = nodes[i-1]
-            dstnode = nodes[i]
-            if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
-                edges.append((srcnode, dstnode))
-    for (s,d) in zip(src,dst):
-        srcnode = secnodes[s][-1]
-        dstnode = secnodes[d][0]
-        if ((srcnode in dend_idx_set) and (dstnode in dend_idx_set)):
-            edges.append((srcnode, dstnode))
-    x = xcoords[dend_idxs].reshape(-1,)
-    y = ycoords[dend_idxs].reshape(-1,)
-    z = zcoords[dend_idxs].reshape(-1,)
-
-    # Make a NetworkX graph out of our point and edge data
-    g = make_geometric_graph(x, y, z, edges)
-
-    # Compute minimum spanning tree using networkx
-    # nx.mst returns an edge generator
-    edges = nx.minimum_spanning_tree(g).edges(data=True)
-    start_idx, end_idx, _ = np.array(list(edges)).T
-    start_idx = start_idx.astype(int)
-    end_idx   = end_idx.astype(int)
-    
-    edge_scalars = np.asarray([sec_state_dict.get(sec_idxs[s], 0.0) for s in start_idx])
-    edge_scalars_max = np.max(np.abs(edge_scalars))
-    if edge_scalars_max > 0.0:
-        edge_scalars = edge_scalars / edge_scalars_max
-    edge_color = None
-                                        
-    # Plot this with Mayavi
-    plot_graph(x, y, z, start_idx, end_idx, edge_scalars=edge_scalars, edge_color=edge_color, \
-                   opacity=0.8, colormap=colormap, line_width=line_width)
-    
-    mlab.gcf().scene.x_plus_view()
-    mlab.show()
-    
-    return mlab.gcf()
 
 
 
@@ -2981,7 +3086,7 @@ def plot_network_clamp(input_path, spike_namespace, intracellular_namespace, gid
                 trial_sdf_ip = interpolate.Akima1DInterpolator(trial_sdf_time, trial_sdf_rate)
                 trial_sdf_ips.append(trial_sdf_ip)
             if len(spk_inds) > 0:
-                ax_spk.stem(this_trial_spkts[spk_inds], [0.5]*len(spk_inds), markerfmt=' ', use_line_collection=True)
+                ax_spk.stem(this_trial_spkts[spk_inds], [0.5]*len(spk_inds), markerfmt=' ')
             ax_spk.set_yticks([])
         sprate = spk_count / n_trials  / tsecs
 

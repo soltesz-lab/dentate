@@ -70,7 +70,7 @@ apical:
       g_unit:
         filters:
           syn_types: [excitatory]
-        value: 0.03
+        value: 0.006811
       gVI:
         - filters:
             layers: [IML]
@@ -84,31 +84,22 @@ apical:
         filters:
           syn_types:
           - excitatory
-        value: 3.531
+        value: 2.3533
       tau2_0:
         filters:
           syn_types:
           - excitatory
-#        value: 220.39
-        value: 100.0
+        value: 316.38
       a1:
         filters:
           syn_types:
           - excitatory
-#        value: 1.5
-        value: 0.1
+        value: 11.276
       a2:
         filters:
           syn_types:
           - excitatory
-#        value: 28.0
-        value: 18.0
-      b2:
-        filters:
-          syn_types:
-          - excitatory
-#        value: 0.02
-        value: 0.024
+        value: 3.3636
       tau_D1:
         - filters:
             layers: [MML, OML]
@@ -135,22 +126,7 @@ apical:
         filters:
           syn_types:
           - excitatory
-        value: 0.1
-      tau_G1:
-        filters:
-          syn_types:
-          - excitatory
-        value: 2.03
-      tau_G2:
-        filters:
-          syn_types:
-          - excitatory
-        value: 100.0
-      Ginc:
-        filters:
-          syn_types:
-          - excitatory
-        value: 125.0
+        value: 0.2
 
 axon:
   DGC_KM:

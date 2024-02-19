@@ -1,6 +1,6 @@
 Synapse Mechanisms:
   AMPA: SatExp2Syn
-  NMDA: Exp3NMDA2fd
+  NMDA: Exp3NMDA2Gfd
   GABA_A: SatExp2Syn
   GABA_B: SatExp2Syn
 Synapse Parameter Rules: !include Synapse_Parameter_Rules.yaml

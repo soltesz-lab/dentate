@@ -459,14 +459,13 @@ def init_selectivity_objfun(
         trial_mean_inflds = []
         trial_mean_outflds = []
 
-        target_var = np.var(target_rate_vector)
         target_infld = target_rate_vector[infld_idxs]
         target_max_infld = np.max(target_infld)
         target_mean_peak = np.mean(target_rate_vector[peak_idxs])
         target_mean_trough = np.mean(target_rate_vector[trough_idxs])
         logger.info(
-            f"selectivity objective: gid {gid}: target var/max infld/mean peak/mean trough: "
-            f"{target_var:.04f} {target_max_infld:.02f} {target_mean_peak:.02f} {target_mean_trough:.02f}"
+            f"selectivity objective: gid {gid}: target max infld/mean peak/mean trough: "
+            f"{target_max_infld:.02f} {target_mean_peak:.02f} {target_mean_trough:.02f}"
         )
         for trial_i in range(n_trials):
 

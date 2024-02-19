@@ -1,5 +1,5 @@
 Network Clamp:  !include Network_Clamp.yaml
-Model Name: Single_GC_Exc_Sat_SynExp3NMDA2fd_SLN_IN_PR_center_pf
+Model Name: Single_GC_Exc_Sat_SynExp3NMDA2_SLN_CLS_IN_PR_center_pf
 Dataset Name: Slice
 Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
@@ -21,7 +21,7 @@ Cell Types:
     synapses:
       correct_for_spines: True
       weights: !include GC_SLN_weights.yaml
-#      clusters: !include GC_SLN_clusters.yaml
+      clusters: !include GC_SLN_clusters.yaml
       density: !include GC_synapse_density.yaml
   MC:
     template: PRS_nrn
