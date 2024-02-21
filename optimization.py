@@ -232,7 +232,8 @@ def selectivity_optimization_params(optimization_config, pop_names, param_config
     mask_param_names = []
 
     if param_config_name is None:
-        return None
+        raise RuntimeError(
+            "selectivity_optimization_params: param_config_name is None")
 
     for pop_name in pop_names:
         if pop_name in optimization_config['selectivity']:

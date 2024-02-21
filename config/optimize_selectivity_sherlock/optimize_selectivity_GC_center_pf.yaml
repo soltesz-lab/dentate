@@ -1,9 +1,9 @@
 Selectivity Optimization SNR:
   param_config_name: "Weight selectivity SynExp3NMDA2"
-  config: Network_Clamp_GC_Exc_Sat_SynExp3NMDA2fd_SLN_CLS_IN_PR_center_pf.yaml
+  config: Network_Clamp_GC_Exc_Sat_SynExp3NMDA2SGfd_SLN_CLS_IN_PR_center_pf.yaml
   population: GC
   t_max: 9250
-  n_trials: 1
+  n_trials: 3
   trial_regime: mean
   use_coreneuron: True
   dt: 0.0125
@@ -12,6 +12,7 @@ Selectivity Optimization SNR:
     - 'Grid Selectivity'
     - 'Constant Selectivity'
   target_features_namespace: 'Place Selectivity'
+  selectivity_config_name: "PP"
   arena_id: A
   trajectory_id: Diag
   phase_mod: True
@@ -24,12 +25,12 @@ Inputs:
   target_features: !envsubst $SCRATCH/dentate/Slice/dentatenet_Slice_SLN_center_pf_20230315.h5
   templates: templates
 Outputs:
-  job_output: !envsubst $SCRATCH/results/optimize_selectivity3
+  job_output: !envsubst $SCRATCH/results/optimize_selectivity_20240219
 Resources:
   partition: "normal"
   ntasks: 49
   mem_per_cpu: 8G
-  time: "8:00:00"
+  time: "16:00:00"
   mail_user: ivan.g.raikov@gmail.com
   mail_type: all
   get_user_env: True
@@ -46,12 +47,17 @@ Environment:
   modules:
     - python/3.9.0
     - ncurses 
-    - readline
+    - readline/7.0
     - openmpi/4.1.2
     - phdf5/local.1.12.1
     - cuda/11.7.1
     - cudnn/8.6.0.163
 Parameter Grid:
+  - gid: 145775
+  - gid: 999687
+  - gid: 383806
+  - gid: 960280
+  - gid: 841709
 ##  - gid: 4787
 ##  - gid: 8871
 ##  - gid: 11938
@@ -105,7 +111,7 @@ Parameter Grid:
 ##   - gid: 265327
 ##  - gid: 270194
 ##    - gid: 271241
-    - gid: 273751
+##    - gid: 273751
 ##  - gid: 277243
 ##    - gid: 281669
 ##   - gid: 286679
@@ -113,7 +119,7 @@ Parameter Grid:
 ##    - gid: 293917
 ##  - gid: 309782
 ##  - gid: 310317
-    - gid: 313223
+##    - gid: 313223
 ## - gid: 313514
 ##  - gid: 317598
 ##    - gid: 318552
@@ -127,7 +133,7 @@ Parameter Grid:
 ##   - gid: 354965
 ##   - gid: 356135
 ##    - gid: 361159
-    - gid: 361621
+##    - gid: 361621
 ##   - gid: 363579
 ##    - gid: 380394
 ##  - gid: 380922
@@ -141,15 +147,15 @@ Parameter Grid:
 ##  - gid: 414839
 ##    - gid: 418973
 ##   - gid: 424349
-    - gid: 426660
+##    - gid: 426660
 ##    - gid: 427779
 ##  - gid: 428269
 ##   - gid: 437748
-    - gid: 438497
+##    - gid: 438497
 ##    - gid: 447739
-    - gid: 451716
+##    - gid: 451716
 ##   - gid: 455014
-    - gid: 459749
+##    - gid: 459749
 ##  - gid: 463020
 ##    - gid: 478079
 ##  - gid: 500401
@@ -158,7 +164,7 @@ Parameter Grid:
 ##   - gid: 508261
 ##    - gid: 510568
 ##   - gid: 512035
-    - gid: 513710
+##    - gid: 513710
 ##   - gid: 515267
 ##  - gid: 519559
 ##   - gid: 535684
@@ -169,7 +175,7 @@ Parameter Grid:
 ##    - gid: 579395
 ##   - gid: 583788
 ##  - gid: 595942
-    - gid: 596174
+##    - gid: 596174
 ##   - gid: 597914
 ##  - gid: 607512
 ##   - gid: 607723
@@ -180,44 +186,44 @@ Parameter Grid:
 ##  - gid: 628250
 ##   - gid: 628871
 ##    - gid: 634268
-    - gid: 640197
+##    - gid: 640197
 ##   - gid: 642665
-    - gid: 647941
+##    - gid: 647941
 ##    - gid: 675206
 ##  - gid: 679578
-    - gid: 689997
+##    - gid: 689997
 ##   - gid: 691780
 ##    - gid: 693357
 ##  - gid: 713869
-    - gid: 723949
+##    - gid: 723949
 ##   - gid: 724221
 ##    - gid: 726143
 ##  - gid: 738368
-    - gid: 738380
+##    - gid: 738380
 ##  - gid: 747649
 ##  - gid: 752365
-    - gid: 755023
-    - gid: 763426
+##  - gid: 755023
+##    - gid: 763426
 ##    - gid: 763769
 ##  - gid: 775186
-    - gid: 778405
-  # - gid: 792631
+##    - gid: 778405
+## - gid: 792631
 ##  - gid: 801663
-    - gid: 803318
+##    - gid: 803318
 ##    - gid: 804641
 ##  - gid: 805934
-    - gid: 814518
-  # - gid: 820160
+##    - gid: 814518
+## - gid: 820160
 ##    - gid: 821719
 ##  - gid: 821760
-    - gid: 822839
+##    - gid: 822839
 ##    - gid: 828561
 ##   - gid: 834842
-    - gid: 837209
+##    - gid: 837209
 ##    - gid: 841709
-    - gid: 849555
+##    - gid: 849555
 ##   - gid: 849780
-    - gid: 857537
+##    - gid: 857537
 ##    - gid: 872027
 ##   - gid: 873707
 ##  - gid: 880730
@@ -226,7 +232,7 @@ Parameter Grid:
 ##   - gid: 925541
 ##    - gid: 932035
 ##  - gid: 941450
-    - gid: 950934
+##    - gid: 950934
 ##   - gid: 958468
 ##    - gid: 959759
 ##  - gid: 960280
