@@ -170,6 +170,7 @@ DERIVATIVE state { LOCAL x
         INITIAL {
             d1 = 1
             f  = 1
+            t0 = 0
         }
         d1 = 1 - (1 - d1)*exp(-(t - t0)/tau_D1)
         f = 1 + (f - 1)*exp(-(t - t0)/tau_F)

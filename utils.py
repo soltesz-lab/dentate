@@ -10,7 +10,6 @@ from numpy.lib.stride_tricks import as_strided
 import scipy
 from scipy import sparse, signal
 from scipy.spatial import cKDTree
-from scipy.ndimage import find_objects
 from mpi4py import MPI
 import yaml
 

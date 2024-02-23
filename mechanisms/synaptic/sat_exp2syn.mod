@@ -58,6 +58,8 @@ INITIAL {
 	alpha = 1. / tau_onset - beta
  	g_inf = alpha / (alpha + beta)
 	syn_onset = 0.
+        g_onset = 0
+        g_offset = 0
 }
 
 BREAKPOINT {

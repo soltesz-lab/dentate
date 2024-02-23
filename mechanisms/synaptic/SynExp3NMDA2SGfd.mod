@@ -80,6 +80,8 @@ PARAMETER {
     Ginc = 1
     tau_G1 = 2.03 (ms)
     tau_G2 = 100 (ms)
+    Gdur = 100
+    Gdelta = 0.95
 
     : parameters control exponential rise of tau1
     tau1_0 = 2.2340 (ms)
@@ -160,6 +162,8 @@ INITIAL {
 
 	gVD = 0
 	Mgblock(v)
+
+        printf("SynExp3NMDA2: initial: t = %f v = %g\n", t, v)
 }
 
 BREAKPOINT {
@@ -169,6 +173,10 @@ BREAKPOINT {
 }
 
 DERIVATIVE state { LOCAL x
+
+        if (my_isnan(v)) {
+        printf("SynExp3NMDA2: state: t = %f v = %g\n", t, v)
+        }
 	rates(v)
 	A' = -A/tau1
 	B' = -B/tau2
@@ -182,6 +190,7 @@ NET_RECEIVE(weight, g_unit (uS), wf, f, d1, t0 (ms), G1, G2) { LOCAL d
             f  = 0
             G1 = 0
             G2 = 0
+            t0 = 0
         }
         d1 = 1 - (1 - d1)*exp(-(t - t0)/tau_D1)
         f = 1 + (f - 1)*exp(-(t - t0)/tau_F)
@@ -208,7 +217,7 @@ FUNCTION Mgblock(v(mV)) {
 
 
 FUNCTION sigm (x) {
-  sigm  =  1.0 / (exp(x) + 1.0)
+  sigm = 1.0 / (exp(x) + 1.0)
 }
 
 
@@ -222,4 +231,15 @@ PROCEDURE rates(v (mV)) {
 	inf = (v - v0_gVD) * st_gVD * gVI
 	
 
+}
+
+FUNCTION my_isnan(x) {
+  LOCAL res
+VERBATIM
+  _lres = 0;
+  if (isnan(_lx)) {
+     _lres = 1;
+  }
+ENDVERBATIM
+  my_isnan = res
 }
