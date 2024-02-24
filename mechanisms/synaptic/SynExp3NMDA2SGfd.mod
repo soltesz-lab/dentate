@@ -163,7 +163,6 @@ INITIAL {
 	gVD = 0
 	Mgblock(v)
 
-        printf("SynExp3NMDA2: initial: t = %f v = %g\n", t, v)
 }
 
 BREAKPOINT {
@@ -174,9 +173,6 @@ BREAKPOINT {
 
 DERIVATIVE state { LOCAL x
 
-        if (my_isnan(v)) {
-        printf("SynExp3NMDA2: state: t = %f v = %g\n", t, v)
-        }
 	rates(v)
 	A' = -A/tau1
 	B' = -B/tau2
@@ -231,15 +227,4 @@ PROCEDURE rates(v (mV)) {
 	inf = (v - v0_gVD) * st_gVD * gVI
 	
 
-}
-
-FUNCTION my_isnan(x) {
-  LOCAL res
-VERBATIM
-  _lres = 0;
-  if (isnan(_lx)) {
-     _lres = 1;
-  }
-ENDVERBATIM
-  my_isnan = res
 }
