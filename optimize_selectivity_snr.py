@@ -330,6 +330,8 @@ def init_selectivity_objfun(
     feature_dtypes = [(feature_name, (np.float32, (1, 1))) for feature_name in feature_names]
     feature_dtypes.append(("trial_mean_infld_rate", (np.float32, (1, n_trials))))
     feature_dtypes.append(("trial_mean_outfld_rate", (np.float32, (1, n_trials))))
+    feature_dtypes.append(("trial_mean_masked_rate", (np.float32, (1, n_trials))))
+    feature_dtypes.append(("trial_snr", (np.float32, (1, n_trials))))
 
     constraint_names = ["mean_v_below_threshold"]
     
@@ -454,7 +456,7 @@ def init_selectivity_objfun(
         n_trials = len(rate_vectors)
         
         trial_snrs = []
-        trial_masked_rates = []
+        trial_mean_masked_rates = []
 
         trial_mean_peaks = []
         trial_mean_troughs = []
@@ -505,7 +507,7 @@ def init_selectivity_objfun(
             )
 
             
-            trial_masked_rates.append(trial_mean_masked)
+            trial_mean_masked_rates.append(trial_mean_masked)
             trial_snrs.append(trial_snr)
             trial_mean_inflds.append(trial_mean_infld)
             trial_mean_outflds.append(trial_mean_outfld)
@@ -517,6 +519,8 @@ def init_selectivity_objfun(
         trial_rate_features = [
             np.asarray(trial_mean_inflds, dtype=np.float32).reshape((1, n_trials)),
             np.asarray(trial_mean_outflds, dtype=np.float32).reshape((1, n_trials)),
+            np.asarray(trial_mean_masked_rates, dtype=np.float32).reshape((1, n_trials)),
+            np.asarray(trial_snrs, dtype=np.float32).reshape((1, n_trials)),
         ]
         rate_features = [
             [np.mean(trial_mean_peaks)],
@@ -624,7 +628,7 @@ def init_selectivity_objfun(
                 f"{list([np.max(rate_vector) for rate_vector in rate_vectors])}"
             )
 
-            trial_snrs, trial_masked_rates, trial_rate_features, rate_features = get_trial_rate_features(
+            trial_snrs, trial_mean_masked_rates, trial_rate_features, rate_features = get_trial_rate_features(
                 gid,
                 peak_idxs,
                 trough_idxs,
@@ -636,9 +640,9 @@ def init_selectivity_objfun(
             )
 
             if trial_regime == "mean":
-                snr_objective = np.mean(trial_snrs) - np.mean(trial_masked_rates)
+                snr_objective = np.mean(trial_snrs) - np.mean(trial_mean_masked_rates)
             elif trial_regime == "best":
-                snr_objective = np.max(trial_snrs) - np.max(trial_masked_rates)
+                snr_objective = np.max(trial_snrs) - np.max(trial_mean_masked_rates)
             else:
                 raise RuntimeError(
                     f"selectivity_objective: unknown trial regime {trial_regime}"
@@ -737,7 +741,9 @@ def optimize_run(
     feature_dtypes = [(feature_name, (np.float32, (n_problems, 1))) for feature_name in feature_names]
     feature_dtypes.append(("trial_mean_infld_rate", (np.float32, (n_problems, n_trials))))
     feature_dtypes.append(("trial_mean_outfld_rate", (np.float32, (n_problems, n_trials))))
-    
+    feature_dtypes.append(("trial_mean_masked_rate", (np.float32, (n_problems, n_trials))))
+    feature_dtypes.append(("trial_snr", (np.float32, (n_problems, n_trials))))
+
     reduce_fun_name = None
     reduce_fun_args = {}
     if ProblemRegime[problem_regime] == ProblemRegime.every:
