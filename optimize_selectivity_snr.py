@@ -367,7 +367,7 @@ def init_selectivity_objfun(
 
         return result
 
-    def gid_state_values(spkdict, t_offset, n_trials, t_rec, state_recs_dict):
+    def gid_state_values(spkdict, t_offset, n_trials, t_rec, state_recs_dict, reset_vec=True):
         t_vec = np.asarray(t_rec.to_python(), dtype=np.float32)
         t_trial_inds = get_trial_time_indices(t_vec, n_trials, t_offset)
         results_dict = {}
@@ -380,6 +380,10 @@ def init_selectivity_objfun(
             assert(len(state_recs) == 1)
             rec = state_recs[0]
             vec = np.asarray(rec['vec'].to_python(), dtype=np.float32)
+            if reset_vec:
+                rec['vec'].resize(0)
+            if np.any(np.isnan(vec)):
+                logger.warning(f"gid_state_values: gid {gid}: detected NaN values")
             if filter_fun is None:
                 data = np.asarray([ vec[t_inds] for t_inds in t_trial_inds ])
             else:
