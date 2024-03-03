@@ -91,3 +91,5 @@ def main(config_file, config_prefix, state_path, state_namespace, state_namespac
 
 if __name__ == '__main__':
     main(args=sys.argv[(utils.list_find(lambda x: os.path.basename(x) == script_name, sys.argv)+1):])
+    
+# ex.: python3 -i scripts/plot_state_correlation_in_tree.py -v -p results/netclamp/runs/dentatenet_results_GC_20240216_232512.h5 --population GC --gid 193900 --state-variable i --state-namespace-pattern 'Intracellular apical.*AMPA' --config-file Network_Clamp_Slice_neg2000_neg1900um_SynExp3NMDA2SGfd_CLS_IN_PR.yaml  --reference-features-path datasets/Full_Scale_Control/DG_input_features_20220216.h5 --reference-features-arena-id A --reference-features-trajectory-id Diag
