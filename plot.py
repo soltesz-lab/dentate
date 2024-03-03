@@ -2002,7 +2002,7 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
                             legend_labels.append(f'{pop_name} {gid} '
                                                  f'{cell_state_mat[2][i]}')
 
-                if lowpass_plot is not None and not distance:
+                if lowpass_plot is not None and lowpass_plot and not distance:
                     filtered_cell_states = [get_low_pass_filtered_trace(cell_state, st_x) for cell_state in cell_states]
                     if reduce == "mean":
                         reduced_filtered_cell_state = np.mean(filtered_cell_states, axis=0)
@@ -2061,6 +2061,160 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
 
 
 ## Plot intracellular state trace in tree morphology
+def plot_state_in_tree (state_path, state_namespace_ids, population, gid, cell_data_path, reduce="sum", time_range=None, time_variable='t', state_variable='v', n_trials = 1, labels='legend', **kwargs): 
+    ''' 
+    Line plot of intracellular state variable (default: v). Returns the figure handle.
+
+    state_path: file with state data
+    state_namespace_ids: attribute namespaces  
+    time_range ([start:stop]): Time range of spikes shown; if None shows all (default: None)
+    time_variable: Name of variable containing spike times (default: 't')
+    state_variable: Name of state variable (default: 'v')
+    labels = ('legend', 'overlay'): Show population labels in a legend or overlayed on one side of raster (default: 'legend')
+    '''
+
+    import networkx as nx
+    
+    fig_options = copy.copy(default_fig_options)
+    fig_options.update(kwargs)
+
+    logger.info(f"fig_options = {fig_options.__dict__}")
+    
+    _, state_info = query_state(state_path, [population], namespace_ids=state_namespace_ids)
+
+    include = [population]
+    gid_set = [gid]
+
+
+    tree_dict = None
+    (tree_iter, _) = read_tree_selection(cell_data_path, population, selection=[gid])
+    for (gid,tree_dict) in tree_iter:
+        tree_dict = tree_dict
+    
+    pop_states_dict = defaultdict(lambda: defaultdict(lambda: dict()))
+    for namespace_id in state_namespace_ids:
+        logger.info(f"Reading state values from namespace {namespace_id}...")
+        data = read_state (state_path, include, namespace_id, time_variable=time_variable,
+                           state_variables=[state_variable], time_range=time_range, 
+                           gid = gid_set, n_trials=n_trials)
+        states  = data['states']
+        
+        for (pop_name, pop_states) in viewitems(states):
+            for (gid, cell_states) in viewitems(pop_states):
+                pop_states_dict[pop_name][gid][namespace_id] = cell_states
+
+
+    pop_state_mat_dict = defaultdict(lambda: dict())
+    for (pop_name, pop_states) in viewitems(pop_states_dict):
+        for (gid, cell_state_dict) in viewitems(pop_states):
+            nss = sorted(cell_state_dict.keys())
+            cell_state_x = cell_state_dict[nss[0]][time_variable]
+            cell_state_sections = [cell_state_dict[ns]['section'] for ns in nss]
+            cell_state_mat = { section_index: np.mean(np.row_stack(cell_state_dict[ns][state_variable]), axis=0)
+                               for section_index, ns in zip(cell_state_sections, nss) }
+            cell_state_locs = [cell_state_dict[ns]['loc'] for ns in nss]
+            cell_state_labels = [f'{ns} {state_variable}' for ns in nss]
+            pop_state_mat_dict[pop_name][gid] = (cell_state_x,
+                                                 cell_state_mat,
+                                                 cell_state_labels,
+                                                 cell_state_sections,
+                                                 cell_state_locs)
+    
+    stplots = []
+
+    fig = plt.figure(figsize=fig_options.figSize)
+    ax = fig.add_subplot(projection="3d")
+    
+    legend_labels = []
+    for (pop_name, pop_states) in viewitems(pop_state_mat_dict):
+        
+        for (gid, cell_state_mat) in viewitems(pop_states):
+            
+            st_x = cell_state_mat[0][0].reshape((-1,))
+
+            if time_range is None:
+                time_range = (np.min(st_x), np.max(st_x))
+            
+            cell_state_sections = cell_state_mat[3]
+            cell_state_locs = cell_state_mat[4]
+
+            state_min = np.inf
+            state_max = -np.inf
+            section_attrs = {}
+            section_state_reduced_states = []
+            for j in cell_state_sections:
+                section_state = np.asarray(cell_state_mat[1][j])
+                if reduce == "sum":
+                    reduced_state = np.sum(section_state)
+                elif reduce == "mean":
+                    reduced_state = np.mean(section_state)
+                elif reduce == "max":
+                    reduced_state = np.max(section_state)
+                else:
+                    raise RuntimeError(f"Unknown reduce operation {reduce}")
+                if reduced_state < state_min:
+                    state_min = reduced_state
+                if reduced_state > state_max:
+                    state_max = reduced_state
+                section_state_reduced_states.append(reduced_state)
+
+
+            state_range = np.abs(state_max - state_min)
+            state_offset = 0
+            if state_max < 0 and state_min < 0:
+                state_offset = -state_max
+            else:
+                state_offset = -state_min
+            for section_order, j in enumerate(cell_state_sections):
+                s = section_state_reduced_states[section_order]
+                d = np.abs(s + state_offset) / state_range
+                section_color = cm.plasma(d)
+
+                section_attrs[j] = {'color': section_color}
+                
+            morph_graph = make_morph_graph(tree_dict, section_attrs=section_attrs)
+            xcoords = tree_dict["x"]
+            ycoords = tree_dict["y"]
+            zcoords = tree_dict["z"]
+
+            e_xs = []
+            e_ys = []
+            e_zs = []
+            e_cs = []
+            for i, j, c in morph_graph.edges.data('color', default=(1,1,1,1)):
+                e_xs.append((xcoords[i], xcoords[j]))
+                e_ys.append((ycoords[i], ycoords[j]))
+                e_zs.append((zcoords[i], zcoords[j]))
+                e_cs.append(c)
+                
+            for xs,ys,zs,c in zip(e_xs,e_ys,e_zs,e_cs):
+                ax.plot(xs,ys,zs,c=c)
+                
+            ax.set_box_aspect((np.ptp(xcoords), np.ptp(ycoords), np.ptp(zcoords)))
+            ax.view_init(elev=0, azim=-90, roll=0)
+
+
+    cnorm = mpl.colors.Normalize(vmin=0, vmax=1)
+
+    fig.colorbar(mpl.cm.ScalarMappable(norm=cnorm, cmap=cm.plasma),
+                 ax=ax, orientation='horizontal')
+        
+    # save figure
+    if fig_options.saveFig:
+        if isinstance(fig_options.saveFig, str):
+            filename = fig_options.saveFig
+        else:
+            filename = state_path+' '+'state in tree.%s' % fig_options.figFormat
+            plt.savefig(filename)
+                
+    # show fig 
+    if fig_options.showFig:
+        show_figure()
+    
+    return fig
+
+
+## Plot correlation of intracellular state trace to receptive field in tree morphology
 def plot_state_correlation_in_tree (config_file, config_prefix, state_path, state_namespace_ids, reference_features_path, reference_features_namespace, reference_features_arena_id, reference_features_trajectory_id, population, gid, cell_data_path=None, dataset_prefix=None, time_range=None, time_variable='t', state_variable='v', n_trials = 1, labels='legend', **kwargs): 
     ''' 
     Line plot of intracellular state variable (default: v). Returns the figure handle.
@@ -2220,7 +2374,6 @@ def plot_state_correlation_in_tree (config_file, config_prefix, state_path, stat
         show_figure()
     
     return fig
-
 
 ## Plot axial current trace 
 def plot_axial_current (input_path, namespace_ids, include = ['eachPop'], time_range=None,

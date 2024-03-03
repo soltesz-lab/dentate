@@ -224,7 +224,7 @@ Exp3NMDA2SGfd:
       - sh2
       - tauV
       - K0
-      - delta_D
+      - delta_D1
       - delta_F
       - tau_D1
       - tau_F
