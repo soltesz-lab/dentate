@@ -1321,7 +1321,7 @@ def config_hoc_cell_syns(env, gid, postsyn_name, cell=None, syn_ids=None, unique
                         elif param_name in param_closure_dict and isinstance(param_val, list):
                             new_param_val = param_closure_dict[param_name](*param_val)
                         else:
-                            new_param_val = param_val
+                            new_param_val = param_val[0] if isinstance(param_val, list) else param_val
                         upd_params[param_name] = new_param_val
 
                     (mech_set, nc_set) = config_syn(syn_name=syn_name, rules=syn_attrs.syn_param_rules,
