@@ -39,6 +39,8 @@ Selectivity Optimization:
             AMPA:
               weight:
                 a: 0.0
+                b: 1.0
+                d: 0.0
   MC:
     Structured weights masks:
       CA3c:

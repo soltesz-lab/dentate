@@ -243,6 +243,9 @@ def configure_hoc_env(env, bcast_template=False, subworld_size=None):
     env.t_rec = h.Vector() # Timestamps of intracellular traces on this host
     if 'celsius' in env.globals:
         h.celsius = env.globals['celsius']
+    if 'v_init' in env.globals:
+        env.v_init  = env.globals['v_init']
+        h.v_init = env.v_init
     ## more accurate integration of synaptic discontinuities
     if hasattr(h, 'nrn_netrec_state_adjust'):
         h.nrn_netrec_state_adjust = 1

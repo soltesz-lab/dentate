@@ -7,8 +7,6 @@ from dataclasses import dataclass
 from typing import Any, Tuple, Optional, Union, List, Dict, Set
 from dentate import network_clamp, utils, optimize_selectivity_snr
 from mpi4py import MPI
-from simple_slurm import Slurm
-from commandlib import Command
 import click
 import mlflow
 
@@ -200,6 +198,8 @@ def run(operational_config, inputs, outputs):
 )
 def job_grid(root_config):
 
+    from commandlib import Command
+
     comm = MPI.COMM_WORLD
     if comm.size > 1:
         raise RuntimeError(f"optimize_selectivity_snr.job_grid: unable to run in MPI mode with multiple ranks")
@@ -252,6 +252,9 @@ def job_grid(root_config):
     "--root-config", "-c", required=True, type=str, help="root configuration file name"
 )
 def batch_job_grid(root_config):
+
+    from simple_slurm import Slurm
+    from commandlib import Command
 
     comm = MPI.COMM_WORLD
     if comm.size > 1:

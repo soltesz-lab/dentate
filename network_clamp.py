@@ -728,6 +728,7 @@ def run(env, cvode=False, pc_runworker=False):
     h.tstop = float(env.n_trials) * tstop
 
     h.finitialize(env.v_init)
+    h.fcurrent()
 
     if rank == 0:
         logger.info(
@@ -856,7 +857,7 @@ def run_with(env, param_dict, cvode=False, pc_runworker=False):
     h.tstop = float(env.n_trials) * tstop
 
     h.finitialize(env.v_init)
-    h.finitialize(env.v_init)
+    h.fcurrent()
 
     if rank == 0:
         logger.info(
