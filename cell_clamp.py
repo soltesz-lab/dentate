@@ -401,7 +401,7 @@ def measure_ap (gid, pop_name, v_init, env, cell_dict={}):
     initial_amp = 0.05
 
     h.tlog = h.Vector()
-    h.tlog.record (h._ref_t)
+    h.tlog.record (h._ref_t, env.dt)
 
     h.Vlog = h.Vector()
     h.Vlog.record (soma(0.5)._ref_v)
@@ -436,7 +436,7 @@ def measure_ap_rate (gid, pop_name, v_init, env, prelength=1000.0, mainlength=30
     h('objref nil, tlog, Vlog, spikelog')
 
     h.tlog = h.Vector()
-    h.tlog.record (h._ref_t)
+    h.tlog.record (h._ref_t, env.dt)
 
     h.Vlog = h.Vector()
     h.Vlog.record (soma(0.5)._ref_v)
@@ -541,7 +541,7 @@ def measure_fi (gid, pop_name, v_init, env, cell_dict={}):
     h('objref tlog, Vlog, spikelog')
 
     h.tlog = h.Vector()
-    h.tlog.record (h._ref_t)
+    h.tlog.record (h._ref_t, env.dt)
 
     h.Vlog = h.Vector()
     h.Vlog.record (soma(0.5)._ref_v)
@@ -645,7 +645,7 @@ def measure_gap_junction_coupling (gid, population, v_init, env, weight=5.4e-4, 
     log_size = (tstop // h.dt) + 1
     
     tlog = h.Vector(log_size,0)
-    tlog.record (h._ref_t)
+    tlog.record (h._ref_t, env.dt)
 
     Vlog1 = h.Vector(log_size)
     Vlog1.record (soma1(0.5)._ref_v)
@@ -705,7 +705,7 @@ def measure_psc (gid, pop_name, presyn_name, env, v_init, v_holding, load_weight
     h('objref nil, tlog, ilog, Vlog')
 
     h.tlog = h.Vector()
-    h.tlog.record (h._ref_t)
+    h.tlog.record (h._ref_t, env.dt)
 
     h.Vlog = h.Vector()
     h.Vlog.record (soma(0.5)._ref_v)
@@ -742,7 +742,7 @@ def measure_psc (gid, pop_name, presyn_name, env, v_init, v_holding, load_weight
     return  amp_i
 
 
-def measure_psp (gid, pop_name, presyn_name, syn_mech_name, swc_type, env, v_init, erev, syn_layer=None, weight=1, syn_count=1, load_weights=False, cell_dict={}):
+def measure_psp (gid, pop_name, presyn_name, syn_mech_names, swc_type, env, v_init, erev, syn_layer=None, weight=1, syn_count=1, stim_count=1, stim_interval=5., load_weights=False, cell_dict={}):
 
     biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False, load_weights=load_weights, cell_dict=cell_dict)
     synapses.config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True, insert_vecstims=True)
@@ -763,68 +763,103 @@ def measure_psp (gid, pop_name, presyn_name, syn_mech_name, swc_type, env, v_ini
     syn_filters = get_syn_filter_dict(env, rules=rules, convert=True)
     syns = syn_attrs.filter_synapses(biophys_cell.gid, **syn_filters)
 
-    print("total number of %s %s synapses: %d" % (presyn_name, swc_type if swc_type is not None else "",
-                                                  len(syns)))
+    logger.info(f"total number of {presyn_name} {swc_type if swc_type is not None else ''} "
+                f"synapses: {len(syns)}")
+
     stimvec = h.Vector()
-    stimvec.append(prelength+1.)
+
+    for i in range(stim_count):
+        stimvec.append(prelength+1.+i*stim_interval)
     count = 0
     target_syn_pps = None
+    v_rec_dict = {}
+    i_rec_dict = {}
     for target_syn_id, target_syn in iter(syns.items()):
+
+        for syn_mech_name in syn_mech_names:
+            target_syn_pps = syn_attrs.get_pps(gid, target_syn_id, syn_mech_name)
+            if target_syn_pps is None:
+                raise RuntimeError(f"measure_psp: Unable to find {presyn_name} {swc_type} {syn_mech_name} synaptic point process")
         
-        target_syn_pps = syn_attrs.get_pps(gid, target_syn_id, syn_mech_name)
-        target_syn_nc = syn_attrs.get_netcon(gid, target_syn_id, syn_mech_name)
-        target_syn_nc.weight[0] = weight
-        setattr(target_syn_pps, 'e', erev)
-        vs = target_syn_nc.pre()
-        vs.play(stimvec)
+            target_syn_nc = syn_attrs.get_netcon(gid, target_syn_id, syn_mech_name)
+            target_syn_nc.weight[0] = weight
+            setattr(target_syn_pps, 'e', erev)
+            vs = target_syn_nc.pre()
+            vs.play(stimvec)
+
+        sec = target_syn_pps.get_segment().sec
+        
+        if sec not in v_rec_dict:
+            v_rec = make_rec('psp{str(sec)}', pop_name, gid, biophys_cell.hoc_cell, sec=sec, dt=env.dt, loc=0.5,
+                             param='v')
+            v_rec_dict[sec] = v_rec
+            
+            i_rec_dict[sec] = []
+            for syn_mech_name in syn_mech_names:            
+                target_syn_pps = syn_attrs.get_pps(gid, target_syn_id, syn_mech_name)
+                i_rec = make_rec('psc{str(sec)}_{syn_mech_name}', pop_name, gid, biophys_cell.hoc_cell, ps=target_syn_pps, dt=env.dt,
+                                 param=f'i')
+                i_rec_dict[sec].append(i_rec)
+                
         if syn_count <= count:
             break
         count += 1
 
-    if target_syn_pps is None:
-        raise RuntimeError("measure_psp: Unable to find %s %s synaptic point process" % (presyn_name, swc_type))
-    
-    sec = target_syn_pps.get_segment().sec
-
-    v_rec = make_rec('psp', pop_name, gid, biophys_cell.hoc_cell, sec=sec, dt=env.dt, loc=0.5,
-                     param='v')
-    
+    soma = list(biophys_cell.hoc_cell.soma)[0]
+    v_soma_rec = make_rec('pspsoma', pop_name, gid, biophys_cell.hoc_cell, sec=soma, dt=env.dt, loc=0.5,
+                          param='v')
+            
     h.tstop = mainlength + prelength
-    h('objref nil, tlog, ilog')
+    h('objref nil, tlog')
 
     h.tlog = h.Vector()
-    h.tlog.record (h._ref_t)
-
-    h.ilog = h.Vector()
-    h.ilog.record(target_syn_pps._ref_i)
+    h.tlog.record (h._ref_t, env.dt)
     
     neuron_utils.simulate(v_init, prelength, mainlength)
     
-    vec_v = np.asarray(v_rec['vec'].to_python())
-    vec_i = np.asarray(h.ilog.to_python())
     vec_t = np.asarray(h.tlog.to_python())
-    idx = np.where(vec_t >= prelength)[0]
+
+    vec_vs = []
+    vec_is = []
+
+    for sec, v_rec in v_rec_dict.items():
+        v_array = np.asarray(v_rec['vec'].to_python())
+        i_recs = i_rec_dict[sec]
+        i_arrays = []
+        for i_rec in i_recs:
+            i_array = np.asarray(i_rec['vec'].to_python())
+            i_arrays.append(i_array)
+        vec_vs.append(v_array)
+        vec_is.append(np.sum(np.vstack(i_arrays), axis=0))
+
+    vec_v_soma = np.asarray(v_soma_rec['vec'].to_python())
+    vec_v = np.mean(np.vstack(vec_vs), axis=0)
+    vec_i = np.sum(np.vstack(vec_is), axis=0)
+
+    idx = np.argwhere(vec_t >= prelength-1.).reshape((-1,))
+    
+    vec_v_soma = vec_v_soma[idx][1:]
     vec_v = vec_v[idx][1:]
     vec_t = vec_t[idx][1:]
     vec_i = vec_i[idx][1:]
-
+    
     i_peak_index = np.argmax(np.abs(vec_i))
     i_peak = vec_i[i_peak_index]
     v_peak = vec_v[i_peak_index]
-
+    soma_v_peak = vec_v_soma[i_peak_index]
     
-    
+    amp_v_soma = abs(soma_v_peak - vec_v_soma[0])
     amp_v = abs(v_peak - vec_v[0])
     amp_i = abs(i_peak - vec_i[0])
     
-    print("measure_psp: v0 = %f v_peak = %f (at t %f)" % (vec_v[0], v_peak, vec_t[i_peak_index]))
-    print("measure_psp: i_peak = %f (at t %f)" % (i_peak, vec_t[i_peak_index]))
-    print("measure_psp: amp_v = %f amp_i = %f" % (amp_v, amp_i))
-
+    logger.info(f"measure_psp: v0 = {vec_v[0]} v_peak = {v_peak} soma_v_peak = {soma_v_peak} (at t {vec_t[i_peak_index]} ms)\n"
+                f"measure_psp: i_peak = {i_peak} (at t {vec_t[i_peak_index]} ms)\n"
+                f"measure_psp: amp_v = {amp_v} amp_v_soma = {amp_v_soma} amp_i = {amp_i}")
 
     results = { '%s %s PSP' % (presyn_name, syn_mech_name): np.asarray([amp_v], dtype=np.float32),
                 '%s %s PSP i' % (presyn_name, syn_mech_name): np.asarray(vec_i, dtype=np.float32),
                 '%s %s PSP v' % (presyn_name, syn_mech_name): np.asarray(vec_v, dtype=np.float32),
+                '%s %s PSP v soma' % (presyn_name, syn_mech_name): np.asarray(vec_v_soma, dtype=np.float32),
                 '%s %s PSP t' % (presyn_name, syn_mech_name): np.asarray(vec_t, dtype=np.float32) }
 
     env.synapse_attributes.del_syn_id_attr_dict(gid)
@@ -856,18 +891,21 @@ def measure_psp (gid, pop_name, presyn_name, syn_mech_name, swc_type, env, v_ini
               help='identifier that is used to name neuroh5 files that contain output spike and intracellular trace data')
 @click.option("--results-namespace-id", type=str, required=False, default=None, \
               help='identifier that is used to name neuroh5 namespaces that contain output spike and intracellular trace data')
-@click.option("--syn-mech-name", type=str, help='synaptic mechanism name')
+@click.option("--syn-mech-name", type=str, multiple=True, help='synaptic mechanism name')
 @click.option("--syn-weight", type=float, help='synaptic weight')
 @click.option("--syn-count", type=int, default=1, help='synaptic count')
 @click.option("--swc-type", type=str, help='synaptic swc type')
 @click.option("--syn-layer", type=str, help='synaptic layer name')
+@click.option("--stim-amp", type=float, default=0.1, help='current stimulus amplitude (nA)')
+@click.option("--stim-count", type=int, default=1, help='number of stimuli for PSP experiment')
+@click.option("--stim-interval", type=float, default=1.0, help='interval between stimuli for PSP experiment')
 @click.option("--stim-amp", type=float, default=0.1, help='current stimulus amplitude (nA)')
 @click.option("--v-init", type=float, default=-75.0, help='initialization membrane potential (mV)')
 @click.option("--dt", type=float, default=0.025, help='simulation timestep (ms)')
 @click.option("--use-cvode", is_flag=True)
 @click.option("--verbose", '-v', is_flag=True)
 
-def main(config, config_prefix, erev, population, presyn_name, gid, load_weights, measurements, template_paths, dataset_prefix, results_path, results_file_id, results_namespace_id, syn_mech_name, syn_weight, syn_count, syn_layer, swc_type, stim_amp, v_init, dt, use_cvode, verbose):
+def main(config, config_prefix, erev, population, presyn_name, gid, load_weights, measurements, template_paths, dataset_prefix, results_path, results_file_id, results_namespace_id, syn_mech_name, syn_weight, syn_count, syn_layer, swc_type, stim_amp, stim_count, stim_interval, v_init, dt, use_cvode, verbose):
 
     config_logging(verbose)
         
@@ -906,6 +944,7 @@ def main(config, config_prefix, erev, population, presyn_name, gid, load_weights
         assert(syn_weight is not None)
         attr_dict[gid].update(measure_psp (gid, population, presyn_name, syn_mech_name, swc_type, 
                                            env, v_init, erev, syn_layer=syn_layer, syn_count=syn_count, 
+                                           stim_count=stim_count, stim_interval=stim_interval,
                                            weight=syn_weight, load_weights=load_weights))
 
     if results_path is not None:
