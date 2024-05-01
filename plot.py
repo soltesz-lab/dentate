@@ -2009,15 +2009,16 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
                                                      f'{cell_state_mat[2][i]}')
 
                 if lowpass_plot is not None and lowpass_plot and not distance:
-                    filtered_cell_states = [get_low_pass_filtered_trace(cell_state, st_x) for cell_state in cell_states]
-                    if reduce == "mean":
-                        reduced_filtered_cell_state = np.mean(filtered_cell_states, axis=0)
-                    elif reduce == "sum":
-                        reduced_filtered_cell_state = np.sum(filtered_cell_states, axis=0)
-                    else:
-                        reduced_filtered_cell_state = np.mean(filtered_cell_states, axis=0)
-                    ax_lowpass.plot(st_x, reduced_filtered_cell_state, label=f'{pop_name} {gid} (filtered)',
-                                    linewidth=fig_options.lw, alpha=0.75)
+                    for k in range(n_trials):
+                        filtered_cell_states = [get_low_pass_filtered_trace(cell_state, st_x) for cell_state in cell_states[k]]
+                        if reduce == "mean":
+                            reduced_filtered_cell_state = np.mean(filtered_cell_states, axis=0)
+                        elif reduce == "sum":
+                            reduced_filtered_cell_state = np.sum(filtered_cell_states, axis=0)
+                        else:
+                            reduced_filtered_cell_state = np.mean(filtered_cell_states, axis=0)
+                        ax_lowpass.plot(st_x, reduced_filtered_cell_state, label=f'{pop_name} {gid} (filtered)',
+                                        linewidth=fig_options.lw, alpha=0.75)
 
                     
             ax.set_xlabel('Time [ms]', fontsize=fig_options.fontSize)
