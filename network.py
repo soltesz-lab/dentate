@@ -1651,7 +1651,7 @@ def run(env, output=True, shutdown=True, output_syn_spike_count=False):
         env.simtime.reset()
     h.secondorder = 2
     h.finitialize(env.v_init)
-    h.finitialize(env.v_init)
+    h.fcurrent()
     gc.collect()
 
     if rank == 0:

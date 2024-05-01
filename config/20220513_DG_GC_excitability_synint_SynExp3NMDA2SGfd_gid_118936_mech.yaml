@@ -70,7 +70,7 @@ apical:
       g_unit:
         filters:
           syn_types: [excitatory]
-        value: 0.03
+        value: 0.0225
       gVI:
         - filters:
             layers: [IML]

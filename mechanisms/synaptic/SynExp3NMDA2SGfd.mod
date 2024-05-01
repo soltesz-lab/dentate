@@ -183,7 +183,7 @@ DERIVATIVE state { LOCAL x
 NET_RECEIVE(weight, g_unit (uS), wf, f, d1, t0 (ms), G1, G2) { LOCAL d
         INITIAL {
             d1 = 1
-            f  = 0
+            f  = 1
             G1 = 0
             G2 = 0
             t0 = 0

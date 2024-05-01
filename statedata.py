@@ -140,4 +140,7 @@ def read_state(input_file, population_names, namespace_id, time_variable='t', st
 
         pop_state_dict[pop_name] = state_dict
 
-    return {'states': pop_state_dict, 'time_variable': time_variable, 'state_variables': state_variables}
+    return { 'states': pop_state_dict,
+             'time_variable': time_variable,
+             'state_variables': state_variables,
+             'n_trials': this_n_trials }

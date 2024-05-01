@@ -1915,6 +1915,7 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
                            state_variables=[state_variable], time_range=time_range, max_units = max_units,
                            gid = gid_set, n_trials=n_trials)
         states  = data['states']
+        n_trials = data['n_trials']
         
         for (pop_name, pop_states) in viewitems(states):
             for (gid, cell_states) in viewitems(pop_states):
@@ -1925,12 +1926,13 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
         for (gid, cell_state_dict) in viewitems(pop_states):
             nss = sorted(cell_state_dict.keys())
             cell_state_x = cell_state_dict[nss[0]][time_variable]
-            cell_state_mat = np.matrix([np.mean(np.row_stack(cell_state_dict[ns][state_variable]), axis=0)
-                                        for ns in nss], dtype=np.float32)
+            cell_state_mats = np.stack([np.row_stack([cell_state_dict[ns][state_variable][i][:len(cell_state_x[0])]
+                                                      for ns in nss])
+                                        for i in range(n_trials)], axis=0)
             cell_state_distances = [cell_state_dict[ns]['distance'] for ns in nss]
             cell_state_ri = [cell_state_dict[ns]['ri'] for ns in nss]
             cell_state_labels = [f'{ns} {state_variable}' for ns in nss]
-            pop_state_mat_dict[pop_name][gid] = (cell_state_x, cell_state_mat, cell_state_labels, cell_state_distances, cell_state_ri)
+            pop_state_mat_dict[pop_name][gid] = (cell_state_x, cell_state_mats, cell_state_labels, cell_state_distances, cell_state_ri)
     
     stplots = []
 
@@ -1948,19 +1950,19 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
         
         for (gid, cell_state_mat) in viewitems(pop_states):
             
-            m, n = cell_state_mat[1].shape
+            m, n = cell_state_mat[1][0].shape
             st_x = cell_state_mat[0][0].reshape((n,))
             
             if distance:
                 cell_state_distances = cell_state_mat[3]
-                logger.info(f'cell_state_distances = {cell_state_distances}')
                 cell_state_ri = cell_state_mat[4]
                 distance_rank = np.argsort(cell_state_distances, kind='stable')
                 distance_rank_descending = distance_rank[::-1]
                 state_rows = []
                 for i in range(0,m):
                     j = distance_rank_descending[i]
-                    state_rows.append(np.asarray(cell_state_mat[1][j,:]).reshape((n,)))
+                    state_mean_val = np.mean(cell_state_mat[1][:,j,:], axis=0).reshape((n,))
+                    state_rows.append(state_mean_val)
                 state_mat = np.row_stack(state_rows)
                 d = np.asarray(cell_state_distances)[distance_rank_descending]
                 ri = np.asarray(cell_state_ri)[distance_rank_descending]
@@ -1971,36 +1973,40 @@ def plot_intracellular_state (input_path, namespace_ids, include = ['eachPop'], 
 
             else:
                 
-                cell_states = [np.asarray(cell_state_mat[1][i,:]).reshape((n,)) for i in range(m)]
+                #cell_states = [np.asarray(cell_state_mat[1][i,:]).reshape((n,)) for i in range(m)]
+                cell_states = cell_state_mat[1]
                 
                 if reduce == "mean":
-                    cell_state = np.mean(np.vstack(cell_states), axis=0)
-                    line, = ax.plot(st_x, cell_state)
-                    stplots.append(line)
-                    logger.info(f'plot_state: min/max/mean value is '
-                                f'{np.min(cell_state):.02f} / {np.max(cell_state):.02f} / '
-                                f'{np.mean(cell_state):.02f}')
-                elif reduce == "sum":
-                    cell_state = np.sum(np.vstack(cell_states), axis=0)
-                    line, = ax.plot(st_x, cell_state)
-                    stplots.append(line)
-                    logger.info(f'plot_state: min/max/mean value is '
-                                f'{np.min(cell_state):.02f} / {np.max(cell_state):.02f} / '
-                                f'{np.mean(cell_state):.02f}')
-                else:
-                    for i, cell_state in enumerate(cell_states):
+                    for k in range(n_trials):
+                        cell_state = np.mean(cell_states[k], axis=0)
                         line, = ax.plot(st_x, cell_state)
                         stplots.append(line)
-                        logger.info(f'plot_state: min/max/mean value of state {i} is '
-                                    f'{np.min(cell_state):.02f} / {np.max(cell_state):.02f} '
-                                    f'/ {np.mean(cell_state):.02f}')
-
-                        if cell_state_mat[3][i] is not None:
-                            legend_labels.append(f'{pop_name} {gid} '
-                                                 f'{cell_state_mat[2][i]} ({cell_state_mat[3][i]:.02f} um)')
-                        else:
-                            legend_labels.append(f'{pop_name} {gid} '
-                                                 f'{cell_state_mat[2][i]}')
+                        logger.info(f'plot_state: trial {k}: min/max/mean value is '
+                                    f'{np.min(cell_state):.02f} / {np.max(cell_state):.02f} / '
+                                    f'{np.mean(cell_state):.02f}')
+                elif reduce == "sum":
+                    for k in range(n_trials):
+                        cell_state = np.sum(cell_states[k], axis=0)
+                        line, = ax.plot(st_x, cell_state)
+                        stplots.append(line)
+                        logger.info(f'plot_state: trial {k}: min/max/mean value is '
+                                    f'{np.min(cell_state):.02f} / {np.max(cell_state):.02f} / '
+                                    f'{np.mean(cell_state):.02f}')
+                else:
+                    for k in range(n_trials):
+                        for i, cell_state in enumerate(cell_states[k]):
+                            line, = ax.plot(st_x, cell_state)
+                            stplots.append(line)
+                            logger.info(f'plot_state: trial {k}: min/max/mean value of state {i} is '
+                                        f'{np.min(cell_state):.02f} / {np.max(cell_state):.02f} '
+                                        f'/ {np.mean(cell_state):.02f}')
+                            
+                            if cell_state_mat[3][i] is not None:
+                                legend_labels.append(f'{pop_name} {gid} '
+                                                     f'{cell_state_mat[2][i]} ({cell_state_mat[3][i]:.02f} um)')
+                            else:
+                                legend_labels.append(f'{pop_name} {gid} '
+                                                     f'{cell_state_mat[2][i]}')
 
                 if lowpass_plot is not None and lowpass_plot and not distance:
                     filtered_cell_states = [get_low_pass_filtered_trace(cell_state, st_x) for cell_state in cell_states]
@@ -2078,8 +2084,6 @@ def plot_state_in_tree (state_path, state_namespace_ids, population, gid, cell_d
     fig_options = copy.copy(default_fig_options)
     fig_options.update(kwargs)
 
-    logger.info(f"fig_options = {fig_options.__dict__}")
-    
     _, state_info = query_state(state_path, [population], namespace_ids=state_namespace_ids)
 
     include = [population]
