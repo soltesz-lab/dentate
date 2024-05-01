@@ -1,5 +1,5 @@
 Network Clamp:  !include Network_Clamp.yaml
-Model Name: Single_GC_Exc_Sat_SLN_CLS_IN_PR_proximal_pf
+Model Name: Single_GC_Exc_Sat_SLN_IN_PR_proximal_pf
 Dataset Name: Slice
 Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
@@ -17,11 +17,10 @@ Cell Types:
   GC:
     template: DGC
     template file: DGC_Template_minimal.hoc
-    mechanism file: 20220513_DG_GC_excitability_synint_combined_gid_118936_mech.yaml
+    mechanism file: 20240501_DG_GC_facil_NMDA_temporal_integration_gid_118936_mech.yaml
     synapses:
       correct_for_spines: True
       weights: !include GC_SLN_weights.yaml
-      clusters: !include GC_SLN_clusters.yaml
       density: !include GC_synapse_density.yaml
   MC:
     template: PR_nrn
