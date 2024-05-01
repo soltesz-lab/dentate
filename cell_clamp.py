@@ -742,7 +742,7 @@ def measure_psc (gid, pop_name, presyn_name, env, v_init, v_holding, load_weight
     return  amp_i
 
 
-def measure_psp (gid, pop_name, presyn_name, syn_mech_names, swc_type, env, v_init, erev, syn_layer=None, weight=1, syn_count=1, stim_count=1, stim_interval=5., load_weights=False, cell_dict={}):
+def measure_psp (env, gid, pop_name, presyn_name, syn_mech_names, swc_type, v_init, erev, syn_layer=None, weight=1, syn_count=1, stim_count=1, stim_interval=5., load_weights=False, distance_range=(None, None), cell_dict={}):
 
     biophys_cell = init_biophys_cell(env, pop_name, gid, register_cell=False, load_weights=load_weights, cell_dict=cell_dict)
     synapses.config_biophys_cell_syns(env, gid, pop_name, insert=True, insert_netcons=True, insert_vecstims=True)
@@ -774,14 +774,25 @@ def measure_psp (gid, pop_name, presyn_name, syn_mech_names, swc_type, env, v_in
     target_syn_pps = None
     v_rec_dict = {}
     i_rec_dict = {}
+    origin = list(biophys_cell.hoc_cell.soma)[0]
     for target_syn_id, target_syn in iter(syns.items()):
-
+        
+        sec = biophys_cell.hoc_cell.sections[target_syn.syn_section]
+        seg = sec(target_syn.syn_loc)
+        syn_distance = h.distance(origin(0.5), seg)
+        
+        if ((distance_range[0] is not None and syn_distance < distance_range[0]) or
+            (distance_range[1] is not None and syn_distance > distance_range[1])):
+            continue
+        
+        logger.info(f"syn_distance = {syn_distance}")
         for syn_mech_name in syn_mech_names:
             target_syn_pps = syn_attrs.get_pps(gid, target_syn_id, syn_mech_name)
             if target_syn_pps is None:
                 raise RuntimeError(f"measure_psp: Unable to find {presyn_name} {swc_type} {syn_mech_name} synaptic point process")
         
             target_syn_nc = syn_attrs.get_netcon(gid, target_syn_id, syn_mech_name)
+            logger.info(f"{syn_mech_name} target_syn_nc.g_unit = {target_syn_nc.weight[1]}")
             target_syn_nc.weight[0] = weight
             setattr(target_syn_pps, 'e', erev)
             vs = target_syn_nc.pre()
@@ -891,6 +902,7 @@ def measure_psp (gid, pop_name, presyn_name, syn_mech_names, swc_type, env, v_in
               help='identifier that is used to name neuroh5 files that contain output spike and intracellular trace data')
 @click.option("--results-namespace-id", type=str, required=False, default=None, \
               help='identifier that is used to name neuroh5 namespaces that contain output spike and intracellular trace data')
+@click.option("--syn-distance-range", type=(int, int), default=(None, None), help='range of synaptic distances to soma')
 @click.option("--syn-mech-name", type=str, multiple=True, help='synaptic mechanism name')
 @click.option("--syn-weight", type=float, help='synaptic weight')
 @click.option("--syn-count", type=int, default=1, help='synaptic count')
@@ -905,7 +917,7 @@ def measure_psp (gid, pop_name, presyn_name, syn_mech_names, swc_type, env, v_in
 @click.option("--use-cvode", is_flag=True)
 @click.option("--verbose", '-v', is_flag=True)
 
-def main(config, config_prefix, erev, population, presyn_name, gid, load_weights, measurements, template_paths, dataset_prefix, results_path, results_file_id, results_namespace_id, syn_mech_name, syn_weight, syn_count, syn_layer, swc_type, stim_amp, stim_count, stim_interval, v_init, dt, use_cvode, verbose):
+def main(config, config_prefix, erev, population, presyn_name, gid, load_weights, measurements, template_paths, dataset_prefix, results_path, results_file_id, results_namespace_id, syn_distance_range, syn_mech_name, syn_weight, syn_count, syn_layer, swc_type, stim_amp, stim_count, stim_interval, v_init, dt, use_cvode, verbose):
 
     config_logging(verbose)
         
@@ -942,10 +954,11 @@ def main(config, config_prefix, erev, population, presyn_name, gid, load_weights
         assert(syn_mech_name is not None)
         assert(erev is not None)
         assert(syn_weight is not None)
-        attr_dict[gid].update(measure_psp (gid, population, presyn_name, syn_mech_name, swc_type, 
-                                           env, v_init, erev, syn_layer=syn_layer, syn_count=syn_count, 
+        attr_dict[gid].update(measure_psp (env, gid, population, presyn_name, syn_mech_name, swc_type, 
+                                           v_init, erev, syn_layer=syn_layer, syn_count=syn_count, 
                                            stim_count=stim_count, stim_interval=stim_interval,
-                                           weight=syn_weight, load_weights=load_weights))
+                                           weight=syn_weight, load_weights=load_weights,
+                                           distance_range=syn_distance_range))
 
     if results_path is not None:
         append_cell_attributes(env.results_file_path, population, attr_dict,
