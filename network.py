@@ -840,7 +840,7 @@ def connect_gjs(env):
 
 def make_cell_from_coordinates(env, gid, pop_name, mech_dict, 
                                cell_x, cell_y, cell_z,
-                               is_izhikevich, is_PR, is_SC):
+                               is_izhikevich=False, is_PR=False, is_SC=False):
     cell = None
     if is_izhikevich:
         cell = cells.make_izhikevich_cell(gid=gid, pop_name=pop_name,
@@ -856,13 +856,14 @@ def make_cell_from_coordinates(env, gid, pop_name, mech_dict,
         )
         cells.register_cell(env, pop_name, gid, cell)
     else:
-        cell = cells.make_hoc_cell(env, pop_name, gid)
+        cell = cells.make_hoc_cell(env, pop_name, gid, mech_dict=mech_dict)
         cell.position(cell_x, cell_y, cell_z)
         cells.register_cell(env, pop_name, gid, cell)
 
     return cell
 
-def make_cell_from_tree(env, gid, pop_name, mech_dict, tree_dict, mech_file_path, first_gid, is_izhikevich, is_PR, is_SC):
+def make_cell_from_tree(env, gid, pop_name, mech_dict, tree_dict, mech_file_path, 
+                        first_gid=False, is_izhikevich=False, is_PR=False, is_SC=False):
 
     cell = None
     rank = env.comm.rank
@@ -881,7 +882,7 @@ def make_cell_from_tree(env, gid, pop_name, mech_dict, tree_dict, mech_file_path
         )
         cells.register_cell(env, pop_name, gid, SC_cell)
     else:
-        hoc_cell = cells.make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict)
+        hoc_cell = cells.make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict, mech_dict=mech_dict)
         if mech_dict is None:
             cells.register_cell(env, pop_name, gid, hoc_cell)
         else:
@@ -975,7 +976,9 @@ def make_cells(env):
                             logger.info(f"*** Creating {pop_name} gid {gid}")
                             
                         cell = make_cell_from_tree(env, gid, pop_name, mech_dict, tree_dict, 
-                                                   mech_file_path, first_gid, is_izhikevich, is_PR, is_SC)
+                                                   mech_file_path, first_gid=first_gid,
+                                                   is_izhikevich=is_izhikevich,
+                                                   is_PR=is_PR, is_SC=is_SC)
                         num_cells += 1
             else:
                 if env.node_allocation is None:
@@ -993,7 +996,8 @@ def make_cells(env):
                         first_gid = gid
 
                     cell = make_cell_from_tree(env, gid,  pop_name, mech_dict, tree, mech_file_path,
-                                               first_gid, is_izhikevich, is_PR, is_SC)
+                                               first_gid=first_gid,
+                                               is_izhikevich=is_izhikevich, is_PR=is_PR, is_SC=is_SC)
                     
                     num_cells += 1
 
@@ -1159,22 +1163,22 @@ def make_cell_selection(env):
 
                 if is_izhikevich:
                     izhikevich_cell = cells.make_izhikevich_cell(gid=gid, pop_name=pop_name,
-                                                                 env=env, param_dict=mech_dict)
+                                                                 env=env, mech_dict=mech_dict)
                     cells.register_cell(env, pop_name, gid, izhikevich_cell)
                 elif is_PR:
                     PR_cell = cells.make_PR_cell(gid=gid, pop_name=pop_name,
-                                                 env=env, param_dict=mech_dict)
+                                                 env=env, mech_dict=mech_dict)
                     cells.register_cell(env, pop_name, gid, PR_cell)
                 elif is_SC:
                     SC_cell = cells.make_SC_cell(
                         gid=gid,
                         pop_name=pop_name,
                         env=env,
-                        param_dict=mech_dict,
+                        mech_dict=mech_dict,
                     )
                     cells.register_cell(env, pop_name, gid, SC_cell)
                 else:
-                    hoc_cell = cells.make_hoc_cell(env, pop_name, gid, neurotree_dict=tree)
+                    hoc_cell = cells.make_hoc_cell(env, pop_name, gid, neurotree_dict=tree, mech_dict=mech_dict)
                     if mech_file_path is None:
                         cells.register_cell(env, pop_name, gid, hoc_cell)
                     else:
@@ -1216,22 +1220,22 @@ def make_cell_selection(env):
 
                 if is_izhikevich:
                     izhikevich_cell = cells.make_izhikevich_cell(gid=gid, pop_name=pop_name,
-                                                                 env=env, param_dict=mech_dict)
+                                                                 env=env, mech_dict=mech_dict)
                     cells.register_cell(env, pop_name, gid, izhikevich_cell)
                 elif is_PR:
                     PR_cell = cells.make_PR_cell(gid=gid, pop_name=pop_name,
-                                                 env=env, param_dict=mech_dict)
+                                                 env=env, mech_dict=mech_dict)
                     cells.register_cell(env, pop_name, gid, PR_cell)
                 elif is_SC:
                     SC_cell = cells.make_SC_cell(
                         gid=gid,
                         pop_name=pop_name,
                         env=env,
-                        param_dict=mech_dict,
+                        mech_dict=mech_dict,
                     )
                     cells.register_cell(env, pop_name, gid, SC_cell)
                 else:
-                    hoc_cell = cells.make_hoc_cell(env, pop_name, gid)
+                    hoc_cell = cells.make_hoc_cell(env, pop_name, gid, mech_dict=mech_dict)
 
                     cell_x = cell_coords_tuple[x_index][0]
                     cell_y = cell_coords_tuple[y_index][0]
