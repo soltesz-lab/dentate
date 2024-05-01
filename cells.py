@@ -2806,7 +2806,7 @@ def normalize_tree_topology(neurotree_dict, swc_type_defs):
 
 
 
-def make_neurotree_hoc_cell(template_class, gid=0, dataset_path="", neurotree_dict={}):
+def make_neurotree_hoc_cell(template_class, gid=0, dataset_path="", neurotree_dict={}, param_dict={}):
     """
 
     :param template_class:
@@ -2829,11 +2829,11 @@ def make_neurotree_hoc_cell(template_class, gid=0, dataset_path="", neurotree_di
     vloc = neurotree_dict['section_topology']['loc']
     swc_type = neurotree_dict['swc_type']
 
-    cell = template_class(gid, dataset_path, secnodes, vlayer, vsrc, vdst, vloc, vx, vy, vz, vradius, swc_type)
+    cell = template_class(gid, dataset_path, secnodes, vlayer, vsrc, vdst, vloc, vx, vy, vz, vradius, swc_type, param_dict)
     return cell
 
 
-def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
+def make_hoc_cell(env, pop_name, gid, neurotree_dict=False, mech_dict={}):
     """
 
     :param env:
@@ -2846,16 +2846,16 @@ def make_hoc_cell(env, pop_name, gid, neurotree_dict=False):
     template_name = env.celltypes[pop_name]['template']
     assert (hasattr(h, template_name))
     template_class = getattr(h, template_name)
-
+    param_dict=mech_dict.get("params", {})
     if neurotree_dict:
         hoc_cell = make_neurotree_hoc_cell(template_class, neurotree_dict=neurotree_dict, gid=gid,
-                                           dataset_path=dataset_path)
+                                           dataset_path=dataset_path, param_dict=param_dict)
     else:
         if pop_name in env.cell_attribute_info and 'Trees' in env.cell_attribute_info[pop_name]:
             raise Exception('make_hoc_cell: morphology for population %s gid: %i is not provided' %
                             data_file_path, pop_name, gid)
         else:
-            hoc_cell = template_class(gid, dataset_path)
+            hoc_cell = template_class(gid, dataset_path, param_dict)
 
     return hoc_cell
 
@@ -3210,7 +3210,13 @@ def make_biophys_cell(env, pop_name, gid,
                                                 topology=True, validate=validate_tree)
         _, tree_dict = next(tree_attr_iter)
 
-    hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict)
+    if mech_file_path is not None:
+        mech_dict1 = read_from_yaml(cell.mech_file_path)
+        if mech_dict is None:
+            mech_dict = mech_dict1
+        else:
+            mech_dict.update(mech_dict1)
+    hoc_cell = make_hoc_cell(env, pop_name, gid, neurotree_dict=tree_dict, mech_dict=mech_dict)
     cell = BiophysCell(gid=gid, pop_name=pop_name, hoc_cell=hoc_cell, env=env,
                        mech_file_path=mech_file_path, mech_dict=mech_dict)
     circuit_flag = load_edges or load_weights or load_synapses or synapses_dict or weight_dict or connection_graph
