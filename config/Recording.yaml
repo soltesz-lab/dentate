@@ -58,6 +58,7 @@ Intracellular:
         swc types:
           - soma
           - hillock
+          - ais
           - apical
           - basal
     synaptic quantity:
