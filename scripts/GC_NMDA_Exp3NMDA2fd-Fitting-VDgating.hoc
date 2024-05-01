@@ -36,7 +36,7 @@ print "diam = ", diam
 
 objref sNMDA, stim, nc
 stim = new NetStim(.5)
-	stim.interval = 20	//ms (mean) time between spikes
+	stim.interval = 100	//ms (mean) time between spikes
 	stim.number = 1	//(average) number of spikes
 	stim.start 	= 80	//ms (most likely) start time of first spike
 	stim.noise 	= 0		//---- range 0 to 1. Fractional randomness.

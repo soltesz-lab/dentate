@@ -10,7 +10,8 @@ export dataset_prefix=./datasets
 # 239049 results/netclamp/optimize_selectivity.gid_239049.20220926_102806.yaml
 # 738162 results/netclamp/optimize_selectivity.gid_738162.20220926_102311.yaml
 
-mpirun -n 1 python3 network_clamp.py go  -c Network_Clamp_GC_Exc_Sat_SynExp3NMDA2_SLN_CLS_IN_PR_proximal_pf.yaml \
+mpirun -n 1 python3 network_clamp.py go \
+       -c Network_Clamp_GC_Exc_Sat_SLN_IN_PR_proximal_pf_gid_118936.yaml \
          -p GC -g 118936 -t 9450 --dt 0.025 --use-coreneuron \
          --template-paths templates \
          --dataset-prefix $dataset_prefix \
@@ -21,7 +22,5 @@ mpirun -n 1 python3 network_clamp.py go  -c Network_Clamp_GC_Exc_Sat_SynExp3NMDA
          --arena-id A --trajectory-id Diag  --n-trials 1 \
          --recording-profile 'Network clamp all synaptic' \
          --config-prefix config  \
-         --params-id 0 \
-         --params-path results/netclamp/GC_20221002/optimize_selectivity.20221003_113305.yaml \
-         --results-path results/netclamp
+         --results-path results/netclamp/runs
 

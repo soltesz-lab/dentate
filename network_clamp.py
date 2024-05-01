@@ -667,19 +667,19 @@ def init(
                     output_dir=env.results_path,
                 )
 
-    # if env.verbose:
-    #     for gid in my_cell_index_set:
-    #         if is_cell_registered(env, gid):
-    #             cell = env.pc.gid2cell(gid)
-    #             origin = list(cell.soma)[0]
-    #             total_L = 0
-    #             for sec in list(cell.hoc_cell.all if hasattr(cell, 'hoc_cell') else cell.all):
-    #                 distance = h.distance(origin(0.5), sec(1))
-    #                 total_L += sec.L
-    #                 logger.info(f"Section {sec} distance to soma: {distance:.02f}")
-    #                 h.psection(sec=sec)
-    #             logger.info(f"gid {gid} total dendritic length: {total_L:.02f} um")
-    #         break
+    if env.verbose:
+        for gid in my_cell_index_set:
+            if is_cell_registered(env, gid):
+                cell = env.pc.gid2cell(gid)
+                origin = list(cell.soma)[0]
+                total_L = 0
+                for sec in list(cell.hoc_cell.all if hasattr(cell, 'hoc_cell') else cell.all):
+                    distance = h.distance(origin(0.5), sec(1))
+                    total_L += sec.L
+                    logger.info(f"Section {sec} distance to soma: {distance:.02f}")
+                    h.psection(sec=sec)
+                logger.info(f"gid {gid} total dendritic length: {total_L:.02f} um")
+            break
 
     mindelay = env.pc.set_maxstep(10)
 
@@ -756,7 +756,7 @@ def run(env, cvode=False, pc_runworker=False):
     return spikedata.get_env_spike_dict(env, include_artificial=None)
 
 
-def update_params(env, pop_param_dict):
+def update_params(env, pop_param_dict, verbose=False):
     for population, param_tuple_dict in viewitems(pop_param_dict):
         synapse_config = env.celltypes[population]["synapses"]
         weights_dict = synapse_config.get("weights", {})
@@ -804,6 +804,7 @@ def update_params(env, pop_param_dict):
                         filters={"sources": sources} if sources is not None else None,
                         origin=None if is_reduced else "soma",
                         update_targets=True,
+                        verbose=verbose,
                     )
 
 
@@ -827,7 +828,7 @@ def run_with(env, param_dict, cvode=False, pc_runworker=False):
         for gid in param_dict[pop_name]:
             stash_id = syn_attrs.stash_syn_attrs(pop_name, gid)
             stash_id_dict[pop_name][gid] = stash_id
-    update_params(env, param_dict)
+    update_params(env, param_dict, verbose=True)
 
     rec_dt = None
     if env.recording_profile is not None:

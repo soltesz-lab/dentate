@@ -24,7 +24,7 @@ apical:
       g_unit:
         filters:
           syn_types: [excitatory]
-        value: 0.05
+        value: 0.0007
       gVI:
         - filters:
             syn_types: [excitatory]

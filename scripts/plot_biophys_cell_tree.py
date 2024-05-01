@@ -10,7 +10,7 @@ from mpi4py import MPI
 script_name = os.path.basename(__file__)
 
 @click.command()
-@click.option("--config-file", '-c', required=True, type=str, help='model configuration file name')
+@click.option("--config", '-c', required=True, type=str, help='model configuration file name')
 @click.option("--population", '-p', required=True, type=str, help='target population')
 @click.option("--gid", '-g', required=True, type=int, help='target cell gid')
 @click.option("--template-paths", type=str, default="templates",
@@ -30,7 +30,7 @@ script_name = os.path.basename(__file__)
 @click.option("--bgcolor", type=(float,float,float), default=(0.,0.,0.))
 @click.option("--colormap", type=str, default='coolwarm')
 @click.option("--verbose", "-v", type=bool, default=False, is_flag=True)
-def main(config_file, population, gid, template_paths, dataset_prefix, config_prefix, data_file, load_synapses, load_clusters, syn_types, syn_sources, syn_source_threshold, font_size, bgcolor, colormap, verbose):
+def main(config, population, gid, template_paths, dataset_prefix, config_prefix, data_file, load_synapses, load_clusters, syn_types, syn_sources, syn_source_threshold, font_size, bgcolor, colormap, verbose):
 
     utils.config_logging(verbose)
     logger = utils.get_script_logger(script_name)
