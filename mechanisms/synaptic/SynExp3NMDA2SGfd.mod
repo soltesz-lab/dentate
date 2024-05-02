@@ -176,8 +176,8 @@ DERIVATIVE state { LOCAL x
 	rates(v)
 	A' = -A/tau1
 	B' = -B/tau2
-	: Voltage dependent Gating of NMDA needs prior binding to Glutamate Kim11
-	gVD' = B*(inf-gVD)/tau
+	: Voltage dependent Gating of NMDA (Clarke08)
+	gVD' = (inf-gVD)/tau
     }
     
 NET_RECEIVE(weight, g_unit (uS), wf, f, d1, t0 (ms), G1, G2) { LOCAL d
