@@ -1,0 +1,89 @@
+GC:
+  960280:
+    0:
+    - - GC
+      - - MC
+        - ConMC
+      - apical
+      - AMPA
+      - - weight
+        - c
+      - 1.6365018104802096
+    - - GC
+      - - MC
+        - ConMC
+      - apical
+      - NMDA
+      - gVI
+      - 0.0006126862854445833
+    - - GC
+      - - MPP
+        - LPP
+      - apical
+      - AMPA
+      - - weight
+        - a
+      - 7.778131931151871
+    - - GC
+      - - MPP
+        - LPP
+      - apical
+      - AMPA
+      - - weight
+        - b
+      - 4.459627167714768
+    - - GC
+      - - MPP
+        - LPP
+      - apical
+      - NMDA
+      - gVI
+      - 0.0008993995247341449
+    - - GC
+      - AAC
+      - ais
+      - GABA_A
+      - weight
+      - 15.667562658625574
+    - - GC
+      - BC
+      - apical
+      - GABA_A
+      - weight
+      - 3.048403085099585
+    - - GC
+      - BC
+      - soma
+      - GABA_A
+      - weight
+      - 1.346989288268288
+    - - GC
+      - HC
+      - apical
+      - GABA_A
+      - weight
+      - 14.083355356339409
+    - - GC
+      - HCC
+      - apical
+      - GABA_A
+      - weight
+      - 0.38533446333454113
+    - - GC
+      - MOPP
+      - apical
+      - GABA_A
+      - weight
+      - 15.255159412428512
+    - - GC
+      - NGFC
+      - apical
+      - GABA_A
+      - weight
+      - 0.879427888854053
+    - - GC
+      - NGFC
+      - apical
+      - GABA_B
+      - weight
+      - 11.024746538779288
