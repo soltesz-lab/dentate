@@ -1,5 +1,5 @@
 Network Clamp:  !include Network_Clamp.yaml
-Model Name: Single_GC_Exc_Sat_SynExp3NMDA2Sfd_SLN_CLS_IN_PR_center_pf
+Model Name: Single_GC_Exc_Sat_SynExp3NMDA2SGfd_SLN_CLS_IN_PR_center_pf
 Dataset Name: Slice
 Definitions: !include Definitions.yaml
 Global Parameters: !include Global.yaml
@@ -8,7 +8,7 @@ Random Seeds: !include Random.yaml
 Cell Data: dentatenet_Slice_SLN_center_pf_20240228.h5
 Connection Data: dentatenet_Slice_SLN_center_pf_20240228.h5
 #Gap Junction Data: DG_gapjunctions_20191112.h5
-Connection Generator: !include Full_Scale_Connections_GC_Exc_Sat_SynExp3NMDA2Sfd_IN_PR.yaml
+Connection Generator: !include Full_Scale_Connections_GC_Exc_Sat_SynExp3NMDA2SGfd_IN_PR_gid_841709.yaml
 Recording: !include Recording.yaml
 Stimulus: !include Input_Configuration.yaml
 Analysis: !include Analysis_Configuration.yaml
@@ -17,10 +17,10 @@ Cell Types:
   GC:
     template: DGC
     template file: DGC_Template_minimal.hoc
-    mechanism file: 20220513_DG_GC_excitability_synint_SynExp3NMDA2Sfd_gid_118936_mech.yaml
+    mechanism file: 20240221_DG_GC_excitability_synint_SynExp3NMDA2SGfd_gid_124089_mech.yaml
     synapses:
       correct_for_spines: True
-      weights: !include GC_SLN_weights.yaml
+      weights: !include GC_SLN_weights_gid_124089.yaml
       clusters: !include GC_SLN_clusters.yaml
       density: !include GC_synapse_density.yaml
   MC:

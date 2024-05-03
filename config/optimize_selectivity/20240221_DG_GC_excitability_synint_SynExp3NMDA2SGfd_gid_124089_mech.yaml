@@ -70,16 +70,16 @@ apical:
       g_unit:
         filters:
           syn_types: [excitatory]
-          value: 0.016
+        value: 0.044
       gVI:
         - filters:
             layers: [IML]
             syn_types: [excitatory]
-          value: 8.502902612167373e-05 # GC_20220926/optimize_selectivity.20220928_025352.yaml
+          value: 0.0009617248742292432
         - filters:
             layers: [MML, OML]
             syn_types: [excitatory]
-          value: 3.767942163406331e-05 # GC_20220926/optimize_selectivity.20220928_025352.yaml
+          value: 0.0002723476704075893
       tau1_0:
         filters:
           syn_types:
