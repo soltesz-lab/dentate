@@ -212,6 +212,32 @@ Exp3NMDA2Gfd:
       t0: 5
       G1: 6
       G2: 7
+Exp3NMDA2Sfd:
+    mech_file: SynExp3NMDA2Sfd.mod
+    mech_params:
+      - gVI
+      - tau1_0
+      - tau2_0
+      - a1
+      - b1
+      - sc2
+      - sh2
+      - tauV
+      - K0
+      - delta_D1
+      - delta_F
+      - tau_D1
+      - tau_F
+      - delta
+      - st_gVD
+    netcon_params:
+      weight: 0
+      g_unit: 1
+    netcon_state:
+      wf: 2
+      f:  3
+      d1: 4
+      t0: 5
 Exp3NMDA2SGfd:
     mech_file: SynExp3NMDA2SGfd.mod
     mech_params:

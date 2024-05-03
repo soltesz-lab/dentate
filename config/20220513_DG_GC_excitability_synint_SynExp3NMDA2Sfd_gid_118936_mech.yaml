@@ -70,16 +70,16 @@ apical:
       g_unit:
         filters:
           syn_types: [excitatory]
-        value: 0.022
+        value: 0.0225
       gVI:
         - filters:
             layers: [IML]
             syn_types: [excitatory]
-          value: 0.0006126862854445833
+          value: 8.502902612167373e-05 # GC_20220926/optimize_selectivity.20220928_025352.yaml
         - filters:
             layers: [MML, OML]
             syn_types: [excitatory]
-          value: 0.0008993995247341449
+          value: 3.767942163406331e-05 # GC_20220926/optimize_selectivity.20220928_025352.yaml
       tau1_0:
         filters:
           syn_types:
@@ -122,21 +122,6 @@ apical:
           syn_types:
           - excitatory
         value: 0.1
-      tau_G1:
-        filters:
-          syn_types:
-          - excitatory
-        value: 2.03
-      tau_G2:
-        filters:
-          syn_types:
-          - excitatory
-        value: 100.0
-      Ginc:
-        filters:
-          syn_types:
-          - excitatory
-        value: 100.0
 
 axon:
   DGC_KM:
