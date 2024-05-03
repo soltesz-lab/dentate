@@ -74,20 +74,28 @@ Synapses:
           tau_offset: 8.0
           e: -75
           g_unit: 0.0001
-          weight: 5.27
+          weight: 9.057871668509224
     BC:   
       type: inhibitory
       sections: [soma, apical, apical]
       layers: [GCL, GCL, IML]
       proportions: [1.0, 1.0, 0.69]
       contacts: 10.
-      mechanisms:
-        GABA_A:
-          dur_onset: 0.5
-          tau_offset: 9.0
-          e: -75
-          g_unit: 0.0001
-          weight: 5.72
+      swctype mechanisms:
+        apical:
+          GABA_A:
+            dur_onset: 0.5
+            tau_offset: 9.0
+            e: -75
+            g_unit: 0.0001
+            weight: 9.68476908280885
+        soma:
+          GABA_A:
+            dur_onset: 0.5
+            tau_offset: 9.0
+            e: -75
+            g_unit: 0.0001
+            weight: 0.2455288402169704
     HCC:  
       type: inhibitory
       sections: [apical]
@@ -100,7 +108,7 @@ Synapses:
           tau_offset: 9.0
           e: -75
           g_unit: 0.001
-          weight: 0.283
+          weight: 8.806007183808623
     HC:   
       type: inhibitory
       sections: [apical, apical]
@@ -113,7 +121,7 @@ Synapses:
           tau_offset: 10.0
           e: -75
           g_unit: 0.001
-          weight: 0.552
+          weight: 3.275628529868557
     NGFC: 
       type: inhibitory
       sections: [apical, apical]
@@ -127,13 +135,13 @@ Synapses:
             tau_offset: 15.0
             e: -75
             g_unit: 0.0001
-            weight: 2.5
+            weight: 9.942553195542784
           GABA_B:
             dur_onset:  10.0
             tau_offset: 50.0
             e:   -80
             g_unit: 0.0001
-            weight: 1.5
+            weight: 7.191614252105839
     MOPP: 
       type: inhibitory
       sections: [apical, apical]
@@ -146,7 +154,7 @@ Synapses:
           tau_offset: 15.0
           e: -75
           g_unit: 0.0001
-          weight: 1.5
+          weight: 1.3790576855745842
   MC:
     GC:   
       type: excitatory
