@@ -1,0 +1,125 @@
+# Axonal extent in um [S-T, M-L]
+GC:
+  Hilus:
+    width: [900., 900.]
+    offset: [0., 0.]
+  GCL:
+    width: [250., 250.]
+    offset: [0., 0.]
+MPP:
+  default:
+    width: [1500., 3000.]
+    offset: [0., 0.]
+LPP:
+  default:
+    width: [1500., 3000.]
+    offset: [0., 0.]
+MC:
+  IML:
+    width:  [5000., 4000.]
+    offset: [750., 0.]
+  Hilus:
+    width:  [1500., 1500.]
+    offset: [0., 0.]
+AAC:
+  OML:
+    width: [20., 10.]
+    offset: [0., 0.]
+  MML:
+    width: [400., 200.]
+    offset: [0., 0.]
+  IML:
+    width: [600., 300.]
+    offset: [0., 0.]
+  GCL:
+    width: [2000., 1000.]
+    offset: [0., 0.]
+  Hilus:
+    width: [2000., 1000.]
+    offset: [0., 0.]
+BC:
+  MML:
+    width: [100., 100.]
+    offset: [0., 0.]
+  IML:
+    width: [1200., 800.]
+    offset: [0., 0.]
+  GCL:
+    width: [1700., 1000.]
+    offset: [0., 0.]
+  Hilus:
+    width: [600., 300.]
+    offset: [0., 0.]
+HCC:
+  OML:
+    width: [500., 500.]
+    offset: [0., 0.]
+  MML:
+    width: [1500., 1500.]
+    offset: [0., 0.]
+  IML:
+    width: [2600., 2600.]
+    offset: [0., 0.]
+  GCL:
+    width: [1300., 1300.]
+    offset: [0., 0.]
+  Hilus:
+    width: [2600., 2600.]
+    offset: [0., 0.]
+HC:
+  OML:
+    width: [4000., 4000.]
+    offset: [0., 0.]
+  MML:
+    width: [2000., 2000.]
+    offset: [0., 0.]
+  IML:
+    width: [1200., 1200.]
+    offset: [0., 0.]
+  GCL:
+    width: [400., 400.]
+    offset: [0., 0.]
+  Hilus:
+    width: [400., 400.]
+    offset: [0., 0.]
+MOPP:
+  OML:
+    width: [800., 800.]
+    offset: [0., 0.]
+  MML:
+    width: [2000., 2000.]
+    offset: [0., 0.]
+  IML:
+    width: [1240., 1240.]
+    offset: [0., 0.]
+  GCL:
+    width: [200., 200.]
+    offset: [0., 0.]
+  Hilus:
+    width: [400., 400.]
+    offset: [0., 0.]
+NGFC:
+  OML:
+    width: [2000., 2000.]
+    offset: [0., 0.]
+  MML:
+    width: [500., 500.]
+    offset: [0., 0.]
+  IML:
+    width: [40., 40.]
+    offset: [0., 0.]
+IS:
+  default:
+    width: [1000., 1000.]
+    offset: [0., 0.]
+CA3c:
+  default:
+    width: [3000., 5000.]
+    offset: [0., 0.]
+ConMC:
+  IML:
+    width:  [5000., 4000.]
+    offset: [0., 0.]
+  Hilus:
+    width:  [1500., 1500.]
+    offset: [0., 0.]

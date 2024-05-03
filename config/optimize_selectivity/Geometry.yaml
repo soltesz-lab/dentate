@@ -1,0 +1,94 @@
+## Parametric surface extents and cell distributions
+
+Parametric Surface:
+  Origin:
+    U: median
+    V: median
+    L: max
+  Layer Extents:
+    Hilus: [[0.03142, -0.7225, -3.95], [3.0787, 4.4767, -1.95]]
+    GCL:   [[0.03142, -0.7225, -1.95], [3.0787, 4.4767, 0.]]
+    IML:   [[-0.0502, -0.7225, 0.], [3.1730, 4.4767, 1.]]
+    MML:   [[-0.0502, -0.7225, 1.], [3.1730, 4.4767, 2.]]
+    OML:   [[-0.0502, -0.7225, 2.], [3.1730, 4.4767, 3.1]]
+  Rotation: [-35.0, 0., 0.]
+Cell Distribution:
+  GC:
+    Hilus: 0
+    GCL: 1000000
+    IML: 0
+    MML: 0
+    OML: 0
+  MC:
+    Hilus: 30000
+    GCL: 0
+    IML: 0
+    MML: 0
+    OML: 0
+  ConMC:
+    Hilus: 0
+    GCL: 0
+    IML: 30000
+    MML: 0
+    OML: 0
+  HC:
+    Hilus: 9000
+    GCL: 0
+    IML: 0
+    MML: 0
+    OML: 0
+  BC:
+    Hilus: 1900
+    GCL: 1900
+    IML: 0
+    MML: 0
+    OML: 0
+  AAC:
+    Hilus: 450
+    GCL: 0
+    IML: 0
+    MML: 0
+    OML: 0
+  HCC:
+    Hilus: 1400
+    GCL: 0
+    IML: 0
+    MML: 0
+    OML: 0
+  NGFC:
+    Hilus: 0
+    GCL: 0
+    IML: 0
+    MML: 2500
+    OML: 2500
+  MOPP:
+    Hilus: 0
+    GCL: 0
+    IML: 2000
+    MML: 1000
+    OML: 1000
+  IS:
+    Hilus: 3000
+    GCL: 0
+    IML: 0
+    MML: 0
+    OML: 0
+  MPP:
+    Hilus: 0
+    GCL: 0
+    IML: 0
+    MML: 38000
+    OML: 0
+  LPP:
+    Hilus: 0
+    GCL: 0
+    IML: 0
+    MML: 0
+    OML: 34000
+  CA3c:
+    Hilus: 67000
+    GCL: 0
+    IML: 0
+    MML: 0
+    OML: 0
+  

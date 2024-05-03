@@ -1,0 +1,46 @@
+## AAC synapse density configuration
+apical:
+  excitatory:
+    OML:
+      mean: 1.43
+      variance: 0.1
+    MML:
+      mean: 4.3
+      variance: 0.1
+    IML:
+      mean: 4.3
+      variance: 0.1
+    Hilus:
+      mean: 3.6
+      variance: 0.1
+  inhibitory:
+    OML:
+      mean: 1.0
+      variance: 0.1
+    MML:
+      mean: 1.0
+      variance: 0.1
+    IML:
+      mean: 0.3
+      variance: 0.1
+    Hilus:
+      mean: 0.0
+      variance: 0.0
+basal:
+  excitatory:
+    Hilus:
+      mean: 3.6
+      variance: 0.1
+  inhibitory:
+    Hilus:
+      mean: 0.0
+      variance: 0.0
+soma:
+  excitatory:
+    default:
+      mean: 0.5
+      variance: 0.1
+  inhibitory:
+    default:
+      mean: 0.0
+      variance: 0.0

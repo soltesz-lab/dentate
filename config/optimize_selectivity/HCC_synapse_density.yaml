@@ -1,0 +1,40 @@
+## HCC synapse density configuration
+apical:
+  excitatory:
+    OML:
+      mean: 2.83
+      variance: 0.1
+    MML:
+      mean: 2.83
+      variance: 0.1
+    IML:
+      mean: 3.27
+      variance: 0.1
+    GCL:
+      mean: 3.27
+      variance: 0.1
+    Hilus:
+      mean: 2.0
+      variance: 0.1
+  inhibitory:
+    default:
+      mean: 0.5
+      variance: 0.1
+basal:
+  excitatory:
+    default:
+      mean: 2.83
+      variance: 0.1
+  inhibitory:
+    default:
+      mean: 0.5
+      variance: 0.1
+soma:
+  inhibitory:
+    default:
+      mean: 0.2
+      variance: 0.1
+  excitatory:
+    default:
+      mean: 0.8
+      variance: 0.1

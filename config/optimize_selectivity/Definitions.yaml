@@ -1,0 +1,50 @@
+## Common definitions used in model configuration of dentate gyrus network
+SWC Types:
+  soma:   1
+  axon:   2
+  basal:  3
+  apical: 4
+  trunk:  5 
+  tuft:   6
+  ais:    7
+  hillock: 8
+Synapse Types:
+  excitatory:    0
+  inhibitory:    1
+  modulatory:    2
+Synapse Mechanisms:
+  AMPA:    0
+  GABA_A:  1
+  GABA_B:  2
+  NMDA:    30
+Layers:
+  Hilus: 0
+  GCL:   1 
+  IML:   2
+  MML:   3
+  OML:   4
+  SO: 5  ## Oriens
+  SP: 6  ## Pyramidale
+  SL: 7  ## Lucidum
+  SR: 8  ## Radiatum
+  SLM: 9 ## Lacunosum-moleculare
+Populations:
+  GC:   0
+  MC:   1
+  HC:   2
+  BC:   3
+  AAC:  4
+  HCC:  5
+  NGFC: 6
+  IS:   7
+  MOPP: 8
+  MPP:  9
+  LPP:  10
+  CA3c: 11
+  ConMC: 12
+Input Selectivity Types:
+  grid: 0
+  place: 1
+  constant: 2
+  oscillatory: 3
+
