@@ -8,7 +8,7 @@ Random Seeds: !include Random.yaml
 Cell Data: dentatenet_Slice_SLN_center_pf_20240228.h5
 Connection Data: dentatenet_Slice_SLN_center_pf_20240228.h5
 #Gap Junction Data: DG_gapjunctions_20191112.h5
-Connection Generator: !include Full_Scale_Connections_GC_Exc_Sat_SynExp3NMDA2SGfd_IN_PR_gid_841709.yaml
+Connection Generator: !include Full_Scale_Connections_GC_Exc_Sat_SynExp3NMDA2SGfd_IN_PR_gid_124089.yaml
 Recording: !include Recording.yaml
 Stimulus: !include Input_Configuration.yaml
 Analysis: !include Analysis_Configuration.yaml

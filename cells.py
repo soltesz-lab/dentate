@@ -3211,7 +3211,7 @@ def make_biophys_cell(env, pop_name, gid,
         _, tree_dict = next(tree_attr_iter)
 
     if mech_file_path is not None:
-        mech_dict1 = read_from_yaml(cell.mech_file_path)
+        mech_dict1 = read_from_yaml(mech_file_path)
         if mech_dict is None:
             mech_dict = mech_dict1
         else:
