@@ -185,7 +185,7 @@ NET_RECEIVE(weight, g_unit (uS), wf, f, d1, t0 (ms), G1, G2) { LOCAL d
             d1 = 1
             f  = 1
             G1 = 0
-            G2 = 0
+            G2 = Ginc
             t0 = 0
         }
         d1 = 1 - (1 - d1)*exp(-(t - t0)/tau_D1)
